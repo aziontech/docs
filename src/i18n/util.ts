@@ -6,6 +6,7 @@ import type {
 	UIDict,
 	UIDictionaryKeys,
 	UILanguageKeys,
+    HeaderMenuTranslation
 } from './translation-checkers';
 
 /**
@@ -28,6 +29,9 @@ const docsearchTranslations = mapDefaultExports<DocSearchTranslation>(
 export const navTranslations = mapDefaultExports<NavDict>(
 	import.meta.glob('./*/nav.ts', { eager: true })
 );
+export const headerMenuTranslations = mapDefaultExports<HeaderMenuTranslation>(
+	import.meta.glob('./*/headerMenu.ts', { eager: true })
+);
 
 export const fallbackLang = 'en';
 
@@ -36,6 +40,11 @@ export function getDocSearchStrings(Astro: AstroGlobal): DocSearchTranslation {
 	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
 	// A shallow merge is sufficient here as most of the actual fallbacks are provided by DocSearch.
 	return { ...docsearchTranslations[fallbackLang], ...docsearchTranslations[lang] };
+}
+
+export function getHeaderMenuStrings(Astro: AstroGlobal): HeaderMenuTranslation {
+	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
+	return { ...headerMenuTranslations[fallbackLang], ...headerMenuTranslations[lang] };
 }
 
 /**

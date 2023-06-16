@@ -10,7 +10,7 @@ export type UILanguageKeys = keyof typeof languages;
 /** Helper to type check a dictionary of UI string translations. */
 export const UIDictionary = (dict: Partial<typeof enUI>) => dict;
 
-type NavDictionaryKeys = (typeof enNav)[number]['key'];
+type NavDictionaryKeys = typeof enNav[number]['key'];
 export type NavDict = Array<
 	{
 		text: string;
@@ -50,3 +50,18 @@ export interface DocSearchTranslation {
 
 /** Helper to type check a dictionary of DocSearch string translations. */
 export const DocSearchDictionary = (dict: DocSearchTranslation) => dict;
+
+export interface HeaderMenuTranslation {
+    nav: Array<{
+        title: string;
+        href: string;
+        dropdown?: Array<{
+            title: string;
+            href: string;
+            target?: string;
+        }>
+        target?: string;
+    }>
+} 
+
+export const headerMenuDict = (dict: HeaderMenuTranslation) => dict
