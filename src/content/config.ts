@@ -11,6 +11,20 @@ export const baseSchema = z
 	})
 	.strict();
 
+export const homeSchema = baseSchema.extend({
+	type: z.literal('homepage'),
+	description: z.string().optional(),
+	product_cards: z.array(z.object({
+		title: z.string(),
+		cards: z.array(z.object({
+			title: z.string(),
+			description: z.string(),
+			icon: z.string(),
+			link: z.string(),
+		})),
+	}))
+})
+
 export const deploySchema = baseSchema.extend({
 	type: z.literal('deploy'),
 });
@@ -60,6 +74,10 @@ export type DeployEntry = CollectionEntry<'docs'> & {
 	data: z.infer<typeof deploySchema>;
 };
 
+export type HomepageEntry = CollectionEntry<'docs'> & {
+	data: z.infer<typeof homeSchema>;
+};
+
 export type BackendEntry = CollectionEntry<'docs'> & {
 	data: z.infer<typeof backendSchema>;
 };
@@ -106,6 +124,10 @@ export function isMigrationEntry(entry: CollectionEntry<'docs'>): entry is Migra
 	return entry.data.type === 'migration';
 }
 
+export function isHomepageEntry(entry: CollectionEntry<'docs'>): entry is HomepageEntry {
+	return entry.data.type === 'homepage';
+}
+
 export function isRecipeEntry(entry: CollectionEntry<'docs'>): entry is RecipeEntry {
 	return entry.data.type === 'recipe';
 }
@@ -128,6 +150,7 @@ const docs = defineCollection({
 		tutorialSchema,
 		deploySchema,
 		recipeSchema,
+		homeSchema,
 	]),
 });
 
