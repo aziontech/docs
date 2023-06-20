@@ -44,3 +44,12 @@ export interface HeaderMenuTranslation {
 }
 
 export const headerMenuDict = (dict: HeaderMenuTranslation) => dict
+
+export interface SearchMenuTranslation {
+	button: string,
+	placeholder: string,
+	shortcutLabel: string,
+}
+
+export const searchMenuDict = (dict: SearchMenuTranslation) => dict
+

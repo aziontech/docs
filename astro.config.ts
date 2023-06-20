@@ -19,7 +19,7 @@ import { theme } from './syntax-highlighting-theme';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://docs.astro.build/',
+	site: 'https://azion.com/en/documentation/',
 	integrations: [
 		AutoImport({
 			imports: [asideAutoImport, codeSnippetAutoImport],
