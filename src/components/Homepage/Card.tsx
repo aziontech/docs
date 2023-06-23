@@ -8,14 +8,14 @@ interface Props {
 
 const Card = (({ icon, title, description, link }: Props) => {
 	return (
-		<a className="card" href={link} title={title}>
+		<a className="card-homepage" href={link} title={title}>
 			<div>
 				<i>
 					<img width="36" height="36" src={"https://www.azion.com" + icon} alt={title + "icon"} />
 				</i>
 				<div className="box-text">
-					<h4 className="card-title"> {title} </h4>
-					<p className="card-description"> {description} </p>
+					<h4 className="card-homepage-title"> {title} </h4>
+					<p className="card-homepage-description"> {description} </p>
 				</div>
 			</div>
 		</a>
