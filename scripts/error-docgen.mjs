@@ -24,7 +24,7 @@ import DontEditWarning from '~/components/DontEditWarning.astro'
 
 <DontEditWarning />
 
-The following reference is a complete list of the errors you may encounter while using Astro. For additional assistance, including common pitfalls, please also see our [Troubleshooting Guide](/en/guides/troubleshooting/).
+The following reference is a complete list of the errors you may encounter while using Astro. For additional assistance, including common pitfalls, please also see our [Troubleshooting Guide](/en/astro/guides/troubleshooting/).
 
 `;
 

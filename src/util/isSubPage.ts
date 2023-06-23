@@ -27,7 +27,7 @@ const categoryIndex: Partial<Record<ReturnType<typeof getPageCategory>, string>>
 
 /**
  * Test if `currentPage` is considered a sub-page of `parentSlug`.
- * @param currentPage The full slug for the current page, e.g. `'en/guides/rss'`
+ * @param currentPage The full slug for the current page, e.g. `'en/astro/guides/rss'`
  * @param parentSlug The language-less slug for the parent to test against e.g. `'guides/content-collections'`
  */
 export function isSubPage(currentPage: string, parentSlug: string): boolean {

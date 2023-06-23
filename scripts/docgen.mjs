@@ -21,7 +21,7 @@ import DontEditWarning from '~/components/DontEditWarning.astro'
 
 <DontEditWarning />
 
-The following reference covers all supported configuration options in Astro. To learn more about configuring Astro, read our guide on [Configuring Astro](/en/guides/configuring-astro/).
+The following reference covers all supported configuration options in Astro. To learn more about configuring Astro, read our guide on [Configuring Astro](/en/astro/guides/configuring-astro/).
 
 \`\`\`js
 // astro.config.mjs

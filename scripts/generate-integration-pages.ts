@@ -49,14 +49,14 @@ class IntegrationPagesBuilder {
 			if (output.isCi) {
 				output.error(
 					'Missing GITHUB_TOKEN. Please add the following lines to the task:\n' +
-						'    env:\n' +
-						'      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}'
+					'    env:\n' +
+					'      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}'
 				);
 				process.exit(1);
 			} else {
 				output.warning(
 					'You have not set the GITHUB_TOKEN environment variable. ' +
-						'Calls to GitHub’s API may hit rate limits without it.'
+					'Calls to GitHub’s API may hit rate limits without it.'
 				);
 			}
 		}
@@ -67,21 +67,18 @@ class IntegrationPagesBuilder {
 	 */
 	async #getIntegrationData(): Promise<IntegrationData[]> {
 		// Read all the packages in Astro’s integrations directory.
-		const url = `https://api.github.com/repos/${
-			this.#sourceRepo
-		}/contents/packages/integrations?ref=${this.#sourceBranch}`;
+		const url = `https://api.github.com/repos/${this.#sourceRepo
+			}/contents/packages/integrations?ref=${this.#sourceBranch}`;
 		const packages: { name: string }[] = await githubGet({ url, githubToken: this.#githubToken });
 
 		return await Promise.all(
 			packages
 				.filter((pkg) => !this.#deprecatedIntegrations.has(pkg.name))
 				.map(async (pkg) => {
-					const pkgJsonURL = `https://raw.githubusercontent.com/${this.#sourceRepo}/${
-						this.#sourceBranch
-					}/packages/integrations/${pkg.name}/package.json`;
-					const readmeURL = `https://raw.githubusercontent.com/${this.#sourceRepo}/${
-						this.#sourceBranch
-					}/packages/integrations/${pkg.name}/README.md`;
+					const pkgJsonURL = `https://raw.githubusercontent.com/${this.#sourceRepo}/${this.#sourceBranch
+						}/packages/integrations/${pkg.name}/package.json`;
+					const readmeURL = `https://raw.githubusercontent.com/${this.#sourceRepo}/${this.#sourceBranch
+						}/packages/integrations/${pkg.name}/README.md`;
 					const { name, keywords } = await githubGet({
 						url: pkgJsonURL,
 						githubToken: this.#githubToken,
@@ -89,8 +86,8 @@ class IntegrationPagesBuilder {
 					const category = keywords.includes('renderer')
 						? 'renderer'
 						: keywords.includes('astro-adapter')
-						? 'adapter'
-						: 'other';
+							? 'adapter'
+							: 'other';
 					const i18nReady = (!this.#i18nNotReadyIntegrations.has(pkg.name)).toString();
 					const readme = await (await fetch(readmeURL)).text();
 					return { name, category, readme, srcdir: pkg.name, i18nReady };
@@ -114,9 +111,8 @@ class IntegrationPagesBuilder {
 	}: IntegrationData): Promise<string> {
 		// Remove title from body
 		readme = readme.replace(/^# (.+)/, '');
-		const githubLink = `https://github.com/${this.#sourceRepo}/tree/${
-			this.#sourceBranch
-		}/packages/integrations/${srcdir}/`;
+		const githubLink = `https://github.com/${this.#sourceRepo}/tree/${this.#sourceBranch
+			}/packages/integrations/${srcdir}/`;
 
 		const createDescription = (name: string, category: string): string => {
 			return `Learn how to use the ${name} ${prettyCategoryDescription[category]}.`;
@@ -158,7 +154,7 @@ import DontEditWarning from '~/components/DontEditWarning.astro';
 	async #writeReadme(packageName: string, readme: string): Promise<void> {
 		const unscopedName = packageName.split('/').pop();
 		return await fs.promises.writeFile(
-			`src/content/docs/en/guides/integrations-guide/${unscopedName}.mdx`,
+			`src/content/docs/en/astro/guides/integrations-guide/${unscopedName}.mdx`,
 			readme,
 			'utf8'
 		);

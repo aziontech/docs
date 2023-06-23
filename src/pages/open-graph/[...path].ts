@@ -34,11 +34,6 @@ export const { getStaticPaths, get } = OGImageRoute({
 					families: [
 						'Work Sans',
 						'Noto Sans Black',
-						'Noto Sans Arabic',
-						'Noto Sans SC Black',
-						'Noto Sans TC Black',
-						'Noto Sans JP Black',
-						'Noto Sans KR Black',
 					],
 					weight: 'ExtraBold',
 				},
@@ -48,11 +43,6 @@ export const { getStaticPaths, get } = OGImageRoute({
 					families: [
 						'Work Sans',
 						'Noto Sans',
-						'Noto Sans Arabic',
-						'Noto Sans SC',
-						'Noto Sans TC',
-						'Noto Sans JP',
-						'Noto Sans KR',
 					],
 					weight: 'Normal',
 				},
@@ -63,21 +53,6 @@ export const { getStaticPaths, get } = OGImageRoute({
 
 				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/cyrillic-400-normal.ttf',
 				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/cyrillic-900-normal.ttf',
-
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/chinese-simplified-400-normal.otf',
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/chinese-simplified-900-normal.otf',
-
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/chinese-traditional-400-normal.otf',
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/chinese-traditional-900-normal.otf',
-
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/japanese-400-normal.ttf',
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/japanese-900-normal.ttf',
-
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/arabic-400-normal.ttf',
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/arabic-800-normal.ttf',
-
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/korean-400-normal.otf',
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/korean-900-normal.otf',
 			],
 		};
 	},
