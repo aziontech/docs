@@ -1,23 +1,21 @@
 import './Card.css'
 interface Props {
-	data: {
-		icon: string,
-		title: string,
-		description: string,
-		link: string
-	}
+	icon: string,
+	title: string,
+	description: string,
+	link: string
 }
 
-const Card = (({ data }: Props) => {
+const Card = (({ icon, title, description, link }: Props) => {
 	return (
-		<a className="card" href={data.link} title={data.title}>
+		<a className="card" href={link} title={title}>
 			<div>
 				<i>
-					<img width="36" height="36" src={"https://www.azion.com" + data.icon} alt={data.title + "icon"} />
+					<img width="36" height="36" src={"https://www.azion.com" + icon} alt={title + "icon"} />
 				</i>
 				<div className="box-text">
-					<h4 className="card-title"> {data.title} </h4>
-					<p className="card-description"> {data.description} </p>
+					<h4 className="card-title"> {title} </h4>
+					<p className="card-description"> {description} </p>
 				</div>
 			</div>
 		</a>

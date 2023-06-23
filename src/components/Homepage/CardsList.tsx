@@ -28,7 +28,7 @@ const CardsList = ({ data }: Props) => {
 							{item.cards.map((c, index) => {
 								return (
 									<li className="list-item" key={index}>
-										<Card data={c} />
+										<Card icon={c.icon} title={c.title} description={c.description} link={c.link} />
 									</li>
 								)
 							})}

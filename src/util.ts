@@ -16,8 +16,9 @@ export function removeTrailingSlash(path: string) {
 }
 
 /** Get a page’s slug, without the language prefix (e.g. `'en/migrate'` => `'migrate'`). */
-export const stripLangFromSlug = (slug: CollectionEntry<'docs'>['slug']) =>
-	slug.split('/').slice(1).join('/');
+export const stripLangFromSlug = (slug: CollectionEntry<'docs'>['slug']) => slug.split('/').slice(1).join('/');
 
 /** Get a page’s lang tag from its slug (e.g. `'en/migrate'` => `'en'`). */
 export const getLangFromSlug = (slug: CollectionEntry<'docs'>['slug']) => slug.split('/')[0];
+
+export const getSlugFromPermalink = (collection: CollectionEntry<'docs'>) => collection.data.permalink

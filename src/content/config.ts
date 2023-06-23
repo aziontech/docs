@@ -1,19 +1,20 @@
 import { CollectionEntry, defineCollection, z } from 'astro:content';
 
-export const baseSchema = z
-	.object({
-		type: z.literal('base').optional().default('base'),
-		title: z.string(),
-		description: z.string().optional(),
-		i18nReady: z.boolean().default(false),
-		githubURL: z.string().url().optional(),
-		hasREADME: z.boolean().optional(),
-	})
-	.strict();
+export const baseSchema = z.object({
+	type: z.literal('base').optional().default('base'),
+	title: z.string(),
+	description: z.string().optional(),
+	permalink: z.string().optional(),
+	menu_namespace: z.string().optional(),
+	meta_tags: z.string().optional(),
+	og_image: z.string().optional(),
+	i18nReady: z.boolean().default(false),
+	githubURL: z.string().url().optional(),
+	hasREADME: z.boolean().optional(),
+})
 
 export const homeSchema = baseSchema.extend({
 	type: z.literal('homepage'),
-	description: z.string().optional(),
 	product_cards: z.array(z.object({
 		title: z.string(),
 		cards: z.array(z.object({
