@@ -5,7 +5,8 @@ import type {
 	UIDict,
 	UIDictionaryKeys,
 	UILanguageKeys,
-	HeaderMenuTranslation
+	HeaderMenuTranslation,
+	SearchMenuTranslation
 } from './translation-checkers';
 
 /**
@@ -29,12 +30,20 @@ export const navTranslations = mapDefaultExports<NavDict>(
 export const headerMenuTranslations = mapDefaultExports<HeaderMenuTranslation>(
 	import.meta.glob('./*/headerMenu.ts', { eager: true })
 );
+export const searchTranslations = mapDefaultExports<SearchMenuTranslation>(
+	import.meta.glob('./*/search.ts', { eager: true })
+);
 
 export const fallbackLang = 'en';
 
 export function getHeaderMenuStrings(Astro: AstroGlobal): HeaderMenuTranslation {
 	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
 	return { ...headerMenuTranslations[fallbackLang], ...headerMenuTranslations[lang] };
+}
+
+export function getSearchTranslations(Astro: AstroGlobal): SearchMenuTranslation {
+	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
+	return { ...searchTranslations[fallbackLang], ...searchTranslations[lang] };
 }
 
 /**
