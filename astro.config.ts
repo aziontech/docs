@@ -20,6 +20,7 @@ import { theme } from './syntax-highlighting-theme';
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://azion.com/',
+	trailingSlash: 'always', // for server
 	integrations: [
 		AutoImport({
 			imports: [asideAutoImport, codeSnippetAutoImport],
