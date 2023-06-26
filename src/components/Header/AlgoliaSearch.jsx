@@ -78,7 +78,7 @@ function AlgoliaSearch({ lang }) {
 									<Hits
 										hitComponent={({ hit }) => {
 											return (
-												<a href={hit.url} title={hit.title}>
+												<a href={hit.url} title={hit.title} className="hit">
 													<p>
 														<strong>
 															<Highlight hit={hit} attribute="title" />
