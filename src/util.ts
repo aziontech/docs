@@ -21,4 +21,11 @@ export const stripLangFromSlug = (slug: CollectionEntry<'docs'>['slug']) => slug
 /** Get a page’s lang tag from its slug (e.g. `'en/migrate'` => `'en'`). */
 export const getLangFromSlug = (slug: CollectionEntry<'docs'>['slug']) => slug.split('/')[0];
 
-export const getSlugFromPermalink = (collection: CollectionEntry<'docs'>) => collection.data.permalink
+export const getSlugFromPermalink = (collection: CollectionEntry<'docs'>) => {
+	let permalink = collection.data.permalink
+
+	if (permalink?.charAt(0) === '/') permalink = permalink.substring(1);
+	if (permalink?.charAt(permalink.length - 1) === '/') permalink = permalink.substring(0, permalink.length - 1)
+
+	return permalink
+}
