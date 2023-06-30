@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import './TabGroup.css';
 
-type TabType = 'learn' | 'api';
+type TabType = 'learn'
 interface Props {
 	defaultActiveTab: TabType;
 	labels: Record<TabType, string>;
@@ -16,7 +16,7 @@ const SidebarToggleTabGroup = ({ defaultActiveTab, labels }: Props) => {
 	}
 	return (
 		<div className="TabGroup">
-			{(['learn', 'api'] as const).map((type) => (
+			{(['learn'] as const).map((type) => (
 				<button
 					key={type}
 					className={activeTab === type ? 'active' : ''}

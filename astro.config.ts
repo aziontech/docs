@@ -6,6 +6,7 @@ import AutoImport from 'astro-auto-import';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeSlug from 'rehype-slug';
 import remarkSmartypants from 'remark-smartypants';
+import dynamicImport from 'vite-plugin-dynamic-import'
 
 import { asideAutoImport, astroAsides } from './integrations/astro-asides';
 import { astroCodeSnippets, codeSnippetAutoImport } from './integrations/astro-code-snippets';
@@ -53,4 +54,9 @@ export default defineConfig({
 			rehypeOptimizeStatic,
 		],
 	},
+	vite: {
+		plugins: [
+			dynamicImport()
+		]
+	}
 });

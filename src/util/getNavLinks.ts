@@ -1,10 +1,11 @@
 import type { AstroGlobal } from 'astro';
 import { getLanguageFromURL } from '../util';
-import { getNav } from './getNav';
+import { getNavigationMenu } from './getNav';
 
 interface NavItem {
 	text: string;
 	slug: string;
+	isFallback?: boolean
 }
 
 interface LinkItem {
@@ -23,8 +24,9 @@ interface PreviousAndNext {
  * @param Astro The Astro global
  * @returns `previous` and `next` links if available
  */
-export async function getNavLinks(Astro: Readonly<AstroGlobal>): Promise<PreviousAndNext> {
-	const links = (await getNav(Astro)).filter((x) => !('header' in x) && x.slug) as NavItem[];
+export async function getNavLinks(Astro: Readonly<AstroGlobal>, menuName: string): Promise<PreviousAndNext> {
+	const links = (await getNavigationMenu(Astro, menuName)).filter((x) => !('header' in x) && x.slug) as NavItem[];
+
 	return getPreviousAndNext(links, Astro);
 }
 
@@ -35,7 +37,7 @@ export function getPreviousAndNext(
 	const index = links.findIndex((x) => Astro.url.pathname.replace(/\/$/, '').endsWith(x.slug));
 	const lang = getLanguageFromURL(Astro.url.pathname);
 
-	const makeLinkItem = ({ text, slug }: NavItem): LinkItem => ({ text, link: `/${lang}/${slug}/` });
+	const makeLinkItem = ({ text, slug, isFallback }: NavItem): LinkItem => ({ text, link: `/${isFallback ? 'en' : lang}/${slug}/` });
 
 	return {
 		previous: index > 0 ? makeLinkItem(links[index - 1]) : undefined,

@@ -5,7 +5,7 @@ export const baseSchema = z.object({
 	title: z.string(),
 	description: z.string().optional(),
 	permalink: z.string().optional(),
-	menu_namespace: z.string().optional(),
+	menu_namespace: z.string().optional().default('nav'),
 	meta_tags: z.string().optional(),
 	og_image: z.string().optional(),
 	i18nReady: z.boolean().default(false),

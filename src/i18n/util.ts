@@ -19,7 +19,24 @@ function mapDefaultExports<T>(modules: Record<string, { default: T }>) {
 		const [_dot, lang] = path.split('/');
 		exportMap[lang] = module.default;
 	}
+
 	return exportMap;
+}
+
+function mapDefaultNavExports<T>(modules: Record<string, { default: T }>, lang: string) {
+	const exportMap: Record<string, T> = {};
+	for (const [, module] of Object.entries(modules)) {
+		exportMap[lang] = module.default;
+	}
+
+	return exportMap;
+}
+
+export async function mapNavigationMenuByName(menuName: string, lang: string) {
+	const translations = await import(`../i18n/${lang}/${menuName}.ts`)
+		.catch(async () => await import(`../i18n/en/${menuName}.ts`))
+
+	return mapDefaultNavExports<NavDict>([translations], lang)
 }
 
 const translations = mapDefaultExports<UIDict>(import.meta.glob('./*/ui.ts', { eager: true }));

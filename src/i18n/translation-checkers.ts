@@ -10,24 +10,46 @@ export type UILanguageKeys = keyof typeof languages;
 export const UIDictionary = (dict: Partial<typeof enUI>) => dict;
 
 type NavDictionaryKeys = typeof enNav[number]['key'];
+
 export type NavDict = Array<
 	{
 		text: string;
 		key: NavDictionaryKeys;
 		isFallback?: boolean;
-	} & ({ slug: string } | { header: true; type: 'learn' | 'api' })
+	} & ({ slug: string } | { header: true; type: 'learn' })
 >;
 
 /**
  * Helper to type check and process a dictionary of navigation menu translations.
  * Converts it to an array matching the English menu’s sorting with English items used as fallback entries.
  */
-export const NavDictionary = (dict: Partial<Record<NavDictionaryKeys, string>>) => {
+
+type navMatching = Array<{
+	key: string;
+	text: string
+	slug?: string;
+}>
+
+export const NavDictionary = (dict: navMatching) => {
 	const orderedDictionary: NavDict = [];
-	for (const enEntry of enNav) {
-		const text = dict[enEntry.key] || enEntry.text;
-		orderedDictionary.push({ ...enEntry, text });
+	const isFallback = true
+	for (const entry of enNav) {
+		const matchedObject = dict.find(value => value.key === entry.key)
+		if (matchedObject) {
+			const text = matchedObject.text
+
+			if (matchedObject.slug) {
+				const slug = matchedObject.slug
+				orderedDictionary.push({ ...entry, text, slug });
+			} else {
+				orderedDictionary.push({ ...entry, text, isFallback });
+			}
+		} else {
+			orderedDictionary.push({ ...entry, isFallback })
+		}
 	}
+
+	// console.log(orderedDictionary)
 	return orderedDictionary;
 };
 export interface HeaderMenuTranslation {
