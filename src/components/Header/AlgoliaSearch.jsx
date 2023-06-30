@@ -51,7 +51,7 @@ function NoResults() {
 
 
 function AlgoliaSearch({ lang }) {
-	const indexName = `azion-doc-${lang}`
+	const indexName = `azion-doc-${lang === 'pt-br' ? 'ptbr' : lang}`
 	return (
 		<div onClick={closeModalByDiv} data-search="algolia-search" id="azalgoliasearch" class="azalgoliasearch">
 			<div data-search="box" class="box">
