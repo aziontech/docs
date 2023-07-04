@@ -2,16 +2,16 @@ import { headerMenuDict } from '../translation-checkers';
 
 export default headerMenuDict({
 	nav: [{
-		title: "Documentation",
-		href: "documentation_home"
+		title: "Documentação",
+		href: "/pt-br/documentacao/"
 	},
 	{
-		title: "Guides",
-		href: "documentation_how_to"
+		title: "Guias",
+		href: "/pt-br/documentacao/produtos/guias/"
 	},
 	{
 		title: "Dev Tools",
-		href: "documentation_dev_tools_home",
+		href: "/pt-br/documentacao/produtos/dev-tools/",
 		// dropdown: [
 		//     {
 		//         title: "CLI",

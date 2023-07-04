@@ -15,7 +15,6 @@ import { autolinkConfig } from './plugins/rehype-autolink-config';
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
-import { remarkFallbackLang } from './plugins/remark-fallback-lang';
 import { theme } from './syntax-highlighting-theme';
 
 // https://astro.build/config
@@ -40,7 +39,6 @@ export default defineConfig({
 		remarkPlugins: [
 			[remarkSmartypants, { dashes: false }],
 			// Add our custom plugin that marks links to fallback language pages
-			remarkFallbackLang(),
 		],
 		rehypePlugins: [
 			rehypeSlug,
