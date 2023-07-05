@@ -21,6 +21,7 @@ export default UIDictionary({
 	'rightSidebar.overview': 'Visão geral',
 	'rightSidebar.community': 'Comunidade',
 	'rightSidebar.joinDiscord': 'Junte-se a nós no Discord',
+	'rightSidebar.followTwitter': 'unte-se a nós no Twitter',
 	'rightSidebar.readBlog': 'Leia nossas postagens no blog',
 	'rightSidebar.openCollective': 'Nossa Open Collective',
 	'rightSidebar.contribute': 'Contribua',

@@ -20,6 +20,7 @@ export default {
 	'rightSidebar.overview': 'Overview',
 	'rightSidebar.community': 'Community',
 	'rightSidebar.joinDiscord': 'Join us on Discord',
+	'rightSidebar.followTwitter': 'Follow us on Twitter',
 	'rightSidebar.readBlog': 'Read our blog posts',
 	'rightSidebar.openCollective': 'Our Open Collective',
 	'rightSidebar.contribute': 'Contribute',
