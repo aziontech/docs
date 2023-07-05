@@ -32,7 +32,7 @@ export default [
 	{ text: 'Multi-Factor Authentication', slug: 'documentation/products/accounts/multi-factor-authentication', key: 'accountsProfile/multiFactorAuth' },
 
 	{ text: 'Build', header: true, type: 'learn', key: 'Build' },
-	{ text: 'Edge Application', slug: 'documentation/products/edge-application/application-acceleration', key: 'edgeApplication' },
+	{ text: 'Edge Application', slug: 'documentation/products/edge-application/application-acceleration/', key: 'edgeApplication' },
 	{ text: 'Edge Caching', slug: 'documentation/products/edge-application/edge-caching', key: 'edgeCaching' },
 	{ text: 'Edge Function', slug: 'documentation/products/edge-application/edge-functions', key: 'edgeFunctions' },
 	{ text: 'Image Processor', slug: 'documentation/products/edge-application/image-processor', key: 'imageProcessor' },
