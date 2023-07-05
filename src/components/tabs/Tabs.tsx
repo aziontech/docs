@@ -73,9 +73,8 @@ export default function Tabs({ sharedStore, ...slots }: Props) {
 			const containerBoundingRect = tabButtonContainerRef.current.getBoundingClientRect();
 			if (!activeTabIndicatorRef.current.style.width)
 				activeTabIndicatorRef.current.style.width = '1px';
-			activeTabIndicatorRef.current.style.transform = `translateX(${
-				tabBoundingRect.left - containerBoundingRect.left
-			}px) scaleX(${tabBoundingRect.width})`;
+			activeTabIndicatorRef.current.style.transform = `translateX(${tabBoundingRect.left - containerBoundingRect.left
+				}px) scaleX(${tabBoundingRect.width})`;
 		}
 	}, [curr]);
 
@@ -127,7 +126,9 @@ export default function Tabs({ sharedStore, ...slots }: Props) {
 						className={styles.selectedIndicator}
 						aria-hidden="true"
 					/>
+
 				</div>
+				<div className="border" />
 			</div>
 			{panels.map(([key, content]) => (
 				<div
