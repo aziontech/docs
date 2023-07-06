@@ -11,8 +11,8 @@ export function removeLeadingSlash(path: string) {
 }
 
 /** Remove \ and / from end of string */
-export function removeTrailingSlash(path: string) {
-	return path.replace(/[/\\]+$/, '');
+export function removeTrailingSlash(path: string | undefined) {
+	if (typeof path === 'string') return path.replace(/[/\\]+$/, '');
 }
 
 /** Get a page’s slug, without the language prefix (e.g. `'en/migrate'` => `'migrate'`). */
