@@ -13,7 +13,7 @@ export default [
 	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: 'devTools', key: 'devTools' },
 	{ text: 'Learn', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: 'Learn', key: 'Learn' },
 
-	{ text: 'Getting Started', header: true, anchor: true, type: 'learn', slug: 'documentation/products/getting-started', key: 'Learn' },
+	{ text: 'Getting Started', header: true, anchor: true, type: 'learn', slug: 'documentation/products/getting-started', key: 'gettingStarted' },
 
 
 	{ text: 'Accounts and Profile', header: true, type: 'learn', key: 'accountsProfile' },
@@ -69,8 +69,8 @@ export default [
 	{ text: 'GraphQL API', header: true, anchor: true, type: 'learn', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
 	{ text: 'Azion CLI', header: true, anchor: true, type: 'learn', slug: 'documentation/products/cli', key: 'azionCLI' },
 	{ text: 'Edge Runtime', header: true, anchor: true, type: 'learn', slug: 'documentation/products/edge-application/edge-functions/runtime/overview', key: 'edgeRuntime' },
-	{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: 'documentation/documentation/devtools/sdk/go/', key: 'sdkGO' },
-	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: 'documentation/products/terraform-provider/', key: 'terraform' },
+	{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: 'documentation/documentation/devtools/sdk/go', key: 'sdkGO' },
+	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: 'documentation/products/terraform-provider', key: 'terraform' },
 
 
 	{ text: 'Changelog', header: true, type: 'learn', anchor: true, slug: 'documentation/products/changelog', key: 'changelog' },
