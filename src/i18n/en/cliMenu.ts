@@ -15,25 +15,25 @@ export default [
 
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
-	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: 'documentacao' },
-	{ text: 'First Steps', header: true, anchor: true, type: 'learn', key: 'overview', slug: 'documentacao' },
+	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/cli/overview' },
+	{ text: 'First Steps', header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentation/products/cli/first-steps' },
 
 	{ text: 'Commands', header: true, key: 'commands', type: 'learn' },
-	{ text: 'Edge Applications', slug: 'documentation/products/accounts/account-settings', key: 'commands/edgeApp' },
-	{ text: 'Edge Functions', slug: 'documentation/products/accounts/users-and-teams', key: 'commands/edgeFunctions' },
-	{ text: 'Edge Functions Instances', slug: 'documentation/products/accounts/billing', key: 'commands/edgeFunctions/instances' },
-	{ text: 'Domains', slug: 'documentation/products/credentials', key: 'commands/Domains' },
-	{ text: 'Origins', slug: 'documentation/products/accounts/activity-history', key: 'commands/Origins' },
-	{ text: 'Cache Settings', slug: 'documentation/products/accounts/teams-permissions', key: 'commands/CacheSettings' },
-	{ text: ' Rules Engine', slug: 'documentation/products/accounts/single-sign-on', key: 'commands/rulesEngine' },
+	{ text: 'Edge Applications', slug: '/documentation/products/cli/edge-applications', key: 'commands/edgeApp' },
+	{ text: 'Edge Functions', slug: '/documentation/products/cli/edge-functions', key: 'commands/edgeFunctions' },
+	{ text: 'Edge Functions Instances', slug: '/documentation/products/cli/edge-functions-instances', key: 'commands/edgeFunctions/instances' },
+	{ text: 'Domains', slug: '/documentation/products/cli/domains', key: 'commands/Domains' },
+	{ text: 'Origins', slug: '/documentation/products/cli/origins', key: 'commands/Origins' },
+	{ text: 'Cache Settings', slug: '/documentation/products/cli/cache-settings', key: 'commands/CacheSettings' },
+	{ text: 'Rules Engine', slug: '/documentation/products/cli/rules-engine', key: 'commands/rulesEngine' },
 
-	{ text: 'Guides', header: true, type: 'learn', key: 'overview' },
-	{ text: 'Installing Azion CLI manually', slug: 'documentation/products/accounts/account-settings', key: 'guides/installCLI' },
-	{ text: 'Autocomplete', slug: 'documentation/products/accounts/users-and-teams', key: 'guides/autocomplete' },
-	{ text: 'Configuring Output', slug: 'documentation/products/accounts/billing', key: 'guides/configuringOutput' },
-	{ text: 'Running the CLI on macOS', slug: 'documentation/products/credentials', key: 'guides/cliMacOS' },
-	{ text: 'Creating an edge application', slug: 'documentation/products/accounts/activity-history', key: 'guides/createEdgeApp' },
-	{ text: 'Managing your edge functions', slug: 'documentation/products/accounts/teams-permissions', key: 'guides/manageEdgeFunc' },
-	{ text: 'Creating a function on Azion using the Next.js framework', slug: 'documentation/products/accounts/single-sign-on', key: 'guides/createFunc' },
+	{ text: 'Guides', header: true, type: 'learn', key: 'guides' },
+	{ text: 'Installing Azion CLI manually', slug: '/documentation/products/guides/cli-installing-manually', key: 'guides/installCLI' },
+	{ text: 'Autocomplete', slug: '/documentation/products/guides/cli-auto-complete', key: 'guides/autocomplete' },
+	{ text: 'Configuring Output', slug: '/documentation/products/guides/cli-output-configuration', key: 'guides/configuringOutput' },
+	{ text: 'Running the CLI on macOS', slug: '/documentation/products/guides/cli-running-macos', key: 'guides/cliMacOS' },
+	{ text: 'Creating an edge application', slug: '/documentation/products/guides/cli-creating-edge-application', key: 'guides/createEdgeApp' },
+	{ text: 'Managing your edge functions', slug: '/documentation/products/guides/cli-managing-edge-functions', key: 'guides/manageEdgeFunc' },
+	{ text: 'Creating a function on Azion using the Next.js framework', slug: '/documentation/products/guides/nextjs-ssr-on-azion-platform', key: 'guides/createFunc' },
 
 ] as const;
