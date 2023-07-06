@@ -16,7 +16,7 @@
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/edge-application/edge-functions/runtime/overview' },
-	{ text: 'API Reference', header: true, anchor: true, type: 'learn', key: 'apiReference',
+	{ text: 'API Reference', header: true, anchor: true, type: 'learn', key: 'apiReference'},
 	{ text: 'Web Standards', slug: '/documentation/products/edge-application/edge-functions/runtime-apis/javascript', key: 'runtime/web-standards' },
 	{ text: 'Metadata API', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/metadata', key: 'runtime/metadata' },
 	{ text: 'Network List interface', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/network-list', key: 'runtime/network-list' },
