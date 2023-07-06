@@ -69,7 +69,7 @@ export default [
 	{ text: 'GraphQL API', header: true, anchor: true, type: 'learn', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
 	{ text: 'Azion CLI', header: true, anchor: true, type: 'learn', slug: 'documentation/products/cli', key: 'azionCLI' },
 	{ text: 'Edge Runtime', header: true, anchor: true, type: 'learn', slug: 'documentation/products/edge-application/edge-functions/runtime/overview', key: 'edgeRuntime' },
-	{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: 'documentation/documentation/devtools/sdk/go', key: 'sdkGO' },
+	{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: 'documentation/devtools/sdk/go', key: 'sdkGO' },
 	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: 'documentation/products/terraform-provider', key: 'terraform' },
 
 
