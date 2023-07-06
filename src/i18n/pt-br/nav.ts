@@ -43,6 +43,7 @@ export default NavDictionary([
 	{ text: 'Real-Time Events', slug: 'documentacao/produtos/real-time-events', key: 'realTimeEvents' },
 	{ text: 'Real-Time Metrics', slug: 'documentacao/produtos/real-time-metrics', key: 'realTimeMetrics' },
 
+	{ text: 'Marketplace', slug: 'documentacao/produtos/marketplace', key: 'marketplace' },
 
 	{ text: 'Serviços', key: 'Services' },
 	{ text: 'Integration Services', slug: 'documentacao/servicos/solutions-lab/integration-services', key: 'integrationServices' },
