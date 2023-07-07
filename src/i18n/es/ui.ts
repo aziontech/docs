@@ -10,7 +10,7 @@ export default UIDictionary({
 	'aside.caution': 'Precaución',
 	'aside.danger': 'Peligro',
 	// Site settings
-	'site.title': 'Documentación de Astro',
+	'site.title': 'Documentación de Azion',
 	'site.description':
 		'Construye páginas web más rápidas con menos JavaScript en el lado del cliente.',
 	'site.og.imageSrc': '/default-og-image.png?v=1',

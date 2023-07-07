@@ -5,7 +5,7 @@ export default UIDictionary({
 	'a11y.sectionLink': 'Seção intitulada',
 	'navbar.a11yTitle': 'Superior',
 	// Site settings
-	'site.title': 'Documentação do Astro',
+	'site.title': 'Documentação Azion',
 	'site.description': 'Construa websites mais rápidos com menos JavaScript no lado do cliente.',
 	'site.og.imageSrc': '/default-og-image.png?v=1',
 	'site.og.imageAlt':
