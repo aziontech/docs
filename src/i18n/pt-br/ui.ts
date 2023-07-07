@@ -12,7 +12,7 @@ export default UIDictionary({
 		'a logo do astro em um estrelado pedaço do espaço, com um planeta roxo parecido com Saturno flutuando à direita',
 	// Left Sidebar
 	'leftSidebar.a11yTitle': 'Primária',
-	'leftSidebar.learnTab': 'Aprenda',
+	'leftSidebar.learnTab': 'Documentação',
 	'leftSidebar.referenceTab': 'Referência',
 	'leftSidebar.viewInEnglish': 'Veja em Inglês',
 	'leftSidebar.sponsoredBy': 'Patrocinado por',
