@@ -73,7 +73,6 @@ export function rehypeOptimizeStatic(): Transformer<Root, Root> {
 			} else {
 				el.properties['set:html'] = toHtml(el.children);
 			}
-			el.children = [];
 		}
 	};
 }
