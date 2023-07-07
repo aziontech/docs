@@ -26,6 +26,7 @@ export default [
 	{ text: 'Origins', slug: '/documentation/products/cli/origins', key: 'commands/Origins' },
 	{ text: 'Cache Settings', slug: '/documentation/products/cli/cache-settings', key: 'commands/CacheSettings' },
 	{ text: 'Rules Engine', slug: '/documentation/products/cli/rules-engine', key: 'commands/rulesEngine' },
+	{ text: 'Variables', slug: '/documentation/products/cli/variables', key: 'commands/variables' },
 
 	{ text: 'Guides', header: true, type: 'learn', key: 'guides' },
 	{ text: 'Installing Azion CLI manually', slug: '/documentation/products/guides/cli-installing-manually', key: 'guides/installCLI' },
