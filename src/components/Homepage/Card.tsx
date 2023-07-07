@@ -1,4 +1,6 @@
 import './Card.css'
+import { removeLeadingSlash, removeTrailingSlash } from '~/util'
+
 interface Props {
 	icon: string,
 	title: string,
@@ -7,6 +9,10 @@ interface Props {
 }
 
 const Card = (({ icon, title, description, link }: Props) => {
+	if (typeof link === 'string') {
+		link = link.includes('https') ? link : `/${removeLeadingSlash(removeTrailingSlash(link))}/`
+	}
+
 	return (
 		<a className="card-homepage" href={link} title={title}>
 			<div>
