@@ -65,12 +65,13 @@ export default [
 	{ text: 'Support', slug: 'documentation/services/support', key: 'support' },
 
 
-	{ text: 'API', header: true, anchor: true, type: 'learn', slug: 'https://api.azion.com', key: 'api' },
-	{ text: 'GraphQL API', header: true, anchor: true, type: 'learn', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
-	{ text: 'Azion CLI', header: true, anchor: true, type: 'learn', slug: 'documentation/products/cli', key: 'azionCLI' },
-	{ text: 'Edge Runtime', header: true, anchor: true, type: 'learn', slug: 'documentation/products/edge-application/edge-functions/runtime/overview', key: 'edgeRuntime' },
-	{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: 'documentation/devtools/sdk/go', key: 'sdkGO' },
-	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: 'documentation/products/terraform-provider', key: 'terraform' },
+	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools' },
+	{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
+	{ text: 'GraphQL API', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
+	{ text: 'Azion CLI', slug: 'documentation/products/cli', key: 'azionCLI' },
+	{ text: 'Edge Runtime', slug: 'documentation/products/edge-application/edge-functions/runtime/overview', key: 'edgeRuntime' },
+	{ text: 'SDK', slug: 'documentation/devtools/sdk/go', key: 'sdkGO' },
+	{ text: 'Terraform', slug: 'documentation/products/terraform-provider', key: 'terraform' },
 
 
 	{ text: 'Changelog', header: true, type: 'learn', anchor: true, slug: 'documentation/products/changelog', key: 'changelog' },
