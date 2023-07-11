@@ -18,9 +18,6 @@ const MenuToggle = () => {
 				?.setAttribute('open', '');
 		} else {
 			body.classList.remove('mobile-sidebar-toggle');
-			document.querySelectorAll('aside nav details').forEach((e) => {
-				e.setAttribute('open', '');
-			});
 		}
 	}, [sidebarShown]);
 

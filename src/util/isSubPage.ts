@@ -51,3 +51,8 @@ export function isSubPage(currentPage: string, parentSlug: string): boolean {
 
 	return false;
 }
+
+export const isSubMenu = (currentPage: string, lang: string, slugs: Array<{ text: string; slug: string; isFallback?: boolean }>) => {
+	const foundSlug = slugs.find(slug => `${lang}/${removeTrailingSlash(removeLeadingSlash(slug.slug))}` === removeTrailingSlash(removeLeadingSlash(currentPage)))
+	return foundSlug !== undefined;
+}
