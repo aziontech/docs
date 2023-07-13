@@ -1,6 +1,8 @@
+import { removeLeadingSlash, removeTrailingSlash } from '~/util'
 import type { CollectionEntry } from 'astro:content';
 import { englishPages } from '~/content';
 import { getPageCategory } from './getPageCategory';
+
 
 /** Remove the sub-page segment of a URL string */
 export function removeSubPageSegment(path: string) {
@@ -31,11 +33,12 @@ const categoryIndex: Partial<Record<ReturnType<typeof getPageCategory>, string>>
  * @param parentSlug The language-less slug for the parent to test against e.g. `'guides/content-collections'`
  */
 export function isSubPage(currentPage: string, parentSlug: string): boolean {
-	// Test 1: do the two pages share a base URL segment?
-	if (removeSubPageSegment(currentPage).endsWith(removeSubPageSegment(parentSlug))) {
-		return true;
-	}
-	// Test 2: is there a known parent page for this page category?
+	const page = removeTrailingSlash(removeLeadingSlash(currentPage));
+	const parent = removeTrailingSlash(removeLeadingSlash(parentSlug));
+
+
+	if (page === parent) return true
+
 	const category = getPageCategory({ pathname: '/' + currentPage + '/' });
 	if (categoryIndex[category] === parentSlug) {
 		return true;
@@ -45,5 +48,11 @@ export function isSubPage(currentPage: string, parentSlug: string): boolean {
 	if (type && typeIndexes[type] === parentSlug) {
 		return true;
 	}
+
 	return false;
+}
+
+export const isSubMenu = (currentPage: string, lang: string, slugs: Array<{ text: string; slug: string; isFallback?: boolean }>) => {
+	const foundSlug = slugs.find(slug => `${lang}/${removeTrailingSlash(removeLeadingSlash(slug.slug))}` === removeTrailingSlash(removeLeadingSlash(currentPage)))
+	return foundSlug !== undefined;
 }

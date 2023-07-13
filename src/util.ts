@@ -29,3 +29,24 @@ export const getSlugFromPermalink = (collection: CollectionEntry<'docs'>) => {
 
 	return permalink
 }
+
+export const getTranslatedPagesByNamespace = (collection: CollectionEntry<'docs'>[]) => {
+	const result = {} as any;
+
+	collection.forEach((page) => {
+		const { namespace } = page.data;
+
+		if (namespace) {
+			const permalink = getSlugFromPermalink(page);
+			const lang = getLangFromSlug(page.slug);
+
+			if (!(namespace in result)) {
+				result[namespace] = {};
+			}
+
+			result[namespace][lang] = permalink;
+		}
+	});
+
+	return result
+}

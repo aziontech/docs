@@ -67,6 +67,21 @@ export interface HeaderMenuTranslation {
 
 export const headerMenuDict = (dict: HeaderMenuTranslation) => dict
 
+export interface FooterTranslations {
+	data: Array<{
+		title: string;
+		links: Array<{
+			text: string;
+			type?: string;
+			flag?: string;
+			route: string;
+		}>;
+	}>
+}
+
+export const footerDict = (dict: FooterTranslations) => dict
+
+
 export interface SearchMenuTranslation {
 	button: string,
 	placeholder: string,

@@ -14,7 +14,7 @@ const Card = (({ icon, title, description, link }: Props) => {
 	}
 
 	return (
-		<a className="card-homepage" href={link} title={title}>
+		<a className="card-homepage" rel="noreferrer" href={link} target={link?.includes('https') ? "_blank" : "_self"} title={title}>
 			<div>
 				<i>
 					<img width="36" height="36" src={"https://www.azion.com" + icon} alt={title + "icon"} />

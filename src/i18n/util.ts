@@ -6,6 +6,7 @@ import type {
 	UIDictionaryKeys,
 	UILanguageKeys,
 	HeaderMenuTranslation,
+	FooterTranslations,
 	SearchMenuTranslation
 } from './translation-checkers';
 
@@ -47,6 +48,11 @@ export const navTranslations = mapDefaultExports<NavDict>(
 export const headerMenuTranslations = mapDefaultExports<HeaderMenuTranslation>(
 	import.meta.glob('./*/headerMenu.ts', { eager: true })
 );
+
+export const footerTranslations = mapDefaultExports<FooterTranslations>(
+	import.meta.glob('./*/footer.ts', { eager: true })
+);
+
 export const searchTranslations = mapDefaultExports<SearchMenuTranslation>(
 	import.meta.glob('./*/search.ts', { eager: true })
 );
@@ -56,6 +62,11 @@ export const fallbackLang = 'en';
 export function getHeaderMenuStrings(Astro: AstroGlobal): HeaderMenuTranslation {
 	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
 	return { ...headerMenuTranslations[fallbackLang], ...headerMenuTranslations[lang] };
+}
+
+export function getFooterTranslations(Astro: AstroGlobal): FooterTranslations {
+	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
+	return { ...footerTranslations[fallbackLang], ...footerTranslations[lang] };
 }
 
 export function getSearchTranslations(Astro: AstroGlobal): SearchMenuTranslation {
