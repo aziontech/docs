@@ -3,4 +3,5 @@ export const availableMenus = [
 	{ name: 'cliMenu', langs: ['en', 'pt-br'] },
 	{ name: 'runtimeMenu', langs: ['en', 'pt-br'] },
 	{ name: 'graphqlMenu', langs: ['en', 'pt-br'] },
+	{ name: 'devtoolsMenu', langs: ['en', 'pt-br'] },
 ]
