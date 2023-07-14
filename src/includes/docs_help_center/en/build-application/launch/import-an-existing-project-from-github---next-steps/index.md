@@ -8,8 +8,8 @@ Now that you've built a new edge application, you can explore more Azion modules
 
 On the right side of the page, the **Next Steps** cards offer you three advanced options to enhance your edge application:
 
-- [Customize your Domain](https://www.azion.com/en/documentation/products/getting-started/add-domains/){: target="_blank"}: add a custom domain to your edge application. This process is very important as you'll need to have *Domains* configured to connect your edge application to other Azion's products.
-- [Point your traffic to Azion](https://www.azion.com/en/documentation/products/getting-started/point-traffic/){: target="_blank"}: configure your DNS preferences to handle your requests through Azion Edge Network.
-- [View Analytics](https://www.azion.com/en/documentation/products/real-time-metrics/){: target="_blank"}: gain powerful insights into your performance, availability, and security through **Real-Time Metrics**.
+- [Customize your Domain](https://www.azion.com/en/documentation/products/getting-started/add-domains/): add a custom domain to your edge application. This process is very important as you'll need to have *Domains* configured to connect your edge application to other Azion's products.
+- [Point your traffic to Azion](https://www.azion.com/en/documentation/products/getting-started/point-traffic/): configure your DNS preferences to handle your requests through Azion Edge Network.
+- [View Analytics](https://www.azion.com/en/documentation/products/real-time-metrics/): gain powerful insights into your performance, availability, and security through **Real-Time Metrics**.
 
-Consider migrating your entire DNS zone to [Azion Intelligent DNS](https://www.azion.com/en/documentation/products/intelligent-dns/){: target="_blank"} too.
+Consider migrating your entire DNS zone to [Azion Intelligent DNS](https://www.azion.com/en/documentation/products/intelligent-dns/) too.

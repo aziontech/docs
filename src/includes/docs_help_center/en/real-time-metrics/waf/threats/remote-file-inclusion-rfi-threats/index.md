@@ -6,4 +6,4 @@ An RFI threat usually includes remote files or scripts to your domain, compromis
 
 Then, the graph displays all requests that were identified as RFI threats during the period you've selected in the time range.
 
-For more details on how WAF analyzed the requests, see your logs through [Real-Time Events](https://www.azion.com/en/documentation/products/real-time-events/){: target="_blank"}.
+For more details on how WAF analyzed the requests, see your logs through [Real-Time Events](https://www.azion.com/en/documentation/products/real-time-events/).
