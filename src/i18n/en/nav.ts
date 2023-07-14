@@ -8,10 +8,10 @@
  * - Link entries MUST include `slug` (which excludes the language code)
  */
 export default [
-	{ text: 'Documentation', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: 'documentation', key: 'documentation' },
-	{ text: 'Guides', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: 'guides', key: 'guides' },
-	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: 'devTools', key: 'devTools' },
-	{ text: 'Learn', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: 'Learn', key: 'Learn' },
+	{ text: 'Documentation', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'documentation' },
+	{ text: 'Guides', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/', key: 'guides' },
+	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/dev-tools/', key: 'devTools' },
+	{ text: 'Learn', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: 'https://learn.azion.com/', key: 'Learn' },
 
 	{ text: 'Getting Started', header: true, anchor: true, type: 'learn', slug: 'documentation/products/getting-started', key: 'gettingStarted' },
 
