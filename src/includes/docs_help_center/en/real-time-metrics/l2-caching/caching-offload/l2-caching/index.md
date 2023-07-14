@@ -16,7 +16,7 @@ L2 Caching is a feature for Edge Application that adds an extra layer of cache b
 >
 > ORIGIN -> L2 CACHE -> EDGE
 
-To use L2 Caching and analyze data on it, you must activate it in your account. See the [L2 Caching documentation](https://www.azion.com/en/documentation/products/edge-application/edge-caching/#l2-caching){: target="_blank"} for more information.
+To use L2 Caching and analyze data on it, you must activate it in your account. See the [L2 Caching documentation](https://www.azion.com/en/documentation/products/edge-application/edge-caching/#l2-caching) for more information.
 
 > **In what unit does data appear on graphs?**
 >

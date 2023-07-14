@@ -6,4 +6,4 @@
 - Seeing the outcome of an HTML page.
 - Returning data in JSON.
 
-Take a look at the [Azion Preview Deployment](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime-api/preview-deployment/){: target="_blank"} documentation to learn more about the code editor.
+Take a look at the [Azion Preview Deployment](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime-api/preview-deployment/) documentation to learn more about the code editor.

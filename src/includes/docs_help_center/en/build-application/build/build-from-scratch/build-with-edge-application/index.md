@@ -14,7 +14,7 @@ A relevant Edge Application name makes your management easier. In case your appl
 - **Specific origin system**, use an Edge Application name related to the origin ("Cloud Bucket for Statics") as you may associate it with more domain names.
 - **Specific application usage**, use an Edge Application name related to the function (”Checkout application”) as you may associate it with more domain names.
 
-**Note**: Your Edge Application name exists for administrative purposes. End-user and device access occur on an [associated domain name](https://www.azion.com/en/documentation/products/edge-application/domains){: target="_blank"}.
+**Note**: Your Edge Application name exists for administrative purposes. End-user and device access occur on an [associated domain name](https://www.azion.com/en/documentation/products/edge-application/domains).
 
 > **Just starting?**
 >
@@ -29,13 +29,13 @@ A relevant Edge Application name makes your management easier. In case your appl
 
 ### About Edge Application
 
-Your Edge Application runs serverless in response to events on Edge Nodes of the global [Edge Network](https://www.azion.com/en/products/edge-network){: target="_blank"}. DNS resolution is used to dynamic route requests to the best end-to-end connection.
+Your Edge Application runs serverless in response to events on Edge Nodes of the global [Edge Network](https://www.azion.com/en/products/edge-network). DNS resolution is used to dynamic route requests to the best end-to-end connection.
 
 [ User and devices <-> EDGE <-> your application or origin ]
 
-At the Edge Node, an Edge Application associated with the domain name processes each request by executing a [Rules Engine](https://www.azion.com/en/documentation/products/edge-application/rules-engine){: target="_blank"}.
+At the Edge Node, an Edge Application associated with the domain name processes each request by executing a [Rules Engine](https://www.azion.com/en/documentation/products/edge-application/rules-engine).
 
-- Each rule can use powerful criteria on nested "If-then" statements to trigger behaviors from [enabled modules](https://www.azion.com/en/documentation/products/edge-application#edge-application-modules){: target="_blank"}, such as run a function or set origin.
+- Each rule can use powerful criteria on nested "If-then" statements to trigger behaviors from [enabled modules](https://www.azion.com/en/documentation/products/edge-application#edge-application-modules), such as run a function or set origin.
 - Each rule is executed until all the rules are processed or a rule with a finalizing behavior is found in the path.
 
-Learn more on the [documentation page](https://www.azion.com/en/documentation/products/getting-started){: target="_blank"}.
+Learn more on the [documentation page](https://www.azion.com/en/documentation/products/getting-started).

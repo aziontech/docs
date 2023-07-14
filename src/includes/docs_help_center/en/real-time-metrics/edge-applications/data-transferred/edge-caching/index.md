@@ -16,7 +16,7 @@ It provides a first layer of caching to the client content on Azion edges. The g
 >
 > ORIGIN -> EDGE -> END USER
 
-To use Edge Caching and analyze data on it, you must activate it in your account. See the [Edge Caching documentation](https://www.azion.com/en/documentation/products/edge-application/edge-caching/){: target="_blank"} for more information.
+To use Edge Caching and analyze data on it, you must activate it in your account. See the [Edge Caching documentation](https://www.azion.com/en/documentation/products/edge-application/edge-caching/) for more information.
 
 > **In what unit does data appear on graphs?**
 >

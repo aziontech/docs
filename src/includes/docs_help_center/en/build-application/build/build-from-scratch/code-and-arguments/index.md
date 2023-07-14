@@ -22,6 +22,6 @@ The **Args** tab presents **JavaScript Object Notation (JSON)** parameters of th
 
 ### Getting to know Runtime Environment
 
-The platform supports JavaScript runtime environments. Functions can have an embedded [WebAssembly (Wasm)](https://www.azion.com/en/documentation/use-cases/webassembly-on-azion-platform){: target="_blank"} binary code to deliver near-native performance for applications.
+The platform supports JavaScript runtime environments. Functions can have an embedded [WebAssembly (Wasm)](https://www.azion.com/en/documentation/use-cases/webassembly-on-azion-platform) binary code to deliver near-native performance for applications.
 
-Wasm isn't designed to be used as a language itself, but as an effective compilation target for languages like C, C++, Rust, and others. Jamstack frameworks, such as [Next.js](https://www.azion.com/en/documentation/use-cases/nextjs-on-azion-platform){: target="_blank"} and [Flareact](https://www.azion.com/en/documentation/use-cases/jamstack-using-flareact){: target="_blank"}, also found easy support and fast performance at Azion and you'll find all necessary references in the [documentation](https://www.azion.com/en/documentation/use-cases){: target="_blank"}.
+Wasm isn't designed to be used as a language itself, but as an effective compilation target for languages like C, C++, Rust, and others. Jamstack frameworks, such as [Next.js](https://www.azion.com/en/documentation/use-cases/nextjs-on-azion-platform) and [Flareact](https://www.azion.com/en/documentation/use-cases/jamstack-using-flareact), also found easy support and fast performance at Azion and you'll find all necessary references in the [documentation](https://www.azion.com/en/documentation/use-cases).

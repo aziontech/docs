@@ -9,4 +9,4 @@ The Total Invocations graph shows you the sum of all occasions in which your edg
 
 Whenever one of your configured edge functions is executed, one invocation is calculated.
 
-Find out more on [how to build applications with Edge Functions](https://www.azion.com/en/documentation/products/edge-application/edge-functions/){: target="_blank"}.
+Find out more on [how to build applications with Edge Functions](https://www.azion.com/en/documentation/products/edge-application/edge-functions/).

@@ -11,6 +11,6 @@ This section allows you to configure the main settings for your edge application
 
 After completing this step, go to the **Build and Output Settings** section to continue the configuration. 
 
-For more information on building methods, read the [Building and setting up an edge application](https://www.azion.com/en/documentation/products/getting-started/build-edge-applications/){: target="_blank"} page.
+For more information on building methods, read the [Building and setting up an edge application](https://www.azion.com/en/documentation/products/getting-started/build-edge-applications/) page.
 
-You can also see the guide on [structuring an existing Next.js project to import it to the edge](https://www.azion.com/en/documentation/products/guides/how-to-structure-nextjs-project/){: target="_blank"}.
+You can also see the guide on [structuring an existing Next.js project to import it to the edge](https://www.azion.com/en/documentation/products/guides/how-to-structure-nextjs-project/).

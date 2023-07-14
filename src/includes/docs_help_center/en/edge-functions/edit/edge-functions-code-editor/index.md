@@ -10,4 +10,4 @@ It's empowered by the Monaco Code Editor, used in VS Code, so if you're used to 
 - IntelliSense
 - Debugging
 
-To take a look at [Edge Functions Code Editor](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime-api/code-editor/){: target="_blank"} to learn more about the code editor.
+To take a look at [Edge Functions Code Editor](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime-api/code-editor/) to learn more about the code editor.

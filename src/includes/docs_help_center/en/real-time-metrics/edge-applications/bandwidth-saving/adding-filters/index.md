@@ -4,7 +4,7 @@ Real-Time Metrics shows you a standard view of data related to all your applicat
 
 When you add a filter, you can set the **Field**, such as "Host", "Status", or "Scheme", and the **Operator**, such as "Like", "Range", or "Not equal".
 
-You can find more details about each field on the [Fields Metrics documentation](https://www.azion.com/en/documentation/products/graphql-api/features/metrics-fields/){: target="_blank"} and about operators on the [Queries documentation](https://www.azion.com/en/documentation/products/graphql-api-queries/#operators){: target="_blank"}.
+You can find more details about each field on the [Fields Metrics documentation](https://www.azion.com/en/documentation/products/graphql-api/features/metrics-fields/) and about operators on the [Queries documentation](https://www.azion.com/en/documentation/products/graphql-api-queries/#operators).
 
 You can also set the **value field** that'll be used. Depending on the variable you chose, it can accept values of the String, Int, or Float types.
 

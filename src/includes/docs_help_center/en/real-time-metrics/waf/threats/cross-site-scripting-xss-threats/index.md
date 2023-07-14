@@ -6,4 +6,4 @@ An XSS threat injects client-side malicious scripts into pages viewed by your vi
 
 Then, the graph displays all requests that were identified as XSS threats during the period you've selected in the time range.
 
-For more details on how WAF analyzed the requests, see your logs through [Real-Time Events](https://www.azion.com/en/documentation/products/real-time-events/){: target="_blank"}.
+For more details on how WAF analyzed the requests, see your logs through [Real-Time Events](https://www.azion.com/en/documentation/products/real-time-events/).
