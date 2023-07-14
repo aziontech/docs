@@ -31,8 +31,8 @@ export default {
 	// Footer
 	'footer.privacyPolicy': 'Privacy Policy',
 	// `<ThemeToggleButton>` acessibility labels
-	'themeToggle.useLight': 'Use light theme',
-	'themeToggle.useDark': 'Use dark theme',
+	'themeToggle.useLight': 'Light theme',
+	'themeToggle.useDark': 'Dark theme',
 	// Used in previous/next page links at the bottom of pages
 	'articleNav.nextPage': 'Next Page',
 	'articleNav.prevPage': 'Back',
