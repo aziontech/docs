@@ -21,6 +21,7 @@ import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
 export default defineConfig({
 	site: 'https://azion.com/',
 	trailingSlash: 'always', // for server
+	base: '/abc',
 	integrations: [
 		AutoImport({
 			imports: [asideAutoImport],
