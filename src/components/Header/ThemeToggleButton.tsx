@@ -90,10 +90,10 @@ const ThemeToggle = ({ labels, isInsideHeader }: Props) => {
 							onChange={() => {
 								const matchesDarkTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-								if ((matchesDarkTheme && themeMode.checked === 'light') || (!matchesDarkTheme && themeMode.checked === 'dark')) {
+								if ((!matchesDarkTheme && themeMode.checked === 'dark')) {
 									localStorage.removeItem('theme');
 								} else {
-									localStorage.setItem('theme', themeMode.checked === 'light' ? 'light' : 'dark');
+									localStorage.setItem('theme', themeMode.checked === 'light' ? 'dark' : 'light');
 								}
 								setTheme(themeMode.checked === 'light' ? 'dark' : 'light');
 							}}

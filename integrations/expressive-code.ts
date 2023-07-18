@@ -13,5 +13,10 @@ export const theme = {
 	theme: 'slack-dark',
 	styleOverrides: {
 		codeFontFamily: 'var(--font-mono)'
+	},
+	frames: {
+		styleOverrides: {
+			editorTabBarBackground: 'var(--color-gray-80)',
+		}
 	}
 };
