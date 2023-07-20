@@ -47,7 +47,7 @@ export default [
 	{ text: 'Intelligent DNS', slug: 'documentation/products/intelligent-dns', key: 'intelligentDNS' },
 
 
-	{ text: 'Deliver', header: true, type: 'learn', key: 'Deliver' },
+	{ text: 'Deploy', header: true, type: 'learn', key: 'Deliver' },
 	{ text: 'Edge Orchestrator', slug: 'documentation/products/edge-orchestrator', key: 'edgeOrchestrator' },
 	{ text: 'Edge Node', slug: 'documentation/products/edge-orchestrator/edge-node', key: 'edgeNode' },
 	{ text: 'Edge Services', slug: 'documentation/products/edge-orchestrator/edge-services', key: 'edgeServices' },
