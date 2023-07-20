@@ -19,4 +19,4 @@ In the *Getting Started* section, you'll find three shortcuts:
 
 Right after you find the shortcut to **Invite Your Team**. This is an optional step, but you can invite your team to work together on Azion. Find out more about [Teams Permissions](https://www.azion.com/en/documentation/products/accounts/users-and-teams){: target="blank"}.
 
-Finally, you can find Azion's product categories that will guide you through your Azion journey and help you set up your applications: **Build**, **Secure**, **Deliver**, and **Observe**.
+Finally, you can find Azion's product categories that will guide you through your Azion journey and help you set up your applications: **Build**, **Secure**, **Deploy**, and **Observe**.
