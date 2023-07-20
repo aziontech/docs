@@ -67,9 +67,7 @@ function AlgoliaSearch({ lang }) {
 											class="btn btn-tertiary-light btn-algolia-close">
 											{lang == 'en' ? 'close' : lang == 'es' ? 'cerrar' : 'fechar'}
 										</button>
-										<SearchBox autofocus={true} placeholder="" classNames={{
-											'ais-SearchBox-resetIcon': 'remove-icon'
-										}} />
+										<SearchBox />
 									</div>
 								</div>
 							</div>
