@@ -1,6 +1,6 @@
 # Azion Docs
 <p align="center">
-    <img src="./doc/images/cover.png" />
+    <img src="./doc/images/cover.jpg" />
 </p>
 
 ## Welcome
