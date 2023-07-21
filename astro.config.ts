@@ -10,7 +10,7 @@ import dynamicImport from 'vite-plugin-dynamic-import'
 
 import { asideAutoImport, astroAsides } from './integrations/astro-asides';
 import { theme } from './integrations/expressive-code';
-import astroExpressiveCode from 'astro-expressive-code'
+import astroExpressiveCode from 'astro-expressive-code';
 import { sitemap } from './integrations/sitemap';
 import { autolinkConfig } from './plugins/rehype-autolink-config';
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
