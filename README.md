@@ -1,4 +1,19 @@
-# Astro Docs <picture><source media="(prefers-color-scheme: dark)" srcset="https://astro.build/assets/press/astro-icon-light.png"><source media="(prefers-color-scheme: light)" srcset="https://astro.build/assets/press/astro-icon-dark.png"><img align="right" valign="center" height="79" width="63" src="https://astro.build/assets/press/astro-icon-dark.png" alt="Astro logo" /></picture>
+# Azion Docs
+<p align="center">
+    <img src="./doc/images/cover.png" />
+</p>
+
+## Welcome
+
+<p align="center">
+    <a target="_blank" href="https://www.azion.com/en/documentation/products/getting-started/" title="Azion Documentation | Getting Started">Azion Documentation | Getting Started</a>
+    <br />
+    The <a href="https://www.azion.com/en/">Azion Technologies</a> documentation repository for help our customers and developers to build yours applications in the Edge.
+</p>
+
+<br />
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://astro.build/assets/press/astro-icon-light.png"><source media="(prefers-color-scheme: light)" srcset="https://astro.build/assets/press/astro-icon-dark.png"><img align="right" valign="center" height="79" width="63" src="https://astro.build/assets/press/astro-icon-dark.png" alt="Astro logo" /></picture>
 
 
 To all who come to this happy place: welcome.
