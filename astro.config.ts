@@ -24,6 +24,7 @@ export default defineConfig({
 	build: {
 		assets: '_astro_docs',
 		redirects: false
+		// inlineStylesheets: 'always'
 	},
 	integrations: [
 		AutoImport({
