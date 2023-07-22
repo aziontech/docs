@@ -23,36 +23,37 @@ export const { getStaticPaths, get } = OGImageRoute({
 			// 	path: './src/docs-logo.png',
 			// 	size: [400],
 			// },
-			border: { color: [255, 93, 1], width: 20, side: 'inline-start' },
+			border: {
+				color: [243, 101, 43],
+				width: 8,
+				side: 'inline-start'
+			},
 			bgGradient: [
-				[42, 35, 62],
-				[23, 20, 36],
+				[13, 13, 13],
+				[30, 30, 30]
 			],
 			font: {
 				title: {
 					size: 78,
 					families: [
-						'Work Sans',
-						'Noto Sans Black',
+						'Roboto',
+						// 'Noto Sans Black',
 					],
-					weight: 'ExtraBold',
+					weight: 'Bold',
 				},
 				description: {
 					size: 45,
 					lineHeight: 1.25,
 					families: [
-						'Work Sans',
-						'Noto Sans',
+						'Roboto',
+						// 'Noto Sans',
 					],
 					weight: 'Normal',
 				},
 			},
 			fonts: [
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/work-sans/latin-400-normal.ttf',
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/work-sans/latin-800-normal.ttf',
-
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/cyrillic-400-normal.ttf',
-				'https://github.com/withastro/docs/raw/temp-fonts-cdn/src/pages/open-graph/_fonts/noto-sans/cyrillic-900-normal.ttf',
+				'https://assets.azion.com/static/font/roboto-bold.ttf',
+				'https://assets.azion.com/static/font/roboto-regular.ttf'
 			],
 		};
 	},
