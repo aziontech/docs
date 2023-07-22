@@ -19,10 +19,11 @@ import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://azion.com/',
+	site: 'https://www.azion.com/',
 	trailingSlash: 'always', // for server
 	build: {
-		assets: '_astro_docs'
+		assets: '_astro_docs',
+		redirects: false
 	},
 	integrations: [
 		AutoImport({
