@@ -21,6 +21,9 @@ import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
 export default defineConfig({
 	site: 'https://azion.com/',
 	trailingSlash: 'always', // for server
+	build: {
+		assets: '_astro_docs'
+	},
 	integrations: [
 		AutoImport({
 			imports: [asideAutoImport],
