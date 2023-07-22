@@ -18,7 +18,7 @@ export const { getStaticPaths, get } = OGImageRoute({
 			description: data.description,
 			dir: rtlLanguages.has(getLanguageFromURL(slug)) ? 'rtl' : 'ltr',
 			logo: {
-				path: 'public/assets-docs/images/azion-logo.png',
+				path: 'public/assets/docs/images/azion-logo.png',
 				size: [200],
 			},
 			border: {
