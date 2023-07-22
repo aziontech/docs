@@ -11,18 +11,16 @@ const pages = Object.fromEntries(paths.map(({ id, slug, data }) => [id, { data, 
 
 export const { getStaticPaths, get } = OGImageRoute({
 	param: 'path',
-
 	pages,
-
 	getImageOptions: async (_, { data, slug }: (typeof pages)[string]) => {
 		return {
 			title: data.title,
 			description: data.description,
 			dir: rtlLanguages.has(getLanguageFromURL(slug)) ? 'rtl' : 'ltr',
-			// logo: {
-			// 	path: './src/docs-logo.png',
-			// 	size: [400],
-			// },
+			logo: {
+				path: 'public/assets-docs/images/azion-logo.png',
+				size: [200],
+			},
 			border: {
 				color: [243, 101, 43],
 				width: 8,
