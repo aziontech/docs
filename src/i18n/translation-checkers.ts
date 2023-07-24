@@ -16,6 +16,7 @@ export type NavDict = Array<
 		text: string;
 		key: NavDictionaryKeys;
 		isFallback?: boolean;
+		children?: Array<NavDict>;
 	} & ({ slug: string } | { header: true; type: 'learn' })
 >;
 
@@ -31,25 +32,35 @@ type navMatching = Array<{
 }>
 
 export const NavDictionary = (dict: navMatching) => {
-	const orderedDictionary: NavDict = [];
-	const isFallback = true
-	for (const entry of enNav) {
-		const matchedObject = dict.find(value => value.key === entry.key)
-		if (matchedObject) {
-			const text = matchedObject.text
+	const parsingNavMenu = (enMenu: any, dict: navMatching) => {
+		const orderedDictionary: NavDict = [];
+		for (const entry of enMenu) {
+			const matchedObject = dict.find(value => value.key === entry.key)
+			const children = entry.children ? parsingNavMenu(entry.children, dict) : undefined
 
-			if (matchedObject.slug) {
-				const slug = matchedObject.slug
-				orderedDictionary.push({ ...entry, text, slug });
+			if (matchedObject) {
+				const text = matchedObject.text
+
+				if (matchedObject.slug) {
+					orderedDictionary.push({ ...entry, text, slug: matchedObject.slug});
+				} else if (children) {
+					orderedDictionary.push({ ...entry, text, children});
+				} else {
+					orderedDictionary.push({ ...entry, text, isFallback: true });
+				}
 			} else {
-				orderedDictionary.push({ ...entry, text, isFallback });
+				if (children) {
+					orderedDictionary.push({ ...entry, children});
+				} else {
+					orderedDictionary.push({ ...entry, isFallback: true })
+				}
 			}
-		} else {
-			orderedDictionary.push({ ...entry, isFallback })
 		}
+	
+		return orderedDictionary
 	}
 
-	// console.log(orderedDictionary)
+	const orderedDictionary = parsingNavMenu(enNav, dict)
 	return orderedDictionary;
 };
 export interface HeaderMenuTranslation {

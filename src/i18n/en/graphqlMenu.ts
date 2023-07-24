@@ -23,10 +23,12 @@
 	{ text: 'Limits', header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-limits', key: 'limits' },
 	{ text: 'Error Responses', header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-error-responses', key: 'queries/error-responses' },
 
-	{ text: 'Guides', header: true, type: 'learn', key: 'guides' },
-	{ text: 'How to query GraphQL requests on Postman', slug: '/documentation/products/guides/query-graphql-postman', key: 'guides/graphql-postman' },
-	{ text: 'How to query metadata with GraphQL API', slug: '/documentation/products/guides/graphql-metadata', key: 'guides/graphql-metadata' },
-	{ text: 'How to query aggregated data with GraphQL API', slug: '/documentation/products/guides/graphql-aggregated-data', key: 'guides/graphql-aggregated-data' },
-	{ text: 'How to select Top X queries with GraphQL API', slug: '/documentation/products/guides/graphql-top-x-query', key: 'guides/graphql-top-x' },
+	{ text: 'Guides', header: true, type: 'learn', key: 'guides', children: [
+		{ text: 'How to query GraphQL requests on Postman', slug: '/documentation/products/guides/query-graphql-postman', key: 'guides/graphql-postman' },
+		{ text: 'How to query metadata with GraphQL API', slug: '/documentation/products/guides/graphql-metadata', key: 'guides/graphql-metadata' },
+		{ text: 'How to query aggregated data with GraphQL API', slug: '/documentation/products/guides/graphql-aggregated-data', key: 'guides/graphql-aggregated-data' },
+		{ text: 'How to select Top X queries with GraphQL API', slug: '/documentation/products/guides/graphql-top-x-query', key: 'guides/graphql-top-x' },
+	] },
+
 
 ] as const;
