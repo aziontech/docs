@@ -48,7 +48,7 @@ function getLinksFromMenu(navLinks: any): NavItem[] {
 }
 
 export function getPreviousAndNext(links: NavItem[], Astro: Readonly<AstroGlobal>): PreviousAndNext {
-  const index = links.findIndex((x) => Astro.url.pathname.replace(/\/$/, '').endsWith(x.slug));
+  const index = links.findIndex((x) => removeTrailingSlash(Astro.url.pathname).endsWith(removeTrailingSlash(x.slug)));
   const lang = getLanguageFromURL(Astro.url.pathname);
 
   const makeLinkItem = ({ text, slug, isFallback }: NavItem): LinkItem => ({
