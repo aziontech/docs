@@ -7,7 +7,7 @@ description:
 meta_tags:
 
 namespace:
-menu_namespace:
+menu_namespace: "nav"
 
 product_cards:
     - title:
