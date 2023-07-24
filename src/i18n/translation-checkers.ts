@@ -9,15 +9,18 @@ export type UILanguageKeys = keyof typeof languages;
 /** Helper to type check a dictionary of UI string translations. */
 export const UIDictionary = (dict: Partial<typeof enUI>) => dict;
 
-type NavDictionaryKeys = typeof enNav[number]['key'];
-
 export type NavDict = Array<
 	{
 		text: string;
-		key: NavDictionaryKeys;
+		header?: boolean;
+		onlyMobile?: boolean;
+		anchor?: boolean;
+		type?: string;
+		slug?: string;
+		key: string;
 		isFallback?: boolean;
-		children?: Array<NavDict>;
-	} & ({ slug: string } | { header: true; type: 'learn' })
+		children?: NavDict;
+	}
 >;
 
 /**

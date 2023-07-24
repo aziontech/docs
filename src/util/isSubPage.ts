@@ -2,6 +2,8 @@ import { removeLeadingSlash, removeTrailingSlash } from '~/util'
 import type { CollectionEntry } from 'astro:content';
 import { englishPages } from '~/content';
 import { getPageCategory } from './getPageCategory';
+import type { NavDict } from '~/i18n/translation-checkers';
+
 
 
 /** Remove the sub-page segment of a URL string */
@@ -33,17 +35,6 @@ const categoryIndex: Partial<Record<ReturnType<typeof getPageCategory>, string>>
  * @param parentSlug The language-less slug for the parent to test against e.g. `'guides/content-collections'`
  */
 
-interface SidebarSections {
-  text: string;
-  header?: boolean;
-  onlyMobile?: boolean;
-  anchor?: boolean;
-  type?: string;
-  slug?: string;
-  key: string;
-  isFallback?: boolean;
-  children?: Array<SidebarSections>;
-}
 
 export function isSubPage(currentPage: string, parentSlug: string | undefined, lang: string): boolean {
 	const page = removeTrailingSlash(removeLeadingSlash(currentPage));
@@ -64,7 +55,7 @@ export function isSubPage(currentPage: string, parentSlug: string | undefined, l
 	return false;
 }
 
-export const isSubMenu = (currentPage: string, lang: string, slugs?: Array<SidebarSections>): boolean => {
+export const isSubMenu = (currentPage: string, lang: string, slugs?: NavDict): boolean => {
 	if (!Array.isArray(slugs)) return false
 
 	const foundSlug = slugs.find(slug => {

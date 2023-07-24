@@ -2,27 +2,16 @@ import { isSubPage, isSubMenu } from '~/util/isSubPage';
 import { modelSlug } from '~/util';
 import ExternalLinkIcon from '~/components/icons/ExternalLinkIcon';
 import './SidebarContent.scss'
-
-interface data {
-  text: string;
-  header?: boolean;
-  onlyMobile?: boolean;
-  anchor?: boolean;
-  type?: string;
-  slug?: string;
-  key: string;
-  isFallback?: boolean;
-  children?: Array<data>;
-}
+import type { NavDict } from '~/i18n/translation-checkers';
 
 interface Props {
-	data: data[] | undefined,
+	data: NavDict | undefined,
 	lang: string,
 	currentPageMatch: string,
 }
 
 const MenuItems = ({data, lang, currentPageMatch}: Props ) => {
-	const renderMenuItems = (data: data[] | undefined) => {
+	const renderMenuItems = (data: NavDict | undefined) => {
 		return (
 				<ul>
 					{data && data.map(({ slug, text, isFallback, children }) => (
