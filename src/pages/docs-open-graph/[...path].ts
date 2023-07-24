@@ -50,8 +50,8 @@ export const { getStaticPaths, get } = OGImageRoute({
 				},
 			},
 			fonts: [
-				'https://assets.azion.com/static/font/roboto-bold.ttf',
-				'https://assets.azion.com/static/font/roboto-regular.ttf'
+				'https://fonts.azion.com/roboto/roboto-bold.ttf',
+				'https://fonts.azion.com/roboto/roboto-regular.ttf'
 			],
 		};
 	},
