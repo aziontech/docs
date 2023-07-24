@@ -17,7 +17,7 @@ const Card = (({ icon, title, description, link }: Props) => {
 		<a className="card-homepage" rel="noreferrer" href={link} target={link?.includes('https') ? "_blank" : "_self"} title={title}>
 			<div>
 				<i>
-					<img width="36" height="36" src={"https://www.azion.com" + icon} alt={title + "icon"} />
+					<img width="36" height="36" src={icon} alt={title + "icon"} />
 				</i>
 				<div className="box-text">
 					<h4 className="card-homepage-title"> {title} </h4>
