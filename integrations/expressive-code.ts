@@ -21,11 +21,14 @@ Object.entries(translations).forEach(([locale, texts]) => {
 export const theme = {
 	theme: 'vitesse-dark',
 	styleOverrides: {
-		codeFontFamily: 'var(--font-mono)'
+		codeFontFamily: 'var(--font-mono)',
+		
 	},
-	// frames: {
-	// 	styleOverrides: {
-	// 		editorTabBarBackground: 'var(--color-gray-80)',
-	// 	}
-	// }
+	frames: {
+		styleOverrides: {
+			editorTabBarBackground: 'var(--color-gray-80)',
+			editorActiveTabBorderTop: '#F3652B',
+			editorTabBorderRadius: '6px'
+		}
+	}
 };
