@@ -14,7 +14,7 @@ type ExcludeStringAndUndefined<T> = T extends string | undefined ? never : T;
 type IShikiTheme = ExcludeStringAndUndefined<ShikiConfig['theme']>;
 
 export const theme: IShikiTheme = {
-	name: 'vitesse',
+	name: 'Star Gazer',
 	type: 'dark',
 	fg: foregroundPrimary,
 	bg: backgroundPrimary,
@@ -90,7 +90,7 @@ export const theme: IShikiTheme = {
 			name: 'Entity Name Function',
 			scope: 'entity.name.function',
 			settings: {
-				foreground: '#F3652B',
+				foreground: blue[0],
 			},
 		},
 		{
