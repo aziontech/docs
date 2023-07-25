@@ -1,14 +1,92 @@
 import type { ShikiConfig } from 'astro';
 
-const red = { 0: '#F3652B' }; // $orange-500
-const yellow = { 0: '#EBCB8B', 1: '#FEC111' };
-const blue = { 0: '#9EA8FA', 1: '#5E81AC' };
-const green = { 0: '#8BC249' };
-const cyan = { 0: '#23b1af' };
-const grey = { 0: '#d8dee9', 1: '#c7c5d3', 2: '#aba8bd', 9: '#312749' };
+const red = {
+	900: '#350D0D',
+	800: '#5D1818',
+	700: '#862222',
+	600: '#AF2C2C',
+	500: '#E32B2B',
+	400: '#FF4141',
+	300: '#FF6666',
+	200: '#FF9999',
+	100: '#FFCCCC',
+	50: '#FFE5E5'
+};
 
-const foregroundPrimary = grey[0];
-const backgroundPrimary = grey[9];
+const orange = {
+	900: '#2B1208',
+	800: '#562410',
+	700: '#994000',
+	600: '#DA5A26',
+	500: '#F3652B',
+	400: '#F4733e',
+	300: '#F7966e',
+	200: '#FAB99E',
+	100: '#FCDCCF',
+	50: '#FEEDE7'
+};
+
+const yellow = {
+	900: '#3D2F06',
+	800: '#6E5407',
+	700: '#9E780B',
+	600: '#CE9C0E',
+	500: '#FEC111',
+	400: '#FECA34',
+	300: '#FED767',
+	200: '#FFE599',
+	100: '#FFF2CC',
+	50: '#FFF8E6'
+};
+
+const blue = {
+	900: '#030730',
+	800: '#050F61',
+	700: '#081691',
+	600: '#0B1DC1',
+	500: '#132Af2',
+	400: '#3E50f4',
+	300: '#6E7Cf7',
+	200: '#9EA8FA',
+	100: '#CFD3FC',
+	50: '#E7E9FD'
+};
+
+const green = {
+	900: '1B250E',
+	800: '354A1C',
+	700: '506F2A',
+	600: '6A9438',
+	500: '8BC249',
+	400: '9ECC66',
+	300: 'B6D98C',
+	200: 'CEE5B3',
+	100: 'E7F2D9',
+	50: 'F3F9EC'
+};
+
+const grey = {
+	950: '#0D0D0D',
+	900: '#1E1E1E',
+	800: '#333333',
+	700: '#4D4D4D',
+	600: '#666666',
+	500: '#808080',
+	400: '#999999',
+	300: '#B2B2B2',
+	200: '#CCCCCC',
+	100: '#E5E5E5',
+	75: '#FAFAFA',
+	50: '#F2F2F2'
+};
+
+const cyan = {
+	0: '#23b1af'
+};
+
+
+const foregroundPrimary = grey[50];
+const backgroundPrimary = grey[900];
 
 type ExcludeStringAndUndefined<T> = T extends string | undefined ? never : T;
 type IShikiTheme = ExcludeStringAndUndefined<ShikiConfig['theme']>;
@@ -41,70 +119,70 @@ export const theme: IShikiTheme = {
 			name: 'Comment',
 			scope: 'comment',
 			settings: {
-				foreground: grey[2],
+				foreground: green[600],
 			},
 		},
 		{
 			name: 'Constant Character',
 			scope: 'constant.character',
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Constant Character Escape',
 			scope: 'constant.character.escape',
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Constant Language',
 			scope: 'constant.language',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: 'Constant Numeric',
 			scope: 'constant.numeric',
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Constant Regexp',
 			scope: 'constant.regexp',
 			settings: {
-				foreground: yellow[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: 'Entity Name Class/Type',
 			scope: ['entity.name.class', 'entity.name.type.class'],
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Entity Name Function',
 			scope: 'entity.name.function',
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
 			name: 'Entity Name Tag',
 			scope: 'entity.name.tag',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: 'Entity Other Attribute Name',
 			scope: 'entity.other.attribute-name',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -112,7 +190,7 @@ export const theme: IShikiTheme = {
 			scope: 'entity.other.inherited-class',
 			settings: {
 				fontStyle: 'bold',
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -120,7 +198,7 @@ export const theme: IShikiTheme = {
 			scope: 'invalid.deprecated',
 			settings: {
 				foreground: foregroundPrimary,
-				background: yellow[0],
+				background: yellow[200],
 			},
 		},
 		{
@@ -128,28 +206,28 @@ export const theme: IShikiTheme = {
 			scope: 'invalid.illegal',
 			settings: {
 				foreground: foregroundPrimary,
-				background: red[0],
+				background: red[500],
 			},
 		},
 		{
 			name: 'Keyword',
 			scope: 'keyword',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500], 
 			},
 		},
 		{
 			name: 'Keyword Operator',
 			scope: 'keyword.operator',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: 'Keyword Other New',
 			scope: 'keyword.other.new',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
@@ -163,35 +241,35 @@ export const theme: IShikiTheme = {
 			name: 'Markup Changed',
 			scope: 'markup.changed',
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Markup Deleted',
 			scope: 'markup.deleted',
 			settings: {
-				foreground: red[0],
+				foreground: red[500],
 			},
 		},
 		{
 			name: 'Markup Inserted',
 			scope: 'markup.inserted',
 			settings: {
-				foreground: green[0],
+				foreground: green[300],
 			},
 		},
 		{
 			name: 'Meta Preprocessor',
 			scope: 'meta.preprocessor',
 			settings: {
-				foreground: blue[1],
+				foreground: blue[200],
 			},
 		},
 		{
 			name: 'Punctuation',
 			scope: 'punctuation',
 			settings: {
-				foreground: grey[1],
+				foreground: grey[100],
 			},
 		},
 		{
@@ -202,7 +280,7 @@ export const theme: IShikiTheme = {
 				'punctuation.definition.parameters',
 			],
 			settings: {
-				foreground: foregroundPrimary,
+				foreground: '#ddd',
 			},
 		},
 		{
@@ -213,14 +291,14 @@ export const theme: IShikiTheme = {
 				'punctuation.start.definition.comment',
 			],
 			settings: {
-				foreground: grey[2],
+				foreground: grey[300],
 			},
 		},
 		{
 			name: 'Misc blocks',
 			scope: ['source.astro meta.brace.round'],
 			settings: {
-				foreground: grey[2],
+				foreground: grey[300],
 			},
 		},
 		{
@@ -234,112 +312,112 @@ export const theme: IShikiTheme = {
 			name: 'Punctuation Section Embedded',
 			scope: ['punctuation.section.embedded.begin', 'punctuation.section.embedded.end'],
 			settings: {
-				foreground: red[0],
+				foreground: red[500],
 			},
 		},
 		{
 			name: 'Punctuation Terminator',
 			scope: 'punctuation.terminator',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: 'Punctuation Variable',
 			scope: 'punctuation.definition.variable',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: 'Storage',
 			scope: 'storage',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: 'String',
 			scope: 'string',
 			settings: {
-				foreground: green[0],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'String Regexp',
 			scope: 'string.regexp',
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Support Class',
 			scope: 'support.class',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Support Constant',
 			scope: 'support.constant',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: 'Support Function',
 			scope: 'support.function',
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
 			name: 'Support Function Construct',
 			scope: 'support.function.construct',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: 'Support Type',
 			scope: 'support.type',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Support Type Exception',
 			scope: 'support.type.exception',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Token Debug',
 			scope: 'token.debug-token',
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: 'Token Error',
 			scope: 'token.error-token',
 			settings: {
-				foreground: red[0],
+				foreground: red[500],
 			},
 		},
 		{
 			name: 'Token Info',
 			scope: 'token.info-token',
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
 			name: 'Token Warning',
 			scope: 'token.warn-token',
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -353,7 +431,7 @@ export const theme: IShikiTheme = {
 			name: 'Variable Language',
 			scope: 'variable.language',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
@@ -367,42 +445,42 @@ export const theme: IShikiTheme = {
 			name: 'Quotes',
 			scope: ['punctuation.definition.string.begin', 'punctuation.definition.string.end'],
 			settings: {
-				foreground: green[0],
+				foreground: green[300],
 			},
 		},
 		{
 			name: 'Punctuation ends (ex. semicolons)',
 			scope: ['punctuation.terminator.statement', 'punctuation.terminator.rule'],
 			settings: {
-				foreground: grey[1],
+				foreground: grey[100],
 			},
 		},
 		{
 			name: '[Astro] Embedded expressions as HTML props',
 			scope: ['expression.embbeded.astro'],
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: '[Astro] Embedded expressions as HTML props',
 			scope: ['expression.embbeded.astro meta.brace'],
 			settings: {
-				foreground: grey[1],
+				foreground: grey[100],
 			},
 		},
 		{
 			name: '[C/CPP] Punctuation Separator Pointer-Access',
 			scope: 'punctuation.separator.pointer-access.c',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: '[C/CPP] Meta Preprocessor Include',
 			scope: ['source.c meta.preprocessor.include', 'source.c string.quoted.other.lt-gt.include'],
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -414,7 +492,7 @@ export const theme: IShikiTheme = {
 				'source.c punctuation.definition.directive',
 			],
 			settings: {
-				foreground: blue[1],
+				foreground: blue[200],
 				fontStyle: 'bold',
 			},
 		},
@@ -429,14 +507,14 @@ export const theme: IShikiTheme = {
 			name: '[CSS] Property values',
 			scope: ['meta.property-value.css', 'meta.property-list.css', 'source.css keyword.other.unit'],
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: '[CSS] Units',
 			scope: ['source.css keyword.other.unit'],
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -450,14 +528,14 @@ export const theme: IShikiTheme = {
 			name: '[CSS] Constant in string (ex. data attribute)',
 			scope: ['string.quoted.double.css', 'string.quoted.single.css'],
 			settings: {
-				foreground: green[0],
+				foreground: green[300],
 			},
 		},
 		{
 			name: '[CSS](Function) Meta Property-Value',
 			scope: 'source.css meta.property-value',
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
@@ -481,42 +559,42 @@ export const theme: IShikiTheme = {
 			name: '[diff] Meta Range Context',
 			scope: 'source.diff meta.diff.range.context',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: '[diff] Meta Header From-File',
 			scope: 'source.diff meta.diff.header.from-file',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: '[diff] Punctuation Definition From-File',
 			scope: 'source.diff punctuation.definition.from-file',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: '[diff] Punctuation Definition Range',
 			scope: 'source.diff punctuation.definition.range',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: '[diff] Punctuation Definition Separator',
 			scope: 'source.diff punctuation.definition.separator',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: '[Elixir](JakeBecker.elixir-ls) module names',
 			scope: 'entity.name.type.module.elixir',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -539,14 +617,14 @@ export const theme: IShikiTheme = {
 			name: '[Elixir](JakeBecker.elixir-ls) modules',
 			scope: 'variable.other.constant.elixir',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: '[Go] String Format Placeholder',
 			scope: 'source.go constant.other.placeholder.go',
 			settings: {
-				foreground: yellow[0],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -564,14 +642,14 @@ export const theme: IShikiTheme = {
 			name: '[JavaScript] Meta Object-Literal Key',
 			scope: 'source.js meta.object-literal.key',
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
 			name: '[JavaScript](JSDoc) Storage Type Class',
 			scope: 'source.js storage.type.class.jsdoc',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -582,7 +660,7 @@ export const theme: IShikiTheme = {
 				'source.js string.template punctuation.definition.template-expression',
 			],
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
@@ -606,7 +684,7 @@ export const theme: IShikiTheme = {
 			name: '[JavaScript] Support Type Primitive',
 			scope: 'source.js support.type.primitive',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
@@ -620,7 +698,7 @@ export const theme: IShikiTheme = {
 			name: '[JavaScript] Variable Other Read-Write Alias',
 			scope: 'source.js variable.other.readwrite.alias',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -640,14 +718,14 @@ export const theme: IShikiTheme = {
 			name: '[JavaScript] Braces',
 			scope: ['source.astro meta.brace.square', 'source.astro meta.brace.round'],
 			settings: {
-				foreground: grey[2],
+				foreground: grey[300],
 			},
 		},
 		{
 			name: '[HTML] Constant Character Entity',
 			scope: 'text.html.basic constant.character.entity.html',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -662,28 +740,28 @@ export const theme: IShikiTheme = {
 			name: '[HTML] Meta Tag SGML Doctype',
 			scope: 'text.html.basic meta.tag.sgml.doctype',
 			settings: {
-				foreground: blue[1],
+				foreground: blue[200],
 			},
 		},
 		{
 			name: '[HTML] Punctuation Definition Entity',
 			scope: 'text.html.basic punctuation.definition.entity',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: '[INI] Entity Name Section Group-Title',
 			scope: 'source.properties entity.name.section.group-title.ini',
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
 			name: '[INI] Punctuation Separator Key-Value',
 			scope: 'source.properties punctuation.separator.key-value.ini',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
@@ -693,14 +771,14 @@ export const theme: IShikiTheme = {
 				'text.html.markdown markup.fenced_code.block punctuation.definition',
 			],
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: '[Markdown] Markup Heading',
 			scope: 'markup.heading',
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
@@ -710,7 +788,7 @@ export const theme: IShikiTheme = {
 				'text.html.markdown markup.inline.raw punctuation.definition.raw',
 			],
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -731,28 +809,28 @@ export const theme: IShikiTheme = {
 			name: '[Markdown] Markup List Numbered/Unnumbered',
 			scope: 'text.html.markdown beginning.punctuation.definition.list',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: '[Markdown] Markup Quote Punctuation Definition',
 			scope: 'text.html.markdown beginning.punctuation.definition.quote',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: '[Markdown] Markup Quote Punctuation Definition',
 			scope: 'text.html.markdown markup.quote',
 			settings: {
-				foreground: grey[2],
+				foreground: grey[300],
 			},
 		},
 		{
 			name: '[Markdown] Markup Math Constant',
 			scope: 'text.html.markdown constant.character.math.tex',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
@@ -762,28 +840,28 @@ export const theme: IShikiTheme = {
 				'text.html.markdown punctuation.definition.math.end',
 			],
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
 			name: '[Markdown] Markup Math Function Definition Marker',
 			scope: 'text.html.markdown punctuation.definition.function.math.tex',
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
 			name: '[Markdown] Markup Math Operator',
 			scope: 'text.html.markdown punctuation.math.operator.latex',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
 			name: '[Markdown] Punctuation Definition Heading',
 			scope: 'text.html.markdown punctuation.definition.heading',
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
@@ -793,7 +871,7 @@ export const theme: IShikiTheme = {
 				'text.html.markdown punctuation.definition.string',
 			],
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
@@ -804,7 +882,7 @@ export const theme: IShikiTheme = {
 				'text.html.markdown string.other.link.title',
 			],
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
@@ -814,7 +892,7 @@ export const theme: IShikiTheme = {
 				'source.css.scss punctuation.definition.interpolation.end.bracket.curly',
 			],
 			settings: {
-				foreground: red[0],
+				foreground: orange[500],
 			},
 		},
 		{
@@ -853,7 +931,7 @@ export const theme: IShikiTheme = {
 				'source.tsx meta.object-literal.key entity.name.function',
 			],
 			settings: {
-				foreground: blue[0],
+				foreground: blue[50],
 			},
 		},
 		{
@@ -869,7 +947,7 @@ export const theme: IShikiTheme = {
 				'source.tsx entity.name.class',
 			],
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -883,7 +961,7 @@ export const theme: IShikiTheme = {
 				'source.tsx support.constant.json',
 			],
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
@@ -909,21 +987,21 @@ export const theme: IShikiTheme = {
 			name: '[XML] Entity Name Tag Namespace',
 			scope: 'text.xml entity.name.tag.namespace',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 		{
 			name: '[XML] Keyword Other Doctype',
 			scope: 'text.xml keyword.other.doctype',
 			settings: {
-				foreground: blue[1],
+				foreground: blue[200],
 			},
 		},
 		{
 			name: '[XML] Meta Tag Preprocessor',
 			scope: 'text.xml meta.tag.preprocessor entity.name.tag',
 			settings: {
-				foreground: blue[1],
+				foreground: blue[200],
 			},
 		},
 		{
@@ -940,7 +1018,7 @@ export const theme: IShikiTheme = {
 			name: '[YAML] Entity Name Tag',
 			scope: 'source.yaml entity.name.tag',
 			settings: {
-				foreground: yellow[1],
+				foreground: yellow[200],
 			},
 		},
 	],
