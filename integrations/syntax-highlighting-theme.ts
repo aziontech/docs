@@ -1,9 +1,9 @@
 import type { ShikiConfig } from 'astro';
 
-const red = { 0: '#ff657c' };
-const yellow = { 0: '#EBCB8B', 1: '#ffbd2e' };
-const blue = { 0: '#66adff', 1: '#5E81AC' };
-const green = { 0: '#16c082' };
+const red = { 0: '#F3652B' }; // $orange-500
+const yellow = { 0: '#EBCB8B', 1: '#FEC111' };
+const blue = { 0: '#9EA8FA', 1: '#5E81AC' };
+const green = { 0: '#8BC249' };
 const cyan = { 0: '#23b1af' };
 const grey = { 0: '#d8dee9', 1: '#c7c5d3', 2: '#aba8bd', 9: '#312749' };
 
@@ -14,7 +14,7 @@ type ExcludeStringAndUndefined<T> = T extends string | undefined ? never : T;
 type IShikiTheme = ExcludeStringAndUndefined<ShikiConfig['theme']>;
 
 export const theme: IShikiTheme = {
-	name: 'vitesse',
+	name: 'Star Gazer',
 	type: 'dark',
 	fg: foregroundPrimary,
 	bg: backgroundPrimary,
@@ -90,7 +90,7 @@ export const theme: IShikiTheme = {
 			name: 'Entity Name Function',
 			scope: 'entity.name.function',
 			settings: {
-				foreground: '#F3652B',
+				foreground: blue[0],
 			},
 		},
 		{

@@ -1,6 +1,9 @@
-import { pluginFramesTexts } from 'astro-expressive-code';
+import { astroExpressiveCode, ExpressiveCodeTheme, pluginFramesTexts } from 'astro-expressive-code';
+// import path from 'path';
 import { translations } from '../src/i18n/util';
+import { theme } from './syntax-highlighting-theme';
 
+// Provide Expressive Code with texts from our translations
 Object.entries(translations).forEach(([locale, texts]) => {
 	pluginFramesTexts.overrideTexts(locale, {
 		terminalWindowFallbackTitle: texts['expressiveCode.terminalWindowFallbackTitle'],
@@ -9,26 +12,38 @@ Object.entries(translations).forEach(([locale, texts]) => {
 	});
 });
 
-
-/**
- * dark-plus, dracula-soft, dracula, github-dark-dimmed, github-dark,
- * github-light, hc_light, light-plus, material-theme-darker,
- * material-theme-lighter, material-theme-ocean, material-theme-palenight,
- * material-theme, min-dark, min-light, monokai, nord, one-dark-pro,
- * poimandres, rose-pine-dawn, rose-pine-moon, rose-pine, slack-dark,
- * slack-ochin, solarized-dark, solarized-light, vitesse-dark, vitesse-light
- */
-export const theme = {
-	theme: 'vitesse-dark',
-	styleOverrides: {
-		codeFontFamily: 'var(--font-mono)',
-		
-	},
-	frames: {
+// Allow creation of a pre-configured Expressive Code integration that matches the Astro Docs theme
+export const astroDocsExpressiveCode = () =>
+	astroExpressiveCode({
+		theme: new ExpressiveCodeTheme(theme),
 		styleOverrides: {
-			editorTabBarBackground: 'var(--color-gray-80)',
-			editorActiveTabBorderTop: '#F3652B',
-			editorTabBorderRadius: '6px'
-		}
-	}
-};
+			codeBackground: '#151515',
+			borderColor: 'var(--color-gray-90)',
+			scrollbarThumbColor: 'hsl(269deg 20% 90% / 0.25)',
+			scrollbarThumbHoverColor: 'hsl(269deg 20% 90% / 0.5)',
+			codeFontFamily: 'var(--font-mono)'
+		},
+		frames: {
+			styleOverrides: {
+				editorTabBarBackground: 'var(--color-gray-90)',
+				editorActiveTabBackground: '#151515',
+				editorActiveTabBorderBottom: '#F3652B',
+				editorTabBarBorderBottom: 'transparent',
+
+				terminalTitlebarBackground: 'var(--color-gray-90)',
+				terminalTitlebarBorderBottom: 'transparent',
+				terminalBackground: '#151515',
+			},
+		},
+		textMarkers: {
+			styleOverrides: {
+				defaultChroma: '55',
+			},
+		},
+		// getBlockLocale: ({ file }) => {
+		// 	// Path format: `src/content/docs/en/getting-started.mdx`
+		// 	// Part indices:  0     1      2   3         4
+		// 	const pathParts = path.relative(file.cwd, file.path).split(/[\\/]/);
+		// 	return pathParts[3];
+		// },
+	});
