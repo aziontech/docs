@@ -9,8 +9,10 @@ import remarkSmartypants from 'remark-smartypants';
 import dynamicImport from 'vite-plugin-dynamic-import'
 
 import { asideAutoImport, astroAsides } from './integrations/astro-asides';
-import { theme } from './integrations/expressive-code';
-import astroExpressiveCode from 'astro-expressive-code';
+// import { theme } from './integrations/expressive-code';
+// import astroExpressiveCode from 'astro-expressive-code';
+import { astroDocsExpressiveCode } from './integrations/expressive-code';
+
 import { sitemap } from './integrations/sitemap';
 import { autolinkConfig } from './plugins/rehype-autolink-config';
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
@@ -22,8 +24,7 @@ export default defineConfig({
 	site: 'https://www.azion.com/',
 	trailingSlash: 'always', // for server
 	build: {
-		assets: '_astro_docs',
-		redirects: false
+		assets: '_astro_docs'
 		// inlineStylesheets: 'always'
 	},
 	integrations: [
@@ -33,7 +34,7 @@ export default defineConfig({
 		preact({ compat: true }),
 		sitemap(),
 		astroAsides(),
-		astroExpressiveCode(theme),
+		astroDocsExpressiveCode(),
 		mdx(),
 	],
 	markdown: {
