@@ -53,16 +53,16 @@ const blue = {
 };
 
 const green = {
-	900: '1B250E',
-	800: '354A1C',
-	700: '506F2A',
-	600: '6A9438',
-	500: '8BC249',
-	400: '9ECC66',
-	300: 'B6D98C',
-	200: 'CEE5B3',
-	100: 'E7F2D9',
-	50: 'F3F9EC'
+	900: '#1B250E',
+	800: '#354A1C',
+	700: '#506F2A',
+	600: '#6A9438',
+	500: '#8BC249',
+	400: '#9ECC66',
+	300: '#B6D98C',
+	200: '#CEE5B3',
+	100: '#E7F2D9',
+	50: '#F3F9EC',
 };
 
 const grey = {
@@ -119,7 +119,7 @@ export const theme: IShikiTheme = {
 			name: 'Comment',
 			scope: 'comment',
 			settings: {
-				foreground: green[600],
+				foreground: grey[700],
 			},
 		},
 		{
