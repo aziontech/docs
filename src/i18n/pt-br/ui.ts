@@ -108,4 +108,5 @@ export default UIDictionary({
 	// `<RecipeLinks>` vocabulary
 	'recipesLink.singular': 'Receita relacionada:',
 	'recipesLink.plural': 'Receitas relacionadas',
+	'breadcrumb.home': 'Documentação'
 });
