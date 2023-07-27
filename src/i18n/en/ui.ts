@@ -31,8 +31,8 @@ export default {
 	// Footer
 	'footer.privacyPolicy': 'Privacy Policy',
 	// `<ThemeToggleButton>` acessibility labels
-	'themeToggle.useLight': 'Use light theme',
-	'themeToggle.useDark': 'Use dark theme',
+	'themeToggle.useLight': 'Light theme',
+	'themeToggle.useDark': 'Dark theme',
 	// Used in previous/next page links at the bottom of pages
 	'articleNav.nextPage': 'Next Page',
 	'articleNav.prevPage': 'Back',
@@ -73,8 +73,6 @@ export default {
 	'aside.tip': 'Tip',
 	'aside.caution': 'Caution',
 	'aside.danger': 'Danger',
-	// `<CodeSnippet>` vocabulary
-	'codeSnippet.terminalCaption': 'Terminal window',
 	// `<LanguageSelect>` vocabulary
 	'languageSelect.label': 'Select language',
 	// Integrations vocabulary
@@ -113,9 +111,12 @@ export default {
 	'feedback.success': 'Thanks! We received your feedback.',
 	// `<FileTree>` component
 	'fileTree.directoryLabel': 'Directory',
-	// CopyButton class in `<CodeSnippet>` component
 	'copyButton.title': 'Copy to clipboard',
 	'copyButton.tooltip': 'Copied!',
 	// Backend Guides vocabulary
 	'backend.navTitle': 'More backend service guides',
+	// Code snippet vocabulary
+	'expressiveCode.terminalWindowFallbackTitle': 'Terminal window',
+	'expressiveCode.copyButtonTooltip': 'Copy to clipboard',
+	'expressiveCode.copyButtonCopied': 'Copied!',
 };

@@ -1,5 +1,6 @@
 import algoliasearch from 'algoliasearch';
 import { InstantSearch, SearchBox, Hits, Highlight, Configure, useInstantSearch } from 'react-instantsearch-hooks-web';
+import './AlgoliaTheme.css'
 import './AlgoliaSearch.scss'
 
 const searchClient = algoliasearch(
@@ -66,9 +67,7 @@ function AlgoliaSearch({ lang }) {
 											class="btn btn-tertiary-light btn-algolia-close">
 											{lang == 'en' ? 'close' : lang == 'es' ? 'cerrar' : 'fechar'}
 										</button>
-										<SearchBox autofocus={true} placeholder="" classNames={{
-											'ais-SearchBox-resetIcon': 'remove-icon'
-										}} />
+										<SearchBox />
 									</div>
 								</div>
 							</div>

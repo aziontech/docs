@@ -24,10 +24,12 @@
 	{ text: 'Limites', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api-limites', key: 'limits' },
 	{ text: 'Mensagens de erro', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api-mensagens-erro', key: 'queries/error-responses' },
 
-	{ text: 'Guias', header: true, type: 'learn', key: 'guides' },
-	{ text: 'Como rodar requisições da GraphQL no Postman', slug: '/documentacao/produtos/guias/consultar-graphql-postman', key: 'guides/graphql-postman' },
-	{ text: 'Como consultar metadados com a GraphQL API', slug: '/documentacao/produtos/guias/graphql-metadados', key: 'guides/graphql-metadata' },
-	{ text: 'Como realizar consultas agregando dados com a GraphQL API', slug: '/documentacao/produtos/guias/graphql-dados-agregados', key: 'guides/graphql-aggregated-data' },
-	{ text: 'Como selecionar Top X queries com a GraphQL API', slug: '/documentacao/produtos/guias/graphql-query-top-x', key: 'guides/graphql-top-x' },
+	{ text: 'Guias', header: true, type: 'learn', key: 'guides', children: [
+		{ text: 'Como rodar requisições da GraphQL no Postman', slug: '/documentacao/produtos/guias/consultar-graphql-postman', key: 'guides/graphql-postman' },
+		{ text: 'Como consultar metadados com a GraphQL API', slug: '/documentacao/produtos/guias/graphql-metadados', key: 'guides/graphql-metadata' },
+		{ text: 'Como realizar consultas agregando dados com a GraphQL API', slug: '/documentacao/produtos/guias/graphql-dados-agregados', key: 'guides/graphql-aggregated-data' },
+		{ text: 'Como selecionar Top X queries com a GraphQL API', slug: '/documentacao/produtos/guias/graphql-query-top-x', key: 'guides/graphql-top-x' },
+	] },
+
 
 ];

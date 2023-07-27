@@ -1,46 +1,63 @@
 import type { AstroGlobal } from 'astro';
 import { getLanguageFromURL } from '../util';
 import { getNavigationMenu } from './getNav';
+import { removeTrailingSlash, removeLeadingSlash } from '../util';
 
 interface NavItem {
-	text: string;
-	slug: string;
-	isFallback?: boolean
+  text: string;
+  slug: string;
+  isFallback?: boolean;
 }
 
 interface LinkItem {
-	text: string;
-	link: string;
+  text: string;
+  link: string;
 }
 
 interface PreviousAndNext {
-	previous?: LinkItem;
-	next?: LinkItem;
+  previous?: LinkItem;
+  next?: LinkItem;
 }
 
-/**
- * This helper looks for the current page in the global navigation object and,
- * if it finds it, returns the pages before and after it to help build links.
- * @param Astro The Astro global
- * @returns `previous` and `next` links if available
- */
-export async function getNavLinks(Astro: Readonly<AstroGlobal>, menuName: string): Promise<PreviousAndNext> {
-	const links = (await getNavigationMenu(Astro, menuName)).filter((x) => !('header' in x) && x.slug) as NavItem[];
-
-	return getPreviousAndNext(links, Astro);
+export async function getNavLinks(
+  Astro: Readonly<AstroGlobal>,
+  menuName: string,
+): Promise<PreviousAndNext> {
+  const links = await getNavigationMenu(Astro, menuName);
+  const navLinks = getLinksFromMenu(links);
+  return getPreviousAndNext(navLinks, Astro);
 }
 
-export function getPreviousAndNext(
-	links: NavItem[],
-	Astro: Readonly<AstroGlobal>
-): PreviousAndNext {
-	const index = links.findIndex((x) => Astro.url.pathname.replace(/\/$/, '').endsWith(x.slug));
-	const lang = getLanguageFromURL(Astro.url.pathname);
+function getLinksFromMenu(navLinks: any): NavItem[] {
+	const links: NavItem[] = [];
 
-	const makeLinkItem = ({ text, slug, isFallback }: NavItem): LinkItem => ({ text, link: `/${isFallback ? 'en' : lang}/${slug}/` });
+	function extractLinks(items: any) {
 
-	return {
-		previous: index > 0 ? makeLinkItem(links[index - 1]) : undefined,
-		next: index !== -1 && index < links.length - 1 ? makeLinkItem(links[index + 1]) : undefined,
-	};
+		for (const item of items) {
+			if (item.children && item.children.length > 0) {
+				extractLinks(item.children)
+			} else if (item.slug && !item.onlyMobile) {
+				links.push({ text: item.text, slug: item.slug})
+			}
+		}
+	}
+
+	extractLinks(navLinks)
+
+  return links;
+}
+
+export function getPreviousAndNext(links: NavItem[], Astro: Readonly<AstroGlobal>): PreviousAndNext {
+  const index = links.findIndex((x) => removeTrailingSlash(Astro.url.pathname).endsWith(removeTrailingSlash(x.slug)));
+  const lang = getLanguageFromURL(Astro.url.pathname);
+
+  const makeLinkItem = ({ text, slug, isFallback }: NavItem): LinkItem => ({
+    text,
+    link: slug.includes('https') ? slug : `/${isFallback ? 'en' : lang}/${removeTrailingSlash(removeLeadingSlash(slug))}/`,
+  });
+
+  return {
+    previous: index > 0 ? makeLinkItem(links[index - 1]) : undefined,
+    next: index !== -1 && index < links.length - 1 ? makeLinkItem(links[index + 1]) : undefined,
+  };
 }

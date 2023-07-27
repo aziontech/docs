@@ -1,5 +1,5 @@
 import type { GetStaticPathsOptions, GetStaticPathsResult } from 'astro';
-import { getStaticPaths } from '../pages/open-graph/[...path]';
+import { getStaticPaths } from '../pages/docs-open-graph/[...path]';
 
 const routes = (await getStaticPaths({} as GetStaticPathsOptions)) as GetStaticPathsResult;
 
@@ -18,5 +18,5 @@ export function getOgImageUrl(path: string, isFallback: boolean): string | undef
 		// Replace the language segment with 'en' for fallback pages.
 		imagePath = 'en' + imagePath.slice(imagePath.indexOf('/'));
 	}
-	if (paths.has(imagePath)) return '/open-graph/' + imagePath;
+	if (paths.has(imagePath)) return '/docs-open-graph/' + imagePath;
 }

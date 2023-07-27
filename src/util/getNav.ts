@@ -16,8 +16,6 @@ export async function getNavigationMenu(Astro: AstroGlobal, menuName: string): P
 		menuName = getMenuProps.name
 	}
 
-
-	// console.log(menuName)
 	const menu = await mapNavigationMenuByName(menuName, lang)
 
 	return menu[lang]

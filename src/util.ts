@@ -6,13 +6,15 @@ export function getLanguageFromURL(pathname: string) {
 }
 
 /** Remove \ and / from beginning of string */
-export function removeLeadingSlash(path: string) {
-	return path.replace(/^[/\\]+/, '');
+export function removeLeadingSlash(path: string | undefined) {
+	if (typeof path === 'string') return path.replace(/^[/\\]+/, '');
+	return `${path}`
 }
 
 /** Remove \ and / from end of string */
 export function removeTrailingSlash(path: string | undefined) {
 	if (typeof path === 'string') return path.replace(/[/\\]+$/, '');
+	return `${path}`
 }
 
 /** Get a page’s slug, without the language prefix (e.g. `'en/migrate'` => `'migrate'`). */
@@ -50,3 +52,9 @@ export const getTranslatedPagesByNamespace = (collection: CollectionEntry<'docs'
 
 	return result
 }
+
+export const modelSlug = (slug: string | undefined, isFallback: boolean | undefined, lang: string): string => {
+  if (typeof slug !== 'string') return 'Error while parsing slug'
+  if (slug.includes('https')) return slug
+	return `/${isFallback ? 'en' : lang}/${removeTrailingSlash(removeLeadingSlash(slug))}/`;
+};

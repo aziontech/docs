@@ -40,7 +40,7 @@ export async function mapNavigationMenuByName(menuName: string, lang: string) {
 	return mapDefaultNavExports<NavDict>([translations], lang)
 }
 
-const translations = mapDefaultExports<UIDict>(import.meta.glob('./*/ui.ts', { eager: true }));
+export const translations = mapDefaultExports<UIDict>(import.meta.glob('./*/ui.ts', { eager: true }));
 
 export const navTranslations = mapDefaultExports<NavDict>(
 	import.meta.glob('./*/nav.ts', { eager: true })

@@ -2,6 +2,8 @@ import { removeLeadingSlash, removeTrailingSlash } from '~/util'
 import type { CollectionEntry } from 'astro:content';
 import { englishPages } from '~/content';
 import { getPageCategory } from './getPageCategory';
+import type { NavDict } from '~/i18n/translation-checkers';
+
 
 
 /** Remove the sub-page segment of a URL string */
@@ -32,12 +34,13 @@ const categoryIndex: Partial<Record<ReturnType<typeof getPageCategory>, string>>
  * @param currentPage The full slug for the current page, e.g. `'en/astro/guides/rss'`
  * @param parentSlug The language-less slug for the parent to test against e.g. `'guides/content-collections'`
  */
-export function isSubPage(currentPage: string, parentSlug: string): boolean {
+
+
+export function isSubPage(currentPage: string, parentSlug: string | undefined, lang: string): boolean {
 	const page = removeTrailingSlash(removeLeadingSlash(currentPage));
 	const parent = removeTrailingSlash(removeLeadingSlash(parentSlug));
 
-
-	if (page === parent) return true
+	if (page === `${lang}/${parent}`) return true
 
 	const category = getPageCategory({ pathname: '/' + currentPage + '/' });
 	if (categoryIndex[category] === parentSlug) {
@@ -52,7 +55,16 @@ export function isSubPage(currentPage: string, parentSlug: string): boolean {
 	return false;
 }
 
-export const isSubMenu = (currentPage: string, lang: string, slugs: Array<{ text: string; slug: string; isFallback?: boolean }>) => {
-	const foundSlug = slugs.find(slug => `${lang}/${removeTrailingSlash(removeLeadingSlash(slug.slug))}` === removeTrailingSlash(removeLeadingSlash(currentPage)))
+export const isSubMenu = (currentPage: string, lang: string, slugs?: NavDict): boolean => {
+	if (!Array.isArray(slugs)) return false
+
+	const foundSlug = slugs.find(slug => {
+		if (slug.children) {
+			return isSubMenu(currentPage, lang, slug.children)
+		}
+		return `${lang}/${removeTrailingSlash(removeLeadingSlash(slug.slug))}` === removeTrailingSlash(removeLeadingSlash(currentPage))
+	})
+
+
 	return foundSlug !== undefined;
 }

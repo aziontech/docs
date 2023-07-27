@@ -9,31 +9,35 @@ import remarkSmartypants from 'remark-smartypants';
 import dynamicImport from 'vite-plugin-dynamic-import'
 
 import { asideAutoImport, astroAsides } from './integrations/astro-asides';
-import { astroCodeSnippets, codeSnippetAutoImport } from './integrations/astro-code-snippets';
+// import { theme } from './integrations/expressive-code';
+// import astroExpressiveCode from 'astro-expressive-code';
+import { astroDocsExpressiveCode } from './integrations/expressive-code';
+
 import { sitemap } from './integrations/sitemap';
 import { autolinkConfig } from './plugins/rehype-autolink-config';
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
-import { theme } from './syntax-highlighting-theme';
 
 // https://astro.build/config
 export default defineConfig({
-	site: 'https://azion.com/',
+	site: 'https://www.azion.com/',
 	trailingSlash: 'always', // for server
+	build: {
+		assets: '_astro_docs'
+		// inlineStylesheets: 'always'
+	},
 	integrations: [
 		AutoImport({
-			imports: [asideAutoImport, codeSnippetAutoImport],
+			imports: [asideAutoImport],
 		}),
 		preact({ compat: true }),
 		sitemap(),
 		astroAsides(),
-		astroCodeSnippets(),
+		astroDocsExpressiveCode(),
 		mdx(),
 	],
 	markdown: {
-		syntaxHighlight: 'shiki',
-		shikiConfig: { theme },
 		// Override with our own config
 		smartypants: false,
 		remarkPlugins: [
