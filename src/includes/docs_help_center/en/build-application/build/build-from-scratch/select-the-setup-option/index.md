@@ -10,7 +10,7 @@ It's the default option which lists all the functions available in your function
 
 - **Fetch content from origin**
 
-It creates an Edge Application and configures an [Origin](https://www.azion.com/en/documentation/products/edge-application/single-origin). Azion fetches your content directly from there and [honor cache control headers](https://www.azion.com/en/blog/what-is-http-caching-and-how-does-it-work) returned.
+It creates an Edge Application and configures an [Origin](https://www.azion.com/en/documentation/products/edge-application/origins). Azion fetches your content directly from there and [honor cache control headers](https://www.azion.com/en/blog/what-is-http-caching-and-how-does-it-work) returned.
 
 **Note**: In this case, your Edge Application uses the **Edge Caching** and **Application Acceleration** modules with explicit policies to cache static files and images on edge network, delivering them directly to your users from the nearest **Edge Node** without having to access the origin, increasing performance and scalability.
 
