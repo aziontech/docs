@@ -3,49 +3,49 @@ import { footerDict } from '../translation-checkers';
 export default footerDict({
 	data: [
 		{
-			title: "Resources",
+			title: "Recursos",
 			links: [
 				{
 					text: "Blog",
-					route: "/en/blog/"
+					route: "/pt-br/blog/"
 				},
 				{
-					text: "Documentation",
-					route: "/en/documentation/"
+					text: "Documentação",
+					route: "/pt-br/documentacao/"
 				},
 				{
 					text: "Marketplace",
-					route: "/en/marketplace/"
+					route: "/pt-br/marketplace/"
 				},
 				{
 					text: "Compliance",
-					route: "/en/compliance/"
+					route: "/pt-br/compliance/"
 				},
 				{
-					text: "Success Cases",
-					route: "/en/success-case/"
+					text: "Casos de Sucesso",
+					route: "/pt-br/casos-de-sucesso/"
 				}
 			]
 		},
 		{
-			title: "Company",
+			title: "Empresa",
 			links: [
 				{
-					text: "About us",
-					route: "/en/about-us/"
+					text: "Sobre nós",
+					route: "/pt-br/sobre-nos/"
 				},
 				{
 					text: "Azion Edge Network",
-					route: "/en/products/edge-network/"
+					route: "/pt-br/produtos/edge-network/"
 				},
 				{
-					text: "Careers",
-					route: "/en/careers",
-					flag: "We're hiring!"
+					text: "Carreiras",
+					route: "/pt-br/carreiras",
+					flag: "Estamos contratando!"
 				},
 				{
-					text: "Privacy Policy",
-					route: "/en/documentation/agreements/privacy-policy/"
+					text: "Política de privacidade",
+					route: "/pt-br/documentacao/contratos/politica-de-privacidade/"
 				},
 				{
 					text: "Roadmap",
@@ -54,28 +54,28 @@ export default footerDict({
 			]
 		},
 		{
-			title: "Pricing",
+			title: "Preços",
 			links: [
 				{
-					text: "Products",
-					route: "/en/pricing/"
+					text: "Produtos",
+					route: "/pt-br/precos/"
 				},
 				{
-					text: "Support",
-					route: "/en/support/"
+					text: "Suporte",
+					route: "/pt-br/suporte/"
 				}
 			]
 		},
 		{
-			title: "Contact Us",
+			title: "Contato",
 			links: [
 				{
-					text: "Sales",
-					route: "/en/pricing/"
+					text: "Vendas",
+					route: "/pt-br/contate-vendas/"
 				},
 				{
-					text: "Support",
-					route: "/en/support/"
+					text: "Suporte",
+					route: "/pt-br/suporte/"
 				},
 				{
 					text: "Facebook",

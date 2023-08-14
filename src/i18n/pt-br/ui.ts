@@ -29,9 +29,11 @@ export default UIDictionary({
 	'rightSidebar.editPage': 'Edite esta página',
 	'rightSidebar.translatePage': 'Traduza esta página',
 	'rightSidebar.a11yTitle': 'Secundária',
-	'rightSidebar.github': 'Documentação do Astro no GitHub',
 	// Footer
-	'footer.privacyPolicy': 'Política de Privacidade',
+	'footer.copyright': 'Copyright © 2023, Azion Technologies, Inc. ou suas afiliadas. Todos os direitos reservados.',
+	'footer.contactInformation': 'Para vendas e suporte, entre em contato no',
+	'footer.phone': '0800 883 6313',
+	'footer.langSelector': 'Idioma: ',
 	// `<ThemeToggleButton>` acessibility labels
 	'themeToggle.useLight': 'Usar tema claro',
 	'themeToggle.useDark': 'Usar tema escuro',
