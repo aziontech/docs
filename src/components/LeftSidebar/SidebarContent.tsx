@@ -16,7 +16,7 @@ const MenuItems = ({ data, lang, currentPageMatch }: Props) => {
 			<ul className="list-border-left">
 				{data.map(({ slug, text, isFallback }) => (
 					<li data-current-page={isSubPage(currentPageMatch, slug, lang) ? "true" : "false"} key={text} className="nav-link">
-						<a
+						<a className="nav-item-children"
 							rel="noreferrer"
 							href={modelSlug(slug, isFallback, lang)} target={slug?.includes('https') ? "_blank" : "_self"}
 							aria-current={isSubPage(currentPageMatch, slug, lang) ? "page" : "false"}
