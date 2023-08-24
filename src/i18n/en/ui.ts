@@ -121,5 +121,6 @@ export default {
 	'expressiveCode.terminalWindowFallbackTitle': 'Terminal window',
 	'expressiveCode.copyButtonTooltip': 'Copy to clipboard',
 	'expressiveCode.copyButtonCopied': 'Copied!',
-	'breadcrumb.home': 'Documentation'
+	'breadcrumb.home': 'Documentation',
+	'menu.label': 'Products'
 };

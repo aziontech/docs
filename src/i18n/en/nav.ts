@@ -16,7 +16,7 @@ export default [
 	{ text: 'Getting Started', header: true, anchor: true, type: 'learn', slug: 'documentation/products/getting-started', key: 'gettingStarted' },
 
 
-	{ text: 'Accounts and Profile', header: true, type: 'learn', key: 'accountsProfile', children: [
+	{ text: 'Accounts and Profile', header: true, type: 'learn', key: 'accountsProfile', addBorder: true, children: [
 		{ text: 'Create Account', slug: 'documentation/products/accounts/creating-account', key: 'accountsProfile/createAccount' },
 		{ text: 'Account Settings', slug: 'documentation/products/accounts/account-settings', key: 'accountsProfile/settings' },
 		{ text: 'Users Managements', slug: 'documentation/products/accounts/users-and-teams', key: 'accountsProfile/usersManagement' },
@@ -33,8 +33,8 @@ export default [
 	] },
 
 
-	{ text: 'Build', header: true, type: 'learn', key: 'Build', children: [
-		{ text: 'Edge Application', slug: 'documentation/products/edge-application', key: 'edgeApplication' },
+	{ text: 'Build', header: true, type: 'learn', key: 'Build', hasLabel: true, children: [
+		{ text: 'Edge Application', isProduct: true, slug: 'documentation/products/edge-application', key: 'edgeApplication' },
 		{ text: 'Application Acceleration', slug: 'documentation/products/edge-application/application-acceleration', key: 'applicationAcceleration' },
 		{ text: 'Edge Caching', slug: 'documentation/products/edge-application/edge-caching', key: 'edgeCaching' },
 		{ text: 'Edge Functions', slug: 'documentation/products/edge-application/edge-functions', key: 'edgeFunctions' },
@@ -58,7 +58,7 @@ export default [
 	] },
 
 
-	{ text: 'Observe', header: true, type: 'learn', key: 'Observe', children: [
+	{ text: 'Observe', header: true, type: 'learn', key: 'Observe', addBorder: true, children: [
 		{ text: 'Data Streaming', slug: 'documentation/products/data-streaming', key: 'dataStreaming' },
 		{ text: 'Edge Pulse', slug: 'documentation/products/edge-pulse', key: 'edgePulse' },
 		{ text: 'Real-Time Events', slug: 'documentation/products/real-time-events', key: 'realTimeEvents' },
@@ -75,7 +75,7 @@ export default [
 
 
 
-	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', children: [
+	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', addBorder: true, children: [
 		{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
 		{ text: 'GraphQL API', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
 		{ text: 'Azion CLI', slug: 'documentation/products/cli', key: 'azionCLI' },
