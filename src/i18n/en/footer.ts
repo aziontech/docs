@@ -112,6 +112,11 @@ export default footerDict({
 					type: "external",
 					route: "https://discord.gg/Yp9N7RMVZy"
 				},
+				{
+					text: "Medium",
+					route: "https://medium.com/aziontech",
+					type: "external"
+				}
 			]
 		}
 	]
