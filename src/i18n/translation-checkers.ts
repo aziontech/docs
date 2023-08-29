@@ -20,6 +20,9 @@ export type NavDict = Array<
 		key: string;
 		isFallback?: boolean;
 		children?: NavDict;
+		addBorder?: boolean;
+		hasLabel?: boolean;
+		isProduct?: boolean
 	}
 >;
 
