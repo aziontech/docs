@@ -33,7 +33,7 @@ export default [
 	] },
 
 
-	{ text: 'Build', header: true, type: 'learn', key: 'Build', hasLabel: true, children: [
+	{ text: 'Build', header: true, type: 'learn', key: 'Build', hasLabel: "menu.label", children: [
 		{ text: 'Edge Application', isProduct: true, slug: 'documentation/products/edge-application', key: 'edgeApplication' },
 		{ text: 'Application Acceleration', slug: 'documentation/products/edge-application/application-acceleration', key: 'applicationAcceleration' },
 		{ text: 'Edge Caching', slug: 'documentation/products/edge-application/edge-caching', key: 'edgeCaching' },
