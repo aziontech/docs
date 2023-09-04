@@ -51,7 +51,7 @@ function NoResults() {
 }
 
 
-function AlgoliaSearch({ lang }) {
+function AlgoliaSearch({ lang = 'en' }) {
 	const indexName = `azion-doc-${lang === 'pt-br' ? 'ptbr' : lang}`
 	return (
 		<div onClick={closeModalByDiv} data-search="algolia-search" id="azalgoliasearch" class="azalgoliasearch">
