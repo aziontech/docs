@@ -126,7 +126,7 @@ The `deploy` command deploys your application to the Azion Edge Platform
 ### Usage
 
 ```bash
-  azion build
+  azion deploy
 ```
 
 ### Optional flags
