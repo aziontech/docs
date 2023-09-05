@@ -21,7 +21,7 @@ export type NavDict = Array<
 		isFallback?: boolean;
 		children?: NavDict;
 		addBorder?: boolean;
-		hasLabel?: string;
+		hasLabel?: UIDictionaryKeys;
 		isProduct?: boolean
 	}
 >;
