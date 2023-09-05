@@ -17,10 +17,10 @@ export default [
 
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/azion-cli/overview/' },
 
-	{ text: 'Create an edge application', header: true, anchor: true, slug: '/documentation/products/cli/create-application/', key: 'cli/createJourney' },
-	{ text: 'Local development', header: true, anchor: true, slug: '/documentation/products/cli/dev-command/', key: 'cli/localDev' },
-	{ text: 'Link an existing project', header: true, anchor: true, slug: '/documentation/products/cli/link-command/', key: 'cli/link' },
-	{ text: 'Personal tokens', header: true, anchor: true, slug: '/documentation/products/cli/personal-tokens/', key: 'cli/personalTokens' },
+	{ text: 'Init, build and deploy', header: true, anchor: true, slug: '/documentation/products/cli/create-application/', key: 'cli/createJourney' },
+	{ text: 'Dev command', header: true, anchor: true, slug: '/documentation/products/cli/dev-command/', key: 'cli/localDev' },
+	{ text: 'Link command', header: true, anchor: true, slug: '/documentation/products/cli/link-command/', key: 'cli/link' },
+	{ text: 'Personal tokens command', header: true, anchor: true, slug: '/documentation/products/cli/personal-tokens/', key: 'cli/personalTokens' },
 
 
 ] as const;

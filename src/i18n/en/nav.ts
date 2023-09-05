@@ -78,7 +78,7 @@ export default [
 	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', addBorder: true, children: [
 		{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
 		{ text: 'GraphQL API', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
-		{ text: 'Azion CLI', slug: 'documentation/products/cli', key: 'azionCLI' },
+		{ text: 'Azion CLI', slug: '/documentation/products/azion-cli/overview/', key: 'azionCLI' },
 		{ text: 'Edge Runtime', slug: 'documentation/products/edge-application/edge-functions/runtime/overview', key: 'edgeRuntime' },
 		{ text: 'SDK', slug: 'documentation/devtools/sdk/go', key: 'sdkGO' },
 		{ text: 'Terraform', slug: 'documentation/products/terraform-provider', key: 'terraform' },

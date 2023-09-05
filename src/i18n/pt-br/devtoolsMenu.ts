@@ -15,7 +15,7 @@
 
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
-	{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentacao/produtos/cli/' },
+	{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: 'documentacao/produtos/azion-cli/visao-geral' },
 	{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: 'https://api.azion.com/' },
 	{ text: 'API GraphQL', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api/', key: 'devtools/graphQL' },
 	{ text: 'Edge Runtime',header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/visao-geral/', key: 'devtools/runtime' },

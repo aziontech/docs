@@ -61,7 +61,7 @@ export default NavDictionary([
 
 	{ text: 'API',slug: 'https://api.azion.com', key: 'api' },
 	{ text: 'GraphQL API', slug: 'documentacao/produtos/graphql-api', key: 'graphQLAPI' },
-	{ text: 'Azion CLI', slug: 'documentacao/produtos/cli', key: 'azionCLI' },
+	{ text: 'Azion CLI', slug: 'documentacao/produtos/azion-cli/visao-geral', key: 'azionCLI' },
 	{ text: 'Edge Runtime', slug: 'documentacao/produtos/edge-application/edge-functions/runtime/visao-geral', key: 'edgeRuntime' },
 	{ text: 'SDK', slug: 'documentacao/devtools/sdk/go', key: 'sdkGO' },
 	{ text: 'Terraform', slug: 'documentacao/produtos/terraform-provider', key: 'terraform' },
