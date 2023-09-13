@@ -1,10 +1,8 @@
-'use strict';
-
 // THIS PURGE IS FIXED TO AZION DOCS
 // We need the basic_token configured on github actions, when we saved we remove the last 2 chars (==)
 // dont forghet concat with the '{{ secrets.MKT_BASIC_TOKEN }}' + '=='
 
-const  args = require('node:process');
+const args = require('node:process');
 const axios = require("axios");
 
 function basicToken() {
