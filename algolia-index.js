@@ -102,7 +102,7 @@ const config = {
 try {
 	if(!config.key.app || !config.key.api) {
 		console.log('config.key.app', config.key.app);
-		console.log('config.key.appi', config.key.api);
+		console.log('config.key.api', config.key.api);
 
 		throw '[!] config.appid or config.api are invalid params';
 	}
