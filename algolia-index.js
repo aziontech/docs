@@ -9,7 +9,7 @@ function getArgAppId() {
 	args.argv.forEach((val) => {
 		let t = val.match(/app=(.*)/gi) || [];
 		if (t.length) {
-			result = t[0].replace(`app=`, '') || null;
+			result = t[0].replace(`app=`, '') || result;
 		}
 	});
 	
@@ -22,7 +22,7 @@ function getArgApi() {
 	args.argv.forEach((val) => {
 		let t = val.match(/api=(.*)/gi) || [];
 		if (t.length) {
-			result = t[0].replace(`api=`, '') || null;
+			result = t[0].replace(`api=`, '') || result;
 		}
 	});
 	
