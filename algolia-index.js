@@ -94,8 +94,8 @@ const config = {
 		api: getArgApi()
 	},
 	filepath: {
-		en: './dist/data-doc-en.json',
-		ptbr: './dist/data-doc-ptbr.json'
+		en: './data-doc-en.json', // moved to the root during github actions pipeline
+		ptbr: './data-doc-ptbr.json' // moved to the root during github actions pipeline
 	}
 }
 
