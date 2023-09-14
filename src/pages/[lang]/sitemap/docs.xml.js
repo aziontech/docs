@@ -11,7 +11,7 @@ langs.forEach((lang) => {
 	data[lang] = pagesData[lang].map(page => {
 		return {
 			noindex: false,
-			url: `https://www.azion.com/en/${removeTrailingSlash(removeLeadingSlash(page.data.permalink))}/`
+			url: `https://www.azion.com/${lang}/${removeTrailingSlash(removeLeadingSlash(page.data.permalink))}/`
 		}
 	})
 })
