@@ -1,5 +1,6 @@
 import algoliasearch from 'algoliasearch';
 import { InstantSearch, SearchBox, Hits, Highlight, Configure, useInstantSearch } from 'react-instantsearch-hooks-web';
+import { useLayoutEffect } from 'react'
 import './AlgoliaTheme.css'
 import './AlgoliaSearch.scss'
 
@@ -21,6 +22,47 @@ const closeModal = () => {
 
 const closeModalByDiv = (event) => {
 	if (event.target.nodeName === 'DIV' && event.target.dataset.search) closeModal()
+}
+
+function debounce(func, wait) {
+	let timeout;
+	return function () {
+		const context = this;
+		const args = arguments;
+		clearTimeout(timeout);
+		timeout = setTimeout(() => {
+			func.apply(context, args);
+		}, wait);
+	};
+}
+
+function googleAnalyticsMiddleware(e) {
+	const sendEventDebounced = debounce(() => {
+			window.dataLayer = window.dataLayer || [];
+			dataLayer.push({
+					event: 'user_search',
+					page_location: window.location.pathname,
+					query: e.instantSearchInstance.helper.lastResults.query
+			});
+	}, 3000);
+
+	return {
+			onStateChange() {
+			sendEventDebounced();
+			},
+			subscribe() {},
+			unsubscribe() {},
+	};
+}
+
+function Middleware() {
+  const { addMiddlewares } = useInstantSearch();
+
+  useLayoutEffect(() => {
+    return addMiddlewares(googleAnalyticsMiddleware);
+  }, []);
+
+  return null;
 }
 
 function NoResultsBoundary({ children, fallback }) {
@@ -71,6 +113,7 @@ function AlgoliaSearch({ lang = 'en' }) {
 									</div>
 								</div>
 							</div>
+							<Middleware />
 							<div class="hits">
 								<p class="overline">DOC</p>
 								<NoResultsBoundary fallback={<NoResults />}>
