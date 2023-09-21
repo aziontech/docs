@@ -17,7 +17,7 @@ export default [
 
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/azion-cli/overview/' },
 
-	{ text: 'Init, build, and deploy', header: true, anchor: true, slug: '/documentation/products/cli/create-application/', key: 'cli/createJourney' },
+	{ text: 'Init, build, and deploy', header: true, anchor: true, slug: '/documentation/products/azion-cli/create-application/', key: 'cli/createJourney' },
 	{ text: 'Dev command', header: true, anchor: true, slug: '/documentation/products/cli/dev-command/', key: 'cli/localDev' },
 	{ text: 'Link command', header: true, anchor: true, slug: '/documentation/products/cli/link-command/', key: 'cli/link' },
 	{ text: 'Personal tokens command', header: true, anchor: true, slug: '/documentation/products/cli/personal-tokens/', key: 'cli/personalTokens' },
