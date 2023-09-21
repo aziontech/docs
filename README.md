@@ -15,6 +15,9 @@
 
 The <a href="https://www.azion.com/en/">Azion Technologies</a> documentation repository for help our customers and developers to build yours applications in the Edge.
 
+## Developer
+- Node 20.6.1
+
 
 ## Important links
 
