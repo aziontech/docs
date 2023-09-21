@@ -35,6 +35,26 @@ Only code owners from the [Azion organization](https://github.com/aziontech/) ca
 
 In your fork, make the necessary modifications to the files. <!--- Don't forget to make the changes to both English and Portuguese versions of the documentation. --->
 
+Azion Docs uses the [Astro framework](https://docs.astro.build/en/guides/markdown-content/), allowing you two write content in `.mdx` format. Take a look at [some of our existing content](https://github.com/aziontech/docs/tree/community-guidelines/src/content/docs) to get a sense of how our documentation is structured.
+
+If you want to propose a new page:
+
+1. Find the appropriate directory.
+2. Create a new `.mdx` file.
+3. Add a [front matter YAML](https://docs.github.com/en/github-ae@latest/contributing/syntax-and-versioning-for-github-docs/using-yaml-frontmatter) to the top of the `.mdx` file to fill out titles and metadata as shown below:
+
+```md
+---
+title: <Insert page title>
+description: <Insert page description>
+meta_tags: <Insert tags>
+namespace: <Insert namespace following the structure: documentation_type_product_module_feature>
+permalink: <Insert a permalink for the page following the structure: /en/documentation/type/product/module/feature>
+---
+```
+
+<!--- 4. If you want to use Astro components, check [we don't have a link for supported components...]() --->
+
 You can branch out from main or commit the changes directly once you are happy with them.
 
 ### :speech_balloon: Create a Pull Request
@@ -49,16 +69,16 @@ When you're finished with the changes, create a pull request, also known as a PR
 6. As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
 7. If you run into any merge issues, check this [git tutorial](https://github.com/skills/resolve-merge-conflicts) to help you resolve merge conflicts and other issues.
 
-Now you'll need the approval from code owners before you can merge your changes.
+Now you'll need the approval from two code owners before you can merge your changes.
 
 ### :thumbsup: Merge changes
 
-<!--- Once you have at least two approvals from code owners, you can merge your PR. ---- Só code owners mergeam ou a pessoa tbm pode?? --->
+Once you have at least two approvals from code owners, you can merge your PR.
+
+Check the Github Actions to see the status of your modifications. Once your PR is merged successfully, review your contribution on the [Azion Docs](https://docs.azion.com) portal.
 
 ### :white_check_mark: Close the issue
 
-Congratulations, your PR has been merged! :tada: The issue you created will be updated once the merge has been made.
-
-Check the Github Actions to see the status of your modifications. Once your PR is merged successfully, your contributions will be publicly visible on the [Azion Docs](https://docs.azion.com).
+Congratulations, your PR has been merged! :tada: The issue you created can now be updated and closed once the merge has been made.
 
 > Don't forget to [keep your forked repository up-to-date with the Azion docs repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork) if you wish to make more contributions in the future.
