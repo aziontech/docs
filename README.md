@@ -37,7 +37,7 @@ To maintain the quality and integrity of our documentation, contributors are req
 
 We encourage and welcome contributions from the community. Whether you've found a typo, want to fix a bug, or add new content, your help is greatly appreciated. To get started, please [go to Azion Docs Contributing guide](https://github.com/aziontech/docs/blob/community-guidelines/.github/CONTRIBUTING.md) to get familiar with the process.
 
-## Community
+## Community 💬 
 
 You can find us on:
 
