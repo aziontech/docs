@@ -1,6 +1,6 @@
 <!--
 Thank you for contributing to Azion Docs! Please fill out the information below.
-Don't forget to add the Jira issue code to the title of this PR or the Github issue hash.
+Don't forget to add the Jira issue code to the title of this PR or the GitHub issue hash.
 For example: 
 - EDU-3000 Modify origins page to include load balancer
 - #34 Add new edge application CLI commands
