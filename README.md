@@ -9,8 +9,7 @@
 </p>
 
 - [About us](#about-us)
-- [Contributor Covenant Code of Conduct](#contributor-covenant-code-of-conduct)
-- [Contribution](#contribution)
+- [Contributions](#contributions)
 - [Community](#community)
 
 Welcome to our open documentation repository! We're thrilled that you're interested in contributing to our documentation and being a part of our community. This README will go over the mission to empower Azion users through effective and clear documentation, as well as introduce how anyone willing to do good can help us by contributing. 📖
