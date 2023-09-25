@@ -6,7 +6,7 @@ For example:
 - #34 Add new edge application CLI commands
 -->
 
-### Related issue: <!-- If there's an existing Github or Jira issue for your change, please link to it here. -->
+### Related issue: <!-- If there's an existing GitHub or Jira issue for your change, please add the link here. -->
 
 ### Changes
 
