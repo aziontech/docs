@@ -84,7 +84,7 @@ Now you'll need the approval from at least two code owners before you can merge 
 
 Once you have at least two approvals from code owners, you can merge your PR.
 
-Check the Github Actions to see the status of your modifications. Once your PR is merged successfully, review your contribution on the [Azion Docs](https://docs.azion.com) portal.
+Check the GitHub Actions to see the status of your modifications. Once your PR is merged successfully, review your contribution on the [Azion Docs](https://docs.azion.com) portal.
 
 ### :white_check_mark: Close the issue
 
