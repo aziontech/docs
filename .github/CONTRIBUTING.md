@@ -71,7 +71,7 @@ You can branch out from main or commit the changes directly once you're happy wi
 When you're finished with the changes, create a pull request (PR).
 
 1. [Open a new PR](https://github.com/aziontech/docs/compare) by selecting your forked repository and the branch in which you commited your changes.
-2. Fill in the PR title and description so that we can review your PR. The description template helps reviewers understand your changes as well as the purpose of your PR.
+2. Fill in the PR title and description according to the template so that we can review your PR. The description template helps reviewers understand your changes as well as the purpose of your PR.
 3. Don't forget to [link the PR to the issue you opened](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue).
 4. Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork) so the branch can be updated for a merge. Once you submit your PR, our code owners will review your contributions. We may ask questions or request additional information.
 5. We may ask for changes to be made before a PR can be merged, either using [suggested changes](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/incorporating-feedback-in-your-pull-request) or pull request comments. You can apply suggested changes directly through the UI. You can make any other changes in your fork, then commit them to your branch.
