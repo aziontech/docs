@@ -11,3 +11,7 @@ For example:
 ### Changes
 
 <!-- List and describe the major changes that this PR will implement. -->
+
+### Additional links
+
+<!-- You may add any links you believe relevant here, like message threads, external documentation, other issues, etc. -->
