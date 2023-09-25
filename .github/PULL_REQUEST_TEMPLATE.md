@@ -10,4 +10,9 @@ For example:
 
 ### Changes
 
-<!-- List and describe the major changes that this PR will implement. -->
+<!-- List and describe the major changes that this PR will implement.
+For example:
+- Added note about GraphQL debugging methods
+- Removed section on account permissions
+- Reworded Network Lists section
+- Fixed broken links -->
