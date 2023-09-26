@@ -55,7 +55,7 @@ export default NavDictionary([
 	{ text: 'Marketplace', slug: 'documentacao/produtos/marketplace', key: 'marketplace' },
 
 
-	{ text: 'Planos de Serviços', key: 'professionalServices/servicePlans', slug: '/documentacao/servicos/planos-de-serviço/' },
+	{ text: 'Planos de Serviços', key: 'professionalServices/servicePlans', slug: '/documentacao/servicos/planos-de-servico/' },
 	{ text: 'Integration Services', slug: '/documentacao/servicos/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
 	{ text: 'Technical Account Manager', slug: '/documentacao/servicos/technical-account-manager/', key: 'professionalServices/TAM' },
 	{ text: 'Best Practices Review', slug: '/documentacao/servicos/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
