@@ -82,8 +82,8 @@ export default [
 		{ text: 'Custom Education Programs', header: true, anchor: true, type: 'learn', slug: '/documentation/services/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
 		{ text: 'Security Response Team', header: true, anchor: true, type: 'learn', slug: '/documentation/services/security-response-team/', key: 'professionalServices/SRT' },
 		{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'professionalServices/technicalSupport' },
-		{ text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/business-events-support/', key: 'professionalServices/businessEventsSupport' },
-		{ text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/slack-channel/', key: 'professionalServices/SlackChannel' },
+		{ text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/business-events-support/', key: 'professionalServices/businessEventsSupport' },
+		{ text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
 	]
 },
 
