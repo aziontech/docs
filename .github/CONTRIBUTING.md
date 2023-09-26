@@ -42,7 +42,9 @@ After you open an issue, you can either start making changes yourself or wait fo
 
 Only code owners from the [Azion organization](https://github.com/aziontech/) can directly create branches and open pull requests on the docs repository. If you’re not part of the Azion organization but want to contribute, [fork the repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo) first.
 
-In your fork, make the necessary modifications to the files. If you speak both English and Portuguese, don't forget to make the changes to both English and Portuguese versions of the documentation.
+In your fork, make the necessary modifications to the files. The directory path `src/content/docs` holds all of the content in the Azion Docs portal, divided by language.
+
+If you feel confident writing in both English and Portuguese, don't forget to make the changes to both English and Portuguese versions of the documentation. Otherwise, one of our team members will open a PR for the other language on your behalf.
 
 Azion Docs uses the [Astro framework](https://docs.astro.build/en/guides/markdown-content/), allowing you to write content in `.mdx` format. Take a look at [some of our existing content](https://github.com/aziontech/docs/tree/community-guidelines/src/content/docs) to get a sense of how our documentation is structured.
 
@@ -62,7 +64,7 @@ permalink: <Insert a permalink for the page following the structure: /en/documen
 ---
 ```
 
-<!--- 4. If you want to use Astro components, check [we don't have a link for supported components...]() --->
+5. Write the content below the front matter in Markdown format.
 
 You can branch out from main or commit the changes directly once you're happy with them.
 
@@ -71,20 +73,25 @@ You can branch out from main or commit the changes directly once you're happy wi
 When you're finished with the changes, create a pull request (PR).
 
 1. [Open a new PR](https://github.com/aziontech/docs/compare) by selecting your forked repository and the branch in which you commited your changes.
-2. Fill in the PR title and description according to the template so that we can review your PR. The description template helps reviewers understand your changes as well as the purpose of your PR.
+2. Fill in the PR title and description according to the template so that we can review your PR. 
+  - The description template helps reviewers understand your changes as well as the purpose of your PR.
 3. Don't forget to [link the PR to the issue you opened](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue).
-4. Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork) so the branch can be updated for a merge. Once you submit your PR, our code owners will review your contributions. We may ask questions or request additional information.
-5. We may ask for changes to be made before a PR can be merged, either using [suggested changes](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/incorporating-feedback-in-your-pull-request) or pull request comments. You can apply suggested changes directly through the UI. You can make any other changes in your fork, then commit them to your branch.
-6. As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
-7. If you run into any merge issues, check this [git tutorial](https://github.com/skills/resolve-merge-conflicts) to help you resolve merge conflicts and other issues.
+4. Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork) so the branch can be updated for a merge.
+5. Once you submit your PR, our code owners will review your contributions. We may ask questions or request additional context. 
+  - Reviewers will test your changes locally to make sure your modifications don't break the application's build process.
+6. After testing, we may ask for changes to be made before a PR can be merged, either using [suggested changes](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/incorporating-feedback-in-your-pull-request) or pull request comments. 
+  - You can apply suggested changes directly through the UI. You can make any other changes in your fork, then commit them to your branch.
+7. As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
 
 Now you'll need the approval from at least two code owners before you can merge your changes.
 
 ### :thumbsup: Merge changes
 
-Once you have at least two approvals from code owners, you can merge your PR.
+Once you have at least two approvals from code owners, you can merge your PR. 🥳 
 
-Check the GitHub Actions to see the status of your modifications. Once your PR is merged successfully, review your contribution on the [Azion Docs](https://docs.azion.com) portal.
+Check the [GitHub Actions tab](https://github.com/aziontech/docs/actions) to see the status of your modifications. If you run into any merge issues, check this [git tutorial](https://github.com/skills/resolve-merge-conflicts) to help you resolve merge conflicts and other issues.
+
+Once your PR is merged successfully, you can review your contribution on the [Azion Docs](https://docs.azion.com) portal. 📙
 
 ### :white_check_mark: Close the issue
 
