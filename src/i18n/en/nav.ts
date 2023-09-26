@@ -74,7 +74,7 @@ export default [
 			{ text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
 			{ text: 'Technical Account Manager', header: true, anchor: true, type: 'learn', slug: '/documentation/services/technical-account-manager/', key: 'professionalServices/TAM' },
 			{ text: 'Best Practices Review', header: true, anchor: true, type: 'learn', slug: '/documentation/services/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
-			{ text: 'Custom Education Programs', header: true, anchor: true, type: 'learn', slug: 'documentation/services/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
+			{ text: 'Custom Education Programs', header: true, anchor: true, type: 'learn', slug: '/documentation/services/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
 			{ text: 'Security Response Team', header: true, anchor: true, type: 'learn', slug: '/documentation/services/security-response-team/', key: 'professionalServices/SRT' },
 			{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'professionalServices/technicalSupport' },
 			{ text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/business-events-support/', key: 'professionalServices/businessEventsSupport' },
