@@ -40,7 +40,7 @@ There are 4 types of contribution to the Azion Docs repository:
 
 After you open an issue, you can either start making changes yourself or wait for one of our tech writers to address your issue.
 
-Only code owners from the [Azion organization](https://github.com/aziontech/) can directly create branches and open pull requests on the docs repository. If you’re not part of the Azion organization but want to contribute, [fork the repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo) first.
+Only code owners from the [Azion organization](https://github.com/aziontech/) can directly create branches and open pull requests on the docs repository. If you aren't part of the Azion organization but want to contribute, [fork the repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo) first.
 
 In your fork, make the necessary modifications to the files. The directory path `src/content/docs` holds all of the content in the Azion Docs portal, divided by language.
 
@@ -66,7 +66,7 @@ permalink: <Insert a permalink for the page following the structure: /en/documen
 
 5. Write the content below the front matter in Markdown format.
 
-You can branch out from main or commit the changes directly once you're happy with them.
+You can branch out from main or commit the changes directly once you're pleased with them.
 
 ### :speech_balloon: Create a Pull Request
 
