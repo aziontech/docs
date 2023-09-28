@@ -39,11 +39,6 @@ export default headerMenuDict({
 		//         href: "documentation_terraform_provider"
 		//     }
 		// ]
-	},
-	{
-		title: "Learn",
-		href: "https://learn.azion.com/",
-		target: "_blank"
 	}
 	]
 })
