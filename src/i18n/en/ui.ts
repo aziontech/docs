@@ -27,9 +27,11 @@ export default {
 	'rightSidebar.contributorGuides': 'Contributor Guides',
 	'rightSidebar.editPage': 'Edit this page',
 	'rightSidebar.translatePage': 'Translate this page',
-	'rightSidebar.github': 'Astro Docs on GitHub',
 	// Footer
-	'footer.privacyPolicy': 'Privacy Policy',
+	'footer.copyright': 'Copyright © 2023, Azion Technologies, Inc. or its affiliates. All rights reserved.',
+	'footer.contactInformation': 'For support and sales, please call',
+	'footer.phone': '+1 (833) 33-AZION',
+	'footer.langSelector': 'Language: ',
 	// `<ThemeToggleButton>` acessibility labels
 	'themeToggle.useLight': 'Light theme',
 	'themeToggle.useDark': 'Dark theme',
@@ -119,4 +121,6 @@ export default {
 	'expressiveCode.terminalWindowFallbackTitle': 'Terminal window',
 	'expressiveCode.copyButtonTooltip': 'Copy to clipboard',
 	'expressiveCode.copyButtonCopied': 'Copied!',
+	'breadcrumb.home': 'Documentation',
+	'menu.label': 'Products'
 };

@@ -113,8 +113,8 @@ export default footerDict({
 					route: "https://discord.gg/Yp9N7RMVZy"
 				},
 				{
-					text: "Linktree",
-					route: "https://linktr.ee/aziontech",
+					text: "Medium",
+					route: "https://medium.com/aziontech",
 					type: "external"
 				}
 			]

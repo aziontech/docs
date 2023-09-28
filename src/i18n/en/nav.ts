@@ -16,7 +16,7 @@ export default [
 	{ text: 'Getting Started', header: true, anchor: true, type: 'learn', slug: 'documentation/products/getting-started', key: 'gettingStarted' },
 
 
-	{ text: 'Accounts and Profile', header: true, type: 'learn', key: 'accountsProfile', children: [
+	{ text: 'Accounts and Profile', header: true, type: 'learn', key: 'accountsProfile', addBorder: true, children: [
 		{ text: 'Create Account', slug: 'documentation/products/accounts/creating-account', key: 'accountsProfile/createAccount' },
 		{ text: 'Account Settings', slug: 'documentation/products/accounts/account-settings', key: 'accountsProfile/settings' },
 		{ text: 'Users Managements', slug: 'documentation/products/accounts/users-and-teams', key: 'accountsProfile/usersManagement' },
@@ -33,8 +33,8 @@ export default [
 	] },
 
 
-	{ text: 'Build', header: true, type: 'learn', key: 'Build', children: [
-		{ text: 'Edge Application', slug: 'documentation/products/edge-application', key: 'edgeApplication' },
+	{ text: 'Build', header: true, type: 'learn', key: 'Build', hasLabel: "menu.label", children: [
+		{ text: 'Edge Application', isProduct: true, slug: 'documentation/products/edge-application', key: 'edgeApplication' },
 		{ text: 'Application Acceleration', slug: 'documentation/products/edge-application/application-acceleration', key: 'applicationAcceleration' },
 		{ text: 'Edge Caching', slug: 'documentation/products/edge-application/edge-caching', key: 'edgeCaching' },
 		{ text: 'Edge Functions', slug: 'documentation/products/edge-application/edge-functions', key: 'edgeFunctions' },
@@ -58,7 +58,7 @@ export default [
 	] },
 
 
-	{ text: 'Observe', header: true, type: 'learn', key: 'Observe', children: [
+	{ text: 'Observe', header: true, type: 'learn', key: 'Observe', addBorder: true, children: [
 		{ text: 'Data Streaming', slug: 'documentation/products/data-streaming', key: 'dataStreaming' },
 		{ text: 'Edge Pulse', slug: 'documentation/products/edge-pulse', key: 'edgePulse' },
 		{ text: 'Real-Time Events', slug: 'documentation/products/real-time-events', key: 'realTimeEvents' },
@@ -73,12 +73,24 @@ export default [
 		{ text: 'Support', slug: 'documentation/services/support', key: 'support' }
 ] },
 
+{
+	text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
+		{ text: 'Service Plans', header: true, anchor: true, type: 'learn', key: 'professionalServices/servicePlans', slug: '/documentation/services/service-plans/' },
+		{ text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
+		{ text: 'Technical Account Manager', header: true, anchor: true, type: 'learn', slug: '/documentation/services/technical-account-manager/', key: 'professionalServices/TAM' },
+		{ text: 'Best Practices Review', header: true, anchor: true, type: 'learn', slug: '/documentation/services/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
+		{ text: 'Custom Education Programs', header: true, anchor: true, type: 'learn', slug: '/documentation/services/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
+		{ text: 'Security Response Team', header: true, anchor: true, type: 'learn', slug: '/documentation/services/security-response-team/', key: 'professionalServices/SRT' },
+		{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'professionalServices/technicalSupport' },
+		{ text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/business-events-support/', key: 'professionalServices/businessEventsSupport' },
+		{ text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
+	]
+},
 
-
-	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', children: [
+	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', addBorder: true, children: [
 		{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
 		{ text: 'GraphQL API', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
-		{ text: 'Azion CLI', slug: 'documentation/products/cli', key: 'azionCLI' },
+		{ text: 'Azion CLI', slug: '/documentation/products/azion-cli/overview/', key: 'azionCLI' },
 		{ text: 'Edge Runtime', slug: 'documentation/products/edge-application/edge-functions/runtime/overview', key: 'edgeRuntime' },
 		{ text: 'SDK', slug: 'documentation/devtools/sdk/go', key: 'sdkGO' },
 		{ text: 'Terraform', slug: 'documentation/products/terraform-provider', key: 'terraform' },

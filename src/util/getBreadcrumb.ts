@@ -8,7 +8,10 @@ interface Breadcrumbs {
 }
 
 const getLastSegment = (url: string): string => {
-	const urlLastSegment = url.replace(/\/+$/, '').split('/').pop();
+	let urlLastSegment = url.replace(/\/+$/, '').split('/').pop();
+
+	urlLastSegment = urlLastSegment?.replace(/CLI/gi, 'CLI')
+	urlLastSegment = urlLastSegment?.replace(/API/gi, 'API')
 
 	return `${urlLastSegment?.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}`;
 }
