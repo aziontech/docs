@@ -68,11 +68,6 @@ export default [
 
 	{ text: 'Marketplace', header: true, anchor: true, type: 'learn', slug: 'documentation/products/marketplace', key: 'marketplace' },
 
-	{ text: 'Services', header: true, type: 'learn', key: 'Services', children: [	
-		{ text: 'Integration Services', slug: 'documentation/services/solutions-lab/integration-services', key: 'integrationServices' },
-		{ text: 'Support', slug: 'documentation/services/support', key: 'support' }
-] },
-
 {
 	text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
 		{ text: 'Service Plans', header: true, anchor: true, type: 'learn', key: 'professionalServices/servicePlans', slug: '/documentation/services/service-plans/' },

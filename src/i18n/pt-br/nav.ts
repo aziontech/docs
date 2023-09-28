@@ -66,7 +66,6 @@ export default NavDictionary([
 	{ text: 'Slack Channel', slug: '/documentacao/servicos/slack-channel/', key: 'professionalServices/SlackChannel' },
 
 
-
 	{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
 	{ text: 'GraphQL API', slug: 'documentacao/produtos/graphql-api', key: 'graphQLAPI' },
 	{ text: 'Azion CLI', slug: 'documentacao/produtos/azion-cli/visao-geral', key: 'azionCLI' },
