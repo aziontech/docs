@@ -54,14 +54,13 @@ export default NavDictionary([
 
 	{ text: 'Marketplace', slug: 'documentacao/produtos/marketplace', key: 'marketplace' },
 
+	{ text: 'Suporte ao Cliente', slug: '/documentacao/servicos/suporte/', key: 'technicalSupport' },
 
-	{ text: 'Planos de Serviços', key: 'professionalServices/servicePlans', slug: '/documentacao/servicos/planos-de-servico/' },
 	{ text: 'Integration Services', slug: '/documentacao/servicos/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
 	{ text: 'Technical Account Manager', slug: '/documentacao/servicos/technical-account-manager/', key: 'professionalServices/TAM' },
 	{ text: 'Best Practices Review', slug: '/documentacao/servicos/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
 	{ text: 'Custom Education Programs', slug: '/documentacao/servicos/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
 	{ text: 'Security Response Team', slug: '/documentacao/servicos/security-response-team/', key: 'professionalServices/SRT' },
-	{ text: 'Suporte ao Cliente', slug: '/documentacao/servicos/suporte/', key: 'professionalServices/technicalSupport' },
 	{ text: 'Business Events Support', slug: '/documentacao/servicos/business-events-support/', key: 'professionalServices/businessEventsSupport' },
 	{ text: 'Slack Channel', slug: '/documentacao/servicos/slack-channel/', key: 'professionalServices/SlackChannel' },
 
