@@ -25,7 +25,7 @@ export default {
 	'rightSidebar.openCollective': 'Our Open Collective',
 	'rightSidebar.contribute': 'Contribute',
 	'rightSidebar.contributorGuides': 'Contributor Guides',
-	'rightSidebar.editPage': 'Edit this page',
+	'rightSidebar.editPage': 'Contribute to this page',
 	'rightSidebar.translatePage': 'Translate this page',
 	// Footer
 	'footer.copyright': 'Copyright © 2023, Azion Technologies, Inc. or its affiliates. All rights reserved.',
