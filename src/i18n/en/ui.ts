@@ -122,5 +122,6 @@ export default {
 	'expressiveCode.copyButtonTooltip': 'Copy to clipboard',
 	'expressiveCode.copyButtonCopied': 'Copied!',
 	'breadcrumb.home': 'Documentation',
-	'menu.label': 'Products'
+	'menu.label': 'Products',
+	'services.label': 'Services'
 };

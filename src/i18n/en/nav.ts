@@ -67,19 +67,6 @@ export default [
 	] },
 
 	{ text: 'Marketplace', header: true, anchor: true, type: 'learn', slug: 'documentation/products/marketplace', key: 'marketplace' },
-	{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'technicalSupport' },
-
-{
-	text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
-		{ text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
-		{ text: 'Technical Account Manager', header: true, anchor: true, type: 'learn', slug: '/documentation/services/technical-account-manager/', key: 'professionalServices/TAM' },
-		{ text: 'Best Practices Review', header: true, anchor: true, type: 'learn', slug: '/documentation/services/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
-		{ text: 'Custom Education Programs', header: true, anchor: true, type: 'learn', slug: '/documentation/services/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
-		{ text: 'Security Response Team', header: true, anchor: true, type: 'learn', slug: '/documentation/services/security-response-team/', key: 'professionalServices/SRT' },
-		{ text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/business-events-support/', key: 'professionalServices/businessEventsSupport' },
-		{ text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
-	]
-},
 
 	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', addBorder: true, children: [
 		{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
@@ -90,7 +77,19 @@ export default [
 		{ text: 'Terraform', slug: 'documentation/products/terraform-provider', key: 'terraform' },
 	]},
 
+	{ text: 'Technical Support', header: true, anchor: true, type: 'learn', hasLabel: "services.label", slug: '/documentation/services/support/', key: 'technicalSupport' },
 
+	{
+		text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
+			{ text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
+			{ text: 'Technical Account Manager', header: true, anchor: true, type: 'learn', slug: '/documentation/services/technical-account-manager/', key: 'professionalServices/TAM' },
+			{ text: 'Best Practices Review', header: true, anchor: true, type: 'learn', slug: '/documentation/services/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
+			{ text: 'Custom Education Programs', header: true, anchor: true, type: 'learn', slug: '/documentation/services/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
+			{ text: 'Security Response Team', header: true, anchor: true, type: 'learn', slug: '/documentation/services/security-response-team/', key: 'professionalServices/SRT' },
+			{ text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/business-events-support/', key: 'professionalServices/businessEventsSupport' },
+			{ text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
+		]
+	},	
 
 	{ text: 'Changelog', header: true, type: 'learn', anchor: true, slug: 'documentation/products/changelog', key: 'changelog' },
 	{ text: 'System Status', header: true, type: 'learn', anchor: true, slug: 'https://status.azion.com', key: 'systemStatus' },

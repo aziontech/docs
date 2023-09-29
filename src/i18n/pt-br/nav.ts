@@ -54,7 +54,7 @@ export default NavDictionary([
 
 	{ text: 'Marketplace', slug: 'documentacao/produtos/marketplace', key: 'marketplace' },
 
-	{ text: 'Suporte ao Cliente', slug: '/documentacao/servicos/suporte/', key: 'technicalSupport' },
+	{ text: 'Technical Support', slug: '/documentacao/servicos/suporte/', key: 'technicalSupport' },
 
 	{ text: 'Integration Services', slug: '/documentacao/servicos/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
 	{ text: 'Technical Account Manager', slug: '/documentacao/servicos/technical-account-manager/', key: 'professionalServices/TAM' },
