@@ -30,7 +30,7 @@ The documentation portal is built on [Astro](https://docs.astro.build/en/getting
 
 ## Contributions 🤝
 
-We encourage and welcome contributions from the community. Whether you've found a typo, want to fix a bug, or add new content, your help is greatly appreciated. To get started, please [go to Azion Docs Contributing guide](https://github.com/aziontech/docs/blob/community-guidelines/.github/CONTRIBUTING.md) to get familiar with the process.
+We encourage and welcome contributions from the community. Whether you've found a typo, want to fix a bug, or add new content, your help is greatly appreciated. To get started, please [go to Azion Docs Contributing guide](https://github.com/aziontech/docs/blob/main/.github/CONTRIBUTING.md) to get familiar with the process.
 
 ### Contributor Covenant Code of Conduct 📜
 
