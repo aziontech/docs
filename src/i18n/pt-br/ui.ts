@@ -26,7 +26,7 @@ export default UIDictionary({
 	'rightSidebar.openCollective': 'Nossa Open Collective',
 	'rightSidebar.contribute': 'Contribua',
 	'rightSidebar.contributorGuides': 'Guias de Contribuidor',
-	'rightSidebar.editPage': 'Edite esta página',
+	'rightSidebar.editPage': 'Contribua nesta página',
 	'rightSidebar.translatePage': 'Traduza esta página',
 	'rightSidebar.a11yTitle': 'Secundária',
 	// Footer
