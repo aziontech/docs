@@ -3,9 +3,9 @@
   Azion Docs 💻📚🧡
 </h1>
 <p align="center">
-    We are under <a href="./LICENSE" title="MIT">MIT</a> license.
+    We're under a <a href="https://opensource.org/license/mit/" title="MIT">MIT</a> license.
     <br>
-    You can read more about in this <a href="./LICENSE" title="MIT License link">link</a>.
+    You can read more about it on <a href="./LICENSE" title=".LICENSE">LICENSE</a>.
 </p>
 
 - [About us](#about-us)
