@@ -66,6 +66,8 @@ export default [
 	
 	] },
 
+	{ text: 'Marketplace', header: true, anchor: true, type: 'learn', slug: 'documentation/products/marketplace', key: 'marketplace' },
+	
 	{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'technicalSupport' },
 	{
 		text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
@@ -79,7 +81,6 @@ export default [
 		]
 	},	
 
-	{ text: 'Marketplace', header: true, anchor: true, type: 'learn', slug: 'documentation/products/marketplace', key: 'marketplace' },
 
 	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', addBorder: true, children: [
 		{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
