@@ -111,6 +111,5 @@ export default UIDictionary({
 	'recipesLink.singular': 'Receita relacionada:',
 	'recipesLink.plural': 'Receitas relacionadas',
 	'breadcrumb.home': 'Documentação',
-	'menu.label': 'Produtos',
-	'services.label': 'Serviços'
+	'menu.label': 'Produtos'
 });

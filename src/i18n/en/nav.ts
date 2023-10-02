@@ -66,19 +66,7 @@ export default [
 	
 	] },
 
-	{ text: 'Marketplace', header: true, anchor: true, type: 'learn', slug: 'documentation/products/marketplace', key: 'marketplace' },
-
-	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', addBorder: true, children: [
-		{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
-		{ text: 'GraphQL API', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
-		{ text: 'Azion CLI', slug: '/documentation/products/azion-cli/overview/', key: 'azionCLI' },
-		{ text: 'Edge Runtime', slug: 'documentation/products/edge-application/edge-functions/runtime/overview', key: 'edgeRuntime' },
-		{ text: 'SDK', slug: 'documentation/devtools/sdk/go', key: 'sdkGO' },
-		{ text: 'Terraform', slug: 'documentation/products/terraform-provider', key: 'terraform' },
-	]},
-
-	{ text: 'Technical Support', header: true, anchor: true, type: 'learn', hasLabel: "services.label", slug: '/documentation/services/support/', key: 'technicalSupport' },
-
+	{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'technicalSupport' },
 	{
 		text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
 			{ text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
@@ -91,9 +79,19 @@ export default [
 		]
 	},	
 
+	{ text: 'Marketplace', header: true, anchor: true, type: 'learn', slug: 'documentation/products/marketplace', key: 'marketplace' },
+
+	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', addBorder: true, children: [
+		{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
+		{ text: 'GraphQL API', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
+		{ text: 'Azion CLI', slug: '/documentation/products/azion-cli/overview/', key: 'azionCLI' },
+		{ text: 'Edge Runtime', slug: 'documentation/products/edge-application/edge-functions/runtime/overview', key: 'edgeRuntime' },
+		{ text: 'SDK', slug: 'documentation/devtools/sdk/go', key: 'sdkGO' },
+		{ text: 'Terraform', slug: 'documentation/products/terraform-provider', key: 'terraform' },
+	]},
+
 	{ text: 'Changelog', header: true, type: 'learn', anchor: true, slug: 'documentation/products/changelog', key: 'changelog' },
 	{ text: 'System Status', header: true, type: 'learn', anchor: true, slug: 'https://status.azion.com', key: 'systemStatus' },
 	{ text: 'Azion Network Program', header: true, type: 'learn', anchor: true, slug: 'documentation/products/azion-network-program', key: 'azionNetworkProgram' },
-
 
 ] as const;
