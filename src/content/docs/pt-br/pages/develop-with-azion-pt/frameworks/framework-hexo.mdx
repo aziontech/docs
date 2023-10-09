@@ -1,0 +1,130 @@
+# Hexo
+
+Hexo está listado na [documentação do Jamstack](https://jamstack.org/generators/hexo/) como um gerador de site estático, alinhado à abordagem Jamstack.
+
+Saiba mais sobre o [Hexo](https://hexo.io/docs/).
+
+---
+---
+
+## Requisitos
+
+Antes de começar, você deve ter:
+
+- Uma conta na plataforma [Azion](/pt-br/documentation/products/accounts/creating-account/) com [Edge Functions](/pt-br/documentation/products/edge-application/edge-functions/) habilitadas.
+- [A versão mais recente do Azion CLI instalada](/pt-br/documentation/products/azion-cli/overview/).
+- Um editor de código.
+- Acesso ao terminal.
+
+---
+
+## Inicializando um projeto Hexo
+
+1. No terminal, inicialize o projeto:
+
+```sh 
+  azion init
+```
+
+2. Aceite o nome sugerido para o seu projeto ou digite um de sua escolha:
+
+```sh 
+? (Hit enter to accept the suggested name in parenthesis) Your application's name:  (remarkable_microscope)
+```
+
+Saída: 
+
+```sh
+Getting templates available
+```
+
+3. Escolha o template do Hexo:
+
+```sh 
+? Choose a template for your project: 
+  Angular 
+  Astro 
+❯ Hexo 
+  Next 
+  React 
+  Vue 
+  Vite 
+```
+
+Agora, a CLI do Hexo seguirá o processo e inicializará o seu projeto.
+
+5. Você pode optar por iniciar um servidor de desenvolvimento local ou não.
+
+```sh 
+? Do you want to start a local development server? (y/N) 
+```
+
+Os próximos passos dependem de sua resposta.
+
+- [Se você optou por executar um servidor de desenvolvimento local]().
+- [Se você optou por não executar um servidor de desenvolvimento local]().
+
+### Resposta sim para desenvolvimento local
+
+1. Instale as dependências do projeto. Digite `y` quando a interação solicitar:
+
+```sh 
+Do you want to install project dependencies? This may be required to start local development server (y/N)
+```
+
+Aguarde até que a instalação seja concluída.
+
+Saída:
+
+```sh
+Your edge application was built successfully
+[Vulcan] [Server] › ✔  success   Function running on port http://localhost:3000
+```
+
+2. No navegador, vá para `http://localhost:3000/` e você verá o seu projeto Hexo em execução.
+
+#### Implantação do projeto
+
+Quando o seu projeto está em execução localmente, você ainda pode implantá-lo. Para fazer isso:
+
+1. Pare a execução no terminal com `control + c`. 
+
+2. Acesse a pasta do projeto:
+
+```sh
+cd [nome-do-seu-projeto] 
+```
+
+3. Implante o projeto: 
+
+```sh
+azion deploy
+```
+
+4. Aguarde enquanto o projeto é construído e implantado na Plataforma de Edge da Azion.
+
+Após a implantação ser concluída, você receberá um domínio para acessar o seu projeto Hexo na plataforma da Azion.
+
+Aguarde alguns minutos para que a propagação ocorra e, em seguida, acesse a sua aplicação usando o domínio fornecido, que deve ser semelhante a `https://xxxxxxx.map.azionedge.net`.
+
+### Resposta não para desenvolvimento local
+
+Após indicar que você não deseja executar um servidor local, implante o projeto.
+
+1. Digite `y` para a seguinte interação, indicando que deseja implantar o projeto:
+
+```sh
+Do you want to deploy your project?
+```
+
+2. Instale as dependências do projeto. Digite `y` quando a interação solicitar:
+
+```sh 
+Do you want to install project dependencies? This may be required to start local development server (y/N)
+```
+
+3. Aguarde enquanto o projeto é construído e implantado na plataforma da Azion.
+
+Após a implantação ser concluída, você receberá um domínio para acessar o seu projeto Hexo na Plataforma da Azion.
+
+Aguarde alguns minutos para que a propagação ocorra e, em seguida, acesse a sua aplicação usando o domínio fornecido, que deve ser semelhante a `https://xxxxxxx.map.azionedge.net`.
