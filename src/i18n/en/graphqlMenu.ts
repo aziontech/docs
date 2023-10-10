@@ -20,6 +20,13 @@
 	{ text: 'Queries', header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-queries', key: 'queries' },
 	{ text: 'Queries Examples',header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-queries-examples', key: 'queries/examples' },
 	{ text: 'Features',header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-features', key: 'features' },
+
+	{ text: 'Fields', header: true, key: 'fields', type: 'learn', children: [
+		{ text: 'Real-Time Events GQL', slug: '/documentation/products/graphql-api/features/events-fields/', key: 'fields/Events' },
+		{ text: 'Real-Time Metrics GQL', slug: '/documentation/products/graphql-api/features/metrics-fields/', key: 'fields/Metrics' },
+	]
+},
+
 	{ text: 'Limits', header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-limits', key: 'limits' },
 	{ text: 'Error Responses', header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-error-responses', key: 'queries/error-responses' },
 
