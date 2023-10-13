@@ -42,7 +42,7 @@ export default [
 	{ text: 'Create account', header: true, anchor: true, type: 'learn', key: 'account/createAccount', slug: '/documentation/products/accounts/creating-account/', hasLabel: 'menu.account' },
 
 	{
-		text: 'Manage account', header: true, type: 'learn', key: 'accountsAccount', children: [
+		text: 'Manage account', header: true, type: 'learn', key: 'manageAccount', children: [
 			{ text: 'Users', header: true, anchor: true, type: 'learn', key: 'account/Users', slug: '/documentation/products/guides/users-management/' },
 			{ text: 'Teams permissions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/teams-permissions/', key: 'account/teamsPermissions' },
 			{ text: 'Activity history', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/activity-history/', key: 'account/activityHistory' },
@@ -55,7 +55,7 @@ export default [
 
 
 	{
-		text: 'Manage profile', header: true, type: 'learn', key: 'accountsProfile', addBorder: true, children: [
+		text: 'Manage profile', header: true, type: 'learn', key: 'manageProfile', addBorder: true, children: [
 			{ text: 'Personal tokens', header: true, anchor: true, type: 'learn', key: 'accountsProfile/personalTokens', slug: '/documentation/products/guides/personal-tokens/' },
 			{ text: 'Settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/account-settings/', key: 'accountsProfile/settings' },
 			{ text: 'Delete account', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/delete-account/', key: 'accountsProfile/deleteAccount' },
@@ -64,7 +64,7 @@ export default [
 
 
 	{
-		text: 'Developer tools', header: true, type: 'learn', key: 'accountsProfile', hasLabel: 'menu.addResources', children: [
+		text: 'Developer tools', header: true, type: 'learn', key: 'developerTools', hasLabel: 'menu.addResources', children: [
 			{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: 'https://api.azion.com/' },
 			{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentation/products/cli/' },
 			{ text: 'API GraphQL Playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'devtools/graphQLplayground' },
@@ -80,7 +80,7 @@ export default [
 	{ text: 'Migrate to Azion WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'migrateAzion' },
 
 	{
-		text: 'Templates and integrations WIP', header: true, type: 'learn', key: 'accountsProfile', addBorder: true, children: [
+		text: 'Templates and integrations WIP', header: true, type: 'learn', key: 'templatesIntegrationsRef', addBorder: true, children: [
 			{ text: 'Understand Azion Templates WIP', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/understandTemplates', slug: '/documentation/' },
 			{ text: 'Use a template WIP', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/useTemplate', slug: '/documentation/' },
 			{ text: 'Build an integration WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'templatesIntegrations/buildIntegration' },
@@ -90,7 +90,7 @@ export default [
 
 
 	{
-		text: 'Build', header: true, type: 'learn', key: 'accountsProfile', hasLabel: 'menu.reference', children: [
+		text: 'Build', header: true, type: 'learn', key: 'buildRef', hasLabel: 'menu.reference', children: [
 			{ text: 'Edge Application', header: true, anchor: true, type: 'learn', key: 'reference/edgeApplication', slug: '/documentation/products/edge-application/' },
 			{ text: 'Application Acceleration', header: true, anchor: true, type: 'learn', key: 'reference/applicationAcceleration', slug: '/documentation/products/edge-application/application-acceleration/' },
 			{ text: 'Edge Caching', header: true, anchor: true, type: 'learn', key: 'reference/edgeCaching', slug: '/documentation/products/edge-application/edge-caching/' },
@@ -109,7 +109,7 @@ export default [
 		]
 	},
 	{
-		text: 'Secure', header: true, type: 'learn', key: 'accountsProfile', children: [
+		text: 'Secure', header: true, type: 'learn', key: 'secureRef', children: [
 			{ text: 'Edge Firewall', header: true, anchor: true, type: 'learn', key: 'reference/edgeFirewall', slug: '/documentation/products/edge-firewall/' },
 			{ text: 'DDoS Protection', header: true, anchor: true, type: 'learn', key: 'reference/ddosProtection', slug: '/documentation/products/edge-firewall/ddos-protection/' },
 			{ text: 'DDoS Mitigation', header: true, anchor: true, type: 'learn', key: 'reference/ddosMitigation', slug: '/documentation/products/edge-firewall/ddos-protection/ddos-mitigation/' },
@@ -128,7 +128,7 @@ export default [
 		]
 	},
 	{
-		text: 'Deploy', header: true, type: 'learn', key: 'accountsProfile', children: [
+		text: 'Deploy', header: true, type: 'learn', key: 'deployRef', children: [
 			{ text: 'Edge Orchestrator', header: true, anchor: true, type: 'learn', key: 'reference/edgeOrchestrator', slug: '/documentation/products/edge-orchestrator/' },
 			{ text: 'Edge Services', header: true, anchor: true, type: 'learn', key: 'reference/edgeServices', slug: '/documentation/products/edge-orchestrator/edge-services/' },
 			{ text: 'Edge Node', header: true, anchor: true, type: 'learn', key: 'reference/edgeNode', slug: '/documentation/products/edge-orchestrator/edge-node/' },
@@ -136,7 +136,7 @@ export default [
 		]
 	},
 	{
-		text: 'Observe', header: true, type: 'learn', key: 'accountsProfile', children: [
+		text: 'Observe', header: true, type: 'learn', key: 'observeRef', children: [
 			{ text: 'Data Streaming', header: true, anchor: true, type: 'learn', key: 'reference/dataStreaming', slug: '/documentation/products/data-streaming/' },
 			{ text: 'Edge Pulse', header: true, anchor: true, type: 'learn', key: 'reference/edgePulse', slug: '/documentation/products/edge-pulse/' },
 			{ text: 'Real-Time Events', header: true, anchor: true, type: 'learn', key: 'reference/realTimeEvents', slug: '/documentation/products/real-time-events/' },
@@ -146,7 +146,7 @@ export default [
 		]
 	},
 	{
-		text: 'Marketplace', header: true, type: 'learn', key: 'mktp', children: [
+		text: 'Marketplace', header: true, type: 'learn', key: 'mktpRef', children: [
 			{ text: 'Marketplace', header: true, anchor: true, type: 'learn', key: 'mktp', slug: '/documentation/products/marketplace/' },
 			{ text: 'Marketplace Independent Software Vendor', header: true, anchor: true, type: 'learn', key: 'mktp/isv', slug: '/documentation/products/marketplace/isv-signup/' },
 			{ text: 'Marketplace Seller Guide', header: true, anchor: true, type: 'learn', key: 'mktp/sellerGuide', slug: '/documentation/products/marketplace/marketplace-seller-guide/' },
@@ -154,7 +154,7 @@ export default [
 	},
 
 	{
-        text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
+        text: 'Professional Services', header: true, type: 'learn', key: 'professionalServicesRef', children: [
             { text: 'Service Plans', header: true, anchor: true, type: 'learn', key: 'professionalServices/servicePlans', slug: '/documentation/services/service-plans/' },
             { text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
             { text: 'Technical Account Manager', header: true, anchor: true, type: 'learn', slug: '/documentation/services/technical-account-manager/', key: 'professionalServices/TAM' },
@@ -168,7 +168,7 @@ export default [
     },
 
 	{
-		text: 'Limits WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'limits'
+		text: 'Limits', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'limits'
 	},
 
 	{

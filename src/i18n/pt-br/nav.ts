@@ -66,7 +66,7 @@ export default NavDictionary([
 
 
 	{
-		text: 'Build', key: 'accountsProfile'
+		text: 'Build', key: 'buildRef'
 	},
 	{ text: 'Edge Application', key: 'reference/edgeApplication', slug: '/documentation/products/edge-application/' },
 	{ text: 'Application Acceleration', key: 'reference/applicationAcceleration', slug: '/documentation/products/edge-application/application-acceleration/' },
@@ -85,7 +85,7 @@ export default NavDictionary([
 	{ text: 'Rules Engine', key: 'reference/rulesEngineedgeApplication', slug: '/documentation/products/edge-application/rules-engine/' },
 
 	{
-		text: 'Secure', key: 'accountsProfile'
+		text: 'Secure', key: 'secureRef'
 	},
 	{ text: 'Edge Firewall', key: 'reference/edgeFirewall', slug: '/documentation/products/edge-firewall/' },
 	{ text: 'DDoS Protection', key: 'reference/ddosProtection', slug: '/documentation/products/edge-firewall/ddos-protection/' },
@@ -103,25 +103,25 @@ export default NavDictionary([
 	{ text: 'DNSSEC Compatibility', key: 'reference/dnssecCompatibility', slug: '/documentation/products/intelligent-dns/dnssec-compatibility/' },
 
 
-	{ text: 'Deploy', key: 'accountsProfile' },
+	{ text: 'Deploy', key: 'deployRef' },
 	{ text: 'Edge Orchestrator', key: 'reference/edgeOrchestrator', slug: '/documentation/products/edge-orchestrator/' },
 	{ text: 'Edge Services', key: 'reference/edgeServices', slug: '/documentation/products/edge-orchestrator/edge-services/' },
 	{ text: 'Edge Node', key: 'reference/edgeNode', slug: '/documentation/products/edge-orchestrator/edge-node/' },
 
-	{ text: 'Observe', key: 'accountsProfile' },
+	{ text: 'Observe', key: 'observeRef' },
 	{ text: 'Data Streaming', key: 'reference/dataStreaming', slug: '/documentation/products/data-streaming/' },
 	{ text: 'Edge Pulse', key: 'reference/edgePulse', slug: '/documentation/products/edge-pulse/' },
 	{ text: 'Real-Time Events', key: 'reference/realTimeEvents', slug: '/documentation/products/real-time-events/' },
 	{ text: 'Real-Time Metrics', key: 'reference/realTimeMetrics', slug: '/documentation/products/real-time-metrics/' },
 	{ text: 'Historical Real-Time Metrics', key: 'reference/historicalRealTimeMetrics', slug: '/documentation/products/historical-real-time-metrics/' },
 
-	{text: 'Marketplace', key: 'mktp'},
+	{text: 'Marketplace', key: 'mktpRef'},
 	{ text: 'Marketplace', key: 'mktp', slug: '/documentation/products/marketplace/' },
 	{ text: 'Marketplace Independent Software Vendor', key: 'mktp/isv', slug: '/documentation/products/marketplace/isv-signup/' },
 	{ text: 'Marketplace Seller Guide', key: 'mktp/sellerGuide', slug: '/documentation/products/marketplace/marketplace-seller-guide/' },
 
 
-	{ text: 'Professional Services', key: 'professionalServices' },
+	{ text: 'Professional Services', key: 'professionalServicesRef' },
 	{ text: 'Service Plans', key: 'professionalServices/servicePlans', slug: '/documentation/services/service-plans/' },
 	{ text: 'Integration Services', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
 	{ text: 'Technical Account Manager', slug: '/documentation/services/technical-account-manager/', key: 'professionalServices/TAM' },
