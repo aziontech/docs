@@ -15,23 +15,23 @@ export default [
 
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile ///
 
-    { text: 'Visão geral',header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentacao/' },
+    { text: 'Visão geral',header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentacao/', hasLabel:'menu.build' },
 	{ text: 'Construa uma aplicação',header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentacao/' },
 
 	{ text: 'Edite uma aplicação',header: true,  type: 'learn',  key: 'editEdgeApp', children: [
 		{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'mainSettings' },
-            { text: 'Crie device groups', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'deviceGroups' },
-            { text: 'Defina páginas de erro', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'errorPages' },
-            { text: 'Trabalhe com origins', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'origins' },
-            { text: 'Ajuste cache settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'cacheSettings' },
-            { text: 'Trabalhe com rules engine', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'rules' },
-            { text: 'Instancie uma edge function', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'functions' },
+            { text: 'Criar device groups', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'deviceGroups' },
+            { text: 'Definir páginas de erro', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'errorPages' },
+            { text: 'Trabalhar com origins', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'origins' },
+            { text: 'Ajustar cache settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'cacheSettings' },
+            { text: 'Trabalhar com rules engine', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'rules' },
+            { text: 'Instanciar uma edge function', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'functions' },
         ]
     },
 
     {
         text: 'Configurações avançadas', header: true, type: 'learn', key: 'advancedConfig', addBorder: true, children: [
-            { text: 'Processe imagens', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'processImages', hasLabel: 'menu.buildAdvanced' },
+            { text: 'Processar imagens', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'processImages', hasLabel: 'menu.buildAdvanced' },
             { text: 'Multi-origin', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'multiOrigin' },
         ]
     },
@@ -53,11 +53,11 @@ export default [
         ]
     },
 
-    { text: 'Environment variables', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'envVars', hasLabel: 'menu.buildData', addBorder: true, },
+    { text: 'Environment Variables', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'envVars', hasLabel: 'menu.buildData', addBorder: true, },
 
 
-    { text: 'Monitore métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'understandMetrics', hasLabel: 'menu.buildTroubleshoot' },
-    { text: 'Debugue aplicações', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'debugApps', addBorder: true, },
+    { text: 'Monitorar métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'understandMetrics', hasLabel: 'menu.buildTroubleshoot' },
+    { text: 'Debugar aplicações', header: true, anchor: true, type: 'learn', slug: '/documentacao/', key: 'debugApps', addBorder: true, },
 
 
 ] as const;
