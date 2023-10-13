@@ -113,9 +113,9 @@ export default UIDictionary({
 	'breadcrumb.home': 'Documentação',
 	'menu.label': 'Produtos',
 	'menu.begin': 'Antes de começar',
-	'menu.journey': 'Escolha sua jornada',
+	'menu.journey': 'Escolha uma jornada',
 	'menu.build': 'Build',
-	'menu.buildEdit': 'Edite sua aplicação',
+	'menu.buildEdit': 'Edite uma aplicação',
 	'menu.buildAdvanced': 'Configurações avançadas',
 	'menu.buildDev': 'Desenvolva com a Azion',
 	'menu.buildData': 'Trabalhe com dados',
@@ -124,8 +124,8 @@ export default UIDictionary({
 	'menu.buildTutorials': 'Tutoriais',
 	'menu.buildLearn': 'Saiba mais',
 	'menu.getStarted': 'Ponto de partida',
-	'menu.account': 'Gerenciar sua conta',
+	'menu.account': 'Gerenciar contas',
 	'menu.addResources': 'Recursos adicionais',
-	'menu.domains': 'Domínios',
+	'menu.domains': 'Trabalhar com domínios',
 	'menu.reference': 'Referência'
 });

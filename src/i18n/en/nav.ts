@@ -16,8 +16,6 @@ export default [
 
 	{ text: 'Core concepts', header: true, anchor: true, type: 'learn', slug: '/documentation/products/core-concepts/', key: 'beforeBegin/core', hasLabel:'menu.begin' },
 
-	{ text: 'Understand your account WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'accountsProfile/createAccount' },
-
 	{ text: 'Get help', header: true, anchor: true, type: 'learn', slug: 'documentation/products/get-help/', key: 'getHelp' },
 
 	{ text: 'Welcome to the edge', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-started/', key: 'getStarted/welcome', hasLabel: "menu.getStarted" },
@@ -76,8 +74,6 @@ export default [
 
 		]
 	},
-
-	{ text: 'Migrate to Azion WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'migrateAzion' },
 
 	{
 		text: 'Templates and integrations WIP', header: true, type: 'learn', key: 'templatesIntegrationsRef', addBorder: true, children: [

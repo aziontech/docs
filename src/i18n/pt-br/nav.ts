@@ -11,15 +11,13 @@ import { NavDictionary } from '../translation-checkers';
 
 export default NavDictionary([
 
-	{ text: 'Core concepts', slug: '/documentation/products/core-concepts/', key: 'beforeBegin/core' },
-	{ text: 'Entenda sua conta', slug: '/documentation/', key: 'accountsProfile/createAccount' },
-
-	{ text: 'Ajuda', slug: 'documentation/products/get-help/', key: 'getHelp' },
+	{ text: 'Conceitos essenciais', slug: '/documentation/products/core-concepts/', key: 'beforeBegin/core' },
+	{ text: 'Obter ajuda', slug: 'documentation/products/get-help/', key: 'getHelp' },
 
 	{ text: 'Boas vindas ao edge', slug: '/documentation/products/get-started/', key: 'getStarted/welcome' },
 	{ text: 'Iniciar com um template', slug: '/documentation/products/start-with-a-template/', key: 'getStarted/template' },
-	{ text: 'Go live with Azion', slug: '/documentation/products/go-live-with-azion/', key: 'getStarted/goLive' },
-	{ text: 'Monitorar metricas', slug: '/documentation/products/guides/use-real-time-metrics/', key: 'getStarted/viewMetrics' },
+	{ text: 'Rodar na rede da Azion', slug: '/documentation/products/go-live-with-azion/', key: 'getStarted/goLive' },
+	{ text: 'Métricas', slug: '/documentation/products/guides/use-real-time-metrics/', key: 'getStarted/viewMetrics' },
 
 
 	{ text: 'Build', slug: '/documentation/products/guides/build/overview/', key: 'build' },
@@ -141,13 +139,8 @@ export default NavDictionary([
 		text: 'Glossário', slug: '/documentation/products/azion-glossary/', key: 'glossary'
 	},
 
-
 	{
-		text: 'Status do sistema', slug: 'https://status.azion.com/', key: 'systemStatus'
-	},
-
-	{
-		text: 'Agreements', slug: '/documentation/agreements/', key: 'agreements'
+		text: 'Contratos', slug: '/documentation/agreements/', key: 'agreements'
 	},
 
 	{
