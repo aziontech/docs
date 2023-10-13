@@ -34,7 +34,7 @@ export default NavDictionary([
 
 	{ text: 'Criar uma conta', key: 'account/createAccount', slug: '/documentation/products/accounts/creating-account/' },
 
-	{ text: 'Gerenciar conta', key: 'accountsAccount' },
+	{ text: 'Gerenciar conta', key: 'manageAccount' },
 	{ text: 'Usuários', key: 'account/Users', slug: '/documentation/products/guides/users-management/' },
 	{ text: 'Teams permissions', slug: '/documentation/products/guides/teams-permissions/', key: 'account/teamsPermissions' },
 	{ text: 'Activity history', slug: '/documentation/products/guides/activity-history/', key: 'account/activityHistory' },
@@ -44,13 +44,13 @@ export default NavDictionary([
 	{ text: 'Billing and subscription', slug: '/documentation/products/guides/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
 
 
-	{ text: 'Gerenciar perfis', key: 'accountsProfile' },
+	{ text: 'Gerenciar perfis', key: 'manageProfile' },
 	{ text: 'Personal tokens', key: 'accountsProfile/personalTokens', slug: '/documentation/products/guides/personal-tokens/' },
 	{ text: 'Configurações', slug: '/documentation/products/guides/account-settings/', key: 'accountsProfile/settings' },
 	{ text: 'Excluir conta', slug: '/documentation/products/guides/delete-account/', key: 'accountsProfile/deleteAccount' },
 
 
-	{ text: 'Developer tools', key: 'accountsProfile' },
+	{ text: 'Developer tools', key: 'developerTools' },
 	{ text: 'API', key: 'devtools/api', slug: 'https://api.azion.com/' },
 	{ text: 'CLI', key: 'devtools/cli', slug: '/documentation/products/cli/' },
 	{ text: 'API GraphQL Playground', slug: '/documentation/products/devtools/graphql-playground/', key: 'devtools/graphQLplayground' },
@@ -59,7 +59,7 @@ export default NavDictionary([
 	{ text: 'Terraform', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
 
-	{ text: 'Templates e integrações ', key: 'accountsProfile' },
+	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
 	{ text: 'Entenda os Azion Templates', key: 'templatesIntegrations/understandTemplates', slug: '/documentation/' },
 	{ text: 'Criar uma integração', slug: '/documentation/', key: 'templatesIntegrations/buildIntegration' },
 	{ text: 'Criar e publicar um template', slug: '/documentation/', key: 'templatesIntegrations/createPublishTemplate' },
