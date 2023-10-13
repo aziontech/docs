@@ -12,14 +12,14 @@ import { NavDictionary } from '../translation-checkers';
 export default NavDictionary([
 
 	{ text: 'Core concepts', slug: '/documentation/products/core-concepts/', key: 'beforeBegin/core' },
-	{ text: 'Understand your account WIP', slug: '/documentation/', key: 'accountsProfile/createAccount' },
+	{ text: 'Entenda sua conta', slug: '/documentation/', key: 'accountsProfile/createAccount' },
 
-	{ text: 'Get help', slug: 'documentation/products/get-help/', key: 'getHelp' },
+	{ text: 'Ajuda', slug: 'documentation/products/get-help/', key: 'getHelp' },
 
-	{ text: 'Welcome to the edge', slug: '/documentation/products/get-started/', key: 'getStarted/welcome' },
+	{ text: 'Boas vindas ao edge', slug: '/documentation/products/get-started/', key: 'getStarted/welcome' },
 	{ text: 'Iniciar com um template', slug: '/documentation/products/start-with-a-template/', key: 'getStarted/template' },
 	{ text: 'Go live with Azion', slug: '/documentation/products/go-live-with-azion/', key: 'getStarted/goLive' },
-	{ text: 'View metrics', slug: '/documentation/products/guides/use-real-time-metrics/', key: 'getStarted/viewMetrics' },
+	{ text: 'Monitorar metricas', slug: '/documentation/products/guides/use-real-time-metrics/', key: 'getStarted/viewMetrics' },
 
 
 	{ text: 'Build', slug: '/documentation/products/guides/build/overview/', key: 'build' },
