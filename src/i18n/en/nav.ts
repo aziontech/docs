@@ -14,7 +14,7 @@ export default [
 	{ text: 'Learn', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: 'https://learn.azion.com/', key: 'Learn' },
 
 
-	{ text: 'Core concepts', header: true, anchor: true, type: 'learn', slug: '/documentation/products/core-concepts/', key: 'beforeBegin/core', hasLabel:'menu.begin' },
+	{ text: 'Core concepts', header: true, anchor: true, type: 'learn', slug: '/documentation/products/core-concepts/', key: 'beforeBegin/core', hasLabel: 'menu.begin' },
 
 	{ text: 'Get help', header: true, anchor: true, type: 'learn', slug: 'documentation/products/get-help/', key: 'getHelp' },
 
@@ -146,19 +146,25 @@ export default [
 	},
 
 	{
-        text: 'Professional Services', header: true, type: 'learn', key: 'professionalServicesRef', children: [
-            { text: 'Service Plans', header: true, anchor: true, type: 'learn', key: 'professionalServices/servicePlans', slug: '/documentation/services/service-plans/' },
-            { text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
-            { text: 'Technical Account Manager', header: true, anchor: true, type: 'learn', slug: '/documentation/services/technical-account-manager/', key: 'professionalServices/TAM' },
-            { text: 'Best Practices Review', header: true, anchor: true, type: 'learn', slug: '/documentation/services/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
-            { text: 'Custom Education Programs', header: true, anchor: true, type: 'learn', slug: '/documentation/services/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
-            { text: 'Security Response Team', header: true, anchor: true, type: 'learn', slug: '/documentation/services/security-response-team/', key: 'professionalServices/SRT' },
-            { text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'professionalServices/technicalSupport' },
-            { text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/business-events-support/', key: 'professionalServices/businessEventsSupport' },
-            { text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
-        ]
-    },
-	
+		text: 'Accounts', key: 'accountsRef', children: [
+			{ text: 'Activity History', header: true, type: 'learn', key: 'accounts/ActivityHistory', slug: '/documentation/products/accounts/activity-history/' },
+			{ text: 'Clients', key: 'accounts/Clients', slug: '/documentation/products/accounts/clients/' },
+			{ text: 'Account settings', key: 'accounts/accountSettings', slug: '/documentation/products/accounts/account-settings/' },
+			{ text: 'Billing', key: 'accounts/billing', slug: '/documentation/products/accounts/billing/' },
+			{ text: 'Multi-Factor Authentication', key: 'accounts/MFA', slug: '/documentation/products/accounts/multi-factor-authentication/' },
+			{ text: 'Personal Tokens', key: 'accounts/personalTokens', slug: '/documentation/products/accounts/personal-tokens/' },
+			{ text: 'Social Login', key: 'accounts/socialLogin', slug: '/documentation/products/accounts/social-login/' },
+			{ text: 'Single Sign-On', key: 'accounts/SSO', slug: '/documentation/products/accounts/single-sign-on/' },
+			{ text: 'Teams Permissions', key: 'accounts/teamsPermissions', slug: '/documentation/products/accounts/teams-permissions/' },
+			{ text: 'Users Management', key: 'accounts/usersManagement', slug: '/documentation/products/accounts/users-and-teams/' },
+			{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentacao/produtos/gestao-de-contas/your-settings/' },
+
+		]
+	},
+
+
+
+
 	{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'technicalSupport' },
 
 	{
@@ -171,7 +177,7 @@ export default [
 			{ text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/business-events-support/', key: 'professionalServices/businessEventsSupport' },
 			{ text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
 		]
-	},	
+	},
 
 	{
 		text: 'Glossary', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-glossary/', key: 'glossary', addBorder: true
