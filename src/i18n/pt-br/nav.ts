@@ -117,7 +117,7 @@ export default NavDictionary([
 	{ text: 'Marketplace Seller Guide', key: 'mktp/sellerGuide', slug: '/documentacao/produtos/marketplace/marketplace-seller-guide/' },
 
 	{
-		text: 'Contas', key: 'accountsdRef'
+		text: 'Contas', key: 'accountsRef'
 	},
 	{ text: 'Activity History', key: 'accounts/ActivityHistory', slug: '/documentacao/produtos/gestao-de-contas/activity-history/' },
 	{ text: 'Clients', key: 'accounts/Clients', slug: '/documentacao/produtos/gestao-de-contas/clients/' },
@@ -131,7 +131,7 @@ export default NavDictionary([
 	{ text: 'Users Management', key: 'accounts/usersManagement', slug: '/documentacao/produtos/gestao-de-contas/usuarios-e-times/' },
 	{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentacao/produtos/gestao-de-contas/your-settings/' },
 
-	{ text: 'Technical Support', slug: '/documentacao/servicos/suporte/', key: 'professionalServices/technicalSupport' },
+	{ text: 'Technical Support', slug: '/documentacao/servicos/suporte/', key: 'technicalSupport' },
 
 	{ text: 'Professional Services', key: 'professionalServicesRef' },
 	{ text: 'Integration Services', slug: '/documentacao/servicos/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
