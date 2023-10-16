@@ -75,8 +75,8 @@ export default [
 	},
 
 	{
-		text: 'Templates and integrations WIP', header: true, type: 'learn', key: 'templatesIntegrationsRef', addBorder: true, children: [
-			{ text: 'Create and publish a template WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'templatesIntegrations/createPublishTemplate' },
+		text: 'Templates and integrations', header: true, type: 'learn', key: 'templatesIntegrationsRef', addBorder: true, children: [
+			{ text: 'Create and publish a template', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'templatesIntegrations/createPublishTemplate' },
 		]
 	},
 
@@ -158,6 +158,18 @@ export default [
             { text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
         ]
     },
+
+	{
+		text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
+			{ text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
+			{ text: 'Technical Account Manager', header: true, anchor: true, type: 'learn', slug: '/documentation/services/technical-account-manager/', key: 'professionalServices/TAM' },
+			{ text: 'Best Practices Review', header: true, anchor: true, type: 'learn', slug: '/documentation/services/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
+			{ text: 'Custom Education Programs', header: true, anchor: true, type: 'learn', slug: '/documentation/services/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
+			{ text: 'Security Response Team', header: true, anchor: true, type: 'learn', slug: '/documentation/services/security-response-team/', key: 'professionalServices/SRT' },
+			{ text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/business-events-support/', key: 'professionalServices/businessEventsSupport' },
+			{ text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
+		]
+	},	
 
 	{
 		text: 'Glossary', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-glossary/', key: 'glossary', addBorder: true
