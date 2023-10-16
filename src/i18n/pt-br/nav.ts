@@ -14,7 +14,7 @@ export default NavDictionary([
 	{ text: 'Conceitos básicos', slug: '/documentacao/produtos/conceitos-basicos/', key: 'beforeBegin/core' },
 	{ text: 'Obter ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getHelp' },
 
-	{ text: 'Boas vindas ao edge', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
+	{ text: 'Boas-vindas ao edge', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
 	{ text: 'Começar com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
 	{ text: 'Rodar na rede da Azion', slug: '/documentacao/produtos/rodar-na-rede-da-azion/', key: 'getStarted/goLive' },
 	{ text: 'Métricas', slug: '/documentacao/produtos/guias/usar-real-time-metrics/', key: 'getStarted/viewMetrics' },
@@ -36,7 +36,7 @@ export default NavDictionary([
 	{ text: 'Usuários', key: 'account/Users', slug: '/documentacao/produtos/guias/users-management/' },
 	{ text: 'Times', slug: '/documentacao/produtos/guias/teams-permissions/', key: 'account/teamsPermissions' },
 	{ text: 'Activity history', slug: '/documentacao/produtos/guias/activity-history/', key: 'account/activityHistory' },
-	{ text: 'Credenciais', slug: '/documentacao/produtos/guias/credentials/', key: 'account/activityHistory' },
+	{ text: 'Credenciais', slug: '/documentacao/produtos/guias/credentials/', key: 'account/credentials' },
 	{ text: 'SSO', slug: '/documentacao/produtos/guias/sso/', key: 'account/sso' },
 	{ text: 'MFA', slug: '/documentacao/produtos/guias/multi-factor-authentication/', key: 'account/mfa' },
 	{ text: 'Faturamento e assinaturas', slug: '/documentacao/produtos/guias/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
@@ -45,20 +45,20 @@ export default NavDictionary([
 	{ text: 'Gerenciar perfis', key: 'manageProfile' },
 	{ text: 'Personal tokens', key: 'accountsProfile/personalTokens', slug: '/documentacao/produtos/guias/personal-tokens/' },
 	{ text: 'Configurações', slug: '/documentacao/produtos/guias/configuracoes-de-conta/', key: 'accountsProfile/settings' },
-	{ text: 'Excluir conta', slug: '/documentacao/produtos/guias/contas/excluir-conta/', key: 'accountsProfile/deleteAccount' },
+	{ text: 'Deletar conta', slug: '/documentacao/produtos/guias/contas/excluir-conta/', key: 'accountsProfile/deleteAccount' },
 
 
 	{ text: 'Developer tools', key: 'developerTools' },
 	{ text: 'API', key: 'devtools/api', slug: 'https://api.azion.com/' },
 	{ text: 'CLI', key: 'devtools/cli', slug: '/documentacao/produtos/cli/' },
 	{ text: 'API GraphQL Playground', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'devtools/graphQLplayground' },
-	{ text: 'Edge Runtime', slug: '/pt-br/documentacao/produtos/edge-application/edge-functions/runtime/visao-geral/', key: 'devtools/runtime' },
+	{ text: 'Edge Runtime', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/visao-geral/', key: 'devtools/runtime' },
 	{ text: 'SDK', slug: '/documentacao/devtools/sdk/go/', key: 'devtools/sdk' },
-	{ text: 'Terraform', slug: '/pt-br/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
+	{ text: 'Terraform', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
 
 	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
-	{ text: 'Criar e publicar um template', slug: '/documentacao/produtos/usar-um-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+	{ text: 'Usar um template', slug: '/documentacao/produtos/usar-um-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
 
 
 	{
@@ -101,7 +101,7 @@ export default NavDictionary([
 
 	{ text: 'Deploy', key: 'deployRef' },
 	{ text: 'Edge Orchestrator', key: 'reference/edgeOrchestrator', slug: '/documentacao/produtos/edge-orchestrator/' },
-	{ text: 'Edge Services', key: 'reference/edgeServices', slug: '/documentacao/produtos/edge-orchestrator/edge-services/edge-services/' },
+	{ text: 'Edge Services', key: 'reference/edgeServices', slug: '/documentacao/produtos/edge-orchestrator/edge-services/' },
 	{ text: 'Edge Node', key: 'reference/edgeNode', slug: '/documentacao/produtos/edge-orchestrator/edge-node/' },
 
 	{ text: 'Observe', key: 'observeRef' },

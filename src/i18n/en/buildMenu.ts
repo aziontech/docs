@@ -29,14 +29,10 @@ export default [
         ]
     },
 
-
-    { text: 'Save and deploy WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'saveDeploy' },
-
     {
         text: 'Advanced configurations', header: true, type: 'learn', key: 'advancedConfig', addBorder: true, children: [
             { text: 'Process images', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/process-images/', key: 'processImages', hasLabel: 'menu.buildAdvanced' },
             { text: 'Multi-origin', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/multiple-origins/', key: 'multiOrigin' },
-            { text: 'Live Streaming WIP', header: true, anchor: true, type: 'learn', slug: 'liveStreaming', key: 'streaming' },
         ]
     },
 

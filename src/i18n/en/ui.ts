@@ -137,7 +137,7 @@ export default {
 	'menu.getStarted': 'Get started',
 	'menu.account': 'Manage your account',
 	'menu.addResources': 'Additional resources',
-	'menu.domains': 'Domains',
+	'menu.domains': 'Work with Domains',
 	'menu.reference': 'Reference'
 
 
