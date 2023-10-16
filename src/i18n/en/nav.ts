@@ -69,7 +69,6 @@ export default [
 			{ text: 'Edge Runtime', header: true, anchor: true, type: 'learn', slug: '/documentation/products/edge-application/edge-functions/runtime/overview/', key: 'devtools/runtime' },
 			{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
 			{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
-			{ text: 'Platform Kit WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'devtools/platformKit' },
 			{ text: 'GitHub', header: true, anchor: true, type: 'learn', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
 
 		]
@@ -77,9 +76,6 @@ export default [
 
 	{
 		text: 'Templates and integrations WIP', header: true, type: 'learn', key: 'templatesIntegrationsRef', addBorder: true, children: [
-			{ text: 'Understand Azion Templates WIP', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/understandTemplates', slug: '/documentation/' },
-			{ text: 'Use a template WIP', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/useTemplate', slug: '/documentation/' },
-			{ text: 'Build an integration WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'templatesIntegrations/buildIntegration' },
 			{ text: 'Create and publish a template WIP', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'templatesIntegrations/createPublishTemplate' },
 		]
 	},
@@ -162,10 +158,6 @@ export default [
             { text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
         ]
     },
-
-	{
-		text: 'Limits', header: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'limits'
-	},
 
 	{
 		text: 'Glossary', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-glossary/', key: 'glossary', addBorder: true
