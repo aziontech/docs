@@ -158,6 +158,8 @@ export default [
             { text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
         ]
     },
+	
+	{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'technicalSupport' },
 
 	{
 		text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
