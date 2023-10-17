@@ -18,7 +18,7 @@ export default [
     { text: 'Build an application', header: true, anchor: true, slug: '/documentation/products/guides/build/build-an-application/', key: 'buildEdgeApps' },
 
     {
-        text: 'Edit your edge application', header: true, type: 'learn', key: 'editEdgeApp', children: [
+        text: 'Edit an application', header: true, type: 'learn', key: 'editEdgeApp', children: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/configure-main-settings/', key: 'mainSettings' },
             { text: 'Create device groups', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/create-device-groups/', key: 'deviceGroups' },
             { text: 'Set error pages', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/set-error-pages/', key: 'errorPages' },
