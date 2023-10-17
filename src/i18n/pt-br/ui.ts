@@ -111,5 +111,21 @@ export default UIDictionary({
 	'recipesLink.singular': 'Receita relacionada:',
 	'recipesLink.plural': 'Receitas relacionadas',
 	'breadcrumb.home': 'Documentação',
-	'menu.label': 'Produtos'
+	'menu.label': 'Produtos',
+	'menu.begin': 'Antes de começar',
+	'menu.journey': 'Escolha sua jornada',
+	'menu.build': 'Build',
+	'menu.buildEdit': 'Edite uma aplicação',
+	'menu.buildAdvanced': 'Configurações avançadas',
+	'menu.buildDev': 'Desenvolva com a Azion',
+	'menu.buildData': 'Trabalhe com dados',
+	'menu.buildTroubleshoot': 'Troubleshoot',
+	'menu.buildGuides': 'Guias',
+	'menu.buildTutorials': 'Tutoriais',
+	'menu.buildLearn': 'Saiba mais',
+	'menu.getStarted': 'Ponto de partida',
+	'menu.account': 'Gerencie contas',
+	'menu.addResources': 'Recursos adicionais',
+	'menu.domains': 'Trabalhe com domínios',
+	'menu.reference': 'Referência'
 });
