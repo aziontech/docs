@@ -32,7 +32,7 @@ export default NavDictionary([
 
 	{ text: 'Criar uma conta', key: 'account/createAccount', slug: '/documentacao/produtos/contas/criar-uma-conta/' },
 
-	{ text: 'Gerenciar conta', key: 'manageAccount' },
+	{ text: 'Configurar conta', key: 'manageAccount' },
 	{ text: 'Usuários', key: 'account/Users', slug: '/documentacao/produtos/guias/users-management/' },
 	{ text: 'Times', slug: '/documentacao/produtos/guias/teams-permissions/', key: 'account/teamsPermissions' },
 	{ text: 'Activity history', slug: '/documentacao/produtos/guias/activity-history/', key: 'account/activityHistory' },
@@ -42,7 +42,7 @@ export default NavDictionary([
 	{ text: 'Faturamento e assinaturas', slug: '/documentacao/produtos/guias/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
 
 
-	{ text: 'Gerenciar perfis', key: 'manageProfile' },
+	{ text: 'Configurar perfis', key: 'manageProfile' },
 	{ text: 'Personal tokens', key: 'accountsProfile/personalTokens', slug: '/documentacao/produtos/guias/personal-tokens/' },
 	{ text: 'Configurações', slug: '/documentacao/produtos/guias/configuracoes-de-conta/', key: 'accountsProfile/settings' },
 	{ text: 'Deletar conta', slug: '/documentacao/produtos/guias/contas/excluir-conta/', key: 'accountsProfile/deleteAccount' },

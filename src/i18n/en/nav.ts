@@ -40,7 +40,7 @@ export default [
 	{ text: 'Create account', header: true, anchor: true, type: 'learn', key: 'account/createAccount', slug: '/documentation/products/accounts/creating-account/', hasLabel: 'menu.account' },
 
 	{
-		text: 'Manage account', header: true, type: 'learn', key: 'manageAccount', children: [
+		text: 'Configure account', header: true, type: 'learn', key: 'manageAccount', children: [
 			{ text: 'Users', header: true, anchor: true, type: 'learn', key: 'account/Users', slug: '/documentation/products/guides/users-management/' },
 			{ text: 'Teams permissions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/teams-permissions/', key: 'account/teamsPermissions' },
 			{ text: 'Activity history', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/activity-history/', key: 'account/activityHistory' },
@@ -53,7 +53,7 @@ export default [
 
 
 	{
-		text: 'Manage profile', header: true, type: 'learn', key: 'manageProfile', addBorder: true, children: [
+		text: 'Configure profile', header: true, type: 'learn', key: 'manageProfile', addBorder: true, children: [
 			{ text: 'Personal tokens', header: true, anchor: true, type: 'learn', key: 'accountsProfile/personalTokens', slug: '/documentation/products/guides/personal-tokens/' },
 			{ text: 'Settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/account-settings/', key: 'accountsProfile/settings' },
 			{ text: 'Delete account', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/delete-account/', key: 'accountsProfile/deleteAccount' },

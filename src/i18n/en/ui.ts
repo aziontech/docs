@@ -126,7 +126,7 @@ export default {
 	'menu.begin': 'Before you begin',
 	'menu.journey': 'Choose your journey',
 	'menu.build': 'Build',
-	'menu.buildEdit': 'Edit your Edge Application',
+	'menu.buildEdit': 'Edit an application',
 	'menu.buildAdvanced': 'Advanced configuration',
 	'menu.buildDev': 'Develop with Azion',
 	'menu.buildData': 'Work with data',
@@ -135,7 +135,7 @@ export default {
 	'menu.buildTutorials': 'Tutorials',
 	'menu.buildLearn': 'Learn more',
 	'menu.getStarted': 'Get started',
-	'menu.account': 'Manage your account',
+	'menu.account': 'Manage account',
 	'menu.addResources': 'Additional resources',
 	'menu.domains': 'Work with Domains',
 	'menu.reference': 'Reference'
