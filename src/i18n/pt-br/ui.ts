@@ -113,7 +113,7 @@ export default UIDictionary({
 	'breadcrumb.home': 'Documentação',
 	'menu.label': 'Produtos',
 	'menu.begin': 'Antes de começar',
-	'menu.journey': 'Escolha uma jornada',
+	'menu.journey': 'Escolha sua jornada',
 	'menu.build': 'Build',
 	'menu.buildEdit': 'Edite uma aplicação',
 	'menu.buildAdvanced': 'Configurações avançadas',
@@ -124,8 +124,8 @@ export default UIDictionary({
 	'menu.buildTutorials': 'Tutoriais',
 	'menu.buildLearn': 'Saiba mais',
 	'menu.getStarted': 'Ponto de partida',
-	'menu.account': 'Gerenciar contas',
+	'menu.account': 'Gerencie contas',
 	'menu.addResources': 'Recursos adicionais',
-	'menu.domains': 'Trabalhar com domínios',
+	'menu.domains': 'Trabalhe com domínios',
 	'menu.reference': 'Referência'
 });
