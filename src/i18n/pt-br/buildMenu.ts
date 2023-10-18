@@ -19,7 +19,7 @@ export default [
 	{ text: 'Construa uma aplicação',header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentacao/produtos/guias/build/criar-uma-aplicacao/' },
 
 	{ text: 'Edite uma aplicação',header: true,  type: 'learn',  key: 'editEdgeApp', children: [
-		{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/definir-configuracoes-principais/', key: 'mainSettings' },
+		{ text: 'Configurar main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/definir-configuracoes-principais/', key: 'mainSettings' },
             { text: 'Criar device groups', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/criar-device-groups/', key: 'deviceGroups' },
             { text: 'Definir páginas de erro', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/configurar-paginas-de-erro/', key: 'errorPages' },
             { text: 'Trabalhar com origins', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/definir-origens/', key: 'origins' },
@@ -32,7 +32,7 @@ export default [
     {
         text: 'Configurações avançadas', header: true, type: 'learn', key: 'advancedConfig', addBorder: true, children: [
             { text: 'Processar imagens', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/processar-imagens/', key: 'processImages', hasLabel: 'menu.buildAdvanced' },
-            { text: 'Multi-origin', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/configure-multiplas-origens/', key: 'multiOrigin' },
+            { text: 'Configurar múltiplas origens', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/configure-multiplas-origens/', key: 'multiOrigin' },
         ]
     },
 
