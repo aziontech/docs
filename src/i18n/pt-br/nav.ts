@@ -49,7 +49,7 @@ export default NavDictionary([
 
 
 	{ text: 'Developer tools', key: 'developerTools' },
-	{ text: 'API', key: 'devtools/api', slug: 'https://api.azion.com/' },
+	{ text: 'API', key: 'devtools/api', slug: '/documentacao/produtos/devtools/primeiros-passos-api/' },
 	{ text: 'CLI', key: 'devtools/cli', slug: '/documentacao/produtos/cli/' },
 	{ text: 'API GraphQL Playground', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'devtools/graphQLplayground' },
 	{ text: 'Edge Runtime', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/visao-geral/', key: 'devtools/runtime' },
@@ -71,6 +71,7 @@ export default NavDictionary([
 	{ text: 'Image Processor', key: 'reference/imageProcessor', slug: '/documentacao/produtos/edge-application/image-processor/' },
 	{ text: 'Load Balancer', key: 'reference/loadBalancer', slug: '/documentacao/produtos/edge-application/load-balancer/' },
 	{ text: 'L2 Caching', key: 'reference/l2Caching', slug: '/documentacao/produtos/edge-application/l2-caching/' },
+	{ text: 'Main Settings', key: 'reference/mainSettings', slug: '/documentacao/produtos/edge-application/main-settings/' },
 	{ text: 'Cache Settings', key: 'reference/cacheSettings', slug: '/documentacao/produtos/edge-application/cache-settings/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesApplication', slug: '/documentacao/produtos/edge-application/edge-functions-instances/' },
 	{ text: 'Device Groups', key: 'reference/deviceGroups', slug: '/documentacao/produtos/edge-application/device-groups/' },
