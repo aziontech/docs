@@ -27,9 +27,9 @@ aziontech/docs has two teams as code owners:
 
   - @hannah-sk :rabbit:
   - @MarianaAguilera :panda_face:
-  - @gabriel-azion :owl:
+  - @gabriel-azion :dog:
   - @bru-andrade :pig:
-  - @GabrielAzion :dog:
+  - @GabrielAzion :owl:
 
 - Experience Engineering (ExpEng), the gatekeepers of all structure code.
 
