@@ -26,10 +26,10 @@ aziontech/docs has two teams as code owners:
 - Product Content Experience (PCX), the gatekeepers of all content.
 
   - @hannah-sk :rabbit:
-  - @MarianaAguilera 
-  - @gabriel-azion 
+  - @MarianaAguilera :panda_face:
+  - @gabriel-azion :owl:
   - @bru-andrade :pig:
-  - @GabrielAzion 
+  - @GabrielAzion :dog:
 
 - Experience Engineering (ExpEng), the gatekeepers of all structure code.
 
