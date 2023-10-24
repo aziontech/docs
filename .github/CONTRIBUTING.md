@@ -25,16 +25,16 @@ aziontech/docs has two teams as code owners:
 
 - Product Content Experience (PCX), the gatekeepers of all content.
 
-  - @hannah-sk :rabbit:
-  - @MarianaAguilera :panda_face:
-  - @gabriel-azion :dog:
-  - @bru-andrade :pig:
-  - @GabrielAzion :owl:
+  - [@hannah-sk](https://github.com/hannah-sk) :rabbit:
+  - [@MarianaAguilera](https://github.com/MarianaAguilera) :panda_face:
+  - [@gabriel-azion](https://github.com/gabriel-azion) :dog:
+  - [@bru-andrade](https://github.com/bru-andrade) :pig:
+  - [@GabrielAzion](https://github.com/GabrielAzion) :owl:
 
 - Experience Engineering (ExpEng), the gatekeepers of all structure code.
 
-  - @robsongajunior
-  - @lfsigreja
+  - [@robsongajunior](https://github.com/robsongajunior)
+  - [@lfsigreja](https://github.com/lfsigreja )
 
 ---
 
