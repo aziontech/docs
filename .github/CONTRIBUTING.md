@@ -109,7 +109,7 @@ When the repository's code owners review your PR, they may make suggestions, req
 - PR based on the wrong branch (not main).
 - PR attempts to merge changes into the wrong branch.
 - Contribution was already addressed in another PR.
-- Contribution has wrong technical information (address the responsible TW and a SME, if needed).
+- Contribution has wrong technical information. Address the responsible Technical Writer (TW) and a Subject Matter Expert (SME), if needed.
 - Contribution is already being worked on by a TW (if it’s a product/feature launch and the TW is already working on the content on a branch, the TW’s contribution has priority. Community contribution can be incorporated into the TW’s PR).
 - Contributor opened a PR without a GitHub issue.
 - Contributor didn’t describe what they were changing/adding/fixing on the PR description.
