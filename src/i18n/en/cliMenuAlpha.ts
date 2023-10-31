@@ -21,6 +21,7 @@ export default [
 	{ text: 'Dev command', header: true, anchor: true, slug: '/documentation/products/cli/dev-command/', key: 'cli/localDev' },
 	{ text: 'Link command', header: true, anchor: true, slug: '/documentation/products/cli/link-command/', key: 'cli/link' },
 	{ text: 'Personal tokens command', header: true, anchor: true, slug: '/documentation/products/cli/personal-tokens/', key: 'cli/personalTokens' },
+	{ text: 'Edge application', header: true, anchor: true, slug: '/documentation/products/cli/edge-application/', key: 'cli/edgeApp' },
 
 
 ] as const;
