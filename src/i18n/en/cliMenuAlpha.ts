@@ -22,5 +22,16 @@ export default [
 	{ text: 'Link command', header: true, anchor: true, slug: '/documentation/products/cli/link-command/', key: 'cli/link' },
 	{ text: 'Personal tokens command', header: true, anchor: true, slug: '/documentation/products/cli/personal-tokens/', key: 'cli/personalTokens' },
 
+	{
+        text: 'Framework specific guides', header: true, type: 'learn', key: 'editEdgeApp', children: [
+            { text: 'Angular', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/angular/', key: 'cli/angular' },
+            { text: 'Astro', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/astro/' },
+            { text: 'Hexo', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/hexo/', key: 'cli/hexo' },
+            { text: 'Next', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/next/', key: 'cli/next' },
+			{ text: 'React', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/react/', key: 'cli/react' },
+			{ text: 'Vite', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/vite/', key: 'cli/vite' },
+            { text: 'Vue', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/vue/', key: 'cli/vue' },
+        ]
+    },
 
 ] as const;
