@@ -49,7 +49,7 @@ export default NavDictionary([
 
 
 	{ text: 'Developer tools', key: 'developerTools' },
-	{ text: 'API', key: 'devtools/api', slug: 'https://api.azion.com/' },
+	{ text: 'API', key: 'devtools/api', slug: '/documentacao/produtos/devtools/primeiros-passos-api/' },
 	{ text: 'CLI', key: 'devtools/cli', slug: '/documentacao/produtos/cli/' },
 	{ text: 'API GraphQL Playground', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'devtools/graphQLplayground' },
 	{ text: 'Edge Runtime', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/visao-geral/', key: 'devtools/runtime' },
@@ -71,6 +71,7 @@ export default NavDictionary([
 	{ text: 'Image Processor', key: 'reference/imageProcessor', slug: '/documentacao/produtos/edge-application/image-processor/' },
 	{ text: 'Load Balancer', key: 'reference/loadBalancer', slug: '/documentacao/produtos/edge-application/load-balancer/' },
 	{ text: 'L2 Caching', key: 'reference/l2Caching', slug: '/documentacao/produtos/edge-application/l2-caching/' },
+	{ text: 'Main Settings', key: 'reference/mainSettings', slug: '/documentacao/produtos/edge-application/main-settings/' },
 	{ text: 'Cache Settings', key: 'reference/cacheSettings', slug: '/documentacao/produtos/edge-application/cache-settings/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesApplication', slug: '/documentacao/produtos/edge-application/edge-functions-instances/' },
 	{ text: 'Device Groups', key: 'reference/deviceGroups', slug: '/documentacao/produtos/edge-application/device-groups/' },
@@ -93,7 +94,6 @@ export default NavDictionary([
 	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/edge-firewall/web-application-firewall/custom-allowed-rules/' },
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions/firewall/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions-instances/' },
-	{ text: 'Permissões de acesso', key: 'reference/accessPermissions', slug: '/documentacao/produtos/edge-firewall/permissoes-de-acesso/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/edge-firewall/rules-engine/' },
 	{ text: 'Intelligent DNS', key: 'reference/intelligentDNS', slug: '/documentacao/produtos/intelligent-dns/' },
 	{ text: 'Compatibilidade com DNSSEC', key: 'reference/dnssecCompatibility', slug: '/documentacao/produtos/intelligent-dns/compatibilidade-dnssec/' },
@@ -152,6 +152,10 @@ export default NavDictionary([
 
 	{
 		text: 'Contratos', slug: '/documentacao/contratos/', key: 'agreements'
+	},
+
+	{
+		text: 'Modelo de Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
 	},
 
 	{
