@@ -20,6 +20,7 @@ export default [
 	{ text: 'Comando dev', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/dev-comando/', key: 'cli/localDev' },
 	{ text: 'Comando link', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/link-comando/', key: 'cli/link' },
 	{ text: 'Comando personal tokens', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/personal-tokens/', key: 'cli/personalTokens' },
+	{ text: 'Edge application', header: true, anchor: true, slug: '/documentacao/produtos/cli/edge-application-crud/', key: 'cli/edgeApp' },
 
 	{
 		text: 'Guias específicos por framework', header: true, type: 'learn', key: 'cli/frameworks', children: [
