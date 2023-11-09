@@ -31,7 +31,7 @@ aziontech/docs has two teams as code owners:
   - [@bru-andrade](https://github.com/bru-andrade) :pig:
   - [@GabrielAzion](https://github.com/GabrielAzion) :owl:
 
-- Experience Engineering (ExpEng), the gatekeepers of all structure code.
+- UX Engineering (UXE), the gatekeepers of all structure code.
 
   - [@robsongajunior](https://github.com/robsongajunior)
   - [@lfsigreja](https://github.com/lfsigreja )
