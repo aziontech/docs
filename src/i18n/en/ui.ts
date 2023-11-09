@@ -122,5 +122,23 @@ export default {
 	'expressiveCode.copyButtonTooltip': 'Copy to clipboard',
 	'expressiveCode.copyButtonCopied': 'Copied!',
 	'breadcrumb.home': 'Documentation',
-	'menu.label': 'Products'
+	'menu.label': 'Products',
+	'menu.begin': 'Before you begin',
+	'menu.journey': 'Choose your journey',
+	'menu.build': 'Build',
+	'menu.buildEdit': 'Edit an application',
+	'menu.buildAdvanced': 'Advanced configuration',
+	'menu.buildDev': 'Develop with Azion',
+	'menu.buildData': 'Work with data',
+	'menu.buildTroubleshoot': 'Troubleshoot',
+	'menu.buildGuides': 'Guides',
+	'menu.buildTutorials': 'Tutorials',
+	'menu.buildLearn': 'Learn more',
+	'menu.getStarted': 'Get started',
+	'menu.account': 'Manage account',
+	'menu.addResources': 'Additional resources',
+	'menu.domains': 'Work with Domains',
+	'menu.reference': 'Reference'
+
+
 };
