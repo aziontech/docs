@@ -58,7 +58,13 @@ export default NavDictionary([
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
 
 	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
-	{ text: 'Usar um template', slug: '/documentacao/produtos/usar-um-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },
+	{ text: 'Conheça os Azion Templates', slug: '/documentacao/produtos/marketplace/templates/', key: 'templatesIntegrations/templates' },
+	{ text: 'Use um template', slug: '/documentacao/produtos/usar-um-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+	{ text: 'Conheça as Azion Integrations', slug: '/documentacao/produtos/marketplace/integracoes/', key: 'templatesIntegrations/integrations' },
+	{ text: 'Instale uma integração', slug: '/documentacao/produtos/marketplace/instalar-uma-integracao/', key: 'templatesIntegrations/installIntegration' },
+	{ text: 'Atualize uma integração', slug: '/documentacao/produtos/marketplace/atualizar-uma-integracao/', key: 'templatesIntegrations/updateIntegration' },
+	{ text: 'Seja um ISV', slug: '/documentacao/produtos/marketplace/isv-signup/', key: 'templatesIntegrations/isv' },
 
 
 	{
@@ -113,7 +119,7 @@ export default NavDictionary([
 
 	{ text: 'Marketplace', key: 'mktpRef' },
 	{ text: 'Marketplace', key: 'mktp', slug: '/documentacao/produtos/marketplace/' },
-	{ text: 'Marketplace Independent Software Vendor', key: 'mktp/isv', slug: '/documentacao/produtos/marketplace/isv-signup/' },
+	{ text: 'Permissões', key: 'mktp/permissions', slug: '/documentacao/produtos/guias/permissoes-marketplace/' },
 	{ text: 'Marketplace Seller Guide', key: 'mktp/sellerGuide', slug: '/documentacao/produtos/marketplace/marketplace-seller-guide/' },
 
 	{
