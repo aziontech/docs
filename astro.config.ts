@@ -18,6 +18,8 @@ import { autolinkConfig } from './plugins/rehype-autolink-config';
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
+import { rehypeLinks } from './plugins/rehypeLinks.mjs';
+
 
 // https://astro.build/config
 export default defineConfig({
@@ -47,6 +49,7 @@ export default defineConfig({
 		rehypePlugins: [
 			rehypeSlug,
 			// This adds links to headings
+			rehypeLinks,
 			[rehypeAutolinkHeadings, autolinkConfig],
 			// Tweak GFM task list syntax
 			rehypeTasklistEnhancer(),
