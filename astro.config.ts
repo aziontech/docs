@@ -4,7 +4,6 @@ import { defineConfig } from 'astro/config';
 
 import AutoImport from 'astro-auto-import';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
-import rehypeSlug from 'rehype-slug';
 import remarkSmartypants from 'remark-smartypants';
 import dynamicImport from 'vite-plugin-dynamic-import'
 
@@ -15,6 +14,7 @@ import { astroDocsExpressiveCode } from './integrations/expressive-code';
 
 import { sitemap } from './integrations/sitemap';
 import { autolinkConfig } from './plugins/rehype-autolink-config';
+import rehypeSlug from './plugins/rehype-slug-config'
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
