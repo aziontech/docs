@@ -23,7 +23,8 @@
 		{ text: 'Network List', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/network-list/', key: 'runtime/network-list' },
 	] },
 
-	
+	{ text: 'Compatibilidade com frameworks', header: true, anchor: true, type: 'learn', key: 'runtime/frameworks', slug: '/documentacao/produtos/devtools/azion-edge-runtime/compatibilidade-frameworks/' },
+
 	{ text: 'Exemplos em JavaScript', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/edge-application/edge-functions/javascript-examples/', key: 'runtime/jsExamples' },
 	{ text: 'Debugging', header: true, anchor: true,  type: 'learn', slug: '/documentacao/produtos/edge-application/edge-functions/debugging/', key: 'runtime/debugging' },
 	

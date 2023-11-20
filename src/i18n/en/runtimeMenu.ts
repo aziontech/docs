@@ -23,6 +23,7 @@
 		{ text: 'Network List interface', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/network-list', key: 'runtime/network-list' },
 	]},
 
+	{ text: 'Frameworks compatibility', header: true, anchor: true, type: 'learn', key: 'runtime/frameworks', slug: '/documentation/products/devtools/azion-edge-runtime/frameworks-compatibility/' },
 
     { text: 'JavaScript Examples', header: true, anchor: true, type: 'learn', slug: '/documentation/products/edge-application/edge-functions/javascript-examples', key: 'runtime/jsExamples' },
 	{ text: 'Debugging', header: true, anchor: true, type: 'learn', slug: '/documentation/products/edge-application/edge-functions/debugging', key: 'runtime/debugging' },

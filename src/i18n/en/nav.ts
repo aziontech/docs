@@ -13,62 +13,166 @@ export default [
 	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/dev-tools/', key: 'devTools' },
 	{ text: 'Learn', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: 'https://learn.azion.com/', key: 'Learn' },
 
-	{ text: 'Getting Started', header: true, anchor: true, type: 'learn', slug: 'documentation/products/getting-started', key: 'gettingStarted' },
+
+	{ text: 'Core concepts', header: true, anchor: true, type: 'learn', slug: '/documentation/products/core-concepts/', key: 'beforeBegin/core', hasLabel: 'menu.begin' },
+
+	{ text: 'Get help', header: true, anchor: true, type: 'learn', slug: 'documentation/products/get-help/', key: 'getHelp' },
+
+	{ text: 'Welcome to the edge', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-started/', key: 'getStarted/welcome', hasLabel: "menu.getStarted" },
+	{ text: 'Start with a template', header: true, anchor: true, type: 'learn', slug: '/documentation/products/start-with-a-template/', key: 'getStarted/template' },
+	{ text: 'Go live with Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/go-live-with-azion/', key: 'getStarted/goLive' },
+	{ text: 'View metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/use-real-time-metrics/', key: 'getStarted/viewMetrics', addBorder: true },
 
 
-	{ text: 'Accounts and Profile', header: true, type: 'learn', key: 'accountsProfile', addBorder: true, children: [
-		{ text: 'Create Account', slug: 'documentation/products/accounts/creating-account', key: 'accountsProfile/createAccount' },
-		{ text: 'Account Settings', slug: 'documentation/products/accounts/account-settings', key: 'accountsProfile/settings' },
-		{ text: 'Users Managements', slug: 'documentation/products/accounts/users-and-teams', key: 'accountsProfile/usersManagement' },
-		{ text: 'Billing', slug: 'documentation/products/accounts/billing', key: 'accountsProfile/billing' },
-		{ text: 'Credentials', slug: 'documentation/products/credentials', key: 'accountsProfile/credentials' },
-		{ text: 'Activity History', slug: 'documentation/products/accounts/activity-history', key: 'accountsProfile/activityHistory' },
-		{ text: 'Teams Permissions', slug: 'documentation/products/accounts/teams-permissions', key: 'accountsProfile/teamsPermissions' },
-		{ text: 'Single Sign-On (SSO)', slug: 'documentation/products/accounts/single-sign-on', key: 'accountsProfile/singleSignOn' },
-		{ text: 'Your Settings', slug: 'documentation/products/accounts/your-settings', key: 'accountsProfile/yourSettings' },
-		{ text: 'Personal Tokens', slug: 'documentation/products/accounts/personal-tokens', key: 'accountsProfile/personalTokens' },
-		{ text: 'Social Login', slug: 'documentation/products/accounts/social-login', key: 'accountsProfile/socialLogin' },
-		{ text: 'Groups and Clients', slug: 'documentation/products/accounts/clients', key: 'accountsProfile/GroupsAndClients' },
-		{ text: 'Multi-Factor Authentication', slug: 'documentation/products/accounts/multi-factor-authentication', key: 'accountsProfile/multiFactorAuth' },
-	] },
+	{ text: 'Build', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/overview/', key: 'build', hasLabel: 'menu.journey' },
+	{ text: 'Secure', header: true, anchor: true, type: 'learn', slug: 'documentation/products/secure', key: 'secure' },
+	{ text: 'Deploy', header: true, anchor: true, type: 'learn', slug: 'documentation/products/deploy', key: 'deploy' },
+	{ text: 'Observe', header: true, anchor: true, type: 'learn', slug: 'documentation/products/observe', key: 'observe' },
+
+	{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/', hasLabel: 'menu.domains' },
+	{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
+	{ text: 'Point domain to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/point-domain-to-azion/', key: 'pointDomain' },
+	{ text: 'Migrate NS to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/migrate-ns-to-azion/', key: 'migrateDomain' },
 
 
-	{ text: 'Build', header: true, type: 'learn', key: 'Build', hasLabel: "menu.label", children: [
-		{ text: 'Edge Application', isProduct: true, slug: 'documentation/products/edge-application', key: 'edgeApplication' },
-		{ text: 'Application Acceleration', slug: 'documentation/products/edge-application/application-acceleration', key: 'applicationAcceleration' },
-		{ text: 'Edge Caching', slug: 'documentation/products/edge-application/edge-caching', key: 'edgeCaching' },
-		{ text: 'Edge Functions', slug: 'documentation/products/edge-application/edge-functions', key: 'edgeFunctions' },
-		{ text: 'Image Processor', slug: 'documentation/products/edge-application/image-processor', key: 'imageProcessor' },
-		{ text: 'Load Balancer', slug: 'documentation/products/edge-application/load-balancer', key: 'loadBalancer' },
-	] },
 
 
-	{ text: 'Secure', header: true, type: 'learn', key: 'Secure',  children: [
-		{ text: 'Edge Firewall', slug: 'documentation/products/edge-firewall', key: 'edgefirewall' },
-		{ text: 'DDoS Protection', slug: 'documentation/products/edge-firewall/ddos-protection', key: 'ddosProtection' },
-		{ text: 'Network Layer Protection', slug: 'documentation/products/edge-firewall/network-layer-protection', key: 'networkLayerProtection' },
-		{ text: 'Web Application Firewall', slug: 'documentation/products/edge-firewall/web-application-firewall', key: 'webApplicationFirewall' },
-		{ text: 'Intelligent DNS', slug: 'documentation/products/intelligent-dns', key: 'intelligentDNS' },
-	] },
+	{ text: 'Create account', header: true, anchor: true, type: 'learn', key: 'account/createAccount', slug: '/documentation/products/accounts/creating-account/', hasLabel: 'menu.account' },
 
-	{ text: 'Deploy', header: true, type: 'learn', key: 'Deliver', children: [
-		{ text: 'Edge Orchestrator', slug: 'documentation/products/edge-orchestrator', key: 'edgeOrchestrator' },
-		{ text: 'Edge Node', slug: 'documentation/products/edge-orchestrator/edge-node', key: 'edgeNode' },
-		{ text: 'Edge Services', slug: 'documentation/products/edge-orchestrator/edge-services', key: 'edgeServices' },
-	] },
+	{
+		text: 'Configure account', header: true, type: 'learn', key: 'manageAccount', children: [
+			{ text: 'Users', header: true, anchor: true, type: 'learn', key: 'account/Users', slug: '/documentation/products/guides/users-management/' },
+			{ text: 'Teams permissions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/teams-permissions/', key: 'account/teamsPermissions' },
+			{ text: 'Activity history', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/activity-history/', key: 'account/activityHistory' },
+			{ text: 'Credentials', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/credentials/', key: 'account/credentials' },
+			{ text: 'SSO', header: true, anchor: true, type: 'learn', slug: 'documentation/products/guides/sso/', key: 'account/sso' },
+			{ text: 'MFA', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/multi-factor-authentication/', key: 'account/mfa' },
+			{ text: 'Billing and subscriptions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
+		]
+	},
 
 
-	{ text: 'Observe', header: true, type: 'learn', key: 'Observe', addBorder: true, children: [
-		{ text: 'Data Streaming', slug: 'documentation/products/data-streaming', key: 'dataStreaming' },
-		{ text: 'Edge Pulse', slug: 'documentation/products/edge-pulse', key: 'edgePulse' },
-		{ text: 'Real-Time Events', slug: 'documentation/products/real-time-events', key: 'realTimeEvents' },
-		{ text: 'Real-Time Metrics', slug: 'documentation/products/real-time-metrics', key: 'realTimeMetrics' },
-	
-	] },
+	{
+		text: 'Configure profile', header: true, type: 'learn', key: 'manageProfile', addBorder: true, children: [
+			{ text: 'Personal tokens', header: true, anchor: true, type: 'learn', key: 'accountsProfile/personalTokens', slug: '/documentation/products/guides/personal-tokens/' },
+			{ text: 'Settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/account-settings/', key: 'accountsProfile/settings' },
+			{ text: 'Delete account', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/delete-account/', key: 'accountsProfile/deleteAccount' },
+		]
+	},
 
-	{ text: 'Marketplace', header: true, anchor: true, type: 'learn', slug: 'documentation/products/marketplace', key: 'marketplace' },
-	
+
+	{
+		text: 'Developer tools', header: true, type: 'learn', key: 'developerTools', hasLabel: 'menu.addResources', children: [
+			{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: '/documentation/products/overview-azion-api/' },
+			{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentation/products/cli/' },
+			{ text: 'API GraphQL Playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'devtools/graphQLplayground' },
+			{ text: 'Edge Runtime', header: true, anchor: true, type: 'learn', slug: '/documentation/products/edge-application/edge-functions/runtime/overview/', key: 'devtools/runtime' },
+			{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
+			{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
+			{ text: 'GitHub', header: true, anchor: true, type: 'learn', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
+
+		]
+	},
+
+	{
+		text: 'Templates and integrations', header: true, type: 'learn', key: 'templatesIntegrationsRef', addBorder: true, children: [
+			{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/overview', slug: '/documentation/products/marketplace/templates-and-integrations-overview/' },
+			{ text: 'Understand Azion Templates', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/templates', slug: '/documentation/products/marketplace/templates/' },
+			{ text: 'Use a template', header: true, anchor: true, type: 'learn', slug: '/documentation/products/use-a-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+			{ text: 'Understand Azion Integrations', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/integrations', slug: '/documentation/products/marketplace/integrations/' },
+			{ text: 'Install an integration', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/installIntegration', slug: '/documentation/products/marketplace/install-an-integration/' },
+			{ text: 'Update an integration', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/updateIntegration', slug: '/documentation/products/marketplace/update-an-integration/' },
+			{ text: 'How to become an ISV', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/isv', slug: '/documentation/products/marketplace/isv-signup/' },
+		]
+	},
+
+
+	{
+		text: 'Build', header: true, type: 'learn', key: 'buildRef', hasLabel: 'menu.reference', children: [
+			{ text: 'Edge Application', header: true, anchor: true, type: 'learn', key: 'reference/edgeApplication', slug: '/documentation/products/edge-application/' },
+			{ text: 'Application Acceleration', header: true, anchor: true, type: 'learn', key: 'reference/applicationAcceleration', slug: '/documentation/products/edge-application/application-acceleration/' },
+			{ text: 'Edge Caching', header: true, anchor: true, type: 'learn', key: 'reference/edgeCaching', slug: '/documentation/products/edge-application/edge-caching/' },
+			{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edge Functions', slug: '/documentation/products/edge-application/edge-functions/' },
+			{ text: 'Image Processor', header: true, anchor: true, type: 'learn', key: 'reference/imageProcessor', slug: '/documentation/products/edge-application/image-processor/' },
+			{ text: 'Load Balancer', header: true, anchor: true, type: 'learn', key: 'reference/loadBalancer', slug: '/documentation/products/edge-application/load-balancer/' },
+			{ text: 'L2 Caching', header: true, anchor: true, type: 'learn', key: 'reference/l2Caching', slug: '/documentation/products/edge-application/l2-caching/' },
+			{ text: 'Main Settings', header: true, anchor: true, type: 'learn', key: 'reference/mainSettings', slug: '/documentation/products/edge-application/main-settings/' },
+			{ text: 'Cache Settings', header: true, anchor: true, type: 'learn', key: 'reference/cacheSettings', slug: '/documentation/products/edge-application/cache-settings/' },
+			{ text: 'Edge Functions Instances', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsInstancesApplication', slug: '/documentation/products/edge-application/edge-functions-instances/' },
+			{ text: 'Device Groups', header: true, anchor: true, type: 'learn', key: 'reference/deviceGroups', slug: '/documentation/products/edge-application/device-groups/' },
+			{ text: 'Digital Certificates', header: true, anchor: true, type: 'learn', key: 'reference/digitalCertificates', slug: '/documentation/products/edge-application/digital-certificates/' },
+			{ text: 'Error Responses', header: true, anchor: true, type: 'learn', key: 'reference/errorResponses', slug: '/documentation/products/edge-application/error-responses/' },
+			{ text: 'Origins', header: true, anchor: true, type: 'learn', key: 'reference/origins', slug: '/documentation/products/edge-application/origins/' },
+			{ text: 'Real-Time Purge', header: true, anchor: true, type: 'learn', key: 'reference/realTimePurge', slug: '/documentation/products/edge-application/real-time-purge/' },
+			{ text: 'Rules Engine', header: true, anchor: true, type: 'learn', key: 'reference/rulesEngineedgeApplication', slug: '/documentation/products/edge-application/rules-engine/' },
+		]
+	},
+	{
+		text: 'Secure', header: true, type: 'learn', key: 'secureRef', children: [
+			{ text: 'Edge Firewall', header: true, anchor: true, type: 'learn', key: 'reference/edgeFirewall', slug: '/documentation/products/edge-firewall/' },
+			{ text: 'DDoS Protection', header: true, anchor: true, type: 'learn', key: 'reference/ddosProtection', slug: '/documentation/products/edge-firewall/ddos-protection/' },
+			{ text: 'DDoS Mitigation', header: true, anchor: true, type: 'learn', key: 'reference/ddosMitigation', slug: '/documentation/products/edge-firewall/ddos-protection/ddos-mitigation/' },
+			{ text: 'Network Layer Protection', header: true, anchor: true, type: 'learn', key: 'reference/networkLayerProtection', slug: '/documentation/products/edge-firewall/network-layer-protection/' },
+			{ text: 'Network Lists', header: true, anchor: true, type: 'learn', key: 'reference/networkLists', slug: '/documentation/products/edge-firewall/network-layer-protection/network-lists/' },
+			{ text: 'Web Application Firewall', header: true, anchor: true, type: 'learn', key: 'reference/webApplicationFirewall', slug: '/documentation/products/edge-firewall/web-application-firewall/' },
+			{ text: 'WAF Rule Sets', header: true, anchor: true, type: 'learn', key: 'reference/wafRuleSets', slug: '/documentation/products/edge-firewall/waf-rule-sets/' },
+			{ text: 'WAF Custom Allowed Rules', header: true, anchor: true, type: 'learn', key: 'reference/wafCustomAllowedRules', slug: '/documentation/products/edge-firewall/web-application-firewall/waf-custom-allowed-rules/' },
+			{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsFirewall', slug: '/documentation/products/edge-firewall/edge-functions/firewall/' },
+			{ text: 'Edge Functions Instances', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentation/products/edge-firewall/edge-functions-instances/' },
+			{ text: 'Rules Engine', header: true, anchor: true, type: 'learn', key: 'reference/rulesEngineFirewall', slug: '/documentation/products/edge-firewall/rules-engine/' },
+			{ text: 'Intelligent DNS', header: true, anchor: true, type: 'learn', key: 'reference/intelligentDNS', slug: '/documentation/products/intelligent-dns/' },
+			{ text: 'DNSSEC Compatibility', header: true, anchor: true, type: 'learn', key: 'reference/dnssecCompatibility', slug: '/documentation/products/intelligent-dns/dnssec-compatibility/' },
+
+		]
+	},
+	{
+		text: 'Deploy', header: true, type: 'learn', key: 'deployRef', children: [
+			{ text: 'Edge Orchestrator', header: true, anchor: true, type: 'learn', key: 'reference/edgeOrchestrator', slug: '/documentation/products/edge-orchestrator/' },
+			{ text: 'Edge Services', header: true, anchor: true, type: 'learn', key: 'reference/edgeServices', slug: '/documentation/products/edge-orchestrator/edge-services/' },
+			{ text: 'Edge Node', header: true, anchor: true, type: 'learn', key: 'reference/edgeNode', slug: '/documentation/products/edge-orchestrator/edge-node/' },
+
+		]
+	},
+	{
+		text: 'Observe', header: true, type: 'learn', key: 'observeRef', children: [
+			{ text: 'Data Streaming', header: true, anchor: true, type: 'learn', key: 'reference/dataStreaming', slug: '/documentation/products/data-streaming/' },
+			{ text: 'Edge Pulse', header: true, anchor: true, type: 'learn', key: 'reference/edgePulse', slug: '/documentation/products/edge-pulse/' },
+			{ text: 'Real-Time Events', header: true, anchor: true, type: 'learn', key: 'reference/realTimeEvents', slug: '/documentation/products/real-time-events/' },
+			{ text: 'Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/realTimeMetrics', slug: '/documentation/products/real-time-metrics/' },
+			{ text: 'Historical Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/historicalRealTimeMetrics', slug: '/documentation/products/historical-real-time-metrics/' },
+
+		]
+	},
+	{
+		text: 'Marketplace', header: true, type: 'learn', key: 'mktpRef', children: [
+			{ text: 'Marketplace', header: true, anchor: true, type: 'learn', key: 'mktp', slug: '/documentation/products/marketplace/' },
+			{ text: 'Permissions', header: true, anchor: true, type: 'learn', key: 'mktp/permissions', slug: '/documentation/products/guides/permissions-marketplace/' },
+			{ text: 'Marketplace Seller Guide', header: true, anchor: true, type: 'learn', key: 'mktp/sellerGuide', slug: '/documentation/products/marketplace/marketplace-seller-guide/' },
+		]
+	},
+
+	{
+		text: 'Accounts', key: 'accountsRef', children: [
+			{ text: 'Activity History', header: true, type: 'learn', key: 'accounts/ActivityHistory', slug: '/documentation/products/accounts/activity-history/' },
+			{ text: 'Clients', key: 'accounts/Clients', slug: '/documentation/products/accounts/clients/' },
+			{ text: 'Account settings', key: 'accounts/accountSettings', slug: '/documentation/products/accounts/account-settings/' },
+			{ text: 'Billing', key: 'accounts/billing', slug: '/documentation/products/accounts/billing/' },
+			{ text: 'Multi-Factor Authentication', key: 'accounts/MFA', slug: '/documentation/products/accounts/multi-factor-authentication/' },
+			{ text: 'Personal Tokens', key: 'accounts/personalTokens', slug: '/documentation/products/accounts/personal-tokens/' },
+			{ text: 'Social Login', key: 'accounts/socialLogin', slug: '/documentation/products/accounts/social-login/' },
+			{ text: 'Single Sign-On', key: 'accounts/SSO', slug: '/documentation/products/accounts/single-sign-on/' },
+			{ text: 'Teams Permissions', key: 'accounts/teamsPermissions', slug: '/documentation/products/accounts/teams-permissions/' },
+			{ text: 'Users Management', key: 'accounts/usersManagement', slug: '/documentation/products/accounts/users-and-teams/' },
+			{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentation/products/accounts/your-settings/' },
+
+		]
+	},
+
+
+
+
 	{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'technicalSupport' },
+
 	{
 		text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
 			{ text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
@@ -79,20 +183,27 @@ export default [
 			{ text: 'Business Events Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/business-events-support/', key: 'professionalServices/businessEventsSupport' },
 			{ text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
 		]
-	},	
+	},
+
+	{
+		text: 'Glossary', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-glossary/', key: 'glossary', addBorder: true
+	},
 
 
-	{ text: 'Dev Tools', header: true, type: 'learn', key: 'devtools', addBorder: true, children: [
-		{ text: 'API', slug: 'https://api.azion.com', key: 'api' },
-		{ text: 'GraphQL API', slug: 'documentation/products/graphql-api', key: 'graphQLAPI' },
-		{ text: 'Azion CLI', slug: '/documentation/products/azion-cli/overview/', key: 'azionCLI' },
-		{ text: 'Edge Runtime', slug: 'documentation/products/edge-application/edge-functions/runtime/overview', key: 'edgeRuntime' },
-		{ text: 'SDK', slug: 'documentation/devtools/sdk/go', key: 'sdkGO' },
-		{ text: 'Terraform', slug: 'documentation/products/terraform-provider', key: 'terraform' },
-	]},
+	{
+		text: 'System Status', header: true, anchor: true, type: 'learn', slug: 'https://status.azion.com/', key: 'systemStatus'
+	},
 
-	{ text: 'Changelog', header: true, type: 'learn', anchor: true, slug: 'documentation/products/changelog', key: 'changelog' },
-	{ text: 'System Status', header: true, type: 'learn', anchor: true, slug: 'https://status.azion.com', key: 'systemStatus' },
-	{ text: 'Azion Network Program', header: true, type: 'learn', anchor: true, slug: 'documentation/products/azion-network-program', key: 'azionNetworkProgram' },
+	{
+		text: 'Agreements', header: true, anchor: true, type: 'learn', slug: '/documentation/agreements/', key: 'agreements'
+	},
+
+	{
+		text: 'Shared Responsibility Model', header: true, anchor: true, type: 'learn', slug: '/documentation/shared-responsibility/', key: 'sharedResponsibility'
+	},
+
+	{
+		text: 'Azion Network Program', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-network-program/', key: 'azionNetworkProgram'
+	},
 
 ] as const;
