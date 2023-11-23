@@ -128,6 +128,7 @@ export default UIDictionary({
 	'menu.addResources': 'Recursos adicionais',
 	'menu.domains': 'Trabalhe com domínios',
 	'menu.reference': 'Referência',
+	'menu.runtime': 'Azion Edge Runtime',
 	// top bar message
 	'topbar.message': 'Azion ganha o Prêmio Norte-Americano de Inovação de Novos Produtos 2023 da Frost & Sullivan na categoria edge serverless.',
 	'topbar.cta': 'Confira!',
