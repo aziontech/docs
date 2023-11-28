@@ -14,13 +14,18 @@ export default [
 	{ text: 'Learn', header: true, onlyMobile: true, anchor: true, slug: 'https://learn.azion.com/', key: 'Learn' },
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
-	{ text: 'Visão geral', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentacao/produtos/azion-cli/visao-geral/' },
+	{ text: 'Visão geral', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentacao/produtos/azion-cli/visao-geral/', hasLabel:'menu.cli' },
 
 	{ text: 'Init, build e deploy', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/criar-application/', key: 'cli/createJourney' },
-	{ text: 'Comando dev', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/dev-comando/', key: 'cli/localDev' },
-	{ text: 'Comando link', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/link-comando/', key: 'cli/link' },
-	{ text: 'Comando personal tokens', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/personal-tokens/', key: 'cli/personalTokens' },
-	{ text: 'Edge application', header: true, anchor: true, slug: '/documentacao/produtos/cli/edge-application-crud/', key: 'cli/edgeApp' },
+	{ text: 'Dev', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/dev-comando/', key: 'cli/localDev' },
+	{ text: 'Link', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/link-comando/', key: 'cli/link' },
+	{ text: 'Cache Settings', header: true, anchor: true, slug: '/documentacao/produtos/cli/cache-settings-crud/', key: 'cli/cache' },
+	{ text: 'Domains', header: true, anchor: true, slug: '/documentacao/produtos/cli/domains-crud/', key: 'cli/domains' },
+	{ text: 'Edge Application', header: true, anchor: true, slug: '/documentacao/produtos/cli/edge-application-crud/', key: 'cli/edgeApp' },
+	{ text: 'Edge Functions', header: true, anchor: true, slug: '/documentacao/produtos/cli/edge-functions-crud/', key: 'cli/functions' },
+	{ text: 'Origins', header: true, anchor: true, slug: '/documentacao/produtos/cli/origins-crud/', key: 'cli/origins' },
+	{ text: 'Personal Tokens', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/personal-tokens/', key: 'cli/personalTokens' },
+	{ text: 'Rules Engine', header: true, anchor: true, slug: '/documentacao/produtos/cli/rules-engine-crud/', key: 'cli/rules' },
 
 	{
 		text: 'Guias específicos por framework', header: true, type: 'learn', key: 'cli/frameworks', children: [
