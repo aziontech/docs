@@ -190,11 +190,11 @@ export default [
 	},
 
 	{
-		text: 'System Status', header: true, anchor: true, type: 'learn', slug: '/documentation/products/release-notes/', key: 'releaseNotes'
+		text: 'System Status', header: true, anchor: true, type: 'learn', slug: 'https://status.azion.com/', key: 'systemStatus'
 	},
 
 	{
-		text: 'Release Notes', header: true, anchor: true, type: 'learn', slug: 'https://status.azion.com/', key: 'systemStatus'
+		text: 'Release Notes', header: true, anchor: true, type: 'learn', slug: '/documentation/products/release-notes/', key: 'releaseNotes'
 	},
 
 	{
