@@ -26,16 +26,18 @@ const AnchorLinkIcon = h(
 
 const createSROnlyLabel = (text: string) => {
 	const t = useTranslationsForLang('en');
+	const normalizedString = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+	
 	return h(
 		'span',
 		{ 'is:raw': true, class: 'sr-only' },
-		`${t('a11y.sectionLink')} ${escape(text)}`
+		`${t('a11y.sectionLink')} ${escape(normalizedString)}`
 	);
 };
 
 /**
  * Configuration for the `rehype-autolink-headings` plugin.
- * This set-up was informed by https://amberwilson.co.uk/blog/are-your-anchor-links-accessible/
+ * This set-up was informed by 	
  */
 export const autolinkConfig: Options = {
 	properties: { class: 'anchor-link' },

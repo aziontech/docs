@@ -15,14 +15,18 @@
 	
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
-	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/edge-application/edge-functions/runtime/overview' },
+	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/edge-application/edge-functions/runtime/overview', hasLabel: 'menu.runtime' },
 	{ text: 'API Reference', header: true, type: 'learn', key: 'apiReference', children: [
 		{ text: 'Environment Variables', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/environment-variables', key: 'runtime/variables' },
-		{ text: 'Web APIs', slug: '/documentation/products/edge-application/edge-functions/runtime-apis/javascript', key: 'runtime/web-standards' },
 		{ text: 'Metadata API', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/metadata', key: 'runtime/metadata' },
 		{ text: 'Network List interface', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/network-list', key: 'runtime/network-list' },
+		{ text: 'Web APIs', slug: '/documentation/products/edge-application/edge-functions/runtime-apis/javascript', key: 'runtime/web-standards' },
 	]},
 
+	{ text: 'Compatibility', header: true, type: 'learn', key: 'runtime/compatibility', children: [
+		{ text: 'Web frameworks', header: true, anchor: true, type: 'learn', key: 'runtime/frameworks', slug: '/documentation/products/devtools/azion-edge-runtime/frameworks-compatibility/' },
+		{ text: 'Node.js', header: true, anchor: true, type: 'learn', key: 'runtime/node', slug: '/documentation/products/azion-edge-runtime/compatibility/node/' },
+	]},
 
     { text: 'JavaScript Examples', header: true, anchor: true, type: 'learn', slug: '/documentation/products/edge-application/edge-functions/javascript-examples', key: 'runtime/jsExamples' },
 	{ text: 'Debugging', header: true, anchor: true, type: 'learn', slug: '/documentation/products/edge-application/edge-functions/debugging', key: 'runtime/debugging' },

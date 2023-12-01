@@ -19,6 +19,23 @@ In this guide you'll get an overview of the contribution workflow from opening a
 - PRs submitted by code owners (internal) have priority over PRs submitted by external users (external).
 - For significant changes on docs, we recommend you open an issue and wait for one of our code owners to respond so we can find the best approach.
 
+## Code owners
+
+aziontech/docs has two teams as code owners:
+
+- Product Content Experience (PCX), the gatekeepers of all content.
+
+  - [@hannah-sk](https://github.com/hannah-sk) :rabbit:
+  - [@MarianaAguilera](https://github.com/MarianaAguilera) :panda_face:
+  - [@gabriel-azion](https://github.com/gabriel-azion) :dog:
+  - [@bru-andrade](https://github.com/bru-andrade) :pig:
+  - [@GabrielAzion](https://github.com/GabrielAzion) :owl:
+
+- UX Engineering (UXE), the gatekeepers of all structure code.
+
+  - [@robsongajunior](https://github.com/robsongajunior)
+  - [@lfsigreja](https://github.com/lfsigreja )
+
 ---
 
 ## Getting started
@@ -84,6 +101,19 @@ When you're finished with the changes, create a pull request (PR).
 7. As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
 
 Now you'll need the approval from at least two code owners before you can merge your changes.
+
+#### :memo: Review by code owners
+
+When the repository's code owners review your PR, they may make suggestions, request changes, or even reject your PR. Possibilities that lead to a PR rejection:
+
+- PR based on the wrong branch (not main).
+- PR attempts to merge changes into the wrong branch.
+- Contribution was already addressed in another PR.
+- Contribution has wrong technical information. Address the responsible Technical Writer (TW) and a Subject Matter Expert (SME), if needed.
+- Contribution is already being worked on by a TW (if it’s a product/feature launch and the TW is already working on the content on a branch, the TW’s contribution has priority. Community contribution can be incorporated into the TW’s PR).
+- Contributor opened a PR without a GitHub issue.
+- Contributor didn’t describe what they were changing/adding/fixing on the PR description.
+- Contributor didn’t add a descriptive title/label.
 
 ### :thumbsup: Merge changes
 
