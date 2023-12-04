@@ -7,7 +7,7 @@ export function rehypeLinks() {
 }
 
 const setLinkAttributes = (node) => {
-  if (node.tagName === "p" || node.tagName === "ul" || node.tagName === "li" || node.tagName === "h2" || node.tagName === "h3" ||  node.tagName === "aside" ||  node.tagName === "section") {
+  if (node.tagName !== "a" && node.children) {
     node.children.forEach((n) => setLinkAttributes(n))
   } else if (node.tagName === "a") {
 		if (node.properties.href.startsWith('#')) return
@@ -15,11 +15,3 @@ const setLinkAttributes = (node) => {
     node.properties.rel = "noopener"
   }
 }
-
-			// [
-			// 	rehypeExternalLinks,
-			// 	{
-			// 			target: '_blank',
-			// 			rel: ['noopener', 'noreferrer'],
-			// 	},
-			// ],	
