@@ -15,7 +15,7 @@ In this guide you'll get an overview of the contribution workflow from opening a
 
 ## Important
 
-- On Azion **docs** repository, you can open a issue without opening a PR after, but you should open an issue before opening a PR.
+- In the Azion **docs** repository, you can open an issue without opening a PR after, but you should open an issue before opening a PR.
 - PRs with only minor changes can be opened without an issue.
 - PRs submitted by code owners (internal) have priority over PRs submitted by external users (external).
 - For significant changes on docs, we recommend you open an issue and wait for one of our code owners to respond so we can find the best approach.
