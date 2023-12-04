@@ -26,6 +26,8 @@ export default [
 	{ text: 'Origins', header: true, anchor: true, slug: '/documentacao/produtos/cli/origins-crud/', key: 'cli/origins' },
 	{ text: 'Personal Tokens', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/personal-tokens/', key: 'cli/personalTokens' },
 	{ text: 'Rules Engine', header: true, anchor: true, slug: '/documentacao/produtos/cli/rules-engine-crud/', key: 'cli/rules' },
+	{ text: 'Login', header: true, anchor: true, slug: '/documentacao/produtos/cli/login/', key: 'cli/login' },
+	{ text: 'Logout', header: true, anchor: true, slug: '/documentacao/produtos/cli/logout/', key: 'cli/logout' },
 
 	{
 		text: 'Guias específicos por framework', header: true, type: 'learn', key: 'cli/frameworks', children: [

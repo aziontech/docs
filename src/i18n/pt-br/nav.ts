@@ -157,6 +157,10 @@ export default NavDictionary([
 	},
 
 	{
+		text: 'Release Notes', slug: '/documentacao/produtos/release-notes/', key: 'releaseNotes'
+	},
+
+	{
 		text: 'Contratos', slug: '/documentacao/contratos/', key: 'agreements'
 	},
 
