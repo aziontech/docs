@@ -84,7 +84,7 @@ If you want to propose a new page:
 
 4. Write the content below the front matter in Markdown format.
 
-You can branch out from main or commit the changes directly once you're pleased with them. We use the **Conventional Commits** standard to title commits and PRs.
+You can branch out from main or commit the changes directly once you're pleased with them. We use the basics of the **Conventional Commits** standard to title commits and PRs.
 
 ### :speech_balloon: Create a Pull Request
 
