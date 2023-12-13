@@ -12,7 +12,7 @@ import { getLanguageCodeFromPathname, mdFilePathToUrl } from './remark-fallback-
  */
 export function rehypei18nAutolinkHeadings() {
 	const pageSourceDir = path.resolve('./src/content/docs');
-	const baseUrl = 'https://docs.astro.build/';
+	const baseUrl = 'https://www.azion.com/';
 
 	const transformer: Transformer<Root> = (tree, file) => {
 		const pageUrl = mdFilePathToUrl(file.path, pageSourceDir, baseUrl);

@@ -15,13 +15,14 @@ In this guide you'll get an overview of the contribution workflow from opening a
 
 ## Important
 
-- On Azion **docs** repository, you can open a issue without opening a PR after, but you can't open a PR without opening an issue.
+- In the Azion **docs** repository, you can open an issue without opening a PR after, but you should open an issue before opening a PR.
+- PRs with only minor changes can be opened without an issue.
 - PRs submitted by code owners (internal) have priority over PRs submitted by external users (external).
 - For significant changes on docs, we recommend you open an issue and wait for one of our code owners to respond so we can find the best approach.
 
 ## Code owners
 
-aziontech/docs has two teams as code owners:
+`aziontech/docs` has two teams as code owners:
 
 - Product Content Experience (PCX), the gatekeepers of all content.
 
@@ -31,7 +32,7 @@ aziontech/docs has two teams as code owners:
   - [@bru-andrade](https://github.com/bru-andrade) :pig:
   - [@GabrielAzion](https://github.com/GabrielAzion) :owl:
 
-- Experience Engineering (ExpEng), the gatekeepers of all structure code.
+- UX Engineering (UXE), the gatekeepers of all structure code.
 
   - [@robsongajunior](https://github.com/robsongajunior)
   - [@lfsigreja](https://github.com/lfsigreja )
@@ -71,26 +72,26 @@ If you want to propose a new page:
 2. Create a new `.mdx` file.
 3. Add a [front matter YAML](https://docs.github.com/en/github-ae@latest/contributing/syntax-and-versioning-for-github-docs/using-yaml-frontmatter) to the top of the `.mdx` file to fill out titles and metadata as shown below:
 
-```md
----
-title: <Insert page title>
-description: <Insert page description>
-meta_tags: <Insert tags>
-namespace: <Insert namespace following the structure: documentation_type_product_module_feature>
-permalink: <Insert a permalink for the page following the structure: /en/documentation/type/product/module/feature>
----
-```
+  ```md
+  ---
+  title: <Insert page title>
+  description: <Insert page description>
+  meta_tags: <Insert tags>
+  namespace: <Insert namespace following the structure: documentation_type_product_module_feature>
+  permalink: <Insert a permalink for the page following the structure: /en/documentation/type/product/module/feature>
+  ---
+  ```
 
-5. Write the content below the front matter in Markdown format.
+4. Write the content below the front matter in Markdown format.
 
-You can branch out from main or commit the changes directly once you're pleased with them.
+You can branch out from main or commit the changes directly once you're pleased with them. We use the basics of the **Conventional Commits** standard to title commits and PRs.
 
 ### :speech_balloon: Create a Pull Request
 
 When you're finished with the changes, create a pull request (PR).
 
 1. [Open a new PR](https://github.com/aziontech/docs/compare) by selecting your forked repository and the branch in which you commited your changes.
-2. Fill in the PR title and description according to the template so that we can review your PR. 
+2. Fill in the PR title and description according to the template so that we can review your PR.
   - The description template helps reviewers understand your changes as well as the purpose of your PR.
 3. Don't forget to [link the PR to the issue you opened](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue).
 4. Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork) so the branch can be updated for a merge.
@@ -111,13 +112,13 @@ When the repository's code owners review your PR, they may make suggestions, req
 - Contribution was already addressed in another PR.
 - Contribution has wrong technical information. Address the responsible Technical Writer (TW) and a Subject Matter Expert (SME), if needed.
 - Contribution is already being worked on by a TW (if it’s a product/feature launch and the TW is already working on the content on a branch, the TW’s contribution has priority. Community contribution can be incorporated into the TW’s PR).
-- Contributor opened a PR without a GitHub issue.
+- Contributor opened a PR with major changes without a GitHub issue.
 - Contributor didn’t describe what they were changing/adding/fixing on the PR description.
 - Contributor didn’t add a descriptive title/label.
 
 ### :thumbsup: Merge changes
 
-Once you have at least two approvals from code owners, you can merge your PR. 🥳 
+Once you have at least two approvals from code owners, you can merge your PR! 🥳
 
 Check the [GitHub Actions tab](https://github.com/aziontech/docs/actions) to see the status of your modifications. If you run into any merge issues, check this [git tutorial](https://github.com/skills/resolve-merge-conflicts) to help you resolve merge conflicts and other issues.
 

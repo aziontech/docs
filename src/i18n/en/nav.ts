@@ -76,7 +76,13 @@ export default [
 
 	{
 		text: 'Templates and integrations', header: true, type: 'learn', key: 'templatesIntegrationsRef', addBorder: true, children: [
+			{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/overview', slug: '/documentation/products/marketplace/templates-and-integrations-overview/' },
+			{ text: 'Understand Azion Templates', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/templates', slug: '/documentation/products/marketplace/templates/' },
 			{ text: 'Use a template', header: true, anchor: true, type: 'learn', slug: '/documentation/products/use-a-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+			{ text: 'Understand Azion Integrations', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/integrations', slug: '/documentation/products/marketplace/integrations/' },
+			{ text: 'Install an integration', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/installIntegration', slug: '/documentation/products/marketplace/install-an-integration/' },
+			{ text: 'Update an integration', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/updateIntegration', slug: '/documentation/products/marketplace/update-an-integration/' },
+			{ text: 'How to become an ISV', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/isv', slug: '/documentation/products/marketplace/isv-signup/' },
 		]
 	},
 
@@ -113,7 +119,6 @@ export default [
 			{ text: 'WAF Custom Allowed Rules', header: true, anchor: true, type: 'learn', key: 'reference/wafCustomAllowedRules', slug: '/documentation/products/edge-firewall/web-application-firewall/waf-custom-allowed-rules/' },
 			{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsFirewall', slug: '/documentation/products/edge-firewall/edge-functions/firewall/' },
 			{ text: 'Edge Functions Instances', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentation/products/edge-firewall/edge-functions-instances/' },
-			{ text: 'Access Permissions', header: true, anchor: true, type: 'learn', key: 'reference/accessPermissions', slug: '/documentation/products/edge-firewall/access-permissions/' },
 			{ text: 'Rules Engine', header: true, anchor: true, type: 'learn', key: 'reference/rulesEngineFirewall', slug: '/documentation/products/edge-firewall/rules-engine/' },
 			{ text: 'Intelligent DNS', header: true, anchor: true, type: 'learn', key: 'reference/intelligentDNS', slug: '/documentation/products/intelligent-dns/' },
 			{ text: 'DNSSEC Compatibility', header: true, anchor: true, type: 'learn', key: 'reference/dnssecCompatibility', slug: '/documentation/products/intelligent-dns/dnssec-compatibility/' },
@@ -141,7 +146,7 @@ export default [
 	{
 		text: 'Marketplace', header: true, type: 'learn', key: 'mktpRef', children: [
 			{ text: 'Marketplace', header: true, anchor: true, type: 'learn', key: 'mktp', slug: '/documentation/products/marketplace/' },
-			{ text: 'Marketplace Independent Software Vendor', header: true, anchor: true, type: 'learn', key: 'mktp/isv', slug: '/documentation/products/marketplace/isv-signup/' },
+			{ text: 'Permissions', header: true, anchor: true, type: 'learn', key: 'mktp/permissions', slug: '/documentation/products/guides/permissions-marketplace/' },
 			{ text: 'Marketplace Seller Guide', header: true, anchor: true, type: 'learn', key: 'mktp/sellerGuide', slug: '/documentation/products/marketplace/marketplace-seller-guide/' },
 		]
 	},
@@ -184,13 +189,21 @@ export default [
 		text: 'Glossary', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-glossary/', key: 'glossary', addBorder: true
 	},
 
-
+	
 	{
 		text: 'System Status', header: true, anchor: true, type: 'learn', slug: 'https://status.azion.com/', key: 'systemStatus'
 	},
 
 	{
+		text: 'Release Notes', header: true, anchor: true, type: 'learn', slug: '/documentation/products/release-notes/', key: 'releaseNotes'
+	},
+
+	{
 		text: 'Agreements', header: true, anchor: true, type: 'learn', slug: '/documentation/agreements/', key: 'agreements'
+	},
+
+	{
+		text: 'Shared Responsibility Model', header: true, anchor: true, type: 'learn', slug: '/documentation/shared-responsibility/', key: 'sharedResponsibility'
 	},
 
 	{

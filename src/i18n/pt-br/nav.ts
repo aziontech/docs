@@ -58,7 +58,13 @@ export default NavDictionary([
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
 
 	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
-	{ text: 'Usar um template', slug: '/documentacao/produtos/usar-um-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },
+	{ text: 'Conheça os Azion Templates', slug: '/documentacao/produtos/marketplace/templates/', key: 'templatesIntegrations/templates' },
+	{ text: 'Use um template', slug: '/documentacao/produtos/usar-um-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+	{ text: 'Conheça as Azion Integrations', slug: '/documentacao/produtos/marketplace/integracoes/', key: 'templatesIntegrations/integrations' },
+	{ text: 'Instale uma integração', slug: '/documentacao/produtos/marketplace/instalar-uma-integracao/', key: 'templatesIntegrations/installIntegration' },
+	{ text: 'Atualize uma integração', slug: '/documentacao/produtos/marketplace/atualizar-uma-integracao/', key: 'templatesIntegrations/updateIntegration' },
+	{ text: 'Seja um ISV', slug: '/documentacao/produtos/marketplace/isv-signup/', key: 'templatesIntegrations/isv' },
 
 
 	{
@@ -94,7 +100,6 @@ export default NavDictionary([
 	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/edge-firewall/web-application-firewall/custom-allowed-rules/' },
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions/firewall/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions-instances/' },
-	{ text: 'Permissões de acesso', key: 'reference/accessPermissions', slug: '/documentacao/produtos/edge-firewall/permissoes-de-acesso/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/edge-firewall/rules-engine/' },
 	{ text: 'Intelligent DNS', key: 'reference/intelligentDNS', slug: '/documentacao/produtos/intelligent-dns/' },
 	{ text: 'Compatibilidade com DNSSEC', key: 'reference/dnssecCompatibility', slug: '/documentacao/produtos/intelligent-dns/compatibilidade-dnssec/' },
@@ -114,7 +119,7 @@ export default NavDictionary([
 
 	{ text: 'Marketplace', key: 'mktpRef' },
 	{ text: 'Marketplace', key: 'mktp', slug: '/documentacao/produtos/marketplace/' },
-	{ text: 'Marketplace Independent Software Vendor', key: 'mktp/isv', slug: '/documentacao/produtos/marketplace/isv-signup/' },
+	{ text: 'Permissões', key: 'mktp/permissions', slug: '/documentacao/produtos/guias/permissoes-marketplace/' },
 	{ text: 'Marketplace Seller Guide', key: 'mktp/sellerGuide', slug: '/documentacao/produtos/marketplace/marketplace-seller-guide/' },
 
 	{
@@ -152,7 +157,15 @@ export default NavDictionary([
 	},
 
 	{
+		text: 'Release Notes', slug: '/documentacao/produtos/release-notes/', key: 'releaseNotes'
+	},
+
+	{
 		text: 'Contratos', slug: '/documentacao/contratos/', key: 'agreements'
+	},
+
+	{
+		text: 'Modelo de Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
 	},
 
 	{
