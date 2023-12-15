@@ -165,7 +165,7 @@ export default NavDictionary([
 	},
 
 	{
-		text: 'Modelo de Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
+		text: 'Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
 	},
 
 	{
