@@ -131,6 +131,13 @@ export default UIDictionary({
 	'menu.runtime': 'Azion Edge Runtime',
 	'menu.cli': 'Azion CLI',
 	'menu.devTools': 'Dev Tools',
+	'menu.secure': 'Secure',
+	'menu.edgeFirewall': 'Edge Firewall',
+	'menu.intelligentDns': 'Intelligent DNS',
+	'menu.secureAdvanced': 'Configurações avançadas',
+	'menu.secureTransportLayerSecurity': 'Transport Layer Security',
+	'menu.secureTroubleshoot': 'Troubleshoot',
+	'menu.secureAutomate': 'Automatize com a Azion',
 	// top bar message
 	'topbar.message': 'Azion ganha o Prêmio Norte-Americano de Inovação de Novos Produtos 2023 da Frost & Sullivan na categoria edge serverless.',
 	'topbar.cta': 'Confira!',
