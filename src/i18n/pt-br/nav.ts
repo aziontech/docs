@@ -23,7 +23,7 @@ export default NavDictionary([
 	{ text: 'Build', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
 	{ text: 'Secure', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
 	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/', key: 'deploy' },
-	{ text: 'Observe', slug: '/documentacao/produtos/observe/', key: 'observe' },
+	{ text: 'Observe', slug: '/documentacao/produtos/observe/visao-geral/', key: 'observe' },
 
 	{ text: 'Configurar um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
 	{ text: 'Criar um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },

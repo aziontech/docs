@@ -16,10 +16,10 @@ export default [
 
     
     /// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
-    { text: 'Overview', header: true, anchor: true, slug: '/documentation/products/observe/overview/', key: 'secureOverview', hasLabel: 'menu.secure' },
-    { text: 'Observe metrics', header: true, anchor: true, slug: '/documentation/products/observe/observe-metrics/', key: 'secureApps' },
-    { text: 'Observe logs', header: true, anchor: true, slug: '/documentation/products/observe/observe-logs/', key: 'secureInfra' },
-    { text: 'Stream data', header: true, anchor: true, slug: '/documentation/products/observe/stream-data/', key: 'secureDns', addBorder: true },
+    { text: 'Overview', header: true, anchor: true, slug: '/documentation/products/observe/overview/', key: 'observeOverview', hasLabel: 'menu.observe' },
+    { text: 'Observe metrics', header: true, anchor: true, slug: '/documentation/products/observe/observe-metrics/', key: 'observeMetrics' },
+    { text: 'Observe logs', header: true, anchor: true, slug: '/documentation/products/observe/observe-logs/', key: 'observeLogs' },
+    { text: 'Stream data', header: true, anchor: true, slug: '/documentation/products/observe/stream-data/', key: 'streamData', addBorder: true },
 
 
         /// REAL-TIME EVENTS ///
@@ -28,7 +28,7 @@ export default [
         text: 'Analyze logs', header: true, type: 'learn', key: 'observeanalyzeLogs', hasLabel: 'menu.realTimeEvents', children: [
             { text: 'Understand logs', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/understand-logs/', key: 'observeUnderstandLogs' },
             { text: 'Add filters', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/add-filters-events', key: 'observeEventsAddFilters' },
-            { text: 'GraphQL API', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/overview/', key: 'observeGql' },
+            { text: 'Use GraphQL API', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/overview/', key: 'observeGql' },
             { text: 'Use GraphQL API playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'observeGqlPlayground' },
             
         ]
@@ -41,13 +41,13 @@ export default [
 
 
     { text: 'Integrate with Grafana', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/integrate-grafana', key: 'observeIntegrateGrafana', hasLabel: 'menu.observeIntegrations' },
-    { text: 'Customize log table on Grafana', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/azion-plugin-grafana-customize-log-table/', key: 'observeCustomizeTableGrafana' },
-    { text: 'Use best practices on Grafana', header: true, anchor: true, type: 'learn', slug: '/documentation/products/observe/', key: 'observeBestPracticesGrafana' },
+    { text: 'Customize a log table', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/azion-plugin-grafana-customize-log-table/', key: 'observeCustomizeTableGrafana' },
+    { text: 'Use best practices', header: true, anchor: true, type: 'learn', slug: '/documentation/products/observe/', key: 'observeBestPracticesGrafana' },
 
     /// DATA STREAMING ///
 
     {
-        text: 'Edit a data streaming', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', children: [
+        text: 'Edit a streaming', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', children: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/use-data-streaming/', key: 'observeConfigureMainSettings' },
             { text: 'Set a payload', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-streaming-set-payload/', key: 'observeSetPayload' },
             
@@ -82,7 +82,7 @@ export default [
         text: 'Monitor metrics', header: true, type: 'learn', key: 'observeMonitorMetrics', hasLabel: 'menu.realTimeEvents', children: [
             { text: 'Analyze metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/analyze-metrics/', key: 'observeAnalyzeMetrics' },
             { text: 'Add filters', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/add-filters-metrics/', key: 'observeMetricsAddFilters' },
-            { text: 'GraphQL API', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/overview/', key: 'observeGql' },
+            { text: 'Use GraphQL API', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/overview/', key: 'observeGql' },
             { text: 'Use GraphQL API playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'observeGqlPlayground' },
             
         ]
