@@ -21,7 +21,7 @@ export default NavDictionary([
 
 
 	{ text: 'Build', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
-	{ text: 'Secure', slug: '/documentacao/produtos/secure/', key: 'secure' },
+	{ text: 'Secure', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
 	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/', key: 'deploy' },
 	{ text: 'Observe', slug: '/documentacao/produtos/observe/', key: 'observe' },
 
