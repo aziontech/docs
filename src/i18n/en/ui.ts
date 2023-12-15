@@ -141,6 +141,13 @@ export default {
 	'menu.reference': 'Reference',
 	'menu.cli': 'Azion CLI',
 	'menu.devTools': 'Dev Tools',
+	'menu.secure': 'Secure',
+	'menu.edgeFirewall': 'Edge Firewall',
+	'menu.intelligentDns': 'Intelligent DNS',
+	'menu.secureAdvanced': 'Advanced configuration',
+	'menu.secureTransportLayerSecurity': 'Transport Layer Security',
+	'menu.secureTroubleshoot': 'Troubleshoot',
+	'menu.secureAutomate': 'Automate with Azion',
 	// top bar message
 	'topbar.message': 'Azion earns Frost & Sullivan’s 2023 North American New Product Innovation Award in the edge serverless industry.',
 	'topbar.link': 'https://www.azion.com/en/blog/azion-frost-sullivan-award/',
