@@ -82,7 +82,7 @@ export default [
     { text: 'Select variables', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-streaming-select-variables/', key: 'observeSelectVariables' },  
 
 
-    { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-streaming-understand-metrics/', key: 'observeDtsUndersandMetrics', hasLabel: 'menu.observeTroubleshoot', addBorder: true },
+    { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/observe/troubleshoot/data-streaming-understand-metrics/', key: 'observeDtsUndersandMetrics', hasLabel: 'menu.observeTroubleshoot', addBorder: true },
 
 
 
