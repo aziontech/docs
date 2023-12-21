@@ -36,7 +36,7 @@ export default [
             { text: 'Integre com Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/integrar-grafana/', key: 'observeIntegrateGrafana', hasLabel: 'menu.observeIntegrations' },
             { text: 'Personalize um dashboard no Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/azion-plugin-grafana/', key: 'observeCustomizeDash' },
             { text: 'Use um dashboard pré-configurado no Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/azion-plugin-grafana-dash-pre-configurado/', key: 'observePreBuiltDash' },
-            { text: 'Use melhores práticas no Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/melhores-praticas-grafana/', key: 'observeBestPracticesGrafana' },
+            { text: 'Use boas práticas no Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/boas-praticas-grafana/', key: 'observeBestPracticesGrafana' },
 
 
 
@@ -55,7 +55,7 @@ export default [
 
     { text: 'Integre com Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/integrar-grafana/', key: 'observeIntegrateGrafana', hasLabel: 'menu.observeIntegrations' },
     { text: 'Personalize uma tabela de logs no Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/azion-plugin-grafana-personalizar-tabela-logs/', key: 'observeCustomizeTableGrafana' },
-    { text: 'Use melhores práticas no Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/melhores-praticas-grafana/', key: 'observeBestPracticesGrafana' },
+    { text: 'Use boas práticas no Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/boas-praticas-grafana/', key: 'observeBestPracticesGrafana' },
 
     /// DATA STREAMING//
 
