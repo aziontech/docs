@@ -16,17 +16,17 @@ export default [
 
 
     /// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
-    { text: 'Visão geral', header: true, anchor: true, slug: '/documentacao/produtos/observe/visao-geral/', key: 'observeOverview', hasLabel: 'menu.secure' },
-    { text: 'Monitore aplicações', header: true, anchor: true, slug: '/documentacao/produtos/observe/monitore-aplicacoes/', key: 'observeMetrics' },
-    { text: 'Analise logs', header: true, anchor: true, slug: '/documentacao/produtos/observe/analise-logs/', key: 'observeLogs' },
-    { text: 'Transmita dados', header: true, anchor: true, slug: '/documentacao/produtos/observe/transmita-dados/', key: 'streamData', addBorder: true },
+    { text: 'Visão geral', header: true, anchor: true, slug: '/documentacao/produtos/observe/visao-geral/', key: 'observeOverview', hasLabel: 'menu.observe' },
+    { text: 'Monitore aplicações', header: true, anchor: true, slug: '/documentacao/produtos/observe/monitorar-aplicacoes/', key: 'observeMetrics' },
+    { text: 'Analise logs', header: true, anchor: true, slug: '/documentacao/produtos/observe/analisar-logs/', key: 'observeLogs' },
+    { text: 'Transmita dados', header: true, anchor: true, slug: '/documentacao/produtos/observe/transmitir-dados/', key: 'streamData', addBorder: true },
 
         /// REAL-TIME METRICS ///
 
         {
             text: 'Inspecione métricas', header: true, type: 'learn', key: 'observeInspectMetrics', hasLabel: 'menu.realTimeMetrics', children: [
-                { text: 'Analise métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/analise-metricas/', key: 'observeAnalyzeMetrics' },
-                { text: 'Adicione filtros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/adicione-filtros-metrics/', key: 'observeMetricsAddFilters' },
+                { text: 'Analise métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/analisar-metricas/', key: 'observeAnalyzeMetrics' },
+                { text: 'Adicione filtros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/adicionar-filtros-metrics/', key: 'observeMetricsAddFilters' },
                 { text: 'Use a API GraphQL', header: true, anchor: true, type: 'learn', slug: 'documentacao/produtos/graphql-api/visao-geral/', key: 'observeGql' },
                 { text: 'Use o playground da API GraphQL', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'observeGqlPlayground' },
             ]
@@ -44,8 +44,8 @@ export default [
 
     {
         text: 'Analise logs', header: true, type: 'learn', key: 'observeanalyzeLogs', hasLabel: 'menu.realTimeEvents', children: [
-            { text: 'Entenda logs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/entenda-logs/', key: 'observeUnderstandLogs' },
-            { text: 'Adicione filtros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/adicione-filtros-events/', key: 'observeEventsAddFilters' },
+            { text: 'Entenda logs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/entender-logs/', key: 'observeUnderstandLogs' },
+            { text: 'Adicione filtros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/adicionar-filtros-events/', key: 'observeEventsAddFilters' },
             { text: 'Use a API GraphQL', header: true, anchor: true, type: 'learn', slug: 'documentacao/produtos/graphql-api/visao-geral/', key: 'observeGql' },
             { text: 'Use o playground da API GraphQL', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'observeGqlPlayground' },
 
@@ -67,12 +67,12 @@ export default [
     },
 
 
-    { text: 'AWS Kinesis Data Firehose', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/amazon-kinesis-endpoint/', key: 'observeIntegrationsAws' },
+    { text: 'AWS Kinesis Data Firehose', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/amazon-kinesis-endpoint/', key: 'observeIntegrationsAws', hasLabel: 'menu.observeIntegrations' },
     { text: 'Azure Blob Storage', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/azure-blob-endpoint/', key: 'observeIntegrationsBlob' },
     { text: 'Azure Monitor', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/azure-monitor-endpoint/', key: 'observeIntegrationsMonitor' },
     { text: 'Datadog', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/datadog-endpoint/', key: 'observeIntegrationsDatadog' },
     { text: 'Elasticsearch', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/elasticsearch-endpoint/', key: 'observeIntegrationsElasticsearch' },
-    { text: 'Google BigQuery', header: true, anchor: true, type: 'learn', slug: 'xxx', key: 'observeIntegrationsBigQuery' },
+    { text: 'Google BigQuery', header: true, anchor: true, type: 'learn', slug: '/pt-br/documentacao/produtos/guias/google-bigquery-endpoint/', key: 'observeIntegrationsBigQuery' },
     { text: 'S3 - Simple Storage Service', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/amazon-s3-endpoint/', key: 'observeIntegrationsS3' },
     { text: 'Splunk', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/splunk-endpoint/', key: 'observeIntegrationsSplunk' },
     { text: 'Standard HTTP/HTTPS POST', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/conector-standard-https-post/', key: 'observeIntegrationsStandardHttp' },
@@ -82,7 +82,6 @@ export default [
     { text: 'Selecione variáveis', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/data-streaming-selecionar-variaveis/', key: 'observeSelectVariables' },
 
     { text: 'Monitore métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/observe/troubleshoot/data-streaming-monitorar-metricas/', key: 'observeDtsUndersandMetrics', hasLabel: 'menu.observeTroubleshoot' },
-
 
 
 ] as const;
