@@ -72,7 +72,7 @@ export default [
     { text: 'Azure Monitor', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/azure-monitor-endpoint/', key: 'observeIntegrationsMonitor' },
     { text: 'Datadog', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/datadog-endpoint/', key: 'observeIntegrationsDatadog' },
     { text: 'Elasticsearch', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/elasticsearch-endpoint/', key: 'observeIntegrationsElasticsearch' },
-    { text: 'Google BigQuery', header: true, anchor: true, type: 'learn', slug: '/pt-br/documentacao/produtos/guias/google-bigquery-endpoint/', key: 'observeIntegrationsBigQuery' },
+    { text: 'Google BigQuery', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/google-bigquery-endpoint/', key: 'observeIntegrationsBigQuery' },
     { text: 'S3 - Simple Storage Service', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/amazon-s3-endpoint/', key: 'observeIntegrationsS3' },
     { text: 'Splunk', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/splunk-endpoint/', key: 'observeIntegrationsSplunk' },
     { text: 'Standard HTTP/HTTPS POST', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/conector-standard-https-post/', key: 'observeIntegrationsStandardHttp' },
