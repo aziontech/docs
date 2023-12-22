@@ -178,6 +178,7 @@ export default [
 	{
 		text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', children: [
 			{ text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
+			{ text: 'Managed Configurations', header: true, anchor: true, type: 'learn', slug: '/documentation/services/managed-configurations/', key: 'professionalServices/managedConfigurations' },
 			{ text: 'Technical Account Manager', header: true, anchor: true, type: 'learn', slug: '/documentation/services/technical-account-manager/', key: 'professionalServices/TAM' },
 			{ text: 'Best Practices Review', header: true, anchor: true, type: 'learn', slug: '/documentation/services/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
 			{ text: 'Instructor-Led Training', header: true, anchor: true, type: 'learn', slug: '/documentation/services/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
