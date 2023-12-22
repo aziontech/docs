@@ -44,6 +44,7 @@ export default [
         text: 'Analyze logs', header: true, type: 'learn', key: 'observeanalyzeLogs', hasLabel: 'menu.realTimeEvents', children: [
             { text: 'Understand logs', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/understand-logs/', key: 'observeUnderstandLogs' },
             { text: 'Add filters', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/add-filters-events/', key: 'observeEventsAddFilters' },
+            { text: 'Collect navigation data', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/analyze-navigation-data/', key: 'observeEventsCollectNavigationData' },
             { text: 'Use GraphQL API', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/overview/', key: 'observeGql' },
             { text: 'Use GraphQL API playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'observeGqlPlayground' },
             
