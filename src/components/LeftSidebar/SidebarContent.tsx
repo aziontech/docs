@@ -1,5 +1,5 @@
 import { isSubPage } from '~/util/isSubPage';
-import { modelSlug, testURLPath } from '~/util';
+import { modelSlug, isURL } from '~/util';
 import ExternalLinkIcon from '~/components/icons/ExternalLinkIcon';
 import './SidebarContent.scss'
 import type { NavDict } from '~/i18n/translation-checkers';
@@ -18,13 +18,13 @@ const MenuItems = ({ data, lang, currentPageMatch }: Props) => {
 					<li data-current-page={isSubPage(currentPageMatch, slug, lang) ? "true" : "false"} key={text} className="nav-link">
 						<a className="nav-item-children"
 							rel="noreferrer"
-							href={modelSlug(slug, isFallback, lang)} target={testURLPath(slug) ? "_blank" : "_self"}
+							href={modelSlug(slug, isFallback, lang)} target={isURL(slug) ? "_blank" : "_self"}
 							aria-current={isSubPage(currentPageMatch, slug, lang) ? "page" : "false"}
 							data-current-parent={isSubPage(currentPageMatch, slug, lang) ? "true" : "false"}
 						>
 							{text}
 							{isFallback && <sup className="fallback">EN</sup>}
-							{testURLPath(slug) && <ExternalLinkIcon color="var(--theme-text)" />}
+							{isURL(slug) && <ExternalLinkIcon color="var(--theme-text)" />}
 						</a>
 					</li>
 				))}
@@ -55,13 +55,13 @@ const MenuItems = ({ data, lang, currentPageMatch }: Props) => {
 								className="nav-link-highlight"
 								rel="noreferrer"
 								href={modelSlug(item.slug, item.isFallback, lang)} 
-								target={testURLPath(item.slug) ? "_blank" : "_self"}
+								target={isURL(item.slug) ? "_blank" : "_self"}
 								aria-current={isSubPage(currentPageMatch, item.slug, lang) ? "page" : "false"}
 								data-current-parent={isSubPage(currentPageMatch, item.slug, lang) ? "true" : "false"}
 							>
 								{item.text}
 								{item.isFallback && <sup className="fallback">EN</sup>}
-								{testURLPath(item.slug) && <ExternalLinkIcon color="var(--theme-text)" />}
+								{isURL(item.slug) && <ExternalLinkIcon color="var(--theme-text)" />}
 							</a>
 							{item.children && createListItems(item.children)}
 						</li>

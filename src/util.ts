@@ -34,11 +34,11 @@ export const getSlugFromPermalink = (collection: CollectionEntry<'docs'>) => {
 
 export const modelSlug = (slug: string | undefined, isFallback: boolean | undefined, lang: string): string => {
   if (typeof slug !== 'string') return 'Error while parsing slug'
-  if (testURLPath(slug)) return slug
+  if (isURL(slug)) return slug
 	return `/${isFallback ? 'en' : lang}/${removeTrailingSlash(removeLeadingSlash(slug))}/`;
 };
 
-export const testURLPath = (path: string | undefined) => {
+export const isURL = (path: string | undefined): boolean | undefined => {
 	const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/; // Check if string starts with ftp, http or https followed by ://
 
 	if (typeof path == "string") {
