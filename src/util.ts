@@ -34,6 +34,14 @@ export const getSlugFromPermalink = (collection: CollectionEntry<'docs'>) => {
 
 export const modelSlug = (slug: string | undefined, isFallback: boolean | undefined, lang: string): string => {
   if (typeof slug !== 'string') return 'Error while parsing slug'
-  if (slug.includes('https')) return slug
+  if (testURLPath(slug)) return slug
 	return `/${isFallback ? 'en' : lang}/${removeTrailingSlash(removeLeadingSlash(slug))}/`;
 };
+
+export const testURLPath = (path: string | undefined) => {
+	const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/; // Check if string starts with ftp, http or https followed by ://
+
+	if (typeof path == "string") {
+		return urlRegex.test(path)
+	} 
+}

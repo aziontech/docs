@@ -1,5 +1,5 @@
 import type { AstroGlobal } from 'astro';
-import { getLanguageFromURL } from '../util';
+import { getLanguageFromURL, testURLPath } from '../util';
 import { getNavigationMenu } from './getNav';
 import { removeTrailingSlash, removeLeadingSlash } from '../util';
 
@@ -52,9 +52,9 @@ export function getPreviousAndNext(links: NavItem[], Astro: Readonly<AstroGlobal
   const lang = getLanguageFromURL(Astro.url.pathname);
 
   const makeLinkItem = ({ text, slug, isFallback }: NavItem): LinkItem => ({
-    text,
-    link: slug.includes('https') ? slug : `/${isFallback ? 'en' : lang}/${removeTrailingSlash(removeLeadingSlash(slug))}/`,
-  });
+			text,
+			link: testURLPath(slug) ? slug : `/${isFallback ? 'en' : lang}/${removeTrailingSlash(removeLeadingSlash(slug))}/`,
+		});
 
   return {
     previous: index > 0 ? makeLinkItem(links[index - 1]) : undefined,
