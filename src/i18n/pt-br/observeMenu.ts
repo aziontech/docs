@@ -12,10 +12,6 @@ export default [
     { text: 'Documentação', header: true, onlyMobile: true, anchor: true, slug: '/documentacao/', key: 'documentation' },
 	{ text: 'Guias', header: true, onlyMobile: true, anchor: true, slug: '/documentacao/produtos/guias/', key: 'guides' },
 	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, slug: '/documentacao/produtos/dev-tools/', key: 'devTools' },
-<<<<<<< HEAD
-	{ text: 'Learn', header: true, onlyMobile: true, anchor: true, slug: 'https://learn.azion.com/', key: 'Learn' },
-=======
->>>>>>> f4c7831850d4f7a93c07a6f845c5d9b7e3ad10b2
 
 
     /// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
