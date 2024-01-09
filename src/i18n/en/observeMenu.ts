@@ -72,6 +72,7 @@ export default [
     { text: 'Google BigQuery', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-google-bigquery/', key: 'observeIntegrationsBigQuery' },
     { text: 'S3 - Simple Storage Service', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-amazon-s3/', key: 'observeIntegrationsS3' },
     { text: 'Splunk', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-splunk/', key: 'observeIntegrationsSplunk' },
+    { text: 'Standard HTTP/HTTPS POST', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/connector-standard-https-post/', key: 'observeIntegrationsStandard' },
 
 
 
