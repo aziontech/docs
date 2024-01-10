@@ -138,7 +138,28 @@ export default {
 	'menu.account': 'Manage account',
 	'menu.addResources': 'Additional resources',
 	'menu.domains': 'Work with Domains',
-	'menu.reference': 'Reference'
-
+	'menu.reference': 'Reference',
+	'menu.cli': 'Azion CLI',
+	'menu.devTools': 'Dev Tools',
+	'menu.secure': 'Secure',
+	'menu.edgeFirewall': 'Edge Firewall',
+	'menu.intelligentDns': 'Intelligent DNS',
+	'menu.secureAdvanced': 'Advanced configuration',
+	'menu.secureTransportLayerSecurity': 'Transport Layer Security',
+	'menu.secureTroubleshoot': 'Troubleshoot',
+	'menu.secureAutomate': 'Automate with Azion',
+	'menu.observe': 'Observe',
+	'menu.realTimeEvents': 'Real-Time Events',
+	'menu.afterQueryingLogs': 'After querying logs',
+	'menu.observeIntegrations': 'Integrations',
+	'menu.dataStreaming': 'Data Streaming',
+	'menu.observeAdvanced': 'Advanced configurations',
+	'menu.observeTroubleshoot': 'Troubleshoot',
+	'menu.realTimeMetrics': 'Real-Time Metrics',
+	// top bar message
+	'topbar.message': 'Azion earns Frost & Sullivan’s 2023 North American New Product Innovation Award in the edge serverless industry.',
+	'topbar.link': 'https://www.azion.com/en/blog/azion-frost-sullivan-award/',
+	'topbar.cta': 'Check it out!',
+	'menu.runtime': 'Azion Edge Runtime',
 
 };
