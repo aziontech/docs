@@ -21,7 +21,7 @@ export default UIDictionary({
 	'rightSidebar.overview': 'Visão geral',
 	'rightSidebar.community': 'Comunidade',
 	'rightSidebar.joinDiscord': 'Junte-se a nós no Discord',
-	'rightSidebar.followTwitter': 'Junte-se a nós no Twitter',
+	'rightSidebar.followTwitter': 'Junte-se a nós no X',
 	'rightSidebar.readBlog': 'Leia nossas postagens no blog',
 	'rightSidebar.openCollective': 'Nossa Open Collective',
 	'rightSidebar.contribute': 'Contribua',
@@ -30,7 +30,7 @@ export default UIDictionary({
 	'rightSidebar.translatePage': 'Traduza esta página',
 	'rightSidebar.a11yTitle': 'Secundária',
 	// Footer
-	'footer.copyright': 'Copyright © 2023, Azion Technologies, Inc. ou suas afiliadas. Todos os direitos reservados.',
+	'footer.copyright': 'Copyright © 2024, Azion Technologies, Inc. ou suas afiliadas. Todos os direitos reservados.',
 	'footer.contactInformation': 'Para vendas e suporte, entre em contato no',
 	'footer.phone': '0800 883 6313',
 	'footer.langSelector': 'Idioma: ',

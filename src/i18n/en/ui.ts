@@ -20,7 +20,7 @@ export default {
 	'rightSidebar.overview': 'Overview',
 	'rightSidebar.community': 'Community',
 	'rightSidebar.joinDiscord': 'Join us on Discord',
-	'rightSidebar.followTwitter': 'Follow us on Twitter',
+	'rightSidebar.followTwitter': 'Follow us on X',
 	'rightSidebar.readBlog': 'Read our blog posts',
 	'rightSidebar.openCollective': 'Our Open Collective',
 	'rightSidebar.contribute': 'Contribute',
@@ -28,7 +28,7 @@ export default {
 	'rightSidebar.editPage': 'Contribute to this page',
 	'rightSidebar.translatePage': 'Translate this page',
 	// Footer
-	'footer.copyright': 'Copyright © 2023, Azion Technologies, Inc. or its affiliates. All rights reserved.',
+	'footer.copyright': 'Copyright © 2024, Azion Technologies, Inc. or its affiliates. All rights reserved.',
 	'footer.contactInformation': 'For support and sales, please call',
 	'footer.phone': '+1 (833) 33-AZION',
 	'footer.langSelector': 'Language: ',
