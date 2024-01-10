@@ -16,14 +16,14 @@ export default NavDictionary([
 
 	{ text: 'Boas-vindas ao edge', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
 	{ text: 'Começar com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
-	{ text: 'Rodar na rede da Azion', slug: '/documentacao/produtos/rodar-na-rede-da-azion/', key: 'getStarted/goLive' },
-	{ text: 'Métricas', slug: '/documentacao/produtos/guias/usar-real-time-metrics/', key: 'getStarted/viewMetrics' },
+	{ text: 'Ative em produção', slug: '/documentacao/produtos/rodar-na-rede-da-azion/', key: 'getStarted/goLive' },
+	{ text: 'Visualize métricas', slug: '/documentacao/produtos/guias/usar-real-time-metrics/', key: 'getStarted/viewMetrics' },
 
 
 	{ text: 'Build', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
-	{ text: 'Secure', slug: '/documentacao/produtos/secure/', key: 'secure' },
+	{ text: 'Secure', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
 	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/', key: 'deploy' },
-	{ text: 'Observe', slug: '/documentacao/produtos/observe/', key: 'observe' },
+	{ text: 'Observe', slug: '/documentacao/produtos/observe/visao-geral/', key: 'observe' },
 
 	{ text: 'Configurar um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
 	{ text: 'Criar um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
@@ -57,8 +57,16 @@ export default NavDictionary([
 	{ text: 'Terraform', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
 
+	{ text: 'Migrar para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
+
 	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
-	{ text: 'Usar um template', slug: '/documentacao/produtos/usar-um-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },
+	{ text: 'Conheça os Azion Templates', slug: '/documentacao/produtos/marketplace/templates/', key: 'templatesIntegrations/templates' },
+	{ text: 'Use um template', slug: '/documentacao/produtos/usar-um-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+	{ text: 'Conheça as Azion Integrations', slug: '/documentacao/produtos/marketplace/integracoes/', key: 'templatesIntegrations/integrations' },
+	{ text: 'Instale uma integração', slug: '/documentacao/produtos/marketplace/instalar-uma-integracao/', key: 'templatesIntegrations/installIntegration' },
+	{ text: 'Atualize uma integração', slug: '/documentacao/produtos/marketplace/atualizar-uma-integracao/', key: 'templatesIntegrations/updateIntegration' },
+	{ text: 'Seja um ISV', slug: '/documentacao/produtos/marketplace/isv-signup/', key: 'templatesIntegrations/isv' },
 
 
 	{
@@ -94,7 +102,6 @@ export default NavDictionary([
 	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/edge-firewall/web-application-firewall/custom-allowed-rules/' },
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions/firewall/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions-instances/' },
-	{ text: 'Permissões de acesso', key: 'reference/accessPermissions', slug: '/documentacao/produtos/edge-firewall/permissoes-de-acesso/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/edge-firewall/rules-engine/' },
 	{ text: 'Intelligent DNS', key: 'reference/intelligentDNS', slug: '/documentacao/produtos/intelligent-dns/' },
 	{ text: 'Compatibilidade com DNSSEC', key: 'reference/dnssecCompatibility', slug: '/documentacao/produtos/intelligent-dns/compatibilidade-dnssec/' },
@@ -114,7 +121,7 @@ export default NavDictionary([
 
 	{ text: 'Marketplace', key: 'mktpRef' },
 	{ text: 'Marketplace', key: 'mktp', slug: '/documentacao/produtos/marketplace/' },
-	{ text: 'Marketplace Independent Software Vendor', key: 'mktp/isv', slug: '/documentacao/produtos/marketplace/isv-signup/' },
+	{ text: 'Permissões', key: 'mktp/permissions', slug: '/documentacao/produtos/guias/permissoes-marketplace/' },
 	{ text: 'Marketplace Seller Guide', key: 'mktp/sellerGuide', slug: '/documentacao/produtos/marketplace/marketplace-seller-guide/' },
 
 	{
@@ -136,9 +143,10 @@ export default NavDictionary([
 
 	{ text: 'Professional Services', key: 'professionalServicesRef' },
 	{ text: 'Integration Services', slug: '/documentacao/servicos/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
+	{ text: 'Managed Configurations', slug: '/documentacao/servicos/managed-configurations/', key: 'professionalServices/managedConfigurations' },
 	{ text: 'Technical Account Manager', slug: '/documentacao/servicos/technical-account-manager/', key: 'professionalServices/TAM' },
 	{ text: 'Best Practices Review', slug: '/documentacao/servicos/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
-	{ text: 'Custom Education Programs', slug: '/documentacao/servicos/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
+	{ text: 'Instructor-Led Training', slug: '/documentacao/servicos/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
 	{ text: 'Security Response Team', slug: '/documentacao/servicos/security-response-team/', key: 'professionalServices/SRT' },
 	{ text: 'Business Events Support', slug: '/documentacao/servicos/business-events-support/', key: 'professionalServices/businessEventsSupport' },
 	{ text: 'Slack Channel', slug: '/documentacao/servicos/slack-channel/', key: 'professionalServices/SlackChannel' },
@@ -152,7 +160,15 @@ export default NavDictionary([
 	},
 
 	{
+		text: 'Release Notes', slug: '/documentacao/produtos/release-notes/', key: 'releaseNotes'
+	},
+
+	{
 		text: 'Contratos', slug: '/documentacao/contratos/', key: 'agreements'
+	},
+
+	{
+		text: 'Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
 	},
 
 	{
