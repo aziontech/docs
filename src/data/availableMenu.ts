@@ -7,6 +7,7 @@ export const availableMenus = [
 	{ name: 'cliMenuAlpha', langs: ['en', 'pt-br'] },
 	{ name: 'buildMenu', langs: ['en', 'pt-br'] },
 	{ name: 'secureMenu', langs: ['en', 'pt-br'] },
+	{ name: 'observeMenu', langs: ['en', 'pt-br'] },
 
 
 ]
