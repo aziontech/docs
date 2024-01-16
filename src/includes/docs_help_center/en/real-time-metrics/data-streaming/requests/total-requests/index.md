@@ -6,4 +6,4 @@ Each request is made out of successful Data Streaming packets: when a packet wit
 
 The graph shows the sum of all requests that occurred during the period you've selected in the time range.
 
-Find out more about [Data Streaming](https://www.azion.com/en/documentation/products/data-streaming/).
+Find out more about [Data Streaming](https://www.azion.com/en/documentation/products/observe/data-streaming/).
