@@ -16,14 +16,14 @@ export default NavDictionary([
 
 	{ text: 'Boas-vindas ao edge', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
 	{ text: 'Começar com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
-	{ text: 'Rodar na rede da Azion', slug: '/documentacao/produtos/rodar-na-rede-da-azion/', key: 'getStarted/goLive' },
-	{ text: 'Métricas', slug: '/documentacao/produtos/guias/usar-real-time-metrics/', key: 'getStarted/viewMetrics' },
+	{ text: 'Ative em produção', slug: '/documentacao/produtos/rodar-na-rede-da-azion/', key: 'getStarted/goLive' },
+	{ text: 'Visualize métricas', slug: '/documentacao/produtos/guias/usar-real-time-metrics/', key: 'getStarted/viewMetrics' },
 
 
 	{ text: 'Build', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
-	{ text: 'Secure', slug: '/documentacao/produtos/secure/', key: 'secure' },
+	{ text: 'Secure', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
 	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/', key: 'deploy' },
-	{ text: 'Observe', slug: '/documentacao/produtos/observe/', key: 'observe' },
+	{ text: 'Observe', slug: '/documentacao/produtos/observe/visao-geral/', key: 'observe' },
 
 	{ text: 'Configurar um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
 	{ text: 'Criar um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
@@ -56,6 +56,8 @@ export default NavDictionary([
 	{ text: 'SDK', slug: '/documentacao/devtools/sdk/go/', key: 'devtools/sdk' },
 	{ text: 'Terraform', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
+
+	{ text: 'Migrar para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
 
 	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
 	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },
@@ -141,6 +143,7 @@ export default NavDictionary([
 
 	{ text: 'Professional Services', key: 'professionalServicesRef' },
 	{ text: 'Integration Services', slug: '/documentacao/servicos/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
+	{ text: 'Managed Configurations', slug: '/documentacao/servicos/managed-configurations/', key: 'professionalServices/managedConfigurations' },
 	{ text: 'Technical Account Manager', slug: '/documentacao/servicos/technical-account-manager/', key: 'professionalServices/TAM' },
 	{ text: 'Best Practices Review', slug: '/documentacao/servicos/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
 	{ text: 'Instructor-Led Training', slug: '/documentacao/servicos/custom-education-programs/', key: 'professionalServices/customEducationPrograms' },
@@ -165,7 +168,7 @@ export default NavDictionary([
 	},
 
 	{
-		text: 'Modelo de Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
+		text: 'Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
 	},
 
 	{
