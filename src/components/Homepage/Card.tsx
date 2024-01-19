@@ -1,5 +1,5 @@
 import './Card.css'
-import { removeLeadingSlash, removeTrailingSlash } from '~/util'
+import { removeLeadingSlash, removeTrailingSlash, isURL } from '~/util'
 
 interface Props {
 	icon: string,
@@ -10,11 +10,11 @@ interface Props {
 
 const Card = (({ icon, title, description, link }: Props) => {
 	if (typeof link === 'string') {
-		link = link.includes('https') ? link : `/${removeLeadingSlash(removeTrailingSlash(link))}/`
+		link = isURL(link) ? link : `/${removeLeadingSlash(removeTrailingSlash(link))}/`
 	}
 
 	return (
-		<a className="card-homepage" rel="noreferrer" href={link} target={link?.includes('https') ? "_blank" : "_self"} title={title}>
+		<a className="card-homepage" rel="noreferrer" href={link} target={isURL(link) ? "_blank" : "_self"} title={title}>
 			<div>
 				<i>
 					<img width="36" height="36" src={icon} alt={title + "icon"} />
