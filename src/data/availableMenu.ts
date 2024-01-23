@@ -8,6 +8,8 @@ export const availableMenus = [
 	{ name: 'buildMenu', langs: ['en', 'pt-br'] },
 	{ name: 'secureMenu', langs: ['en', 'pt-br'] },
 	{ name: 'observeMenu', langs: ['en', 'pt-br'] },
+	{ name: 'deployMenu', langs: ['en', 'pt-br'] },
+
 
 
 ]

@@ -161,5 +161,7 @@ export default {
 	'topbar.link': 'https://www.azion.com/en/blog/azion-frost-sullivan-award/',
 	'topbar.cta': 'Check it out!',
 	'menu.runtime': 'Azion Edge Runtime',
+	'menu.deploy': 'Deploy',
+
 
 };
