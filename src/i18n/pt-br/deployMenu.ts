@@ -43,7 +43,7 @@ export default [
 		hasLabel: 'menu.deploy',
 	},
 	{
-		text: 'Implantar um edge service',
+		text: 'Implante um edge service',
 		header: true,
 		anchor: true,
 		slug: '/documentacao/produtos/deploy/implantar-servico/',
