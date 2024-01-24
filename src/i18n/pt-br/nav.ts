@@ -12,7 +12,7 @@ import { NavDictionary } from '../translation-checkers';
 export default NavDictionary([
 
 	{ text: 'Conceitos básicos', slug: '/documentacao/produtos/conceitos-basicos/', key: 'beforeBegin/core' },
-	{ text: 'Obter ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getHelp' },
+	{ text: 'Obtenha ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getHelp' },
 
 	{ text: 'Boas-vindas ao edge', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
 	{ text: 'Começar com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
@@ -25,12 +25,12 @@ export default NavDictionary([
 	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/', key: 'deploy' },
 	{ text: 'Observe', slug: '/documentacao/produtos/observe/visao-geral/', key: 'observe' },
 
-	{ text: 'Configurar um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
-	{ text: 'Criar um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
-	{ text: 'Apontar um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
-	{ text: 'Migrar NS para a Azion', slug: '/documentacao/produtos/guias/migrar-ns-para-a-azion', key: 'migrateDomain' },
+	{ text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
+	{ text: 'Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
+	{ text: 'Aponte um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
+	{ text: 'Migre NS para a Azion', slug: '/documentacao/produtos/guias/migrar-ns-para-a-azion', key: 'migrateDomain' },
 
-	{ text: 'Criar uma conta', key: 'account/createAccount', slug: '/documentacao/produtos/contas/criar-uma-conta/' },
+	{ text: 'Crie uma conta', key: 'account/createAccount', slug: '/documentacao/produtos/contas/criar-uma-conta/' },
 
 	{ text: 'Configurar conta', key: 'manageAccount' },
 	{ text: 'Usuários', key: 'account/Users', slug: '/documentacao/produtos/guias/users-management/' },
@@ -57,7 +57,7 @@ export default NavDictionary([
 	{ text: 'Terraform', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
 
-	{ text: 'Migrar para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
+	{ text: 'Migre para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
 
 	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
 	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },

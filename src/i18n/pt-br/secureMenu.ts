@@ -66,7 +66,9 @@ export default [
     {
         text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfig', children: [
             { text: 'Acesse root domain', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/acessar-root-domain/', key: 'anames', hasLabel: 'menu.secureAdvanced' },
-            { text: 'Ative DNSSEC', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/ativar-dnssec/', key: 'activateDnssec' }
+            { text: 'Ative DNSSEC', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/ativar-dnssec/', key: 'activateDnssec' },
+            { text: 'Autentique certificado Let\'s Encrypt', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/registro-lets-encrypt/', key: 'authenticateLetsEncryptCertificate' },
+            { text: 'Realize balanceamento de carga', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/balanceamento-de-carga-dns/', key: 'dnsLoadBalance' },
         ]
     },
 
