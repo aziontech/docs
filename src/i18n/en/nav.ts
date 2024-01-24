@@ -24,7 +24,7 @@ export default [
 
 	{ text: 'Build', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/overview/', key: 'build', hasLabel: 'menu.journey' },
 	{ text: 'Secure', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/overview/', key: 'secure' },
-	{ text: 'Deploy', header: true, anchor: true, type: 'learn', slug: 'documentation/products/deploy', key: 'deploy' },
+	{ text: 'Deploy', header: true, anchor: true, type: 'learn', slug: '/documentation/products/deploy/overview/', key: 'deploy' },
 	{ text: 'Observe', header: true, anchor: true, type: 'learn', slug: 'documentation/products/observe/overview/', key: 'observe' },
 
 	{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/', hasLabel: 'menu.domains' },
