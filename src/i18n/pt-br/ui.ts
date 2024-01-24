@@ -146,6 +146,7 @@ export default UIDictionary({
 	'menu.observeAdvanced': 'Configurações avançadas',
 	'menu.observeTroubleshoot': 'Troubleshoot',
 	'menu.realTimeMetrics': 'Real-Time Metrics',
+	'menu.deploy': 'Deploy',
 	// top bar message
 	'topbar.message': 'Azion ganha o Prêmio Norte-Americano de Inovação de Novos Produtos 2023 da Frost & Sullivan na categoria edge serverless.',
 	'topbar.cta': 'Confira!',
