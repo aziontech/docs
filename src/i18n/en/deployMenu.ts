@@ -32,7 +32,7 @@ export default [
 		onlyMobile: true,
 		anchor: true,
 		type: 'learn',
-		slug: '/documentation/products/dev-tools/',
+		slug: '/documentation/devtools/',
 		key: 'devTools',
 	},
 
