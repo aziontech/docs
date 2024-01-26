@@ -22,7 +22,7 @@ export default NavDictionary([
 
 	{ text: 'Build', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
 	{ text: 'Secure', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
-	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/', key: 'deploy' },
+	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/visao-geral/', key: 'deploy' },
 	{ text: 'Observe', slug: '/documentacao/produtos/observe/visao-geral/', key: 'observe' },
 
 	{ text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
