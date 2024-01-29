@@ -10,15 +10,15 @@
  export default [
 	{ text: 'Documentation', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'documentation' },
 	{ text: 'Guides', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/', key: 'guides' },
-	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/dev-tools/', key: 'devTools' },
+	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/devtools/', key: 'devTools' },
 
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
-	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/graphql-api-overview' },
-	{ text: 'First Steps', header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentation/products/graphql-api-first-steps' },
-	{ text: 'Queries', header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-queries', key: 'queries' },
-	{ text: 'Queries Examples',header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-queries-examples', key: 'queries/examples' },
-	{ text: 'Features',header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-features', key: 'features' },
+	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/devtools/graphql-api/overview/' },
+	{ text: 'First Steps', header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentation/devtools/graphql-api/first-steps/' },
+	{ text: 'Queries', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/queries/', key: 'queries' },
+	{ text: 'Queries Examples', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/queries-examples/', key: 'queries/examples' },
+	{ text: 'Features',header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/features/', key: 'features' },
 
 	{ text: 'Fields', header: true, key: 'fields', type: 'learn', children: [
 		{ text: 'Real-Time Events GQL', slug: '/documentation/products/graphql-api/features/events-fields/', key: 'fields/Events' },
@@ -26,8 +26,8 @@
 	]
 },
 
-	{ text: 'Limits', header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-limits', key: 'limits' },
-	{ text: 'Error Responses', header: true, anchor: true, type: 'learn', slug: '/documentation/products/graphql-api-error-responses', key: 'queries/error-responses' },
+	{ text: 'Limits', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/limits/', key: 'limits' },
+	{ text: 'Error Responses', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/error-responses/', key: 'queries/error-responses' },
 
 	{ text: 'Guides', header: true, type: 'learn', key: 'guides', children: [
 		{ text: 'How to query GraphQL requests on Postman', slug: '/documentation/products/guides/query-graphql-postman', key: 'guides/graphql-postman' },
