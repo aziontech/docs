@@ -83,8 +83,8 @@ export default footerDict({
 					type: "external"
 				},
 				{
-					text: "Twitter",
-					route: "https://twitter.com/aziontech",
+					text: "X",
+					route: "https://x.com/aziontech",
 					type: "external"
 				},
 				{
