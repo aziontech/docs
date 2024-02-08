@@ -19,15 +19,17 @@ export default [
 	{ text: 'Init, build, and deploy', header: true, anchor: true, slug: '/documentation/products/azion-cli/create-application/', key: 'cli/createJourney' },
 	{ text: 'Dev', header: true, anchor: true, slug: '/documentation/products/cli/dev-command/', key: 'cli/localDev' },
 	{ text: 'Link', header: true, anchor: true, slug: '/documentation/products/cli/link-command/', key: 'cli/link' },
-	{ text: 'Cache Settings', header: true, anchor: true, slug: '/documentation/products/cli/cache-settings-crud/', key: 'cli/cache' },
-	{ text: 'Domains', header: true, anchor: true, slug: '/documentation/products/cli/domains-crud/', key: 'cli/domains' },
-	{ text: 'Edge Application', header: true, anchor: true, slug: '/documentation/products/cli/edge-application/', key: 'cli/edgeApp' },
-	{ text: 'Edge Functions', header: true, anchor: true, slug: '/documentation/products/cli/edge-functions-crud/', key: 'cli/functions' },
-	{ text: 'Origins', header: true, anchor: true, slug: '/documentation/products/cli/origins-crud/', key: 'cli/origins' },
-	{ text: 'Personal Tokens', header: true, anchor: true, slug: '/documentation/products/cli/personal-tokens/', key: 'cli/personalTokens' },
-	{ text: 'Rules Engine', header: true, anchor: true, slug: '/documentation/products/cli/rules-engine-crud/', key: 'cli/rules' },
 	{ text: 'Login', header: true, anchor: true, slug: '/documentation/products/cli/login/', key: 'cli/login' },
 	{ text: 'Logout', header: true, anchor: true, slug: '/documentation/products/cli/logout/', key: 'cli/logout' },
+	{ text: 'Create', header: true, anchor: true, slug: '/documentation/devtools/cli/create/', key: 'cli/create' },
+	{ text: 'List', header: true, anchor: true, slug: '/documentation/devtools/cli/list/', key: 'cli/list' },
+	{ text: 'Describe', header: true, anchor: true, slug: '/documentation/devtools/cli/describe/', key: 'cli/describe' },
+	{ text: 'Update', header: true, anchor: true, slug: '/documentation/devtools/cli/update/', key: 'cli/update' },
+	{ text: 'Delete', header: true, anchor: true, slug: '/documentation/devtools/cli/delete/', key: 'cli/delete' },
+
+
+
+
 
 
 	{
