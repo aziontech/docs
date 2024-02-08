@@ -78,7 +78,7 @@ export default NavDictionary([
 	{ text: 'Edge Functions', key: 'reference/edge Functions', slug: '/documentacao/produtos/edge-application/edge-functions/' },
 	{ text: 'Image Processor', key: 'reference/imageProcessor', slug: '/documentacao/produtos/edge-application/image-processor/' },
 	{ text: 'Load Balancer', key: 'reference/loadBalancer', slug: '/documentacao/produtos/edge-application/load-balancer/' },
-	{ text: 'L2 Caching', key: 'reference/l2Caching', slug: '/documentacao/produtos/edge-application/l2-caching/' },
+	{ text: 'Tiered Cache', key: 'reference/l2Caching', slug: '/documentacao/produtos/edge-application/l2-caching/' },
 	{ text: 'Main Settings', key: 'reference/mainSettings', slug: '/documentacao/produtos/edge-application/main-settings/' },
 	{ text: 'Cache Settings', key: 'reference/cacheSettings', slug: '/documentacao/produtos/edge-application/cache-settings/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesApplication', slug: '/documentacao/produtos/edge-application/edge-functions-instances/' },
