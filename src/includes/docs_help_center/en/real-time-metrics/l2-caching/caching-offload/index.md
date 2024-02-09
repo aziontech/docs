@@ -3,7 +3,7 @@
 docs: [
 'Adding filters',
 'Tiered Cache',
-'Tiered Offload'
+'Tiered Cache Offload'
 ]
 
 ---

@@ -1,6 +1,6 @@
-## Tiered Offload
+## Tiered Cache Offload
 
-The Tiered Offload graph shows you the percentage of data delivered through Tiered Cache, without having to search for the content on the origin before delivering it.
+The Tiered Cache Offload graph shows you the percentage of data delivered through Tiered Cache, without having to search for the content on the origin before delivering it.
 
 > EDGE -> TIERED CACHE -> EDGE
 
