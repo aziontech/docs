@@ -14,7 +14,7 @@ export default [
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
 	{ text: 'Visão geral', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentacao/produtos/azion-cli/visao-geral/', hasLabel:'menu.cli' },
-
+	{ text: 'Opções globais', header: true, anchor: true, slug: '/documentacao/devtools/cli/globals/', key: 'cli/global' },
 	{ text: 'Init', header: true, anchor: true, slug: '/documentacao/devtools/cli/init/', key: 'cli/init' },
 	{ text: 'Build', header: true, anchor: true, slug: '/documentacao/devtools/cli/build/', key: 'cli/build' },
 	{ text: 'Deploy', header: true, anchor: true, slug: '/documentacao/devtools/cli/deploy/', key: 'cli/deploy' },

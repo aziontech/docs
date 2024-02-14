@@ -15,7 +15,7 @@ export default [
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/azion-cli/overview/', hasLabel:'menu.cli' },
-
+	{ text: 'Global options', header: true, anchor: true, slug: '/documentation/devtools/cli/globals/', key: 'cli/global' },
 	{ text: 'Init', header: true, anchor: true, slug: '/documentation/devtools/cli/init/', key: 'cli/init' },
 	{ text: 'Build', header: true, anchor: true, slug: '/documentation/devtools/cli/build/', key: 'cli/build' },
 	{ text: 'Deploy', header: true, anchor: true, slug: '/documentation/devtools/cli/deploy/', key: 'cli/deploy' },
