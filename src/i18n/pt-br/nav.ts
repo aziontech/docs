@@ -15,8 +15,8 @@ export default NavDictionary([
 	{ text: 'Obtenha ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getHelp' },
 
 	{ text: 'Boas-vindas ao edge', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
-	{ text: 'Começar com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
-	{ text: 'Ative em produção', slug: '/documentacao/produtos/rodar-na-rede-da-azion/', key: 'getStarted/goLive' },
+	{ text: 'Comece com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
+	{ text: 'Ative em produção', slug: '/documentacao/produtos/ative-em-producao/', key: 'getStarted/goLive' },
 	{ text: 'Visualize métricas', slug: '/documentacao/produtos/guias/usar-real-time-metrics/', key: 'getStarted/viewMetrics' },
 
 
