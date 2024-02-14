@@ -17,7 +17,8 @@ export default [
 
 	{ text: 'Init', header: true, anchor: true, slug: '/documentacao/devtools/cli/init/', key: 'cli/init' },
 	{ text: 'Build', header: true, anchor: true, slug: '/documentacao/devtools/cli/build/', key: 'cli/build' },
-	{ text: 'Deploy', header: true, anchor: true, slug: '/documentacao/devtools/cli/deploy/', key: 'cli/deploy' },	{ text: 'Dev', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/dev-comando/', key: 'cli/localDev' },
+	{ text: 'Deploy', header: true, anchor: true, slug: '/documentacao/devtools/cli/deploy/', key: 'cli/deploy' },
+	{ text: 'Dev', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/dev-comando/', key: 'cli/localDev' },
 	{ text: 'Link', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/link-comando/', key: 'cli/link' },
 	{ text: 'Login', header: true, anchor: true, slug: '/documentacao/produtos/cli/login/', key: 'cli/login' },
 	{ text: 'Logout', header: true, anchor: true, slug: '/documentacao/produtos/cli/logout/', key: 'cli/logout' },
