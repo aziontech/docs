@@ -17,6 +17,7 @@ export default [
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/azion-cli/overview/', hasLabel:'menu.cli' },
 
 	{ text: 'Init, build, and deploy', header: true, anchor: true, slug: '/documentation/products/azion-cli/create-application/', key: 'cli/createJourney' },
+	{ text: 'Global options', header: true, anchor: true, slug: '/documentation/devtools/cli/globals/', key: 'cli/global' },
 	{ text: 'Dev', header: true, anchor: true, slug: '/documentation/products/cli/dev-command/', key: 'cli/localDev' },
 	{ text: 'Link', header: true, anchor: true, slug: '/documentation/products/cli/link-command/', key: 'cli/link' },
 	{ text: 'Login', header: true, anchor: true, slug: '/documentation/products/cli/login/', key: 'cli/login' },
