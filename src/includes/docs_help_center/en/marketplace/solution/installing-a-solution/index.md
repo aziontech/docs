@@ -14,4 +14,4 @@ When a new version of the solution is launched, a **Get New Version** button app
 
 After updating it, the **Get a New Version** button will become gray and not available. The button will only be enabled again if a new version is launched.
 
-> **Note**: some solutions may need prerequisites to run. In this case, you’ll receive a message informing these prerequisites while you're trying to install the solution. For instance, if you need a **L2 Caching** on your RTM, you’ll receive the following message: **"Cannot launch solution. Reason: Dependencies required: L2 Caching"**.
+> **Note**: some solutions may need prerequisites to run. In this case, you’ll receive a message informing these prerequisites while you're trying to install the solution. For instance, if you need a **Tiered Cache** on your RTM, you’ll receive the following message: **"Cannot launch solution. Reason: Dependencies required: Tiered Cache"**.
