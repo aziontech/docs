@@ -19,7 +19,7 @@
 		{ text: 'Variáveis de Ambiente', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/environment-variables/', key: 'runtime/variables' },
 		{ text: 'Metadados', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/metadata/', key: 'runtime/metadata' },
 		{ text: 'Network List', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/network-list/', key: 'runtime/network-list' },
-		{ text: 'Object Storage', slug: '/documentacao/devtools/runtime/api-reference/storage/', key: 'runtime/storage-api' },
+		{ text: 'Edge Storage', slug: '/documentacao/devtools/runtime/api-reference/storage/', key: 'runtime/storage-api' },
 		{ text: 'Web APIs', slug: '/documentacao/produtos/edge-application/edge-functions/runtime-apis/javascript/', key: 'runtime/web-standards' },
 	] },
 

@@ -15,8 +15,8 @@ export default NavDictionary([
 	{ text: 'Obtenha ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getHelp' },
 
 	{ text: 'Boas-vindas ao edge', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
-	{ text: 'Começar com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
-	{ text: 'Ative em produção', slug: '/documentacao/produtos/rodar-na-rede-da-azion/', key: 'getStarted/goLive' },
+	{ text: 'Comece com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
+	{ text: 'Ative em produção', slug: '/documentacao/produtos/ative-em-producao/', key: 'getStarted/goLive' },
 	{ text: 'Visualize métricas', slug: '/documentacao/produtos/guias/usar-real-time-metrics/', key: 'getStarted/viewMetrics' },
 
 
@@ -74,7 +74,7 @@ export default NavDictionary([
 	},
 	{ text: 'Edge Application', key: 'reference/edgeApplication', slug: '/documentacao/produtos/edge-application/' },
 	{ text: 'Application Acceleration', key: 'reference/applicationAcceleration', slug: '/documentacao/produtos/edge-application/application-acceleration/' },
-	{ text: 'Edge Caching', key: 'reference/edgeCaching', slug: '/documentacao/produtos/edge-application/edge-caching/' },
+	{ text: 'Edge Cache', key: 'reference/edgeCaching', slug: '/documentacao/produtos/edge-application/edge-caching/' },
 	{ text: 'Edge Functions', key: 'reference/edge Functions', slug: '/documentacao/produtos/edge-application/edge-functions/' },
 	{ text: 'Image Processor', key: 'reference/imageProcessor', slug: '/documentacao/produtos/edge-application/image-processor/' },
 	{ text: 'Load Balancer', key: 'reference/loadBalancer', slug: '/documentacao/produtos/edge-application/load-balancer/' },
