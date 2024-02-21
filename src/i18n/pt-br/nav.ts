@@ -99,7 +99,7 @@ export default NavDictionary([
 	{ text: 'Network Lists', key: 'reference/networkLists', slug: '/documentacao/produtos/edge-firewall/network-layer-protection/network-lists/' },
 	{ text: 'Web Application Firewall', key: 'reference/webApplicationFirewall', slug: '/documentacao/produtos/edge-firewall/web-application-firewall/' },
 	{ text: 'WAF Rule Sets', key: 'reference/wafRuleSets', slug: '/documentacao/produtos/edge-firewall/waf-rule-sets/' },
-	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/edge-firewall/web-application-firewall/custom-allowed-rules/' },
+	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/custom-allowed-rules/' },
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions/firewall/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions-instances/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/edge-firewall/rules-engine/' },
