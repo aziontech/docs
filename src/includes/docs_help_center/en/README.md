@@ -9,7 +9,7 @@ See below a list of how to create/edit new documentation and a table mapping the
 
 To create new documentation you'll first need to look at the current location on RTM where the documentation should be available. For example:
 
-If you need to create a documentation related to the following URL: https://stage-manager.azion.com/marketplace, then follow the process below:
+If you need to create a documentation related to the following URL: https://stage-console.azion.com/marketplace, then follow the process below:
 
 - Get only the important path from the URL — in this case, `/marketplace`. The excluded path is the base URL, and it'll change depending on the environment (stage or production).
 - With the /marketplace path in mind, create at the root of this project a new folder called `/marketplace` — only if hasn't been created already.
@@ -96,7 +96,7 @@ If you run into any questions, feel free to drop us a line.
 ![Production](https://github.com/aziontech/azion-site/workflows/PRODUCTION%20DELIVERY/badge.svg)
 ![Stage](https://github.com/aziontech/azion-site/workflows/STAGE%20DELIVERY/badge.svg)
 
-The repositories shared between [azion-site](https://github.com/aziontech/azion-site/) and [Real Time Manager](https://manager.azion.com/)!
+The repositories shared between [azion-site](https://github.com/aziontech/azion-site/) and [Real Time Manager](https://console.azion.com/)!
 
 
 ## How does it work?

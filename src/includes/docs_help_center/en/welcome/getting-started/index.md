@@ -19,7 +19,7 @@ Let's create an edge application on Azion:
 
 ### Build an Edge Application from scratch
 
-The first step is [building your edge application from scratch](https://manager.azion.com/build-application/build/build-from-scratch){: target="blank"}. This allows you to build your web applications to run on Azion's platform.
+The first step is [building your edge application from scratch](https://console.azion.com/build-application/build/build-from-scratch){: target="blank"}. This allows you to build your web applications to run on Azion's platform.
 
 In the *Getting Started* section, click the **Build an Edge Application** block to create your own applications. Then, complete the required fields to have your edge application up and running:
 
