@@ -204,6 +204,10 @@ export default [
 	},
 
 	{
+		text: 'Pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'
+	},
+	
+	{
 		text: 'Shared Responsibility Model', header: true, anchor: true, type: 'learn', slug: '/documentation/shared-responsibility/', key: 'sharedResponsibility'
 	},
 
