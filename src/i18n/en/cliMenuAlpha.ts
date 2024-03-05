@@ -23,6 +23,7 @@ export default [
 	{ text: 'Link', header: true, anchor: true, slug: '/documentation/products/cli/link-command/', key: 'cli/link' },
 	{ text: 'Unlink', header: true, anchor: true, slug: '/documentation/devtools/cli/unlink-command/', key: 'cli/unlink' },
 	{ text: 'Whoami', header: true, anchor: true, slug: '/documentation/devtools/cli/whoami/', key: 'cli/whoami' },
+	{ text: 'Logs', header: true, anchor: true, slug: '/documentation/devtools/cli/logs/', key: 'cli/logs' },
 	{ text: 'Login', header: true, anchor: true, slug: '/documentation/products/cli/login/', key: 'cli/login' },
 	{ text: 'Logout', header: true, anchor: true, slug: '/documentation/products/cli/logout/', key: 'cli/logout' },
 	{ text: 'Create', header: true, anchor: true, slug: '/documentation/devtools/cli/create/', key: 'cli/create' },
