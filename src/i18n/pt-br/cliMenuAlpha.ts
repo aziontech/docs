@@ -22,6 +22,7 @@ export default [
 	{ text: 'Link', header: true, anchor: true, slug: '/documentacao/produtos/azion-cli/link-comando/', key: 'cli/link' },
 	{ text: 'Unlink', header: true, anchor: true, slug: '/documentacao/devtools/cli/comando-unlink/', key: 'cli/unlink' },
 	{ text: 'Whoami', header: true, anchor: true, slug: '/documentacao/devtools/cli/whoami/', key: 'cli/whoami' },
+	{ text: 'Logs', header: true, anchor: true, slug: '/documentacao/devtools/cli/logs/', key: 'cli/logs' },
 	{ text: 'Login', header: true, anchor: true, slug: '/documentacao/produtos/cli/login/', key: 'cli/login' },
 	{ text: 'Logout', header: true, anchor: true, slug: '/documentacao/produtos/cli/logout/', key: 'cli/logout' },
 	{ text: 'Create', header: true, anchor: true, slug: '/documentacao/devtools/cli/create/', key: 'cli/create' },
