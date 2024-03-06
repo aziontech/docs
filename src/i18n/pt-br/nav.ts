@@ -103,8 +103,8 @@ export default NavDictionary([
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions/firewall/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions-instances/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/edge-firewall/rules-engine/' },
-	{ text: 'Intelligent DNS', key: 'reference/intelligentDNS', slug: '/documentacao/produtos/intelligent-dns/' },
-	{ text: 'Compatibilidade com DNSSEC', key: 'reference/dnssecCompatibility', slug: '/documentacao/produtos/intelligent-dns/compatibilidade-dnssec/' },
+	{ text: 'Edge DNS', key: 'reference/intelligentDNS', slug: '/documentacao/produtos/edge-dns/' },
+	{ text: 'Compatibilidade com DNSSEC', key: 'reference/dnssecCompatibility', slug: '/documentacao/produtos/edge-dns/compatibilidade-dnssec/' },
 
 
 	{ text: 'Deploy', key: 'deployRef' },
@@ -113,7 +113,7 @@ export default NavDictionary([
 	{ text: 'Edge Node', key: 'reference/edgeNode', slug: '/documentacao/produtos/edge-orchestrator/edge-node/' },
 
 	{ text: 'Observe', key: 'observeRef' },
-	{ text: 'Data Streaming', key: 'reference/dataStreaming', slug: '/documentacao/produtos/data-streaming/' },
+	{ text: 'Data Stream', key: 'reference/dataStreaming', slug: '/documentacao/produtos/data-stream/' },
 	{ text: 'Edge Pulse', key: 'reference/edgePulse', slug: '/documentacao/produtos/edge-pulse/' },
 	{ text: 'Real-Time Events', key: 'reference/realTimeEvents', slug: '/documentacao/produtos/real-time-events/' },
 	{ text: 'Real-Time Metrics', key: 'reference/realTimeMetrics', slug: '/documentacao/produtos/real-time-metrics/' },
