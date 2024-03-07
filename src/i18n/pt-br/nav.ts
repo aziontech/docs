@@ -167,6 +167,10 @@ export default NavDictionary([
 		text: 'Contratos', slug: '/documentacao/contratos/', key: 'agreements'
 	},
 
+	{ text: 'Compliance', key: 'compliance' },
+	{ text: 'SOC', key: 'compliance/soc', slug: '/documentacao/produtos/compliance/soc/' },
+	{ text: 'PCI DSS', key: 'compliance/pci-dss', slug: '/documentacao/produtos/compliance/pci-dss-certification/' },
+
 	{
 		text: 'Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
 	},
