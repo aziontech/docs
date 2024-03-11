@@ -12,25 +12,25 @@ import { NavDictionary } from '../translation-checkers';
 export default NavDictionary([
 
 	{ text: 'Conceitos básicos', slug: '/documentacao/produtos/conceitos-basicos/', key: 'beforeBegin/core' },
-	{ text: 'Obter ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getHelp' },
+	{ text: 'Obtenha ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getHelp' },
 
 	{ text: 'Boas-vindas ao edge', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
-	{ text: 'Começar com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
-	{ text: 'Ative em produção', slug: '/documentacao/produtos/rodar-na-rede-da-azion/', key: 'getStarted/goLive' },
+	{ text: 'Comece com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
+	{ text: 'Ative em produção', slug: '/documentacao/produtos/ative-em-producao/', key: 'getStarted/goLive' },
 	{ text: 'Visualize métricas', slug: '/documentacao/produtos/guias/usar-real-time-metrics/', key: 'getStarted/viewMetrics' },
 
 
 	{ text: 'Build', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
 	{ text: 'Secure', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
-	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/', key: 'deploy' },
+	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/visao-geral/', key: 'deploy' },
 	{ text: 'Observe', slug: '/documentacao/produtos/observe/visao-geral/', key: 'observe' },
 
-	{ text: 'Configurar um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
-	{ text: 'Criar um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
-	{ text: 'Apontar um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
-	{ text: 'Migrar NS para a Azion', slug: '/documentacao/produtos/guias/migrar-ns-para-a-azion', key: 'migrateDomain' },
+	{ text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
+	{ text: 'Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
+	{ text: 'Aponte um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
+	{ text: 'Migre NS para a Azion', slug: '/documentacao/produtos/guias/migrar-ns-para-a-azion', key: 'migrateDomain' },
 
-	{ text: 'Criar uma conta', key: 'account/createAccount', slug: '/documentacao/produtos/contas/criar-uma-conta/' },
+	{ text: 'Crie uma conta', key: 'account/createAccount', slug: '/documentacao/produtos/contas/criar-uma-conta/' },
 
 	{ text: 'Configurar conta', key: 'manageAccount' },
 	{ text: 'Usuários', key: 'account/Users', slug: '/documentacao/produtos/guias/users-management/' },
@@ -57,12 +57,12 @@ export default NavDictionary([
 	{ text: 'Terraform', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
 
-	{ text: 'Migrar para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
+	{ text: 'Migre para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
 
 	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
 	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },
 	{ text: 'Conheça os Azion Templates', slug: '/documentacao/produtos/marketplace/templates/', key: 'templatesIntegrations/templates' },
-	{ text: 'Use um template', slug: '/documentacao/produtos/usar-um-template-via-rtm/', key: 'templatesIntegrations/createPublishTemplate' },
+	{ text: 'Use um template', slug: '/documentacao/produtos/usar-um-template-via-azion-console/', key: 'templatesIntegrations/createPublishTemplate' },
 	{ text: 'Conheça as Azion Integrations', slug: '/documentacao/produtos/marketplace/integracoes/', key: 'templatesIntegrations/integrations' },
 	{ text: 'Instale uma integração', slug: '/documentacao/produtos/marketplace/instalar-uma-integracao/', key: 'templatesIntegrations/installIntegration' },
 	{ text: 'Atualize uma integração', slug: '/documentacao/produtos/marketplace/atualizar-uma-integracao/', key: 'templatesIntegrations/updateIntegration' },
@@ -99,7 +99,7 @@ export default NavDictionary([
 	{ text: 'Network Lists', key: 'reference/networkLists', slug: '/documentacao/produtos/edge-firewall/network-layer-protection/network-lists/' },
 	{ text: 'Web Application Firewall', key: 'reference/webApplicationFirewall', slug: '/documentacao/produtos/edge-firewall/web-application-firewall/' },
 	{ text: 'WAF Rule Sets', key: 'reference/wafRuleSets', slug: '/documentacao/produtos/edge-firewall/waf-rule-sets/' },
-	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/edge-firewall/web-application-firewall/custom-allowed-rules/' },
+	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/custom-allowed-rules/' },
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions/firewall/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions-instances/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/edge-firewall/rules-engine/' },

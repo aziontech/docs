@@ -10,24 +10,31 @@
 export default [
 	{ text: 'Documentation', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'documentation' },
 	{ text: 'Guides', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/', key: 'guides' },
-	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/dev-tools/', key: 'devTools' },
+	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/devtools/', key: 'devTools' },
 
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/azion-cli/overview/', hasLabel:'menu.cli' },
-
-	{ text: 'Init, build, and deploy', header: true, anchor: true, slug: '/documentation/products/azion-cli/create-application/', key: 'cli/createJourney' },
+	{ text: 'Global options', header: true, anchor: true, slug: '/documentation/devtools/cli/globals/', key: 'cli/global' },
+	{ text: 'Init', header: true, anchor: true, slug: '/documentation/devtools/cli/init/', key: 'cli/init' },
+	{ text: 'Build', header: true, anchor: true, slug: '/documentation/devtools/cli/build/', key: 'cli/build' },
+	{ text: 'Deploy', header: true, anchor: true, slug: '/documentation/devtools/cli/deploy/', key: 'cli/deploy' },
 	{ text: 'Dev', header: true, anchor: true, slug: '/documentation/products/cli/dev-command/', key: 'cli/localDev' },
 	{ text: 'Link', header: true, anchor: true, slug: '/documentation/products/cli/link-command/', key: 'cli/link' },
-	{ text: 'Cache Settings', header: true, anchor: true, slug: '/documentation/products/cli/cache-settings-crud/', key: 'cli/cache' },
-	{ text: 'Domains', header: true, anchor: true, slug: '/documentation/products/cli/domains-crud/', key: 'cli/domains' },
-	{ text: 'Edge Application', header: true, anchor: true, slug: '/documentation/products/cli/edge-application/', key: 'cli/edgeApp' },
-	{ text: 'Edge Functions', header: true, anchor: true, slug: '/documentation/products/cli/edge-functions-crud/', key: 'cli/functions' },
-	{ text: 'Origins', header: true, anchor: true, slug: '/documentation/products/cli/origins-crud/', key: 'cli/origins' },
-	{ text: 'Personal Tokens', header: true, anchor: true, slug: '/documentation/products/cli/personal-tokens/', key: 'cli/personalTokens' },
-	{ text: 'Rules Engine', header: true, anchor: true, slug: '/documentation/products/cli/rules-engine-crud/', key: 'cli/rules' },
+	{ text: 'Unlink', header: true, anchor: true, slug: '/documentation/devtools/cli/unlink-command/', key: 'cli/unlink' },
+	{ text: 'Whoami', header: true, anchor: true, slug: '/documentation/devtools/cli/whoami/', key: 'cli/whoami' },
+	{ text: 'Logs', header: true, anchor: true, slug: '/documentation/devtools/cli/logs/', key: 'cli/logs' },
 	{ text: 'Login', header: true, anchor: true, slug: '/documentation/products/cli/login/', key: 'cli/login' },
 	{ text: 'Logout', header: true, anchor: true, slug: '/documentation/products/cli/logout/', key: 'cli/logout' },
+	{ text: 'Create', header: true, anchor: true, slug: '/documentation/devtools/cli/create/', key: 'cli/create' },
+	{ text: 'List', header: true, anchor: true, slug: '/documentation/devtools/cli/list/', key: 'cli/list' },
+	{ text: 'Describe', header: true, anchor: true, slug: '/documentation/devtools/cli/describe/', key: 'cli/describe' },
+	{ text: 'Update', header: true, anchor: true, slug: '/documentation/devtools/cli/update/', key: 'cli/update' },
+	{ text: 'Delete', header: true, anchor: true, slug: '/documentation/devtools/cli/delete/', key: 'cli/delete' },
+
+
+
+
 
 
 	{
