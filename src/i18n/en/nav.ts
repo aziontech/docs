@@ -90,7 +90,7 @@ export default [
 	{
 		text: 'Build', header: true, type: 'learn', key: 'buildRef', hasLabel: 'menu.reference', children: [
 			{ text: 'Edge Application', header: true, anchor: true, type: 'learn', key: 'reference/edgeApplication', slug: '/documentation/products/build/edge-application/' },
-			{ text: 'Application Acceleration', header: true, anchor: true, type: 'learn', key: 'reference/applicationAcceleration', slug: '/documentation/products/build/edge-application/application-acceleration/' },
+			{ text: 'Application Accelerator', header: true, anchor: true, type: 'learn', key: 'reference/applicationAcceleration', slug: '/documentation/products/build/edge-application/application-accelerator/' },
 			{ text: 'Edge Caching', header: true, anchor: true, type: 'learn', key: 'reference/edgeCaching', slug: '/documentation/products/build/edge-application/edge-caching/' },
 			{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edge Functions', slug: '/documentation/products/build/edge-application/edge-functions/' },
 			{ text: 'Image Processor', header: true, anchor: true, type: 'learn', key: 'reference/imageProcessor', slug: '/documentation/products/build/edge-application/image-processor/' },

@@ -73,7 +73,7 @@ export default NavDictionary([
 		text: 'Build', key: 'buildRef'
 	},
 	{ text: 'Edge Application', key: 'reference/edgeApplication', slug: '/documentacao/produtos/edge-application/' },
-	{ text: 'Application Acceleration', key: 'reference/applicationAcceleration', slug: '/documentacao/produtos/edge-application/application-acceleration/' },
+	{ text: 'Application Accelerator', key: 'reference/applicationAcceleration', slug: '/documentacao/produtos/edge-application/application-accelerator/' },
 	{ text: 'Edge Caching', key: 'reference/edgeCaching', slug: '/documentacao/produtos/edge-application/edge-caching/' },
 	{ text: 'Edge Functions', key: 'reference/edge Functions', slug: '/documentacao/produtos/edge-application/edge-functions/' },
 	{ text: 'Image Processor', key: 'reference/imageProcessor', slug: '/documentacao/produtos/edge-application/image-processor/' },
