@@ -10,8 +10,8 @@ export default headerMenuDict({
 		href: "/en/documentation/products/guides/"
 	},
 	{
-		title: "Dev Tools",
-		href: "/en/documentation/products/dev-tools/",
+		title: "DevTools",
+		href: "/en/documentation/devtools/",
 		// dropdown: [
 		//     {
 		//         title: "CLI",
