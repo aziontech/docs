@@ -54,12 +54,12 @@ export default [
     { text: 'Customize log table on Grafana', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/azion-plugin-grafana-customize-log-table/', key: 'observeCustomizeTableGrafana' },
     { text: 'Use best practices on Grafana', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/best-practices-grafana/', key: 'observeBestPracticesGrafana' },
 
-    /// DATA STREAMING ///
+    /// Data Stream ///
 
     {
         text: 'Edit a streaming', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', children: [
-            { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/use-data-streaming/', key: 'observeConfigureMainSettings' },
-            { text: 'Set a payload', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-streaming-set-payload/', key: 'observeSetPayload' },
+            { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/use-data-stream/', key: 'observeConfigureMainSettings' },
+            { text: 'Set a payload', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-stream-set-payload/', key: 'observeSetPayload' },
             
         ]
     },
@@ -78,10 +78,10 @@ export default [
 
 
     { text: 'Configure sampling', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/configure-sampling/', key: 'observeConfigureSampling', hasLabel: 'menu.observeAdvanced' },
-    { text: 'Select variables', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-streaming-select-variables/', key: 'observeSelectVariables' },  
+    { text: 'Select variables', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-stream-select-variables/', key: 'observeSelectVariables' },  
 
 
-    { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/observe/troubleshoot/data-streaming-understand-metrics/', key: 'observeDtsUndersandMetrics', hasLabel: 'menu.observeTroubleshoot', addBorder: true },
+    { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/observe/troubleshoot/data-stream-understand-metrics/', key: 'observeDtsUndersandMetrics', hasLabel: 'menu.observeTroubleshoot', addBorder: true },
 
 
 
