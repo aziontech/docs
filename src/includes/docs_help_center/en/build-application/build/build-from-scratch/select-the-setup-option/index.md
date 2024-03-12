@@ -12,7 +12,7 @@ It's the default option which lists all the functions available in your function
 
 It creates an Edge Application and configures an [Origin](https://www.azion.com/en/documentation/products/edge-application/origins). Azion fetches your content directly from there and [honor cache control headers](https://www.azion.com/en/blog/what-is-http-caching-and-how-does-it-work) returned.
 
-**Note**: In this case, your Edge Application uses the **Edge Caching** and **Application Acceleration** modules with explicit policies to cache static files and images on edge network, delivering them directly to your users from the nearest **Edge Node** without having to access the origin, increasing performance and scalability.
+**Note**: In this case, your Edge Application uses the **Edge Cache** and **Application Acceleration** modules with explicit policies to cache static files and images on edge network, delivering them directly to your users from the nearest **Edge Node** without having to access the origin, increasing performance and scalability.
 
 - **Build an advanced Edge Application**
 
@@ -27,5 +27,5 @@ It enables you to customize Edge Functions and origins servers later.
 An Edge Application is a set of resources and functionalities, such as:
 
 - **Edge Functions**: code and its arguments.
-- **Edge Caching**: usually fetches content from an origin.
+- **Edge Cache**: usually fetches content from an origin.
 - **Network**: for creating business rules at the edge, which are advanced rules with criteria and behavior.
