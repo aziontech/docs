@@ -90,12 +90,12 @@ export default [
 	{
 		text: 'Build', header: true, type: 'learn', key: 'buildRef', hasLabel: 'menu.reference', children: [
 			{ text: 'Edge Application', header: true, anchor: true, type: 'learn', key: 'reference/edgeApplication', slug: '/documentation/products/build/edge-application/' },
-			{ text: 'Application Acceleration', header: true, anchor: true, type: 'learn', key: 'reference/applicationAcceleration', slug: '/documentation/products/build/edge-application/application-acceleration/' },
-			{ text: 'Edge Caching', header: true, anchor: true, type: 'learn', key: 'reference/edgeCaching', slug: '/documentation/products/build/edge-application/edge-caching/' },
+			{ text: 'Application Accelerator', header: true, anchor: true, type: 'learn', key: 'reference/applicationAcceleration', slug: '/documentation/products/build/edge-application/application-accelerator/' },
+			{ text: 'Edge Cache', header: true, anchor: true, type: 'learn', key: 'reference/edgeCaching', slug: '/documentation/products/build/edge-application/edge-caching/' },
 			{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edge Functions', slug: '/documentation/products/build/edge-application/edge-functions/' },
 			{ text: 'Image Processor', header: true, anchor: true, type: 'learn', key: 'reference/imageProcessor', slug: '/documentation/products/build/edge-application/image-processor/' },
 			{ text: 'Load Balancer', header: true, anchor: true, type: 'learn', key: 'reference/loadBalancer', slug: '/documentation/products/build/edge-application/load-balancer/' },
-			{ text: 'L2 Caching', header: true, anchor: true, type: 'learn', key: 'reference/l2Caching', slug: '/documentation/products/edge-application/l2-caching/' },
+			{ text: 'Tiered Cache', header: true, anchor: true, type: 'learn', key: 'reference/l2Caching', slug: '/documentation/products/edge-application/l2-caching/' },
 			{ text: 'Main Settings', header: true, anchor: true, type: 'learn', key: 'reference/mainSettings', slug: '/documentation/products/edge-application/build/main-settings/' },
 			{ text: 'Cache Settings', header: true, anchor: true, type: 'learn', key: 'reference/cacheSettings', slug: '/documentation/products/edge-application/cache-settings/' },
 			{ text: 'Edge Functions Instances', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsInstancesApplication', slug: '/documentation/products/build/edge-application/edge-functions-instances/' },
@@ -120,8 +120,8 @@ export default [
 			{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsFirewall', slug: '/documentation/products/secure/edge-firewall/edge-functions/' },
 			{ text: 'Edge Functions Instances', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentation/products/secure/edge-firewall/edge-functions-instances/' },
 			{ text: 'Rules Engine', header: true, anchor: true, type: 'learn', key: 'reference/rulesEngineFirewall', slug: '/documentation/products/secure/edge-firewall/rules-engine/' },
-			{ text: 'Intelligent DNS', header: true, anchor: true, type: 'learn', key: 'reference/intelligentDNS', slug: '/documentation/products/secure/intelligent-dns/' },
-			{ text: 'DNSSEC Compatibility', header: true, anchor: true, type: 'learn', key: 'reference/dnssecCompatibility', slug: '/documentation/products/secure/intelligent-dns/dnssec-compatibility/' },
+			{ text: 'Edge DNS', header: true, anchor: true, type: 'learn', key: 'reference/intelligentDNS', slug: '/documentation/products/secure/edge-dns/' },
+			{ text: 'DNSSEC Compatibility', header: true, anchor: true, type: 'learn', key: 'reference/dnssecCompatibility', slug: '/documentation/products/secure/edge-dns/dnssec-compatibility/' },
 
 		]
 	},
@@ -135,7 +135,7 @@ export default [
 	},
 	{
 		text: 'Observe', header: true, type: 'learn', key: 'observeRef', children: [
-			{ text: 'Data Streaming', header: true, anchor: true, type: 'learn', key: 'reference/dataStreaming', slug: '/documentation/products/observe/data-streaming/' },
+			{ text: 'Data Stream', header: true, anchor: true, type: 'learn', key: 'reference/dataStreaming', slug: '/documentation/products/observe/data-stream/' },
 			{ text: 'Edge Pulse', header: true, anchor: true, type: 'learn', key: 'reference/edgePulse', slug: '/documentation/products/observe/edge-pulse/' },
 			{ text: 'Real-Time Events', header: true, anchor: true, type: 'learn', key: 'reference/realTimeEvents', slug: '/documentation/products/observe/real-time-events/' },
 			{ text: 'Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/realTimeMetrics', slug: '/documentation/products/observe/real-time-metrics/' },
