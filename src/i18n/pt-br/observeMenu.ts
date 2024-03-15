@@ -57,12 +57,12 @@ export default [
     { text: 'Personalize uma tabela de logs no Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/azion-plugin-grafana-personalizar-tabela-logs/', key: 'observeCustomizeTableGrafana' },
     { text: 'Use boas práticas no Grafana', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/boas-praticas-grafana/', key: 'observeBestPracticesGrafana' },
 
-    /// DATA STREAMING//
+    /// Data Stream//
 
    {
         text: 'Edite um streaming', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', children: [
-            { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-usar-data-streaming/', key: 'observeConfigureMainSettings' },
-            { text: 'Adicione um payload', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/data-streaming-adicionar-payload/', key: 'observeSetPayload' },
+            { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-usar-data-stream/', key: 'observeConfigureMainSettings' },
+            { text: 'Adicione um payload', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/data-stream-adicionar-payload/', key: 'observeSetPayload' },
         ]
     },
 
@@ -80,9 +80,9 @@ export default [
 
 
     { text: 'Configure sampling', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/configurar-sampling/', key: 'observeConfigureSampling', hasLabel: 'menu.observeAdvanced' },
-    { text: 'Selecione variáveis', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/data-streaming-selecionar-variaveis/', key: 'observeSelectVariables' },
+    { text: 'Selecione variáveis', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/data-stream-selecionar-variaveis/', key: 'observeSelectVariables' },
 
-    { text: 'Monitore métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/observe/troubleshoot/data-streaming-monitorar-metricas/', key: 'observeDtsUndersandMetrics', hasLabel: 'menu.observeTroubleshoot' },
+    { text: 'Monitore métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/observe/troubleshoot/data-stream-monitorar-metricas/', key: 'observeDtsUndersandMetrics', hasLabel: 'menu.observeTroubleshoot' },
 
 
 ] as const;
