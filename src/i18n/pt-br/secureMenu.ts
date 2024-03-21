@@ -57,7 +57,7 @@ export default [
 
     {
         text: 'Edite uma zona', header: true, type: 'learn', key: 'editIntelligentDns', hasLabel: 'menu.intelligentDns', children: [
-            { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/intelligent-dns-definir-main-settings/', key: 'intelligentDnsMainSettings' },
+            { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/edge-dns-definir-main-settings/', key: 'intelligentDnsMainSettings' },
             { text: 'Adicione registros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/adicionar-registros/', key: 'addRecords' },
 
         ]
@@ -73,7 +73,7 @@ export default [
     },
 
 
-    { text: 'Monitore metricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/intelligent-dns-monitorar-metricas/', key: 'intelligentDnsUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot' },
+    { text: 'Monitore metricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-dns-monitorar-metricas/', key: 'intelligentDnsUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot' },
     { text: 'Teste uma zona', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/testar-zona/', key: 'testZone' },
 
 

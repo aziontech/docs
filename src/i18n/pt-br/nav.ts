@@ -73,12 +73,12 @@ export default NavDictionary([
 		text: 'Build', key: 'buildRef'
 	},
 	{ text: 'Edge Application', key: 'reference/edgeApplication', slug: '/documentacao/produtos/edge-application/' },
-	{ text: 'Application Acceleration', key: 'reference/applicationAcceleration', slug: '/documentacao/produtos/edge-application/application-acceleration/' },
-	{ text: 'Edge Caching', key: 'reference/edgeCaching', slug: '/documentacao/produtos/edge-application/edge-caching/' },
+	{ text: 'Application Accelerator', key: 'reference/applicationAcceleration', slug: '/documentacao/produtos/build/edge-application/application-accelerator/' },
+	{ text: 'Edge Cache', key: 'reference/edgeCaching', slug: '/documentacao/produtos/edge-application/edge-caching/' },
 	{ text: 'Edge Functions', key: 'reference/edge Functions', slug: '/documentacao/produtos/edge-application/edge-functions/' },
 	{ text: 'Image Processor', key: 'reference/imageProcessor', slug: '/documentacao/produtos/edge-application/image-processor/' },
 	{ text: 'Load Balancer', key: 'reference/loadBalancer', slug: '/documentacao/produtos/edge-application/load-balancer/' },
-	{ text: 'L2 Caching', key: 'reference/l2Caching', slug: '/documentacao/produtos/edge-application/l2-caching/' },
+	{ text: 'Tiered Cache', key: 'reference/l2Caching', slug: '/documentacao/produtos/edge-application/l2-caching/' },
 	{ text: 'Main Settings', key: 'reference/mainSettings', slug: '/documentacao/produtos/edge-application/main-settings/' },
 	{ text: 'Cache Settings', key: 'reference/cacheSettings', slug: '/documentacao/produtos/edge-application/cache-settings/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesApplication', slug: '/documentacao/produtos/edge-application/edge-functions-instances/' },
@@ -103,8 +103,8 @@ export default NavDictionary([
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions/firewall/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions-instances/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/edge-firewall/rules-engine/' },
-	{ text: 'Intelligent DNS', key: 'reference/intelligentDNS', slug: '/documentacao/produtos/intelligent-dns/' },
-	{ text: 'Compatibilidade com DNSSEC', key: 'reference/dnssecCompatibility', slug: '/documentacao/produtos/intelligent-dns/compatibilidade-dnssec/' },
+	{ text: 'Edge DNS', key: 'reference/intelligentDNS', slug: '/documentacao/produtos/secure/edge-dns/' },
+	{ text: 'Compatibilidade com DNSSEC', key: 'reference/dnssecCompatibility', slug: '/documentacao/produtos/secure/edge-dns/compatibilidade-dnssec/' },
 
 
 	{ text: 'Deploy', key: 'deployRef' },
@@ -113,7 +113,7 @@ export default NavDictionary([
 	{ text: 'Edge Node', key: 'reference/edgeNode', slug: '/documentacao/produtos/edge-orchestrator/edge-node/' },
 
 	{ text: 'Observe', key: 'observeRef' },
-	{ text: 'Data Streaming', key: 'reference/dataStreaming', slug: '/documentacao/produtos/data-streaming/' },
+	{ text: 'Data Stream', key: 'reference/dataStreaming', slug: '/documentacao/produtos/observe/data-stream/' },
 	{ text: 'Edge Pulse', key: 'reference/edgePulse', slug: '/documentacao/produtos/edge-pulse/' },
 	{ text: 'Real-Time Events', key: 'reference/realTimeEvents', slug: '/documentacao/produtos/real-time-events/' },
 	{ text: 'Real-Time Metrics', key: 'reference/realTimeMetrics', slug: '/documentacao/produtos/real-time-metrics/' },
@@ -166,6 +166,10 @@ export default NavDictionary([
 	{
 		text: 'Contratos', slug: '/documentacao/contratos/', key: 'agreements'
 	},
+
+	{ text: 'Compliance', key: 'compliance' },
+	{ text: 'SOC', key: 'compliance/soc', slug: '/documentacao/compliance/soc/' },
+	{ text: 'PCI DSS', key: 'compliance/pci-dss', slug: '/documentacao/compliance/pci-dss-certification/' },
 
 	{
 		text: 'Preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
