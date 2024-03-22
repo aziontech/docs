@@ -83,7 +83,6 @@ export default NavDictionary([
 	{ text: 'Cache Settings', key: 'reference/cacheSettings', slug: '/documentacao/produtos/edge-application/cache-settings/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesApplication', slug: '/documentacao/produtos/edge-application/edge-functions-instances/' },
 	{ text: 'Device Groups', key: 'reference/deviceGroups', slug: '/documentacao/produtos/edge-application/device-groups/' },
-	{ text: 'Digital Certificates', key: 'reference/digitalCertificates', slug: '/documentacao/produtos/edge-application/digital-certificates/' },
 	{ text: 'Error Responses', key: 'reference/errorResponses', slug: '/documentacao/produtos/edge-application/error-responses/' },
 	{ text: 'Origins', key: 'reference/origins', slug: '/documentacao/produtos/edge-application/origins/' },
 	{ text: 'Real-Time Purge', key: 'reference/realTimePurge', slug: '/documentacao/produtos/edge-application/real-time-purge/' },
@@ -103,6 +102,7 @@ export default NavDictionary([
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions/firewall/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/edge-firewall/edge-functions-instances/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/edge-firewall/rules-engine/' },
+	{ text: 'Digital Certificates', key: 'reference/digitalCertificates', slug: '/documentacao/produtos/edge-application/digital-certificates/' },
 	{ text: 'Edge DNS', key: 'reference/intelligentDNS', slug: '/documentacao/produtos/secure/edge-dns/' },
 	{ text: 'Compatibilidade com DNSSEC', key: 'reference/dnssecCompatibility', slug: '/documentacao/produtos/secure/edge-dns/compatibilidade-dnssec/' },
 
