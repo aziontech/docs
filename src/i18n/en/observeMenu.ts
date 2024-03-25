@@ -57,7 +57,7 @@ export default [
     /// Data Stream ///
 
     {
-        text: 'Edit a streaming', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', children: [
+        text: 'Edit a stream', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', children: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/use-data-stream/', key: 'observeConfigureMainSettings' },
             { text: 'Set a payload', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-stream-set-payload/', key: 'observeSetPayload' },
             

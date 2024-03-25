@@ -60,7 +60,7 @@ export default [
     /// Data Stream//
 
    {
-        text: 'Edite um streaming', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', children: [
+        text: 'Edite um stream', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', children: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-usar-data-stream/', key: 'observeConfigureMainSettings' },
             { text: 'Adicione um payload', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/data-stream-adicionar-payload/', key: 'observeSetPayload' },
         ]
