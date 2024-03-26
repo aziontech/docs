@@ -202,9 +202,7 @@ export default [
 	{
 		text: 'Agreements', header: true, anchor: true, type: 'learn', slug: '/documentation/agreements/', key: 'agreements'
 	},
-	{
-		text: 'Pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'
-	},
+
 	{
 		text: 'Compliance', header: true, type: 'learn', key: 'compliance', children: [
 			{ text: 'SOC', header: true, anchor: true, type: 'learn', slug: '/documentation/compliance/soc/', key: 'compliance/soc' },
