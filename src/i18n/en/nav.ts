@@ -204,6 +204,13 @@ export default [
 	},
 
 	{
+		text: 'Compliance', header: true, type: 'learn', key: 'compliance', children: [
+			{ text: 'SOC', header: true, anchor: true, type: 'learn', slug: '/documentation/compliance/soc/', key: 'compliance/soc' },
+			{ text: 'PCI DSS', header: true, anchor: true, type: 'learn', slug: '/documentation/compliance/pci-dss-certification/', key: 'compliance/pci-dss' },
+		]
+	},
+
+	{
 		text: 'Shared Responsibility Model', header: true, anchor: true, type: 'learn', slug: '/documentation/shared-responsibility/', key: 'sharedResponsibility'
 	},
 
