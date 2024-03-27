@@ -172,6 +172,10 @@ export default NavDictionary([
 	{ text: 'PCI DSS', key: 'compliance/pci-dss', slug: '/documentacao/compliance/pci-dss-certification/' },
 
 	{
+		text: 'Preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
+	},
+
+	{
 		text: 'Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
 	},
 
