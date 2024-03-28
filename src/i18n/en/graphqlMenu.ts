@@ -23,6 +23,7 @@
 	{ text: 'Fields', header: true, key: 'fields', type: 'learn', children: [
 		{ text: 'Real-Time Events GQL', slug: '/documentation/products/graphql-api/features/events-fields/', key: 'fields/Events' },
 		{ text: 'Real-Time Metrics GQL', slug: '/documentation/products/graphql-api/features/metrics-fields/', key: 'fields/Metrics' },
+		{ text: 'Accounting GQL', slug: '/documentation/devtools/graphql-api/features/gql-accounting-fields/', key: 'fields/Accounting' },
 	]
 },
 
