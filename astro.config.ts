@@ -20,12 +20,12 @@ import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
 import { rehypeLinks } from './plugins/rehypeLinks.mjs';
 
-
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://www.azion.com/',
 	trailingSlash: 'always', // for server
 	build: {
+		inlineStylesheets: 'always',
 		assets: '_astro_docs'
 		// inlineStylesheets: 'always'
 	},
@@ -37,7 +37,7 @@ export default defineConfig({
 		sitemap(),
 		astroAsides(),
 		astroDocsExpressiveCode(),
-		mdx(),
+		mdx()
 	],
 	markdown: {
 		// Override with our own config
