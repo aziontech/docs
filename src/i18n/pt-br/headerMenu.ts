@@ -11,7 +11,7 @@ export default headerMenuDict({
 	},
 	{
 		title: "Dev Tools",
-		href: "/pt-br/documentacao/devtools/",
+		href: "/pt-br/documentacao/produtos/devtools/",
 		// dropdown: [
 		//     {
 		//         title: "CLI",
