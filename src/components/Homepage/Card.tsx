@@ -20,7 +20,7 @@ const Card = (({ icon, title, description, link }: Props) => {
 					<img width="36" height="36" src={icon} alt={title + "icon"} />
 				</i>
 				<div className="box-text">
-					<h4 className="card-homepage-title"> {title} </h4>
+					<p className="card-homepage-title"> {title} </p>
 					<p className="card-homepage-description"> {description} </p>
 				</div>
 			</div>
