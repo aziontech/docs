@@ -130,9 +130,9 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 	return (
 		<Container>
 			<HeadingContainer>
-				<h2 className="heading" id={onThisPageID}>
+				<p className="heading" id={onThisPageID}>
 					{labels.onThisPage}
-				</h2>
+				</p>
 			</HeadingContainer>
 			<ul className="toc-root">
 				{toc.map((heading2) => (
