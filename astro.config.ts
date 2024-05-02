@@ -1,43 +1,45 @@
-import mdx from '@astrojs/mdx';
-import preact from '@astrojs/preact';
 import { defineConfig } from 'astro/config';
+
+import dynamicImport from 'vite-plugin-dynamic-import';
+import mdx from '@astrojs/mdx';
+import tailwind from '@astrojs/tailwind';
+import vue from '@astrojs/vue';
+
+import preact from '@astrojs/preact';
 
 import AutoImport from 'astro-auto-import';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import remarkSmartypants from 'remark-smartypants';
-import dynamicImport from 'vite-plugin-dynamic-import'
 
 import { asideAutoImport, astroAsides } from './integrations/astro-asides';
-// import { theme } from './integrations/expressive-code';
-// import astroExpressiveCode from 'astro-expressive-code';
 import { astroDocsExpressiveCode } from './integrations/expressive-code';
 
 import { sitemap } from './integrations/sitemap';
 import { autolinkConfig } from './plugins/rehype-autolink-config';
+
 import rehypeSlug from './plugins/rehype-slug-config'
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
 import { rehypeLinks } from './plugins/rehypeLinks.mjs';
 
-// https://astro.build/config
+
 export default defineConfig({
-	site: 'https://www.azion.com/',
-	trailingSlash: 'always', // for server
+	site: 'https://docs.azion.com/',
+	trailingSlash: 'always',
 	build: {
-		inlineStylesheets: 'always',
 		assets: '_astro_docs'
-		// inlineStylesheets: 'always'
 	},
 	integrations: [
-		AutoImport({
-			imports: [asideAutoImport],
-		}),
+		AutoImport({ imports: [asideAutoImport] }),
 		preact({ compat: true }),
 		sitemap(),
 		astroAsides(),
+
 		astroDocsExpressiveCode(),
-		mdx()
+		mdx(),
+		tailwind({ applyBaseStyles: false }),
+		vue({ appEntrypoint: '/src/_vue.config.js' })
 	],
 	markdown: {
 		// Override with our own config
@@ -57,9 +59,26 @@ export default defineConfig({
 			rehypei18nAutolinkHeadings(),
 			// Collapse static parts of the hast to html
 			rehypeOptimizeStatic,
-		],
+		]
 	},
 	vite: {
+		ssrBuild: true,
+		ssr: {
+      noExternal: [
+        '@astrojs/vue',
+        '@aziontech/azion-web-kit'
+      ],
+      external: [
+        'algoliasearch',
+        'instantsearch.js',
+        'vue-instantsearch/vue3/es',
+      ]
+    },
+    server: {
+      fs: {
+        allow: ['..']
+      }
+    },
 		plugins: [
 			dynamicImport()
 		]

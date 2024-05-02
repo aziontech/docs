@@ -1,4 +1,5 @@
-import { CollectionEntry, defineCollection, z } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+import { defineCollection, z } from 'astro:content';
 
 export const baseSchema = z.object({
 	type: z.literal('base').optional().default('base'),
