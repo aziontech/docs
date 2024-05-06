@@ -1,11 +1,12 @@
 import type { AstroGlobal } from 'astro';
 import { getCollection } from 'astro:content';
+
 import { removeLeadingSlash, removeTrailingSlash } from '~/util';
 
 interface Breadcrumbs {
-	link: string;
-	title: string;
-}
+	label: string;
+	url: string;
+};
 
 const getLastSegment = (url: string): string => {
 	let urlLastSegment = url.replace(/\/+$/, '').split('/').pop();
@@ -22,6 +23,7 @@ export async function getPageBreadcrumb(Astro: Readonly<AstroGlobal>, lang: stri
 	const matchedPages = await getCollection('docs', ({ data, slug }) => {
 		if (slug.startsWith(lang)) {
 			let prevSegment: string;
+			
 			return urlSegments.find(segment => {
 				prevSegment = prevSegment ? `${prevSegment}${segment}/` : `${segment}/`;
 				return data.permalink?.endsWith(`${prevSegment}`);
@@ -29,14 +31,14 @@ export async function getPageBreadcrumb(Astro: Readonly<AstroGlobal>, lang: stri
 		}
 	});
 	
-	const breadcrumbs: Breadcrumbs[] = [];
+	let breadcrumbs: Breadcrumbs[] = [];
 
 	urlSegments.map((segment) => {
 		const matchedPage = matchedPages.find(({ data }) => data.permalink?.endsWith(`/${segment}/`));
 
 		if (matchedPage && typeof matchedPage.data?.permalink === 'string') {
-			const title = getLastSegment(matchedPage.data.permalink);
-			breadcrumbs.push({ link: matchedPage.data.permalink, title });
+			const label = getLastSegment(matchedPage.data.permalink);
+			breadcrumbs.push({ url: `/${lang}${matchedPage.data.permalink}`, label });
 		}
 	});
 
