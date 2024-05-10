@@ -1,8 +1,11 @@
 import type { ComponentChildren, JSX } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import type { TocItem } from '../../util/generateToc';
-import { unescape } from '../../util/html-entities';
+
+import type { TocItem } from '~/util/generateToc';
+import { unescape } from '~/util/html-entities';
+
 import './TableOfContents.css';
+
 
 interface Props {
 	toc: TocItem[];
@@ -108,7 +111,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 		return (
 			<li>
 				<a
-					className={`text-sm flex items-center gap-3 leading-6 depth-${depth} ${
+					className={`text-sm flex items-center gap-3 leading-7 depth-${depth} ${
 						currentHeading.slug === slug ? 'current-header-link' : ''
 					}`.trim()}
 					href={`#${slug}`}
