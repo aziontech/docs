@@ -108,7 +108,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 		return (
 			<li>
 				<a
-					className={`header-link depth-${depth} ${
+					className={`flex items-center gap-3 leading-8 depth-${depth} ${
 						currentHeading.slug === slug ? 'current-header-link' : ''
 					}`.trim()}
 					href={`#${slug}`}
@@ -130,8 +130,8 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 	return (
 		<Container>
 			<HeadingContainer>
-				<p className="heading" id={onThisPageID}>
-					{labels.onThisPage}
+				<p className="mt-6 mb-3" id={onThisPageID}>
+					<strong>{labels.onThisPage}</strong>
 				</p>
 			</HeadingContainer>
 			<ul className="toc-root">
