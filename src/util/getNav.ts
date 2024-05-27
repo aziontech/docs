@@ -19,5 +19,4 @@ export async function getNavigationMenu(Astro: AstroGlobal, menuName: string): P
 	const menu = await mapNavigationMenuByName(menuName, lang)
 
 	return menu[lang]
-
 }
