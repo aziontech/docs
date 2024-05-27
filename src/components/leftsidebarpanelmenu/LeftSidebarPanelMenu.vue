@@ -24,8 +24,8 @@
 			</div>
 			<a 
 				v-else
-				:href="modelSlug(item.slug, item.isFallback, lang)"
 				:title="item.text"
+				:href="modelSlug(item.slug, item.isFallback, lang)"
 				:target="(isURL(item.slug) ? '_blank' : '_self')"
 				class="text-sm block">
 				
