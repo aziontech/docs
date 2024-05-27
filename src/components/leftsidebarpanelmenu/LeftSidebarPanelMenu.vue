@@ -26,7 +26,7 @@
 				v-else
 				:href="modelSlug(item.slug, item.isFallback, lang)"
 				:title="item.text"
-				:target="item.target"
+				:target="(isURL(item.slug) ? '_blank' : '_self')"
 				class="text-sm block">
 				
 				{{ item.text }}
