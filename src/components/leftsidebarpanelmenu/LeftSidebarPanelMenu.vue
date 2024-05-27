@@ -16,7 +16,7 @@
 		<template #item="{ item }">
 			<div v-if="!item.slug" class="flex">
 				<p class="text-sm">
-					{{ item.label }}
+					{{ item.text }}
 				</p>
 				<span
 					v-if="item.items && item.items.length"
@@ -25,11 +25,11 @@
 			<a 
 				v-else
 				:href="item.slug"
-				:title="item.label"
+				:title="item.text"
 				:target="item.target"
 				class="text-sm block">
 				
-				{{ item.label }}
+				{{ item.text }}
 			</a>
 		</template>
 	</PanelMenu>
