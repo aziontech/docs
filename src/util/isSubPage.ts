@@ -59,8 +59,8 @@ export const isSubMenu = (currentPage: string, lang: string, slugs?: NavDict): b
 	if (!Array.isArray(slugs)) return false
 
 	const foundSlug = slugs.find(slug => {
-		if (slug.children) {
-			return isSubMenu(currentPage, lang, slug.children)
+		if (slug.items) {
+			return isSubMenu(currentPage, lang, slug.items)
 		}
 		return `${lang}/${removeTrailingSlash(removeLeadingSlash(slug.slug))}` === removeTrailingSlash(removeLeadingSlash(currentPage))
 	})

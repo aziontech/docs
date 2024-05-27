@@ -19,7 +19,7 @@ export type NavDict = Array<
 		slug?: string;
 		key: string;
 		isFallback?: boolean;
-		children?: NavDict;
+		items?: NavDict;
 		addBorder?: boolean;
 		hasLabel?: UIDictionaryKeys;
 		isProduct?: boolean
@@ -42,21 +42,21 @@ export const NavDictionary = (dict: navMatching) => {
 		const orderedDictionary: NavDict = [];
 		for (const entry of enMenu) {
 			const matchedObject = dict.find(value => value.key === entry.key)
-			const children = entry.children ? parsingNavMenu(entry.children, dict) : undefined
+			const items = entry.items ? parsingNavMenu(entry.items, dict) : undefined;
 
 			if (matchedObject) {
 				const text = matchedObject.text
 
 				if (matchedObject.slug) {
 					orderedDictionary.push({ ...entry, text, slug: matchedObject.slug});
-				} else if (children) {
-					orderedDictionary.push({ ...entry, text, children});
+				} else if (items) {
+					orderedDictionary.push({ ...entry, text, items});
 				} else {
 					orderedDictionary.push({ ...entry, text, isFallback: true });
 				}
 			} else {
-				if (children) {
-					orderedDictionary.push({ ...entry, children});
+				if (items) {
+					orderedDictionary.push({ ...entry, items});
 				} else {
 					orderedDictionary.push({ ...entry, isFallback: true })
 				}
@@ -69,6 +69,7 @@ export const NavDictionary = (dict: navMatching) => {
 	const orderedDictionary = parsingNavMenu(enNav, dict)
 	return orderedDictionary;
 };
+
 export interface HeaderMenuTranslation {
 	nav: Array<{
 		title: string;

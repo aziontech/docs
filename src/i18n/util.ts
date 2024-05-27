@@ -35,7 +35,7 @@ function mapDefaultNavExports<T>(modules: Record<string, { default: T }>, lang: 
 
 export async function mapNavigationMenuByName(menuName: string, lang: string) {
 	const translations = await import(`../i18n/${lang}/${menuName}.ts`)
-		// .catch(async () => await import(`../i18n/en/${menuName}.ts`))
+		.catch(async () => await import(`../i18n/en/${menuName}.ts`))
 
 	return mapDefaultNavExports<NavDict>([translations], lang)
 }

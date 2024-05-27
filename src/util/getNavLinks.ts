@@ -34,8 +34,8 @@ function getLinksFromMenu(navLinks: any): NavItem[] {
 	function extractLinks(items: any) {
 
 		for (const item of items) {
-			if (item.children && item.children.length > 0) {
-				extractLinks(item.children)
+			if (item.items && item.items.length > 0) {
+				extractLinks(item.items)
 			} else if (item.slug && !item.onlyMobile) {
 				links.push({ text: item.text, slug: item.slug })
 			}

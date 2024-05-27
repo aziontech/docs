@@ -24,7 +24,7 @@
 			</div>
 			<a 
 				v-else
-				:href="item.slug"
+				:href="modelSlug(item.slug, item.isFallback, lang)"
 				:title="item.text"
 				:target="item.target"
 				class="text-sm block">
@@ -36,9 +36,13 @@
 </template>
 <script setup>
 	import PanelMenu from 'primevue/panelmenu';
+	import { modelSlug, isURL } from '~/util';
 	
 	const props = defineProps({
+		lang: {
+			type: String
+		},
 		datamodel: []
 	});
-	const { datamodel } = props;
+	const { datamodel, lang } = props;
 </script>
