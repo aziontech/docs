@@ -21,7 +21,7 @@ export default [
     { text: 'Secure a DNS', header: true, anchor: true, slug: '/documentation/products/secure/secure-dns/', key: 'secureDns', addBorder: true },
 
     {
-        text: 'Edit a firewall', header: true, type: 'learn', key: 'editEdgeFirewall', hasLabel: 'menu.edgeFirewall', children: [
+        text: 'Edit a firewall', header: true, type: 'learn', key: 'editEdgeFirewall', hasLabel: 'menu.edgeFirewall', items: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/edge-firewall-configure-main-settings/', key: 'secureMainSettings' },
             { text: 'Instantiate an edge function', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/instantiate-edge-functions/', key: 'secureFunctions' },
             { text: 'Work with rules engine', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/work-with-rules-engine/', key: 'secureRules' },
@@ -30,7 +30,7 @@ export default [
     },
 
     {
-        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', children: [
+        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
             { text: 'Manage bots', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/manage-bots/', key: 'manageBots', hasLabel: 'menu.secureAdvanced' },
             { text: 'Activate DDoS', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/activate-ddos/', key: 'activateDdos' },
             { text: 'Create WAF rule set', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/create-waf-rule-set/', key: 'wafRuleSet' },
@@ -56,7 +56,7 @@ export default [
 
 
     {
-        text: 'Edit a zone', header: true, type: 'learn', key: 'editIntelligentDns', hasLabel: 'menu.intelligentDns', children: [
+        text: 'Edit a zone', header: true, type: 'learn', key: 'editIntelligentDns', hasLabel: 'menu.intelligentDns', items: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/edge-dns-configure-main-settings/', key: 'intelligentDnsMainSettings' },
             { text: 'Add records', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/add-records/', key: 'addRecords' },
             
@@ -64,7 +64,7 @@ export default [
     },
 
     {
-        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', children: [
+        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
             { text: 'Access root domain', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/access-root-domain/', key: 'anames', hasLabel: 'menu.secureAdvanced' },
             { text: 'Activate DNSSEC', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/activate-dnssec/', key: 'activateDnssec' },
             { text: 'Authenticate Let\'s Encrypt certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/lets-encrypt-record/', key: 'authenticateLetsEncryptCertificate' },

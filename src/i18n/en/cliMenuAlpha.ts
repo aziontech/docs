@@ -39,7 +39,7 @@ export default [
 
 
 	{
-        text: 'Framework specific guides', header: true, type: 'learn', key: 'cli/frameworks', children: [
+        text: 'Framework specific guides', header: true, type: 'learn', key: 'cli/frameworks', items: [
             { text: 'Angular', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/angular/', key: 'cli/angular' },
             { text: 'Astro', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/astro/', key: 'cli/astro' },
             { text: 'Hexo', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/hexo/', key: 'cli/hexo' },

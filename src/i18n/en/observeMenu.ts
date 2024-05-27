@@ -22,7 +22,7 @@ export default [
         /// REAL-TIME METRICS ///
 
         {
-            text: 'Inspect metrics', header: true, type: 'learn', key: 'observeInspectMetrics', hasLabel: 'menu.realTimeMetrics', children: [
+            text: 'Inspect metrics', header: true, type: 'learn', key: 'observeInspectMetrics', hasLabel: 'menu.realTimeMetrics', items: [
                 { text: 'Analyze metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/analyze-metrics/', key: 'observeAnalyzeMetrics' },
                 { text: 'Add filters', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/add-filters-metrics/', key: 'observeMetricsAddFilters' },
                 { text: 'Use GraphQL API', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/overview/', key: 'observeGql' },
@@ -39,7 +39,7 @@ export default [
         /// REAL-TIME EVENTS ///
 
     {
-        text: 'Analyze logs', header: true, type: 'learn', key: 'observeanalyzeLogs', hasLabel: 'menu.realTimeEvents', children: [
+        text: 'Analyze logs', header: true, type: 'learn', key: 'observeanalyzeLogs', hasLabel: 'menu.realTimeEvents', items: [
             { text: 'Understand logs', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/understand-logs/', key: 'observeUnderstandLogs' },
             { text: 'Add filters', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/add-filters-events/', key: 'observeEventsAddFilters' },
             { text: 'Collect navigation data', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/analyze-navigation-data/', key: 'observeEventsCollectNavigationData' },
@@ -57,7 +57,7 @@ export default [
     /// Data Stream ///
 
     {
-        text: 'Edit a stream', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', children: [
+        text: 'Edit a stream', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', items: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/use-data-stream/', key: 'observeConfigureMainSettings' },
             { text: 'Set a payload', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-stream-set-payload/', key: 'observeSetPayload' },
             

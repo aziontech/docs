@@ -17,7 +17,7 @@ export default [
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/cli/overview' },
 	{ text: 'First Steps', header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentation/products/cli/first-steps' },
 
-	{ text: 'Commands', header: true, key: 'commands', type: 'learn', children: [
+	{ text: 'Commands', header: true, key: 'commands', type: 'learn', items: [
 		{ text: 'Edge Applications', slug: '/documentation/products/cli/edge-applications', key: 'commands/edgeApp' },
 		{ text: 'Edge Functions', slug: '/documentation/products/cli/edge-functions', key: 'commands/edgeFunctions' },
 		{ text: 'Edge Functions Instances', slug: '/documentation/products/cli/edge-functions-instances', key: 'commands/edgeFunctions/instances' },
@@ -28,7 +28,7 @@ export default [
 		{ text: 'Variables', slug: '/documentation/products/cli/variables', key: 'commands/variables' },
 	] },
 
-	{ text: 'Guides', header: true, type: 'learn', key: 'guides', children: [
+	{ text: 'Guides', header: true, type: 'learn', key: 'guides', items: [
 		{ text: 'Installing Azion CLI manually', slug: '/documentation/products/guides/cli-installing-manually', key: 'guides/installCLI' },
 		{ text: 'Autocomplete', slug: '/documentation/products/guides/cli-auto-complete', key: 'guides/autocomplete' },
 		{ text: 'Configuring Output', slug: '/documentation/products/guides/cli-output-configuration', key: 'guides/configuringOutput' },

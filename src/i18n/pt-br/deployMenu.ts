@@ -54,7 +54,7 @@ export default [
 		header: true,
 		type: 'learn',
 		key: 'configEdgeNode',
-		children: [
+		items: [
 			{
 				text: 'Gere credenciais',
 				header: true,
@@ -134,7 +134,7 @@ export default [
 		header: true,
 		type: 'learn',
 		key: 'configEdgeNode',
-		children: [
+		items: [
 			{
 				text: 'Explore o uso',
 				header: true,

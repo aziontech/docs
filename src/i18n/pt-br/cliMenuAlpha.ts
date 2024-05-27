@@ -33,7 +33,7 @@ export default [
 	{ text: 'Delete', header: true, anchor: true, slug: '/documentacao/devtools/cli/delete/', key: 'cli/delete' },
 
 	{
-		text: 'Guias específicos por framework', header: true, type: 'learn', key: 'cli/frameworks', children: [
+		text: 'Guias específicos por framework', header: true, type: 'learn', key: 'cli/frameworks', items: [
 			{ text: 'Angular', slug: '/documentacao/produtos/cli/frameworks/angular/', key: 'cli/angular' },
 			{ text: 'Astro', slug: '/documentacao/produtos/cli/frameworks/astro/', key: 'cli/astro' },
 			{ text: 'Hexo', slug: '/documentacao/produtos/cli/frameworks/hexo/', key: 'cli/hexo' },

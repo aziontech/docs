@@ -17,7 +17,7 @@ export default [
     { text: 'Visão geral',header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentacao/produtos/guias/build/visao-geral/', hasLabel:'menu.build' },
 	{ text: 'Construa uma aplicação',header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentacao/produtos/guias/build/criar-uma-aplicacao/' },
 
-	{ text: 'Edite uma aplicação',header: true,  type: 'learn',  key: 'editEdgeApp', children: [
+	{ text: 'Edite uma aplicação',header: true,  type: 'learn',  key: 'editEdgeApp', items: [
 		{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/definir-configuracoes-principais/', key: 'mainSettings' },
             { text: 'Crie device groups', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/criar-device-groups/', key: 'deviceGroups' },
             { text: 'Defina páginas de erro', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/configurar-paginas-de-erro/', key: 'errorPages' },
@@ -29,7 +29,7 @@ export default [
     },
 
     {
-        text: 'Configurações avançadas', header: true, type: 'learn', key: 'advancedConfig', addBorder: true, children: [
+        text: 'Configurações avançadas', header: true, type: 'learn', key: 'advancedConfig', addBorder: true, items: [
             { text: 'Processe imagens', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/processar-imagens/', key: 'processImages', hasLabel: 'menu.buildAdvanced' },
             { text: 'Configure múltiplas origens', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/configure-multiplas-origens/', key: 'multiOrigin' },
         ]
@@ -46,7 +46,7 @@ export default [
     { text: 'Guias específicos por framework', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/develop-with-azion/frameworks-specific/visao-geral/', key: 'frameworkAngular' },
 
     {
-        text: 'Guias específicos por linguagem', header: true, type: 'learn', key: 'languageSpecifics', addBorder: true, children: [
+        text: 'Guias específicos por linguagem', header: true, type: 'learn', key: 'languageSpecifics', addBorder: true, items: [
             { text: 'JavaScript', slug: '/documentacao/produtos/desenvolvimento-azion/linguagens/javascript/', key: 'devJS' },
             { text: 'WebAssembly', slug: '/documentacao/produtos/build/desenvolvimento-azion/linguagens/wasm/', key: 'devWasm' },
         ]

@@ -20,7 +20,7 @@
 	{ text: 'Queries Examples', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/queries-examples/', key: 'queries/examples' },
 	{ text: 'Features',header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/features/', key: 'features' },
 
-	{ text: 'Fields', header: true, key: 'fields', type: 'learn', children: [
+	{ text: 'Fields', header: true, key: 'fields', type: 'learn', items: [
 		{ text: 'Real-Time Events GQL', slug: '/documentation/products/graphql-api/features/events-fields/', key: 'fields/Events' },
 		{ text: 'Real-Time Metrics GQL', slug: '/documentation/products/graphql-api/features/metrics-fields/', key: 'fields/Metrics' },
 		{ text: 'Billing GQL', slug: '/documentation/devtools/graphql-api/features/gql-billing-fields/', key: 'fields/Billing' },
@@ -31,7 +31,7 @@
 	{ text: 'Limits', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/limits/', key: 'limits' },
 	{ text: 'Error Responses', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/error-responses/', key: 'queries/error-responses' },
 
-	{ text: 'Guides', header: true, type: 'learn', key: 'guides', children: [
+	{ text: 'Guides', header: true, type: 'learn', key: 'guides', items: [
 		{ text: 'How to query GraphQL requests on Postman', slug: '/documentation/products/guides/query-graphql-postman', key: 'guides/graphql-postman' },
 		{ text: 'How to query metadata with GraphQL API', slug: '/documentation/products/guides/graphql-metadata', key: 'guides/graphql-metadata' },
 		{ text: 'How to query aggregated data with GraphQL API', slug: '/documentation/products/guides/graphql-aggregated-data', key: 'guides/graphql-aggregated-data' },

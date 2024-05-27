@@ -17,7 +17,7 @@ export default [
     { text: 'Build an application', header: true, anchor: true, slug: '/documentation/products/guides/build/build-an-application/', key: 'buildEdgeApps' },
 
     {
-        text: 'Edit an application', header: true, type: 'learn', key: 'editEdgeApp', children: [
+        text: 'Edit an application', header: true, type: 'learn', key: 'editEdgeApp', items: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/configure-main-settings/', key: 'mainSettings' },
             { text: 'Create device groups', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/create-device-groups/', key: 'deviceGroups' },
             { text: 'Set error pages', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/set-error-pages/', key: 'errorPages' },
@@ -29,7 +29,7 @@ export default [
     },
 
     {
-        text: 'Advanced configurations', header: true, type: 'learn', key: 'advancedConfig', addBorder: true, children: [
+        text: 'Advanced configurations', header: true, type: 'learn', key: 'advancedConfig', addBorder: true, items: [
             { text: 'Process images', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/process-images/', key: 'processImages', hasLabel: 'menu.buildAdvanced' },
             { text: 'Configure multiple origins', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/multiple-origins/', key: 'multiOrigin' },
         ]
@@ -48,7 +48,7 @@ export default [
     { text: 'Framework specific guides', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/overview/', key: 'frameworkAngular' },
 
     {
-        text: 'Language specific guides', header: true, type: 'learn', key: 'languageSpecifics', addBorder: true, children: [
+        text: 'Language specific guides', header: true, type: 'learn', key: 'languageSpecifics', addBorder: true, items: [
             { text: 'JavaScript', slug: '/documentation/products/build/develop-with-azion/language-specific/javascript/', key: 'devJS' },
             { text: 'WebAssembly', slug: '/documentation/products/build/develop-with-azion/language-specific/wasm/', key: 'devWasm' },
         ]

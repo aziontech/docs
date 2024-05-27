@@ -17,7 +17,7 @@
 	{ text: 'Visão Geral',header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentacao/produtos/cli/visao-geral/' },
 	{ text: 'Primeiros passos',header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentacao/produtos/cli/primeiros-passos' },
 
-	{ text: 'Comandos',header: true,  type: 'learn',  key: 'commands', children: [
+	{ text: 'Comandos',header: true,  type: 'learn',  key: 'commands', items: [
 		{ text: 'Edge Applications', slug: '/documentacao/produtos/cli/edge-applications', key: 'commands/edgeApp' },
 		{ text: 'Edge Functions', slug: '/documentacao/produtos/cli/edge-functions', key: 'commands/edgeFunctions' },
 		{ text: 'Edge Functions Instances', slug: '/documentacao/produtos/cli/edge-functions-instances', key: 'commands/edgeFunctions/instances' },
@@ -27,7 +27,7 @@
 		{ text: 'Rules Engine', slug: '/documentacao/produtos/cli/rules-engine', key: 'commands/rulesEngine' },
 		{ text: 'Variables', slug: '/documentacao/produtos/cli/variables', key: 'commands/variables' },
 	] },
-	{ text: 'Guias',header: true,  type: 'learn', key: 'guides', children: [
+	{ text: 'Guias',header: true,  type: 'learn', key: 'guides', items: [
 		{ text: 'Instalando a Azion CLI manualmente', slug: '/documentacao/produtos/guias/cli-instalando-manualmente', key: 'guides/installCLI' },
 		{ text: 'Utilizando a funcionalidade Autocomplete', slug: '/documentacao/produtos/guias/cli-auto-complete', key: 'guides/autocomplete' },
 		{ text: 'Configuração de Saída', slug: '/documentacao/produtos/guias/cli-configuracao-saida', key: 'guides/configuringOutput' },
