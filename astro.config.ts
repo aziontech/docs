@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 
+import cssnano from 'cssnano';
 import dynamicImport from 'vite-plugin-dynamic-import';
 import mdx from '@astrojs/mdx';
 import tailwind from '@astrojs/tailwind';
@@ -23,11 +24,12 @@ import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
 import { rehypeLinks } from './plugins/rehypeLinks.mjs';
 
+const productionBuild = import.meta.env.PROD;
 
 export default defineConfig({
 	site: 'https://docs.azion.com/',
-	trailingSlash: 'always',
 	build: {
+		inlineStylesheets: 'always',
 		assets: '_astro_docs'
 	},
 	integrations: [
@@ -61,26 +63,29 @@ export default defineConfig({
 			rehypeOptimizeStatic,
 		]
 	},
+	compressHTML: productionBuild ? true : false,
+	trailingSlash: 'always', // for server
 	vite: {
 		ssrBuild: true,
+		server: {
+      fs: {
+        allow: ['..']
+      }
+    },
+		plugins: [
+      dynamicImport(),
+      cssnano
+    ],
 		ssr: {
       noExternal: [
         '@astrojs/vue',
-        '@aziontech/azion-web-kit'
+        '@aziontech/webkit'
       ],
       external: [
         'algoliasearch',
         'instantsearch.js',
         'vue-instantsearch/vue3/es',
       ]
-    },
-    server: {
-      fs: {
-        allow: ['..']
-      }
-    },
-		plugins: [
-			dynamicImport()
-		]
+    }
 	}
 });
