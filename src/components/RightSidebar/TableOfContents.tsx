@@ -4,7 +4,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { TocItem } from '~/util/generateToc';
 import { unescape } from '~/util/html-entities';
 
-import './TableOfContents.css';
+// import './TableOfContents.css';
 
 
 interface Props {
@@ -134,7 +134,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 		<Container>
 			<HeadingContainer>
 				<p className="mt-6 mb-3 text-sm" id={onThisPageID}>
-					<strong>{labels.onThisPage}</strong>
+					<strong class="font-medium">{labels.onThisPage}</strong>
 				</p>
 			</HeadingContainer>
 			<ul className="toc-root">
