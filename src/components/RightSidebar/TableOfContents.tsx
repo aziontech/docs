@@ -111,7 +111,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 		return (
 			<li>
 				<a
-					className={`text-sm flex items-center gap-3 leading-7 depth-${depth} ${
+					className={`hover:underline hover:text-color text-sm flex items-center gap-3 leading-7 depth-${depth} ${
 						currentHeading.slug === slug ? 'current-header-link' : ''
 					}`.trim()}
 					href={`#${slug}`}
