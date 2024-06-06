@@ -20,7 +20,7 @@
 				</strong>
 			</p>
 
-			<div v-if="!item.slug && item.text" class="flex hover:surface-hover rounded-md p-2 pl-6 border-none cursor-pointer">
+			<div v-if="!item.slug && item.text" class="flex hover:surface-hover p-2 pl-6 border-none cursor-pointer">
 				<p v-if="item.text" class="text-sm">
 					{{ item.text }}
 				</p>
@@ -31,7 +31,7 @@
 				:title="item.text"
 				:href="modelSlug(item.slug, item.isFallback, lang)"
 				:target="(isURL(item.slug) ? '_blank' : '_self')"
-				class="text-sm flex justify-between items-center hover:surface-hover rounded-md p-2 pl-6 border-none cursor-pointer"
+				class="text-sm flex justify-between items-center hover:surface-hover p-2 pl-6 border-none cursor-pointer"
 			>	
 				{{ item.text }}
 
