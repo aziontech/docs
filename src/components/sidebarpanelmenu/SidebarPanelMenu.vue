@@ -46,9 +46,6 @@
 	import Divider from 'primevue/divider';
 	import PanelMenu from 'primevue/panelmenu';
 	import { modelSlug, isURL } from '~/util';
-	// import { useTranslations } from '~/i18n/util';
-
-	// const t = useTranslations(Astro);
 	
 	const props = defineProps({
 		lang: {
