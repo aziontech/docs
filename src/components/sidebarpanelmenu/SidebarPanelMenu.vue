@@ -13,7 +13,7 @@
 			<p
 				v-if="item.hasLabel"
 				class="text-sm pl-6 mb-2 cursor-text"
-				:class="(item.index === 0 ? 'mt-2' : 'mt-4')"
+				:class="(item.index === 0 ? 'mt-1' : 'mt-4')"
 			>
 				<strong class="text-base text-bold">
 					{{ item.hasLabel }}
