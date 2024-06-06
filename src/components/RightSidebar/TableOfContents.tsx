@@ -111,8 +111,8 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 		return (
 			<li>
 				<a
-					className={`hover:underline hover:text-color text-sm flex items-center gap-3 leading-7 depth-${depth} ${
-						currentHeading.slug === slug ? 'current-header-link' : ''
+					className={`hover:underline hover:text-color text-sm flex items-center gap-3 leading-1 my-2 depth-${depth} ${
+						currentHeading.slug === slug ? 'underline' : ''
 					}`.trim()}
 					href={`#${slug}`}
 					onClick={onLinkClick}
@@ -133,7 +133,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 	return (
 		<Container>
 			<HeadingContainer>
-				<p className="mt-6 mb-3 text-sm" id={onThisPageID}>
+				<p className="mt-6 mb-4 text-sm" id={onThisPageID}>
 					<strong class="font-medium">{labels.onThisPage}</strong>
 				</p>
 			</HeadingContainer>

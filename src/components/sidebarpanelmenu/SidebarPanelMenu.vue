@@ -1,48 +1,65 @@
 <template>
 	<PanelMenu
-		:model="datamodel"
+		:model="dataWithIndex"
+		:unstyled="true"
 		:pt="{
 			headerContent: {
-				class: ['hover:surface-hover rounded-md p-2 pl-8 border-none']
+				class: ['cursor-text']
 			},
-			menuContent: {
-				class: ['border-none p-0']
-			},
-			content: {
-				class: ['m-0 p-2 pl-14']
-			}
-		}">
-
+			content: { class: ['indent-4'] }
+		}"
+	>
 		<template #item="{ item }">
-			<div v-if="!item.slug" class="flex">
-				<p class="text-sm">
+			<p
+				v-if="item.hasLabel"
+				class="text-sm pl-6 mb-2 cursor-text"
+				:class="(item.index === 0 ? 'mt-2' : 'mt-4')"
+			>
+				<strong class="text-base text-bold">
+					{{ item.hasLabel }}
+				</strong>
+			</p>
+
+			<div v-if="!item.slug && item.text" class="flex hover:surface-hover rounded-md p-2 pl-6 border-none cursor-pointer">
+				<p v-if="item.text" class="text-sm">
 					{{ item.text }}
 				</p>
-				<span
-					v-if="item.items && item.items.length"
-					class="pi pi-angle-down text-primary ml-auto pr-4"></span>
+				<!-- use this class to when opened pi-angle-down -->
+				<i v-if="item.items && item.items.length" class="pi pi-angle-right text-primary ml-auto pr-4"></i>
 			</div>
-			<a 
-				v-else
+			<a v-else-if="item.slug"
 				:title="item.text"
 				:href="modelSlug(item.slug, item.isFallback, lang)"
 				:target="(isURL(item.slug) ? '_blank' : '_self')"
-				class="text-sm block">
-				
+				class="text-sm flex justify-between items-center hover:surface-hover rounded-md p-2 pl-6 border-none cursor-pointer"
+			>	
 				{{ item.text }}
+
+				<i v-if="(isURL(item.slug) ? true : false)" class="text-sm pi pi-external-link text-primary mr-4"></i>
 			</a>
+
+			<Divider v-if="item.separator" class="mt-4 mb-4"/>
 		</template>
 	</PanelMenu>
 </template>
 <script setup>
+	import Divider from 'primevue/divider';
 	import PanelMenu from 'primevue/panelmenu';
 	import { modelSlug, isURL } from '~/util';
+	// import { useTranslations } from '~/i18n/util';
+
+	// const t = useTranslations(Astro);
 	
 	const props = defineProps({
 		lang: {
 			type: String
 		},
-		datamodel: []
+		data: []
 	});
-	const { datamodel, lang } = props;
+	const { data, lang } = props;
+	
+	const dataWithIndex = data.map((item, index) => {
+		item.index = index;
+		return item;
+	});
 </script>
