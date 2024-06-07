@@ -51,7 +51,9 @@
 		lang: {
 			type: String
 		},
-		data: []
+		data: {
+			type: Array
+		}
 	});
 	const { data, lang } = props;
 	
