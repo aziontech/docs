@@ -133,7 +133,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 	return (
 		<Container>
 			<HeadingContainer>
-				<p className="mb-4 text-sm" id={onThisPageID}>
+				<p className="mt-2 mb-4 text-sm" id={onThisPageID}>
 					<strong class="font-medium">{labels.onThisPage}</strong>
 				</p>
 			</HeadingContainer>
