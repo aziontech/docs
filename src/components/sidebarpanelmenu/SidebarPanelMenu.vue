@@ -26,7 +26,7 @@
 						{{ item.text }}
 					</p>
 					<!-- use this class to when opened pi-angle-down -->
-					<i v-if="item.items && item.items.length" class="pi pi-angle-right text-primary ml-auto pr-4"></i>
+					<i v-if="item.items && item.items.length" class="pi pi-angle-right text-primary ml-auto pr-1"></i>
 				</div>
 				<a v-else-if="item.slug"
 					:title="item.text"
@@ -36,7 +36,7 @@
 				>	
 					{{ item.text }}
 
-					<i v-if="(isURL(item.slug) ? true : false)" class="text-sm pi pi-external-link text-primary mr-4"></i>
+					<i v-if="(isURL(item.slug) ? true : false)" class="text-sm pi pi-external-link text-primary mr-1"></i>
 				</a>
 
 				<!-- <Divider v-if="item.separator" class="mt-6 mb-6"/> -->
