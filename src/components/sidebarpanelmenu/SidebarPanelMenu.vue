@@ -36,7 +36,7 @@
 				>	
 					{{ item.text }}
 
-					<i v-if="(isURL(item.slug) ? true : false)" class="text-sm pi pi-external-link text-primary mr-1"></i>
+					<i v-if="(isURL(item.slug) ? true : false)" class="text-base pi pi-external-link text-primary mr-1"></i>
 				</a>
 
 				<!-- <Divider v-if="item.separator" class="mt-6 mb-6"/> -->
