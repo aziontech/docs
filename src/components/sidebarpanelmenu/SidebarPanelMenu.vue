@@ -1,11 +1,9 @@
 <template>
 	<PanelMenu
-		:model="dataWithIndex"
 		:unstyled="true"
+		:model="dataWithIndex"
 		:pt="{
-			headerContent: {
-				class: ['cursor-text']
-			},
+			headerContent: { class: ['cursor-text'] },
 			content: { class: ['indent-4'] }
 		}"
 	>
@@ -20,12 +18,18 @@
 				</strong>
 			</p>
 
-			<div v-if="!item.slug && item.text" class="flex hover:surface-hover py-2 px-4 border-none cursor-pointer rounded h-9">
+			<div
+				v-if="!item.slug && item.text"
+				class="flex hover:surface-hover py-2 px-4 border-none cursor-pointer rounded h-9"
+			>
 				<p v-if="item.text" class="text-sm">
 					{{ item.text }}
 				</p>
 				<!-- use this class to when opened pi-angle-down -->
-				<i v-if="item.items && item.items.length" class="pi pi-angle-right text-primary ml-auto pr-1"></i>
+				<i
+					v-if="item.items && item.items.length"
+					class="pi pi-angle-right text-primary ml-auto pr-1">
+				</i>
 			</div>
 			<a v-else-if="item.slug"
 				:title="item.text"
@@ -34,8 +38,10 @@
 				class="text-sm h-9 flex justify-between items-center hover:surface-hover py-2 px-4 border-none cursor-pointer rounded"
 			>	
 				{{ item.text }}
-
-				<i v-if="(isURL(item.slug) ? true : false)" class="text-base pi pi-external-link text-primary mr-1"></i>
+				<i
+					v-if="(isURL(item.slug) ? true : false)"
+					class="text-base pi pi-external-link text-primary mr-1">
+				</i>
 			</a>
 
 			<!-- <Divider v-if="item.separator" class="mt-6 mb-6"/> -->
@@ -43,17 +49,13 @@
 	</PanelMenu>
 </template>
 <script setup>
-	import Divider from 'primevue/divider';
+	// import Divider from 'primevue/divider';
 	import PanelMenu from 'primevue/panelmenu';
 	import { modelSlug, isURL } from '~/util';
 	
 	const props = defineProps({
-		lang: {
-			type: String
-		},
-		data: {
-			type: Array
-		}
+		lang: { type: String },
+		data: { type: Array }
 	});
 	const { data, lang } = props;
 	
