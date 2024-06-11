@@ -1,12 +1,3 @@
-import type { ComponentChildren, JSX } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
-
-import type { TocItem } from '~/util/generateToc';
-import { unescape } from '~/util/html-entities';
-
-// import './TableOfContents.css';
-
-
 interface Props {
 	toc: TocItem[];
 	labels: {
@@ -15,10 +6,19 @@ interface Props {
 	isMobile?: boolean;
 }
 
+import type { ComponentChildren, JSX } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
+
+import type { TocItem } from '~/util/generateToc';
+import { unescape } from '~/util/html-entities';
+
 const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
-	const [currentHeading, setCurrentHeading] = useState({
+	const [
+		currentHeading,
+		setCurrentHeading
+	] = useState({
 		slug: toc[0].slug,
-		text: toc[0].text,
+		text: toc[0].text
 	});
 	const [open, setOpen] = useState(!isMobile);
 	const onThisPageID = 'on-this-page-heading';
@@ -71,11 +71,14 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 			for (const entry of entries) {
 				if (entry.isIntersecting) {
 					const { id } = entry.target;
+					
 					if (id === onThisPageID) continue;
+					
 					setCurrentHeading({
 						slug: entry.target.id,
 						text: entry.target.textContent || '',
 					});
+					
 					break;
 				}
 			}
@@ -109,7 +112,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 	const TableOfContentsItem = ({ heading }: { heading: TocItem }) => {
 		const { depth, slug, text, children } = heading;
 		return (
-			<li class="">
+			<li>
 				<a
 					className={`px-3 py-1 rounded hover:underline hover:text-color text-sm flex items-center gap-3 leading-1  depth-${depth} ${
 						currentHeading.slug === slug ? 'surface-200' : ''
@@ -139,7 +142,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 					</strong>
 				</p>
 			</HeadingContainer>
-			<ul className="toc-root">
+			<ul>
 				{toc.map((heading2) => (
 					<TableOfContentsItem key={heading2.slug} heading={heading2} />
 				))}
