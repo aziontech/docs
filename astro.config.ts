@@ -22,7 +22,7 @@ import rehypeSlug from './plugins/rehype-slug-config'
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
-import { rehypeLinks } from './plugins/rehypeLinks.mjs';
+// import { rehypeLinks } from './plugins/rehypeLinks.mjs';
 
 const productionBuild = import.meta.env.PROD;
 
@@ -53,7 +53,7 @@ export default defineConfig({
 		rehypePlugins: [
 			rehypeSlug,
 			// This adds links to headings
-			rehypeLinks,
+			// rehypeLinks, // disabling target Blank
 			[rehypeAutolinkHeadings, autolinkConfig],
 			// Tweak GFM task list syntax
 			rehypeTasklistEnhancer(),
