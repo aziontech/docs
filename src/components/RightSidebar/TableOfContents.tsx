@@ -109,7 +109,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 	const TableOfContentsItem = ({ heading }: { heading: TocItem }) => {
 		const { depth, slug, text, children } = heading;
 		return (
-			<li>
+			<li class="">
 				<a
 					className={`px-3 py-1 rounded hover:underline hover:text-color text-sm flex items-center gap-3 leading-1  depth-${depth} ${
 						currentHeading.slug === slug ? 'surface-200' : ''
@@ -120,7 +120,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 					{unescape(text)}
 				</a>
 				{children.length > 0 ? (
-					<ul>
+					<ul class="px-3">
 						{children.map((heading) => (
 							<TableOfContentsItem key={heading.slug} heading={heading} />
 						))}
