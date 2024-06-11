@@ -62,7 +62,7 @@ module.exports = {
         footer: '#1e1e1e'
       },
       fontFamily: {
-        'mono': '"Roboto Mono"',
+        'mono': 'Roboto Mono',
       },
       borderColor: {
         header: '#3e3e3e',
