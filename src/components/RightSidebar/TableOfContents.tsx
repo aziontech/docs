@@ -84,7 +84,7 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 		const observerOptions: IntersectionObserverInit = {
 			// Negative top margin accounts for `scroll-margin`.
 			// Negative bottom margin means heading needs to be towards top of viewport to trigger intersection.
-			rootMargin: '-100px 0% -66%',
+			rootMargin: '-40px 0% -86%',
 			threshold: 1,
 		};
 
@@ -111,8 +111,8 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 		return (
 			<li>
 				<a
-					className={`hover:underline hover:text-color text-sm flex items-center gap-3 leading-1 my-2 depth-${depth} ${
-						currentHeading.slug === slug ? 'underline' : ''
+					className={`px-3 py-1 rounded hover:underline hover:text-color text-sm flex items-center gap-3 leading-1  depth-${depth} ${
+						currentHeading.slug === slug ? 'surface-200' : ''
 					}`.trim()}
 					href={`#${slug}`}
 					onClick={onLinkClick}
@@ -134,7 +134,9 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 		<Container>
 			<HeadingContainer>
 				<p className="mt-2 mb-4 text-sm" id={onThisPageID}>
-					<strong class="font-medium">{labels.onThisPage}</strong>
+					<strong class="font-medium">
+						{labels.onThisPage}
+					</strong>
 				</p>
 			</HeadingContainer>
 			<ul className="toc-root">
