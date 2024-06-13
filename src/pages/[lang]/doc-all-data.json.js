@@ -12,22 +12,15 @@ langs.forEach((lang) => {
 	data[lang] = pagesData[lang].map(page => {
 		return {
 			repository: 'docs',
-			title: page.data.title,
-			namespace: page.data.namespace,
-			description: page.data.description,
-			og_image: page.data.og_image,
+			title: page.data.title || '',
+			namespace: page.data.namespace || '',
+			description: page.data.description || '',
+			og_image: page.data.og_image || '',
 			noindex: false,
 			url: `https://www.azion.com/${lang}/${removeTrailingSlash(removeLeadingSlash(page.data.permalink))}/`
 		}
 	})
 })
-
-export async function get({ params }) {
-	const lang = params.lang;
-	return {
-		body: JSON.stringify(data[lang]),
-	};
-}
 
 export function getStaticPaths() {
 	return [
@@ -35,3 +28,12 @@ export function getStaticPaths() {
 		{ params: { lang: "pt-br" } }
 	]
 }
+
+export async function GET({ params }) {
+	const lang = params.lang;
+	const jsonStr = JSON.stringify(data[lang]);
+	
+	return new Response(jsonStr)
+}
+
+
