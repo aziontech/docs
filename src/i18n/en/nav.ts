@@ -144,6 +144,12 @@ export default [
 		]
 	},
 	{
+		text: 'Store', header: true, type: 'learn', key: 'storeRef', items: [
+			{ text: 'Edge Storage', header: true, anchor: true, type: 'learn', key: 'reference/storage', slug: '/documentation/products/store/edge-storage/' },
+			{ text: 'Edge SQL', header: true, anchor: true, type: 'learn', key: 'reference/sql', slug: '/documentation/products/store/edge-sql/' },
+		]
+	},
+	{
 		text: 'Marketplace', header: true, type: 'learn', key: 'mktpRef', items: [
 			{ text: 'Marketplace', header: true, anchor: true, type: 'learn', key: 'mktp', slug: '/documentation/products/marketplace/' },
 			{ text: 'Permissions', header: true, anchor: true, type: 'learn', key: 'mktp/permissions', slug: '/documentation/products/guides/permissions-marketplace/' },
