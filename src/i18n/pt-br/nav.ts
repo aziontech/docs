@@ -119,6 +119,11 @@ export default NavDictionary([
 	{ text: 'Real-Time Metrics', key: 'reference/realTimeMetrics', slug: '/documentacao/produtos/real-time-metrics/' },
 	{ text: 'Real-Time Metrics Histórico', key: 'reference/historicalRealTimeMetrics', slug: '/documentacao/produtos/real-time-metrics-historico/' },
 
+	
+	{ text: 'Edge Storage', key: 'reference/storage', slug: '/documentacao/produtos/store/edge-storage/' },
+	{ text: 'Edge SQL', key: 'reference/sql', slug: '/documentacao/produtos/store/edge-sql/' },
+	
+
 	{ text: 'Marketplace', key: 'mktpRef' },
 	{ text: 'Marketplace', key: 'mktp', slug: '/documentacao/produtos/marketplace/' },
 	{ text: 'Permissões', key: 'mktp/permissions', slug: '/documentacao/produtos/guias/permissoes-marketplace/' },
