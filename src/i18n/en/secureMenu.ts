@@ -32,7 +32,6 @@ export default [
     {
         text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
             { text: 'Manage bots', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/manage-bots/', key: 'manageBots', hasLabel: 'menu.secureAdvanced' },
-            { text: 'Activate DDoS', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/activate-ddos/', key: 'activateDdos' },
             { text: 'Create WAF rule set', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/create-waf-rule-set/', key: 'wafRuleSet' },
             { text: 'Tune WAF', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/tune-waf/', key: 'tuneWaf' },
             { text: 'Block Tor networks', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/block-tor-networks/', key: 'blockTor' },
