@@ -31,7 +31,7 @@ export default [
 
     {
         text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
-            { text: 'Manage bots', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/manage-bots/', key: 'manageBots', hasLabel: 'menu.secureAdvanced' },
+            { text: 'Manage bots', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/manage-bots/', key: 'manageBots' },
             { text: 'Create WAF rule set', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/create-waf-rule-set/', key: 'wafRuleSet' },
             { text: 'Tune WAF', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/tune-waf/', key: 'tuneWaf' },
             { text: 'Block Tor networks', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/block-tor-networks/', key: 'blockTor' },
@@ -63,8 +63,8 @@ export default [
     },
 
     {
-        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
-            { text: 'Access root domain', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/access-root-domain/', key: 'anames', hasLabel: 'menu.secureAdvanced' },
+        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfigDns', items: [
+            { text: 'Access root domain', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/access-root-domain/', key: 'anames' },
             { text: 'Activate DNSSEC', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/activate-dnssec/', key: 'activateDnssec' },
             { text: 'Authenticate Let\'s Encrypt certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/lets-encrypt-record/', key: 'authenticateLetsEncryptCertificate' },
             { text: 'Perform DNS load balance', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/load-balance-dns/', key: 'dnsLoadBalance' },
