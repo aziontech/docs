@@ -31,8 +31,7 @@ export default [
 
     {
         text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
-            { text: 'Gerencie bots', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/gerenciar-bots/', key: 'manageBots', hasLabel: 'menu.secureAdvanced' },
-            { text: 'Ative proteção contra DDoS', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/ativar-ddos/', key: 'activateDdos' },
+            { text: 'Gerencie bots', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/gerenciar-bots/', key: 'manageBots' },
             { text: 'Adicione uma rule set de WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/criar-waf-rule-set/', key: 'wafRuleSet' },
             { text: 'Tune WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/tune-waf/', key: 'tuneWaf' },
             { text: 'Bloqueie redes Tor', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/bloquear-redes-tor/', key: 'blockTor' },
@@ -64,8 +63,8 @@ export default [
     },
 
     {
-        text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
-            { text: 'Acesse root domain', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/acessar-root-domain/', key: 'anames', hasLabel: 'menu.secureAdvanced' },
+        text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfigDns', items: [
+            { text: 'Acesse root domain', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/acessar-root-domain/', key: 'anames' },
             { text: 'Ative DNSSEC', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/ativar-dnssec/', key: 'activateDnssec' },
             { text: 'Autentique certificado Let\'s Encrypt', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/registro-lets-encrypt/', key: 'authenticateLetsEncryptCertificate' },
             { text: 'Realize balanceamento de carga', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/balanceamento-de-carga-dns/', key: 'dnsLoadBalance' },
