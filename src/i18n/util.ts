@@ -97,8 +97,21 @@ export function useTranslations(Astro: Readonly<AstroGlobal>): (key: UIDictionar
 
 export function useTranslationsForLang(lang: UILanguageKeys): (key: UIDictionaryKeys) => string {
 	return function getTranslation(key: UIDictionaryKeys) {
-		const str = translations[lang]?.[key] || translations[fallbackLang][key];
-		if (str === undefined) throw new Error(`Missing translation for “${key}” in “${lang}”.`);
+		let str = translations[lang]?.[key] || translations[fallbackLang][key];
+		if (str === undefined) {
+			let jsonKeys = Object.keys(translations[lang]);
+
+			jsonKeys.map(jsonKey => {
+				if(translations[lang][jsonKey] === key) {
+					str = key;
+				}
+			});
+
+			if (str === undefined) {
+				throw new Error(`Missing translation for “${key}” in “${lang}”.`)
+			}
+
+		};
 		return str;
 	};
 }
