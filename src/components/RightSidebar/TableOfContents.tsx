@@ -13,6 +13,10 @@ import type { TocItem } from '~/util/generateToc';
 import { unescape } from '~/util/html-entities';
 
 const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
+	// console.log(`toc: `, toc);
+	// console.log(`labels: `, labels);
+	// console.log(' ');
+
 	const [
 		currentHeading,
 		setCurrentHeading
@@ -67,6 +71,8 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 	};
 
 	useEffect(() => {
+		console.log('useEffect loading page');
+		
 		const setCurrent: IntersectionObserverCallback = (entries) => {
 			for (const entry of entries) {
 				if (entry.isIntersecting) {
@@ -101,12 +107,23 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 	}, []);
 
 	const onLinkClick = (e: JSX.TargetedMouseEvent<HTMLAnchorElement>) => {
-		if (!isMobile) return;
-		setOpen(false);
-		setCurrentHeading({
-			slug: e.currentTarget.getAttribute('href')!.replace('#', ''),
-			text: e.currentTarget.textContent || '',
+		e.preventDefault();
+
+		const targetHref = e.currentTarget.getAttribute('href');
+		const selectorTitle = document.querySelector(`${targetHref}`);
+		const getOffsetTop = selectorTitle.offsetTop - 96;
+
+		window.scrollTo({
+			top: getOffsetTop,
+			behavior: 'smooth',
 		});
+		
+		// if (!isMobile) return;	
+		// setOpen(false);
+		// setCurrentHeading({
+		// 	slug: e.currentTarget.getAttribute('href')!.replace('#', ''),
+		// 	text: e.currentTarget.textContent || '',
+		// });
 	};
 
 	const TableOfContentsItem = ({ heading }: { heading: TocItem }) => {
