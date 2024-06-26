@@ -36,6 +36,7 @@
 					:title="item.text"
 					:href="modelSlug(item.slug, item.isFallback, lang)"
 					:target="(isURL(item.slug) ? '_blank' : '_self')"
+					:class="isCurrent(`${lang}${item.slug}`) ? 'surface-200': ''"
 					class="text-sm h-9 flex justify-between items-center hover:surface-hover py-2 px-4 border-none cursor-pointer rounded"
 				>	
 					{{ item.text }}
@@ -45,17 +46,15 @@
 					</i>
 				</a>
 			</div>
-
-			<!-- <Divider v-if="item.separator" class="mt-6 mb-6"/> -->
 		</template>
 	</PanelMenu>
 </template>
 <script setup>
-	// import Divider from 'primevue/divider';
 	import PanelMenu from 'primevue/panelmenu';
 	import { modelSlug, isURL } from '~/util';
 	
 	const props = defineProps({
+		currentPageMatch: { type: String },
 		lang: { type: String },
 		data: { type: Array },
 		filterMobile: {
@@ -65,9 +64,17 @@
 	});
 	const { data, filterMobile, lang } = props;
 	
+	console.log(`props.currentPageMatch: `, props.currentPageMatch);
+	
 	const dataNoMobile = data.filter((item) => !item.onlyMobile);
 	const dataWithIndex = ( filterMobile ? dataNoMobile : data).map((item, index) => {
+		console.log(`item: ${lang}${item.slug}`);
+
 		item.index = index;
 		return item;
 	});
+
+	function isCurrent(urlpath) {
+		return urlpath === props.currentPageMatch;
+	}
 </script>
