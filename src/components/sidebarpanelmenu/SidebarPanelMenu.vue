@@ -64,11 +64,11 @@
 	});
 	const { data, filterMobile, lang } = props;
 	
-	console.log(`props.currentPageMatch: `, props.currentPageMatch);
+	// console.log(`props.currentPageMatch: `, props.currentPageMatch);
 	
 	const dataNoMobile = data.filter((item) => !item.onlyMobile);
 	const dataWithIndex = ( filterMobile ? dataNoMobile : data).map((item, index) => {
-		console.log(`item: ${lang}${item.slug}`);
+		// console.log(`item: ${lang}${item.slug}`);
 
 		item.index = index;
 		return item;
