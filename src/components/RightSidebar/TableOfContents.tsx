@@ -71,8 +71,6 @@ const TableOfContents = ({ toc = [], labels, isMobile }: Props) => {
 	};
 
 	useEffect(() => {
-		console.log('useEffect loading page');
-		
 		const setCurrent: IntersectionObserverCallback = (entries) => {
 			for (const entry of entries) {
 				if (entry.isIntersecting) {
