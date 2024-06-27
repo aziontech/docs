@@ -11,32 +11,21 @@ export default [
 	{ text: 'Documentation', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'documentation' },
 	{ text: 'Guides', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/', key: 'guides' },
 	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/devtools/', key: 'devTools' },
-
 	{ text: 'Core concepts', header: true, anchor: true, type: 'learn', slug: '/documentation/products/core-concepts/', key: 'beforeBegin/core', hasLabel: 'menu.begin' },
-
 	{ text: 'Get help', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-help/', key: 'getHelp' },
-
 	{ text: 'Welcome to the edge', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-started/', key: 'getStarted/welcome', hasLabel: "menu.getStarted" },
 	{ text: 'Start with a template', header: true, anchor: true, type: 'learn', slug: '/documentation/products/start-with-a-template/', key: 'getStarted/template' },
 	{ text: 'Go live with Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/go-live-with-azion/', key: 'getStarted/goLive' },
 	{ text: 'Visualize metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/use-real-time-metrics/', key: 'getStarted/viewMetrics', addBorder: true },
-
-
 	{ text: 'Build', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/overview/', key: 'build', hasLabel: 'menu.journey' },
 	{ text: 'Secure', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/overview/', key: 'secure' },
 	{ text: 'Deploy', header: true, anchor: true, type: 'learn', slug: '/documentation/products/deploy/overview/', key: 'deploy' },
 	{ text: 'Observe', header: true, anchor: true, type: 'learn', slug: 'documentation/products/observe/overview/', key: 'observe' },
-
 	{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/', hasLabel: 'menu.domains' },
 	{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
 	{ text: 'Point domain to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/point-domain-to-azion/', key: 'pointDomain' },
 	{ text: 'Migrate NS to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/migrate-ns-to-azion/', key: 'migrateDomain' },
-
-
-
-
 	{ text: 'Create account', header: true, anchor: true, type: 'learn', key: 'account/createAccount', slug: '/documentation/products/accounts/creating-account/', hasLabel: 'menu.account' },
-
 	{
 		text: 'Configure account', header: true, type: 'learn', key: 'manageAccount', items: [
 			{ text: 'Users', header: true, anchor: true, type: 'learn', key: 'account/Users', slug: '/documentation/products/guides/users-management/' },
@@ -48,8 +37,6 @@ export default [
 			{ text: 'Billing and subscriptions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
 		]
 	},
-
-
 	{
 		text: 'Configure profile', header: true, type: 'learn', key: 'manageProfile', addBorder: true, items: [
 			{ text: 'Personal tokens', header: true, anchor: true, type: 'learn', key: 'accountsProfile/personalTokens', slug: '/documentation/products/guides/personal-tokens/' },
@@ -57,8 +44,6 @@ export default [
 			{ text: 'Delete account', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/delete-account/', key: 'accountsProfile/deleteAccount' },
 		]
 	},
-
-
 	{
 		text: 'Developer tools', header: true, type: 'learn', key: 'developerTools', hasLabel: 'menu.addResources', items: [
 			{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: '/documentation/products/overview-azion-api/' },
@@ -68,12 +53,9 @@ export default [
 			{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
 			{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
 			{ text: 'GitHub', header: true, anchor: true, type: 'learn', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
-
 		]
 	},
-
 	{ text: 'Migrate to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/migrate-to-azion/', key: 'migrateAzion' },
-
 	{
 		text: 'Templates and integrations', header: true, type: 'learn', key: 'templatesIntegrationsRef', addBorder: true, items: [
 			{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/overview', slug: '/documentation/products/marketplace/templates-and-integrations-overview/' },
@@ -85,8 +67,6 @@ export default [
 			{ text: 'How to become an ISV', header: true, anchor: true, type: 'learn', key: 'templatesIntegrations/isv', slug: '/documentation/products/marketplace/isv-signup/' },
 		]
 	},
-
-
 	{
 		text: 'Build', header: true, type: 'learn', key: 'buildRef', hasLabel: 'menu.reference', items: [
 			{ text: 'Edge Application', header: true, anchor: true, type: 'learn', key: 'reference/edgeApplication', slug: '/documentation/products/build/edge-application/' },
@@ -156,7 +136,6 @@ export default [
 			{ text: 'Marketplace Seller Guide', header: true, anchor: true, type: 'learn', key: 'mktp/sellerGuide', slug: '/documentation/products/marketplace/marketplace-seller-guide/' },
 		]
 	},
-
 	{
 		text: 'Accounts', key: 'accountsRef', items: [
 			{ text: 'Activity History', header: true, type: 'learn', key: 'accounts/ActivityHistory', slug: '/documentation/products/accounts/activity-history/' },
@@ -173,12 +152,7 @@ export default [
 
 		]
 	},
-
-
-
-
 	{ text: 'Technical Support', header: true, anchor: true, type: 'learn', slug: '/documentation/services/support/', key: 'technicalSupport' },
-
 	{
 		text: 'Professional Services', header: true, type: 'learn', key: 'professionalServices', items: [
 			{ text: 'Integration Services', header: true, anchor: true, type: 'learn', slug: '/documentation/services/integration-services/', key: 'professionalServices/integrationServices' },
@@ -191,39 +165,17 @@ export default [
 			{ text: 'Slack Channel', header: true, anchor: true, type: 'learn', slug: '/documentation/services/slack-channel/', key: 'professionalServices/SlackChannel' },
 		]
 	},
-
-	{
-		text: 'Glossary', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-glossary/', key: 'glossary', addBorder: true
-	},
-
-	
-	{
-		text: 'System Status', header: true, anchor: true, type: 'learn', slug: 'https://status.azion.com/', key: 'systemStatus'
-	},
-
-	{
-		text: 'Release Notes', header: true, anchor: true, type: 'learn', slug: '/documentation/products/release-notes/', key: 'releaseNotes'
-	},
-
-	{
-		text: 'Agreements', header: true, anchor: true, type: 'learn', slug: '/documentation/agreements/', key: 'agreements'
-	},
-	{
-		text: 'Pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'
-	},
+	{ text: 'Glossary', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-glossary/', key: 'glossary', addBorder: true },
+	{ text: 'System Status', header: true, anchor: true, type: 'learn', slug: 'https://status.azion.com/', key: 'systemStatus'},
+	{ text: 'Release Notes', header: true, anchor: true, type: 'learn', slug: '/documentation/products/release-notes/', key: 'releaseNotes'},
+	{ text: 'Agreements', header: true, anchor: true, type: 'learn', slug: '/documentation/agreements/', key: 'agreements'},
+	{ text: 'Pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'},
 	{
 		text: 'Compliance', header: true, type: 'learn', key: 'compliance', items: [
 			{ text: 'SOC', header: true, anchor: true, type: 'learn', slug: '/documentation/compliance/soc/', key: 'compliance/soc' },
 			{ text: 'PCI DSS', header: true, anchor: true, type: 'learn', slug: '/documentation/compliance/pci-dss-certification/', key: 'compliance/pci-dss' },
 		]
 	},
-
-	{
-		text: 'Shared Responsibility Model', header: true, anchor: true, type: 'learn', slug: '/documentation/shared-responsibility/', key: 'sharedResponsibility'
-	},
-
-	{
-		text: 'Azion Network Program', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-network-program/', key: 'azionNetworkProgram'
-	},
-
+	{ text: 'Shared Responsibility Model', header: true, anchor: true, type: 'learn', slug: '/documentation/shared-responsibility/', key: 'sharedResponsibility' },
+	{ text: 'Azion Network Program', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-network-program/', key: 'azionNetworkProgram' }
 ] as const;

@@ -1,7 +1,8 @@
 <template>
 	<PanelMenu
-		:unstyled="true"
+		v-model:expandedKeys="expandedKeys"
 		:model="dataWithIndex"
+		:unstyled="true"
 		:pt="{
 			headerContent: { class: ['cursor-text'] },
 			content: { class: ['indent-4'] }
@@ -36,7 +37,7 @@
 					:title="item.text"
 					:href="modelSlug(item.slug, item.isFallback, lang)"
 					:target="(isURL(item.slug) ? '_blank' : '_self')"
-					:class="isCurrent(`${lang}${item.slug}`) ? 'surface-200': ''"
+					:class="isCurrent(item, lang) ? 'surface-200': ''"
 					class="text-sm h-9 flex justify-between items-center hover:surface-hover py-2 px-4 border-none cursor-pointer rounded"
 				>	
 					{{ item.text }}
@@ -50,31 +51,59 @@
 	</PanelMenu>
 </template>
 <script setup>
+	/**
+	 * 
+	 * https://v3.primevue.org/panelmenu/#controlled
+	 * 
+	 */ 
+	import { ref } from 'vue';
 	import PanelMenu from 'primevue/panelmenu';
 	import { modelSlug, isURL } from '~/util';
-	
+
+	const expandedKeys = ref({});
 	const props = defineProps({
 		currentPageMatch: { type: String },
-		lang: { type: String },
+		lang: {  type: String },
 		data: { type: Array },
 		filterMobile: {
 			type: Boolean,
 			default: false
 		}
 	});
-	const { data, filterMobile, lang } = props;
-	
-	// console.log(`props.currentPageMatch: `, props.currentPageMatch);
+	const {
+		lang,
+		data,
+		filterMobile
+	} = props;
 	
 	const dataNoMobile = data.filter((item) => !item.onlyMobile);
 	const dataWithIndex = ( filterMobile ? dataNoMobile : data).map((item, index) => {
-		// console.log(`item: ${lang}${item.slug}`);
-
+		// Modifying original data during buildtime
+		
+		// index is used to decide the margin top
 		item.index = index;
+		
+		if(item.items && item.items.length) {
+			item.items.map(subItem => {
+				// subItemParent used to know the parent umbrella to be opened
+				subItem.parent = item.key;
+			});
+		}
+
 		return item;
 	});
 
-	function isCurrent(urlpath) {
-		return urlpath === props.currentPageMatch;
+	function expandNode(key) {
+		expandedKeys.value[key] = true;
+	};
+
+	// function collapseAll() {
+	// 	expandedKeys.value = {};
+	// }
+
+	function isCurrent(item, lang) {
+		const currentPageMatch = `${lang}${item.slug}` === props.currentPageMatch;
+		if(currentPageMatch && item.parent) expandNode(item.parent);
+		return currentPageMatch;
 	}
 </script>
