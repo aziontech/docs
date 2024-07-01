@@ -1,7 +1,7 @@
 const menuData = {
   items: [
 		{
-      label: 'Documentacao',
+      label: 'Documentação',
       href: '/pt-br/documentacao/',
       items: []
     },
