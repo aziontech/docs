@@ -16,7 +16,7 @@ import { asideAutoImport, astroAsides } from './integrations/astro-asides';
 import { astroDocsExpressiveCode } from './integrations/expressive-code';
 
 import { sitemap } from './integrations/sitemap';
-import { autolinkConfig } from './plugins/rehype-autolink-config';
+import { autoLinks } from './plugins/rehype-autolink-config';
 
 import rehypeSlug from './plugins/rehype-slug-config'
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
@@ -54,7 +54,7 @@ export default defineConfig({
 			rehypeSlug,
 			// This adds links to headings
 			// rehypeLinks, // disabling target Blank
-			[rehypeAutolinkHeadings, autolinkConfig],
+			[rehypeAutolinkHeadings, autoLinks],
 			// Tweak GFM task list syntax
 			rehypeTasklistEnhancer(),
 			// Translates the autolink headings anchors
