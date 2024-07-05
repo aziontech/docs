@@ -1,14 +1,14 @@
+import { SITE_URL } from './src/consts';
 import { defineConfig } from 'astro/config';
 
-import cssnano from 'cssnano';
-import dynamicImport from 'vite-plugin-dynamic-import';
 import mdx from '@astrojs/mdx';
 import tailwind from '@astrojs/tailwind';
 import vue from '@astrojs/vue';
-
 import preact from '@astrojs/preact';
-
 import AutoImport from 'astro-auto-import';
+
+import cssnano from 'cssnano';
+import dynamicImport from 'vite-plugin-dynamic-import';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import remarkSmartypants from 'remark-smartypants';
 
@@ -27,7 +27,7 @@ import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
 const productionBuild = import.meta.env.PROD;
 
 export default defineConfig({
-	site: 'https://docs.azion.com/',
+	site: SITE_URL,
 	build: {
 		inlineStylesheets: 'always',
 		assets: '_astro_docs'
@@ -41,7 +41,7 @@ export default defineConfig({
 		astroDocsExpressiveCode(),
 		mdx(),
 		tailwind({ applyBaseStyles: false }),
-		vue({ appEntrypoint: '/src/_vue.config.js' })
+		vue({ appEntrypoint: '/src/vue.config.js' })
 	],
 	markdown: {
 		// Override with our own config
