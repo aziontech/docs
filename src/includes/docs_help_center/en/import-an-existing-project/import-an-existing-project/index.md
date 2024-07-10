@@ -21,4 +21,4 @@ On the top of the page, the tabs indicate the stage of the building process you'
 
 Your project must be developed in one of the frameworks supported by Azion; currently, [Next.js is supported](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime-api/supported-frameworks/nextjs/).
 
-In case of importing projects based on other frameworks, Real-Time Manager won't complete the building and deployment processes. For more details, see the [Supported Frameworks and Edge Runtime](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime/overview/) documentation.
+In case of importing projects based on other frameworks, Real-Time Manager won't complete the building and deployment processes. For more details, see the [Supported Frameworks and Azion Runtime](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime/overview/) documentation.

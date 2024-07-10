@@ -129,7 +129,7 @@ export default UIDictionary({
 	'menu.addResources': 'Recursos adicionais',
 	'menu.domains': 'Trabalhe com domínios',
 	'menu.reference': 'Referência',
-	'menu.runtime': 'Azion Edge Runtime',
+	'menu.runtime': 'Azion Runtime',
 	'menu.cli': 'Azion CLI',
 	'menu.devTools': 'Dev Tools',
 	'menu.secure': 'Secure',

@@ -49,7 +49,7 @@ export default [
 			{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: '/documentation/products/overview-azion-api/' },
 			{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentation/products/cli/' },
 			{ text: 'API GraphQL Playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'devtools/graphQLplayground' },
-			{ text: 'Edge Runtime', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/runtime/overview/', key: 'devtools/runtime' },
+			{ text: 'Azion Runtime', header: true, anchor: true, type: 'learn', slug: '/documentation/runtime/overview/', key: 'devtools/runtime' },
 			{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
 			{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
 			{ text: 'GitHub', header: true, anchor: true, type: 'learn', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
