@@ -52,7 +52,7 @@ export default NavDictionary([
 	{ text: 'API', key: 'devtools/api', slug: '/documentacao/produtos/devtools/primeiros-passos-api/' },
 	{ text: 'CLI', key: 'devtools/cli', slug: '/documentacao/produtos/cli/' },
 	{ text: 'API GraphQL Playground', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'devtools/graphQLplayground' },
-	{ text: 'Edge Runtime', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/visao-geral/', key: 'devtools/runtime' },
+	{ text: 'Azion Runtime', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/visao-geral/', key: 'devtools/runtime' },
 	{ text: 'SDK', slug: '/documentacao/devtools/sdk/go/', key: 'devtools/sdk' },
 	{ text: 'Terraform', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },

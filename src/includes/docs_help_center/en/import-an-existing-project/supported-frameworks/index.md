@@ -12,10 +12,10 @@ Currently, Azion supports projects based on the [Next.js framework](https://www.
 > 
 > To do so, click the **Change repository** button, located on the right side of the **Repository** field. Then, type a keyword in the **Search for a repository** bar to find the desired repository, or select one of the **Top Repositories** listed on the screen.
 
-### Azion Edge Runtime
+### Azion Runtime
 
-The Azion Edge Runtime allows you to write JavaScript edge functions built on web standards for developing edge applications. With Azion Edge Runtime, you are able to use a set of Web APIs, such as network, encoding and decoding, web streams, and standards.
+The Azion Runtime allows you to write JavaScript edge functions built on web standards for developing edge applications. With Azion Runtime, you are able to use a set of Web APIs, such as network, encoding and decoding, web streams, and standards.
 
-It includes support to [Next Edge Runtime](https://nextjs.org/docs/api-reference/edge-runtime). 
+It includes support to [Next Azion Runtime](https://nextjs.org/docs/api-reference/edge-runtime). 
 
-See more about [Edge Runtime APIs and supported frameworks](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime/overview/).
+See more about [Azion Runtime APIs and supported frameworks](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime/overview/).

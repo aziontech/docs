@@ -163,6 +163,6 @@ export default {
 	'topbar.message': 'Azion earns Frost & Sullivan’s 2023 North American New Product Innovation Award in the edge serverless industry.',
 	'topbar.link': 'https://www.azion.com/en/blog/azion-frost-sullivan-award/',
 	'topbar.cta': 'Check it out!',
-	'menu.runtime': 'Azion Edge Runtime',
+	'menu.runtime': 'Azion Runtime',
 
 };
