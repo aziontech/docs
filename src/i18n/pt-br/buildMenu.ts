@@ -40,7 +40,7 @@ export default [
     { text: 'Desenvolvimento local', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/desenvolvimento-azion/local-dev/', key: 'developLocalDev' },
     { text: 'SDKs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/desenvolvimento-azion/sdk/go/', key: 'developSDK' },
     { text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/desenvolvimento-azion/terraform-provider/', key: 'developTerraform' },
-    { text: 'Edge Runtime', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/desenvolvimento-azion/runtime/', key: 'developEdgeRuntime' },
+    { text: 'Azion Runtime', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/desenvolvimento-azion/runtime/', key: 'developEdgeRuntime' },
 
 
     { text: 'Guias específicos por framework', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/develop-with-azion/frameworks-specific/visao-geral/', key: 'frameworkAngular' },

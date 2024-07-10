@@ -27,6 +27,8 @@ export default [
 	{ text: 'Login', header: true, anchor: true, slug: '/documentation/products/cli/login/', key: 'cli/login' },
 	{ text: 'Logout', header: true, anchor: true, slug: '/documentation/products/cli/logout/', key: 'cli/logout' },
 	{ text: 'Purge', header: true, anchor: true, slug: '/documentation/devtools/cli/purge/', key: 'cli/purge' },
+	{ text: 'Reset', header: true, anchor: true, slug: '/documentation/devtools/cli/reset/', key: 'cli/reset' },
+	{ text: 'Sync', header: true, anchor: true, slug: '/documentation/devtools/cli/sync/', key: 'cli/sync' },
 	{ text: 'Create', header: true, anchor: true, slug: '/documentation/devtools/cli/create/', key: 'cli/create' },
 	{ text: 'List', header: true, anchor: true, slug: '/documentation/devtools/cli/list/', key: 'cli/list' },
 	{ text: 'Describe', header: true, anchor: true, slug: '/documentation/devtools/cli/describe/', key: 'cli/describe' },

@@ -17,7 +17,7 @@
 	{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentation/products/azion-cli/overview/', hasLabel:'menu.devTools' },
 	{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: 'https://api.azion.com/' },
 	{ text: 'API GraphQL', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/', key: 'devtools/graphQL' },
-	{ text: 'Edge Runtime',header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/runtime/overview/', key: 'devtools/runtime' },
+	{ text: 'Azion Runtime',header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/runtime/overview/', key: 'devtools/runtime' },
 	{ text: 'SDK',header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
 	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'Console Kit', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/console-kit/', key: 'devtools/consoleKit' },
