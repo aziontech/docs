@@ -27,7 +27,7 @@ export default headerMenuDict({
 		//         href: "documentation_graphql"
 		//     },
 		//     {
-		//         title: "Edge Runtime",
+		//         title: "Azion Runtime",
 		//         href: "documentation_products_edge_functions_runtime_overview"
 		//     },
 		//     {
