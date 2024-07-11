@@ -43,7 +43,7 @@ function createXml(data) {
 	return response
 }
 
-export async function get({ params }) {
+export async function GET({ params }) {
 	const lang = params.lang ? params.lang : 'en'
 	const response = createXml(data[lang])
 	return response
