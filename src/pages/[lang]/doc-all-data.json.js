@@ -16,6 +16,7 @@ langs.forEach((lang) => {
 			namespace: page.data.namespace || '',
 			description: page.data.description || '',
 			og_image: page.data.og_image || '',
+			body: page.body || '',
 			noindex: false,
 			url: `https://www.azion.com/${lang}/${removeTrailingSlash(removeLeadingSlash(page.data.permalink))}/`
 		}
