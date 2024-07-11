@@ -4,12 +4,13 @@ import { rtlLanguages } from '~/i18n/languages';
 import { getLanguageFromURL } from '~/util';
 
 /** Paths for all of our Markdown content we want to generate OG images for. */
-const paths = process.env.SKIP_OG ? [] : allPages;
+const skip_og = process.env.SKIP_OG?.toLocaleLowerCase() === 'true';
+const paths =  skip_og ? [] : allPages;
 
 /** An object mapping file paths to file metadata. */
 const pages = Object.fromEntries(paths.map(({ id, slug, data }) => [id, { data, slug }]));
 
-export const { getStaticPaths, get } = OGImageRoute({
+export const { getStaticPaths, GET } = OGImageRoute({
 	param: 'path',
 	pages,
 	getImageOptions: async (_, { data, slug }: (typeof pages)[string]) => {
