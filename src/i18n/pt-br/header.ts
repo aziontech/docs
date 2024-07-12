@@ -113,8 +113,8 @@ const algoliaIndex = [
 
 const algoliaModel = [
   { label: 'All' },
-  { label: 'Site' },
   { label: 'Docs' },
+	{ label: 'Site' },
   { label: 'Blog' },
   { label: 'Cases' }
 ];
