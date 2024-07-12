@@ -92,12 +92,12 @@ const algoliaIndex = [
 	{
     name: `azion-doc-ptbr`,
     label: 'docs',
-    activeIndex: 2
+    activeIndex: 1
   },
   {
     name: `azion-site-ptbr`,
     label: 'site',
-    activeIndex: 1
+    activeIndex: 2
   },
   {
     name: `azion-blog-ptbr`,
