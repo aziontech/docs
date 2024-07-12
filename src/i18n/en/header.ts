@@ -89,14 +89,14 @@ const bottomButtonsMobile = [
 ];
 
 const algoliaIndex = [
-  {
-    name: `azion-site-en`,
-    label: 'site',
+	{
+    name: `azion-doc-en`,
+    label: 'docs',
     activeIndex: 1
   },
   {
-    name: `azion-doc-en`,
-    label: 'docs',
+    name: `azion-site-en`,
+    label: 'site',
     activeIndex: 2
   },
   {
@@ -113,8 +113,8 @@ const algoliaIndex = [
 
 const algoliaModel = [
   { label: 'All' },
+	{ label: 'Docs' },
   { label: 'Site' },
-  { label: 'Docs' },
   { label: 'Blog' },
   { label: 'Cases' }
 ];
