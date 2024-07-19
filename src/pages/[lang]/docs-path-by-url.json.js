@@ -34,7 +34,7 @@ export async function GET({ params, props }) {
     const slug = docsSlug[lang];
 
     return {
-      url: `https://www.azion.com/${params.lang}/${slug}/${removeTrailingLeadingSlashs(page.permalink)}/`,
+      url: `https://www.azion.com/${params.lang}/${removeTrailingLeadingSlashs(page.permalink)}/`,
       filePath: `${paths.collections}/${collection}/${id}`
     };
   });
