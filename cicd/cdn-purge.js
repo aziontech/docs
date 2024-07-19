@@ -81,10 +81,31 @@ async function performPurge(TOKEN_API_URL, PURGE_WILDCARD_URL) {
 	}
 }
 
+async function performPurgeUrl(TOKEN_API_URL, PURGE_URL) {
+	try {
+		const tokenRequest = await fetchToken(TOKEN_API_URL);
+		const token = tokenRequest.token;
+
+		console.log(
+			await purge(PURGE_URL, token, {
+				urls: [
+					"https://www.azion.com/en/docs-path-by-url.json",
+					"https://www.azion.com/pt-br/docs-path-by-url.json"
+				],
+				method: "delete",
+			})
+		);
+	} catch (error) {
+		console.error(error);
+	}
+}
+
 (function main() {
 	const API_HOST = 'api.azionapi.net';
 	const TOKEN_API_URL = `https://${API_HOST}/tokens`;
 	const PURGE_WILDCARD_URL = `https://${API_HOST}/purge/wildcard`;
+	const PURGE_URL = `https://${API_HOST}/purge/url`;
 
 	performPurge(TOKEN_API_URL, PURGE_WILDCARD_URL);
+	performPurgeUrl(TOKEN_API_URL, PURGE_URL);
 })();
