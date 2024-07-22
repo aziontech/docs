@@ -34,7 +34,7 @@ const menuSecondary = [
   {
     text: "Free account",
     title: "Azion Free Account",
-    link: "https://console.azion.com/signup/",
+    link: "https://console.azion.com/signup",
     destak: true,
   }
 ];

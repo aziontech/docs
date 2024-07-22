@@ -34,7 +34,7 @@ const menuSecondary = [
   {
     text: "Conta Gratuita",
     title: "Crie sua Conta Gratuita",
-    link: "https://console.azion.com/signup/",
+    link: "https://console.azion.com/signup",
     destak: true,
   }
 ];
