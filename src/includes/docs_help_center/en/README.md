@@ -96,7 +96,7 @@ If you run into any questions, feel free to drop us a line.
 ![Production](https://github.com/aziontech/azion-site/workflows/PRODUCTION%20DELIVERY/badge.svg)
 ![Stage](https://github.com/aziontech/azion-site/workflows/STAGE%20DELIVERY/badge.svg)
 
-The repositories shared between [azion-site](https://github.com/aziontech/azion-site/) and [Real Time Manager](https://console.azion.com/)!
+The repositories shared between [azion-site](https://github.com/aziontech/azion-site/) and [Real Time Manager](https://console.azion.com)!
 
 
 ## How does it work?
