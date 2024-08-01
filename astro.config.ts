@@ -81,7 +81,7 @@ export default defineConfig({
 		ssr: {
       noExternal: [
         '@astrojs/vue',
-        '@aziontech/webkit',
+        'azion-webkit',
 				'azion-theme'
       ],
       external: [
