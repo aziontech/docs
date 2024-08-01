@@ -81,7 +81,8 @@ export default defineConfig({
 		ssr: {
       noExternal: [
         '@astrojs/vue',
-        '@aziontech/webkit'
+        '@aziontech/webkit',
+				'azion-theme'
       ],
       external: [
         'algoliasearch',
