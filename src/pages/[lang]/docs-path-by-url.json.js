@@ -1,6 +1,9 @@
 import { getCollection } from 'astro:content';
+
+import { SITE_URL } from '~/consts';
 import { groupPagesByLang }  from '~/util/groupPagesByLang';
 import { removeTrailingLeadingSlashs } from '~/util/removeSlashs';
+
 
 const paths = {
   collections: 'src/content'
@@ -32,10 +35,12 @@ export async function GET({ params, props }) {
     };
     const lang = id.split('/')[0];
     const slug = docsSlug[lang];
+		const permalink = `${params.lang}/${removeTrailingLeadingSlashs(page.permalink)}`;
 
     return {
-      url: `https://www.azion.com/${params.lang}/${removeTrailingLeadingSlashs(page.permalink)}/`,
-      filePath: `${paths.collections}/${collection}/${id}`
+      filePath: `${paths.collections}/${collection}/${id}`,
+			permalink: `/${permalink}/`,
+      url: `${SITE_URL}/${permalink}/`
     };
   });
 
