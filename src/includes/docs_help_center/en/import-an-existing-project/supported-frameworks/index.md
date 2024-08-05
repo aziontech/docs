@@ -18,4 +18,4 @@ The Azion Runtime allows you to write JavaScript edge functions built on web sta
 
 It includes support to [Next Azion Runtime](https://nextjs.org/docs/api-reference/edge-runtime). 
 
-See more about [Azion Runtime APIs and supported frameworks](https://www.azion.com/en/documentation/products/edge-application/edge-functions/runtime/overview/).
+See more about [Azion Runtime APIs and supported frameworks](https://www.azion.com/en/documentation/runtime/overview/).

@@ -22,6 +22,7 @@ import rehypeSlug from './plugins/rehype-slug-config'
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
+import rehypeScrollableTables from './plugins/rehype-scrollable-tables.js'
 // import { rehypeLinks } from './plugins/rehypeLinks.mjs';
 
 const productionBuild = import.meta.env.PROD;
@@ -52,6 +53,7 @@ export default defineConfig({
 		],
 		rehypePlugins: [
 			rehypeSlug,
+			rehypeScrollableTables,
 			// This adds links to headings
 			// rehypeLinks, // disabling target Blank
 			[rehypeAutolinkHeadings, autoLinks],
@@ -79,7 +81,8 @@ export default defineConfig({
 		ssr: {
       noExternal: [
         '@astrojs/vue',
-        '@aziontech/webkit'
+        'azion-webkit',
+				'azion-theme'
       ],
       external: [
         'algoliasearch',
