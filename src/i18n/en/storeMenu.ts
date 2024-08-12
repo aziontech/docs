@@ -58,7 +58,7 @@ export default [
 				header: true,
 				anchor: true,
 				type: 'learn',
-				slug: '/documentation/products/guides/secure/create-bucket/',
+				slug: '/documentation/products/guides/upload-and-download-objects-from-bucket/',
 				key: 'createBucket',
 			},
 			{
@@ -66,7 +66,7 @@ export default [
 				header: true,
 				anchor: true,
 				type: 'learn',
-				slug: '/documentation/products/guides/secure/list-bucket/',
+				slug: '/documentation/products/guides/upload-and-download-objects-from-bucket/',
 				key: 'listBucket',
 			},
 			{
@@ -74,7 +74,7 @@ export default [
 				header: true,
 				anchor: true,
 				type: 'learn',
-				slug: '/documentation/products/guides/secure/update-bucket/',
+				slug: '/documentation/products/guides/upload-and-download-objects-from-bucket/',
 				key: 'updateBucket',
 			},
 			{
@@ -82,7 +82,7 @@ export default [
 				header: true,
 				anchor: true,
 				type: 'learn',
-				slug: '/documentation/products/guides/secure/delete-bucket/',
+				slug: '/documentation/products/guides/upload-and-download-objects-from-bucket/',
 				key: 'deleteBucket',
 			},
 			{
@@ -90,7 +90,7 @@ export default [
 				header: true,
 				anchor: true,
 				type: 'learn',
-				slug: '/documentation/products/guides/secure/post-object/',
+				slug: '/documentation/products/guides/create-and-modify-bucket/',
 				key: 'postObject',
 			},
 			{
@@ -98,7 +98,7 @@ export default [
 				header: true,
 				anchor: true,
 				type: 'learn',
-				slug: '/documentation/products/guides/secure/put-object/',
+				slug: '/documentation/products/guides/create-and-modify-bucket/',
 				key: 'putObject',
 			},
 			{
@@ -131,6 +131,14 @@ export default [
 				anchor: true,
 				type: 'learn',
 				slug: '/documentation/products/guides/secure/delete-objects/',
+				key: 'deleteObjects',
+			},
+			{
+				text: 'Use a bucket as origin',
+				header: true,
+				anchor: true,
+				type: 'learn',
+				slug: '/documentation/products/guides/use-bucket-as-origin/',
 				key: 'deleteObjects',
 			},
 		],
@@ -245,3 +253,4 @@ export default [
 		],
 	},
 ] as const;
+	
