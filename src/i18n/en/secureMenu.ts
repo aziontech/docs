@@ -47,7 +47,6 @@ export default [
     { text: 'Edge Functions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/functions/', key: 'automateEdgeFunctions', hasLabel: 'menu.secureAutomate' },
     { text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/sdk/', key: 'automateSdk' },
     { text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/terraform/', key: 'automateTerraform' },
-    { text: 'Protect origin', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/origin-shield/', key: 'automateOriginShield' },
     { text: 'Integrate with SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/integrate-siems/', key: 'automateIntegrateSiems' },
 
 

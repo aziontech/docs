@@ -47,7 +47,6 @@ export default [
     { text: 'Edge Functions', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/functions/', key: 'automateEdgeFunctions', hasLabel: 'menu.secureAutomate' },
     { text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/sdk/', key: 'automateSdk' },
     { text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/terraform/', key: 'automateTerraform' },
-    { text: 'Proteja origem', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/origin-shield/', key: 'automateOriginShield' },
     { text: 'Integre com SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/integrar-siems/', key: 'automateIntegrateSiems' },
 
 
