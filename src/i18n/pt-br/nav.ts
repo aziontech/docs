@@ -36,6 +36,7 @@ export default NavDictionary([
 	{ text: 'Usuários', key: 'account/Users', slug: '/documentacao/produtos/guias/users-management/' },
 	{ text: 'Times', slug: '/documentacao/produtos/guias/teams-permissions/', key: 'account/teamsPermissions' },
 	{ text: 'Activity history', slug: '/documentacao/produtos/guias/activity-history/', key: 'account/activityHistory' },
+	{ text: 'Account Lockout Policy', slug: '/documentacao/produtos/guias/configurar-account-lockout-policy/', key: 'account/accountLockoutPolicy' },
 	{ text: 'Credenciais', slug: '/documentacao/produtos/guias/credentials/', key: 'account/credentials' },
 	{ text: 'SSO', slug: '/documentacao/produtos/guias/sso/', key: 'account/sso' },
 	{ text: 'MFA', slug: '/documentacao/produtos/guias/multi-factor-authentication/', key: 'account/mfa' },
