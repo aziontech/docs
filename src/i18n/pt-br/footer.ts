@@ -9,7 +9,7 @@ const listData = [
       },
       {
         "title": "Our Network",
-        "link": "/pt-br/produtos/edge-network/"
+        "link": "/pt-br/produtos/nossa-rede/"
       },
       {
         title: "Roadmap",
