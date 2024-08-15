@@ -59,8 +59,8 @@ function rewriteRedirects(content, lang) {
 
 	for (const redirect of redirectList) {
 		redirect.from = redirect.from.
-			replace('https://www.azion.com', '').
-			replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+											replace('https://www.azion.com', '').
+											replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 		redirect.moved = redirect.moved.replace('https://www.azion.com', '');
 
 		let rgx = new RegExp(`\\(${redirect.from}\\)`, 'gm');
@@ -107,8 +107,8 @@ async function processDirectory(directory, lang) {
 }
 
 async function processFiles() {
-	// await processDirectory('src/content/docs', 'pt-br');
-	await processDirectory(`${cwd}/src/content/docs`, 'en');
+	await processDirectory(`${cwd}/src/content/docs`, 'pt-br');
+	// await processDirectory(`${cwd}/src/content/docs`, 'en');
 };
 
 
