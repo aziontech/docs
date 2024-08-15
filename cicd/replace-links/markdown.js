@@ -97,7 +97,7 @@ async function processDirectory(directory, lang) {
 			} else if (entry.isFile()) {
 				const markdown = readFile(fullPath);
 				const parsed = matter(markdown);
-				parsed.content = rewriteRedirects(parsed.content, lang);
+				// parsed.content = rewriteRedirects(parsed.content, lang);
 
 				const updatedContent = matter.stringify(parsed.content, parsed.data);
 				touchFileResult(updatedContent, fullPath);
