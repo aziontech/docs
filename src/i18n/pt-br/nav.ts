@@ -134,6 +134,7 @@ export default NavDictionary([
 	{ text: 'Activity History', key: 'accounts/ActivityHistory', slug: '/documentacao/produtos/gestao-de-contas/activity-history/' },
 	{ text: 'Clients', key: 'accounts/Clients', slug: '/documentacao/produtos/gestao-de-contas/clients/' },
 	{ text: 'Configurações de conta', key: 'accounts/accountSettings', slug: '/documentacao/produtos/gestao-de-contas/account-settings/' },
+	{ text: 'Account Lockout Policy', key: 'accounts/accountLockoutPolicy', slug: '/documentacao/produtos/gestao-de-contas/account-lockout-policy/' },
 	{ text: 'Faturamento', key: 'accounts/billing', slug: '/documentacao/produtos/gestao-de-contas/faturamento/' },
 	{ text: 'Multi-Factor Authentication', key: 'accounts/MFA', slug: '/documentacao/produtos/gestao-de-contas/multi-factor-authentication/' },
 	{ text: 'Personal Tokens', key: 'accounts/personalTokens', slug: '/documentacao/produtos/gestao-de-contas/personal-tokens/' },
