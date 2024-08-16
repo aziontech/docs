@@ -141,6 +141,7 @@ export default NavDictionary([
 	{ text: 'Single Sign-On', key: 'accounts/SSO', slug: '/documentacao/produtos/gestao-de-contas/single-sign-on/' },
 	{ text: 'Teams Permissions', key: 'accounts/teamsPermissions', slug: '/documentacao/produtos/gestao-de-contas/teams-permissions/' },
 	{ text: 'Users Management', key: 'accounts/usersManagement', slug: '/documentacao/produtos/gestao-de-contas/usuarios-e-times/' },
+	{ text: 'User Session Timeout', key: 'accounts/userSessionTimeout', slug: '/documentacao/produtos/gestao-de-contas/user-session-timeout//' },
 	{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentacao/produtos/gestao-de-contas/your-settings/' },
 
 	{ text: 'Technical Support', slug: '/documentacao/servicos/suporte/', key: 'technicalSupport' },
