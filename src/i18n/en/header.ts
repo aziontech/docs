@@ -52,7 +52,7 @@ const menuSecondaryMobile = [
       {
         label: 'Success Stories',
         // icon: 'pi pi-dollar'
-        url: '/en/success-case/'
+        url: '/en/resource-hub/'
       },
       {
         label: 'Support',
