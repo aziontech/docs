@@ -149,6 +149,7 @@ export default [
 			{ text: 'Single Sign-On', key: 'accounts/SSO', slug: '/documentation/products/accounts/single-sign-on/' },
 			{ text: 'Teams Permissions', key: 'accounts/teamsPermissions', slug: '/documentation/products/accounts/teams-permissions/' },
 			{ text: 'Users Management', key: 'accounts/usersManagement', slug: '/documentation/products/accounts/users-management/' },
+			{ text: 'User Session Timeout', key: 'accounts/userSessionTimeout', slug: '/documentation/products/accounts/user-session-timeout/' },
 			{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentation/products/accounts/your-settings/' },
 
 		]
