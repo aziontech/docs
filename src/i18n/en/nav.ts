@@ -35,6 +35,7 @@ export default [
 			{ text: 'Credentials', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/credentials/', key: 'account/credentials' },
 			{ text: 'SSO', header: true, anchor: true, type: 'learn', slug: 'documentation/products/guides/sso/', key: 'account/sso' },
 			{ text: 'MFA', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/multi-factor-authentication/', key: 'account/mfa' },
+			{ text: 'User Session Timeout', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/configure-user-session-timeout/', key: 'account/user-session-timeout' },
 			{ text: 'Billing and subscriptions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
 		]
 	},
