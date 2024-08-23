@@ -2,6 +2,11 @@
 <h1 align="center">
   Azion Docs 💻📚🧡
 </h1>
+
+![docs production](https://github.com/aziontech/docs/actions/workflows/prod.yml/badge.svg)
+![docs stage](https://github.com/aziontech/docs/actions/workflows/stage.yml/badge.svg)
+![docs development](https://github.com/aziontech/docs/actions/workflows/dev.yml/badge.svg)
+
 <p align="center">
     We're under a <a href="https://opensource.org/license/mit/" title="MIT">MIT</a> license.
     <br>

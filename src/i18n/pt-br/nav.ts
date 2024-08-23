@@ -36,9 +36,11 @@ export default NavDictionary([
 	{ text: 'Usuários', key: 'account/Users', slug: '/documentacao/produtos/guias/users-management/' },
 	{ text: 'Times', slug: '/documentacao/produtos/guias/teams-permissions/', key: 'account/teamsPermissions' },
 	{ text: 'Activity history', slug: '/documentacao/produtos/guias/activity-history/', key: 'account/activityHistory' },
+	{ text: 'Account Lockout Policy', slug: '/documentacao/produtos/guias/configurar-account-lockout-policy/', key: 'account/accountLockoutPolicy' },
 	{ text: 'Credenciais', slug: '/documentacao/produtos/guias/credentials/', key: 'account/credentials' },
 	{ text: 'SSO', slug: '/documentacao/produtos/guias/sso/', key: 'account/sso' },
 	{ text: 'MFA', slug: '/documentacao/produtos/guias/multi-factor-authentication/', key: 'account/mfa' },
+	{ text: 'User Session Timeout', slug: '/documentacao/produtos/guias/configurar-user-session-timeout/', key: 'account/user-session-timeout' },
 	{ text: 'Faturamento e assinaturas', slug: '/documentacao/produtos/guias/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
 
 
@@ -134,6 +136,7 @@ export default NavDictionary([
 	{ text: 'Activity History', key: 'accounts/ActivityHistory', slug: '/documentacao/produtos/gestao-de-contas/activity-history/' },
 	{ text: 'Clients', key: 'accounts/Clients', slug: '/documentacao/produtos/gestao-de-contas/clients/' },
 	{ text: 'Configurações de conta', key: 'accounts/accountSettings', slug: '/documentacao/produtos/gestao-de-contas/account-settings/' },
+	{ text: 'Account Lockout Policy', key: 'accounts/accountLockoutPolicy', slug: '/documentacao/produtos/gestao-de-contas/account-lockout-policy/' },
 	{ text: 'Faturamento', key: 'accounts/billing', slug: '/documentacao/produtos/gestao-de-contas/faturamento/' },
 	{ text: 'Multi-Factor Authentication', key: 'accounts/MFA', slug: '/documentacao/produtos/gestao-de-contas/multi-factor-authentication/' },
 	{ text: 'Personal Tokens', key: 'accounts/personalTokens', slug: '/documentacao/produtos/gestao-de-contas/personal-tokens/' },
@@ -141,6 +144,7 @@ export default NavDictionary([
 	{ text: 'Single Sign-On', key: 'accounts/SSO', slug: '/documentacao/produtos/gestao-de-contas/single-sign-on/' },
 	{ text: 'Teams Permissions', key: 'accounts/teamsPermissions', slug: '/documentacao/produtos/gestao-de-contas/teams-permissions/' },
 	{ text: 'Users Management', key: 'accounts/usersManagement', slug: '/documentacao/produtos/gestao-de-contas/usuarios-e-times/' },
+	{ text: 'User Session Timeout', key: 'accounts/userSessionTimeout', slug: '/documentacao/produtos/gestao-de-contas/user-session-timeout//' },
 	{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentacao/produtos/gestao-de-contas/your-settings/' },
 
 	{ text: 'Technical Support', slug: '/documentacao/servicos/suporte/', key: 'technicalSupport' },
