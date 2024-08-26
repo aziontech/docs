@@ -30,7 +30,7 @@ export default [
 
     {
         text: 'Configurações avançadas', header: true, type: 'learn', key: 'advancedConfig', addBorder: true, items: [
-            { text: 'Processe imagens', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/processar-imagens/', key: 'processImages', hasLabel: 'menu.buildAdvanced' },
+            { text: 'Processe imagens', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/processar-imagens/', key: 'processImages' },
             { text: 'Configure múltiplas origens', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/configure-multiplas-origens/', key: 'multiOrigin' },
         ]
     },
