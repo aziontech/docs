@@ -20,6 +20,7 @@
 		{ text: 'Metadados', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/metadata/', key: 'runtime/metadata' },
 		{ text: 'Network List', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/network-list/', key: 'runtime/network-list' },
 		{ text: 'Edge Storage', slug: '/documentacao/runtime/api-reference/storage/', key: 'runtime/storage-api' },
+		{ text: 'Edge SQL', slug: '/documentacao/runtime/api-reference/edge-sql/', key: 'runtime/storage-api' },
 		{ text: 'Web APIs', slug: '/documentacao/produtos/edge-application/edge-functions/runtime-apis/javascript/', key: 'runtime/web-standards' },
 	] },
 
