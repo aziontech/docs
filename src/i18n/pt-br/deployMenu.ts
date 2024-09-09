@@ -56,14 +56,6 @@ export default [
 		key: 'configEdgeNode',
 		items: [
 			{
-				text: 'Gere credenciais',
-				header: true,
-				anchor: true,
-				type: 'learn',
-				slug: '/documentacao/produtos/guias/deploy/gerar-credentials/',
-				key: 'generateCredentials',
-			},
-			{
 				text: 'Instale o agente',
 				header: true,
 				anchor: true,
