@@ -33,7 +33,6 @@ export default [
 			{ text: 'Activity history', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/activity-history/', key: 'account/activityHistory' },
 			{ text: 'Account Lockout Policy', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/configure-account-lockout-policy/', key: 'account/accountLockoutPolicy' },
 			{ text: 'Conditional Access by IP Address', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/conditional-access-by-ip-address/', key: 'account/conditionalAccess' },
-			{ text: 'Credentials', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/credentials/', key: 'account/credentials' },
 			{ text: 'SSO', header: true, anchor: true, type: 'learn', slug: 'documentation/products/guides/sso/', key: 'account/sso' },
 			{ text: 'MFA', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/multi-factor-authentication/', key: 'account/mfa' },
 			{ text: 'User Session Timeout', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/configure-user-session-timeout/', key: 'account/user-session-timeout' },
