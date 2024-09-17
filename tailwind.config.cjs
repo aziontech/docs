@@ -9,37 +9,30 @@ module.exports = {
     function ({ addUtilities }) {
       const newUtilities = {};
 
-      newUtilities['.px-shell'] = {
-        paddingLeft: 'clamp(0.75rem, 0.7484rem + 2.6076vw, 2rem)',
-        paddingRight: 'clamp(0.75rem, 0.7484rem + 2.6076vw, 2rem)',
+      newUtilities[".px-shell"] = {
+        paddingLeft: "1rem",
+        paddingRight: "1rem",
       };
 
-      newUtilities['.px-container'] = {
-        maxWidth: '1536px',
-        margin: '0 auto',
-        paddingLeft: 'clamp(0.75rem, 0.7484rem + 2.6076vw, 2rem)',
-        paddingRight: 'clamp(0.75rem, 0.7484rem + 2.6076vw, 2rem)',
-      };
+      newUtilities[".px-container"] = {
+        maxWidth: "1280px",
+        margin: "0 auto",
+        paddingLeft: "1rem",
+        paddingRight: "1rem",
+    };
 
-      newUtilities['@media (min-width: 768px)'] = {
-        '.px-shell': {
-          paddingLeft: '2rem',
-          paddingRight: '2rem',
+      newUtilities["@media (min-width: 768px)"] = {
+        ".px-shell": {
+          paddingLeft: "2.5rem",
+          paddingRight: "2.5rem",
         },
-        '.px-container': {
-          paddingLeft: '2rem',
-          paddingRight: '2rem',
-        }
+        ".px-container": {
+          paddingLeft: "2.5rem",
+          paddingRight: "2.5rem",
+        },
       };
 
-      newUtilities['@media (min-width: 1024px)'] = {
-        '.px-container': {
-          paddingLeft: 'clamp(2rem, -3.3683rem + 8.3879vw, 10rem)',
-          paddingRight: 'clamp(2rem, -3.3683rem + 8.3879vw, 10rem)',
-        }
-      };
-
-      addUtilities(newUtilities, ['responsive', 'hover']);
+      addUtilities(newUtilities, ["responsive", "hover"]);
     },
   ],
   important: true,
