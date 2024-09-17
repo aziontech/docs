@@ -41,7 +41,7 @@ export default [
 		text: 'Overview',
 		header: true,
 		anchor: true,
-		slug: '/documentation/products/secure/overview/',
+		slug: '/documentation/products/store-journey/',
 		key: 'secureOverview',
 		hasLabel: 'menu.store',
 	},
