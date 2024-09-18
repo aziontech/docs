@@ -30,14 +30,15 @@ export async function GET({ params, props }) {
 
   const docsData = docs.map(({ data: page, collection, id }) => {
     const docsSlug = {
-      en: "documentation",
-      "pt-br": "documentacao",
+      'en': 'documentation',
+      'pt-br': 'documentacao',
     };
     const lang = id.split('/')[0];
     const slug = docsSlug[lang];
 		const permalink = `${params.lang}/${removeTrailingLeadingSlashs(page.permalink)}`;
 
     return {
+			repository: 'docs',
       filePath: `${paths.collections}/${collection}/${id}`,
 			permalink: `/${permalink}/`,
       url: `${SITE_URL}/${permalink}/`

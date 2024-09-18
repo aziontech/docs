@@ -36,6 +36,7 @@
 		{ text: 'How to query metadata with GraphQL API', slug: '/documentation/products/guides/graphql-metadata', key: 'guides/graphql-metadata' },
 		{ text: 'How to query aggregated data with GraphQL API', slug: '/documentation/products/guides/graphql-aggregated-data', key: 'guides/graphql-aggregated-data' },
 		{ text: 'How to select Top X queries with GraphQL API', slug: '/documentation/products/guides/graphql-top-x-query', key: 'guides/graphql-top-x' },
+		{ text: 'How to query Connected Users data with GraphQL API', slug: '/documentation/products/guides/query-connected-users-data-with-graphql/', key: 'guides/connected-users-graphql' },
 	] },
 
 
