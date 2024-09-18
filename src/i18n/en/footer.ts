@@ -8,7 +8,7 @@ const listData = [
       },
       {
         title: "Our Network",
-        link: "/en/products/edge-network/"
+        link: "/en/products/our-network/"
       },
       {
         title: "Roadmap",

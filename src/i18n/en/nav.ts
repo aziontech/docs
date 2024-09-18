@@ -31,9 +31,11 @@ export default [
 			{ text: 'Users', header: true, anchor: true, type: 'learn', key: 'account/Users', slug: '/documentation/products/guides/users-management/' },
 			{ text: 'Teams permissions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/teams-permissions/', key: 'account/teamsPermissions' },
 			{ text: 'Activity history', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/activity-history/', key: 'account/activityHistory' },
-			{ text: 'Credentials', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/credentials/', key: 'account/credentials' },
+			{ text: 'Account Lockout Policy', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/configure-account-lockout-policy/', key: 'account/accountLockoutPolicy' },
+			{ text: 'Conditional Access by IP Address', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/conditional-access-by-ip-address/', key: 'account/conditionalAccess' },
 			{ text: 'SSO', header: true, anchor: true, type: 'learn', slug: 'documentation/products/guides/sso/', key: 'account/sso' },
 			{ text: 'MFA', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/multi-factor-authentication/', key: 'account/mfa' },
+			{ text: 'User Session Timeout', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/configure-user-session-timeout/', key: 'account/user-session-timeout' },
 			{ text: 'Billing and subscriptions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
 		]
 	},
@@ -140,6 +142,7 @@ export default [
 			{ text: 'Activity History', header: true, type: 'learn', key: 'accounts/ActivityHistory', slug: '/documentation/products/accounts/activity-history/' },
 			{ text: 'Clients', key: 'accounts/Clients', slug: '/documentation/products/accounts/accounts/' },
 			{ text: 'Account settings', key: 'accounts/accountSettings', slug: '/documentation/products/accounts/account-settings/' },
+			{ text: 'Account Lockout Policy', key: 'accounts/accountLockoutPolicy', slug: '/documentation/products/accounts/account-lockout-policy/' },
 			{ text: 'Billing', key: 'accounts/billing', slug: '/documentation/products/accounts/billing-and-subscriptions/' },
 			{ text: 'Multi-Factor Authentication', key: 'accounts/MFA', slug: '/documentation/products/accounts/multi-factor-authentication/' },
 			{ text: 'Personal Tokens', key: 'accounts/personalTokens', slug: '/documentation/products/accounts/personal-tokens/' },
@@ -147,6 +150,7 @@ export default [
 			{ text: 'Single Sign-On', key: 'accounts/SSO', slug: '/documentation/products/accounts/single-sign-on/' },
 			{ text: 'Teams Permissions', key: 'accounts/teamsPermissions', slug: '/documentation/products/accounts/teams-permissions/' },
 			{ text: 'Users Management', key: 'accounts/usersManagement', slug: '/documentation/products/accounts/users-management/' },
+			{ text: 'User Session Timeout', key: 'accounts/userSessionTimeout', slug: '/documentation/products/accounts/user-session-timeout/' },
 			{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentation/products/accounts/your-settings/' },
 
 		]
