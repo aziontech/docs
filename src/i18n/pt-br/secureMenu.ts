@@ -51,7 +51,7 @@ export default [
 
     {
         text: 'Métricas e observabilidade', header: true, type: 'learn', key: 'secureWafMetrics', items: [
-            { text: 'Monitore métricas do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-firewall-monitorar-metricas/ ', key: 'wafMetrics' },
+            { text: 'Monitore métricas do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-firewall-monitorar-metricas/', key: 'wafMetrics' },
             { text: 'integre WAF com SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/integrar-siems/', key: 'wafSiems' },
         ]
     },
