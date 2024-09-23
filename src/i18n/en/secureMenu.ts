@@ -37,7 +37,7 @@ export default [
     },
 
     {
-        text: 'Create WAF rule set', header: true, type: 'learn', key: 'editEdgeFirewall', slug: '/documentation/products/guides/how-to-check-your-waf-mode/', hasLabel: 'menu.waf'
+        text: 'Create WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentation/products/guides/secure/create-waf-rule-set/', hasLabel: 'menu.waf'
     },
 
     {
