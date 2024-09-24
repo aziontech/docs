@@ -139,7 +139,7 @@ export default [
 				header: true,
 				anchor: true,
 				type: 'learn',
-				slug: '/documentation/products/store/storage/head-object/',
+				slug: '/documentation/products/store/storage/s3-protocol-for-edge-storage/',
 				key: 'headObject',
 			},
 		],
