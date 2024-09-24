@@ -30,22 +30,19 @@ export default [
     },
 
     {
-        text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
-            { text: 'Gerencie bots', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/gerenciar-bots/', key: 'manageBots' },
-            { text: 'Bloqueie redes Tor', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/bloquear-redes-tor/', key: 'blockTor' },
-        ]
-    },
-
-    {
-        text: 'Crie um WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentacao/produtos/guias/secure/criar-waf-rule-set/', hasLabel: 'menu.waf'
-    },
-
-    {
-        text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureWafAdvancedConfigs', items: [
+        text: 'Configure Web Application Firewall', header: true, type: 'learn', key: 'secureWafAdvancedConfigs', items: [
+            { text: 'Crie um WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentacao/produtos/guias/secure/criar-waf-rule-set/' },
             { text: 'Verifique o modo do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-verificar-modo-do-seu-waf/', key: 'wafMode' },
             { text: 'Configure Custom Allowed Rules', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/configurar-waf-allowed-rules/', key: 'customAllowedRules' },
             { text: 'Faça tuning do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/tune-waf/', key: 'tuneWaf' },
             { text: 'Encontre score de requisições bloqueadas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf', key: 'wafRequestsScore' },
+        ]
+    },
+
+    {
+        text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
+            { text: 'Gerencie bots', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/gerenciar-bots/', key: 'manageBots' },
+            { text: 'Bloqueie redes Tor', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/bloquear-redes-tor/', key: 'blockTor' },
         ]
     },
 

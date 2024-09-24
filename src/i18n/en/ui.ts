@@ -144,7 +144,6 @@ export default {
 	'menu.devTools': 'Dev Tools',
 	'menu.secure': 'Secure',
 	'menu.edgeFirewall': 'Edge Firewall',
-	'menu.waf': 'Web Application Firewall',
 	'menu.intelligentDns': 'Edge DNS',
 	'menu.secureAdvanced': 'Advanced configuration',
 	'menu.secureTransportLayerSecurity': 'Transport Layer Security',

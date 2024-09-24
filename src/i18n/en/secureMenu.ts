@@ -30,22 +30,19 @@ export default [
     },
 
     {
-        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
-            { text: 'Manage bots', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/manage-bots/', key: 'manageBots' },
-            { text: 'Block Tor networks', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/block-tor-networks/', key: 'blockTor' },
-        ]
-    },
-
-    {
-        text: 'Create WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentation/products/guides/secure/create-waf-rule-set/', hasLabel: 'menu.waf'
-    },
-
-    {
-        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureWafAdvancedConfigs', items: [
+        text: 'Configure Web Application Firewall', header: true, type: 'learn', key: 'secureWAF', items: [
+            { text: 'Create WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentation/products/guides/secure/create-waf-rule-set/' },
             { text: 'Check WAF mode', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/how-to-check-your-waf-mode/', key: 'wafMode' },
             { text: 'Configure Custom Allowed Rule', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/configure-waf-allowed-rules/', key: 'customAllowedRules' },
             { text: 'Tune WAF', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/tune-waf/', key: 'tuneWaf' },
             { text: 'Find score of blocked requests', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/how-to-find-waf-score/', key: 'wafRequestsScore' }
+        ]
+    },
+
+    {
+        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
+            { text: 'Manage bots', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/manage-bots/', key: 'manageBots' },
+            { text: 'Block Tor networks', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/block-tor-networks/', key: 'blockTor' },
         ]
     },
 
