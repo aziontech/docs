@@ -158,7 +158,7 @@ export default [
 				key: 'createDatabase',
 			},
 			{
-				text: 'Liste os banco de dados',
+				text: 'Liste os bancos de dados',
 				header: true,
 				anchor: true,
 				type: 'learn',
