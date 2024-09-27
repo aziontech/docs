@@ -24,6 +24,7 @@ export default NavDictionary([
 	{ text: 'Secure', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
 	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/visao-geral/', key: 'deploy' },
 	{ text: 'Observe', slug: '/documentacao/produtos/observe/visao-geral/', key: 'observe' },
+	{ text: 'Store', slug: '/documentacao/produtos/store/visao-geral/', key: 'store' },
 
 	{ text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
 	{ text: 'Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
