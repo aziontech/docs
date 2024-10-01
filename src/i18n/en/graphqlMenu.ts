@@ -37,7 +37,7 @@
 		{ text: 'How to query aggregated data', slug: '/documentation/products/guides/graphql-aggregated-data', key: 'guides/graphql-aggregated-data' },
 		{ text: 'How to select Top X queries', slug: '/documentation/products/guides/graphql-top-x-query', key: 'guides/graphql-top-x' },
 		{ text: 'How to query Connected Users data', slug: '/documentation/products/guides/query-connected-users-data-with-graphql/', key: 'guides/connected-users-graphql' },
-		{ text: 'How to query Bot Manager Advanced data', slug: '/documentation/products/guides/query-bot-manager-advanced-data-with-graphql/', key: 'guides/bot-data-graphql' }
+		{ text: 'How to query Bot Manager data', slug: '/documentation/products/guides/query-bot-manager-data-with-graphql/', key: 'guides/bot-data-graphql' }
 	] },
 
 

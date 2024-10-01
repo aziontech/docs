@@ -38,7 +38,7 @@
 		{ text: 'Como realizar consultas agregando dados', slug: '/documentacao/produtos/guias/graphql-dados-agregados', key: 'guides/graphql-aggregated-data' },
 		{ text: 'Como selecionar Top X queries', slug: '/documentacao/produtos/guias/graphql-query-top-x', key: 'guides/graphql-top-x' },
 		{ text: 'Como consultar dados de usuários conectados', slug: '/documentacao/produtos/guias/query-dados-connected-users-com-graphql/', key: 'guides/connected-users-graphql' },
-		{ text: 'Como consultar dados do Bot Manager Advanced', slug: '/documentacao/produtos/guias/consultar-dados-bot-manager-advanced-com-graphql/', key: 'guides/bot-data-graphql' },
+		{ text: 'Como consultar dados do Bot Manager', slug: '/documentacao/produtos/guias/consultar-dados-bot-manager-com-graphql/', key: 'guides/bot-data-graphql' },
 	] },
 
 
