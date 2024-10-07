@@ -195,7 +195,7 @@ export default [
 				header: true,
 				anchor: true,
 				type: 'learn',
-				slug: '/documentation/products/store/sql/criar-tabela/',
+				slug: '/documentacao/produtos/store/sql/criar-tabela/',
 				key: 'createTable',
 			},
 			{
