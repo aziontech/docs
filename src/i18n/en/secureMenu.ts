@@ -30,14 +30,21 @@ export default [
     },
 
     {
-        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
-            { text: 'Manage bots', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/manage-bots/', key: 'manageBots' },
-            { text: 'Create WAF rule set', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/create-waf-rule-set/', key: 'wafRuleSet' },
+        text: 'Configure Web Application Firewall', header: true, type: 'learn', key: 'secureWAF', items: [
+            { text: 'Create WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentation/products/guides/secure/create-waf-rule-set/' },
+            { text: 'Check WAF mode', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/how-to-check-your-waf-mode/', key: 'wafMode' },
+            { text: 'Configure Custom Allowed Rule', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/configure-waf-allowed-rules/', key: 'customAllowedRules' },
             { text: 'Tune WAF', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/tune-waf/', key: 'tuneWaf' },
-            { text: 'Block Tor networks', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/block-tor-networks/', key: 'blockTor' },
+            { text: 'Find score of blocked requests', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/how-to-find-waf-score/', key: 'wafRequestsScore' }
         ]
     },
 
+    {
+        text: 'Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
+            { text: 'Manage bots', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/manage-bots/', key: 'manageBots' },
+            { text: 'Block Tor networks', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/block-tor-networks/', key: 'blockTor' },
+        ]
+    },
 
     { text: 'Select TLS ciphers', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/ciphers/', key: 'ciphers', hasLabel: 'menu.secureTransportLayerSecurity' },
     { text: 'Configure mTLS', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/mtls/', key: 'mtls' },
@@ -50,7 +57,7 @@ export default [
     { text: 'Integrate with SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/integrate-siems/', key: 'automateIntegrateSiems' },
 
 
-    { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-firewall-understand-metrics/', key: 'firewallUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot', addBorder: true },
+    { text: 'Understand WAF metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-firewall-understand-metrics/', key: 'firewallUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot', addBorder: true },
 
 
     {

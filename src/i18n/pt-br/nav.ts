@@ -21,6 +21,7 @@ export default NavDictionary([
 
 
 	{ text: 'Build', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
+	{ text: 'Store', slug: '/documentacao/produtos/store/visao-geral/', key: 'store' },
 	{ text: 'Secure', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
 	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/visao-geral/', key: 'deploy' },
 	{ text: 'Observe', slug: '/documentacao/produtos/observe/visao-geral/', key: 'observe' },
@@ -38,7 +39,6 @@ export default NavDictionary([
 	{ text: 'Activity history', slug: '/documentacao/produtos/guias/activity-history/', key: 'account/activityHistory' },
 	{ text: 'Account Lockout Policy', slug: '/documentacao/produtos/guias/configurar-account-lockout-policy/', key: 'account/accountLockoutPolicy' },
 	{ text: 'Conditional Access by IP Address', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/conditional-access-by-ip-address/', key: 'account/conditionalAccess' },
-	{ text: 'Credenciais', slug: '/documentacao/produtos/guias/credentials/', key: 'account/credentials' },
 	{ text: 'SSO', slug: '/documentacao/produtos/guias/sso/', key: 'account/sso' },
 	{ text: 'MFA', slug: '/documentacao/produtos/guias/multi-factor-authentication/', key: 'account/mfa' },
 	{ text: 'User Session Timeout', slug: '/documentacao/produtos/guias/configurar-user-session-timeout/', key: 'account/user-session-timeout' },

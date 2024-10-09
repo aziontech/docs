@@ -30,10 +30,18 @@ export default [
     },
 
     {
+        text: 'Configure Web Application Firewall', header: true, type: 'learn', key: 'secureWafAdvancedConfigs', items: [
+            { text: 'Crie um WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentacao/produtos/guias/secure/criar-waf-rule-set/' },
+            { text: 'Verifique o modo do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-verificar-modo-do-seu-waf/', key: 'wafMode' },
+            { text: 'Configure Custom Allowed Rules', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/configurar-waf-allowed-rules/', key: 'customAllowedRules' },
+            { text: 'Faça tuning do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/tune-waf/', key: 'tuneWaf' },
+            { text: 'Encontre score de requisições bloqueadas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf', key: 'wafRequestsScore' },
+        ]
+    },
+
+    {
         text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfig', items: [
             { text: 'Gerencie bots', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/gerenciar-bots/', key: 'manageBots' },
-            { text: 'Adicione uma rule set de WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/criar-waf-rule-set/', key: 'wafRuleSet' },
-            { text: 'Tune WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/tune-waf/', key: 'tuneWaf' },
             { text: 'Bloqueie redes Tor', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/bloquear-redes-tor/', key: 'blockTor' },
         ]
     },
@@ -50,9 +58,8 @@ export default [
     { text: 'Integre com SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/integrar-siems/', key: 'automateIntegrateSiems' },
 
 
-    { text: 'Monitore métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-firewall-monitorar-metricas/', key: 'firewallUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot', addBorder: true },
-
-
+    { text: 'Monitore métricas do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-firewall-monitorar-metricas/', key: 'firewallUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot', addBorder: true },
+    
     {
         text: 'Edite uma zona', header: true, type: 'learn', key: 'editIntelligentDns', hasLabel: 'menu.intelligentDns', items: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/edge-dns-definir-main-settings/', key: 'intelligentDnsMainSettings' },
