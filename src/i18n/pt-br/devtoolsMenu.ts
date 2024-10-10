@@ -17,7 +17,7 @@
 	{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: 'documentacao/produtos/azion-cli/visao-geral', hasLabel:'menu.devTools' },
 	{ text: 'Azion Lib', header: true, anchor: true, type: 'learn', key: 'devtools/azionlib', slug: 'https://www.npmjs.com/package/azion' },
 	{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: 'https://api.azion.com/' },
-	{ text: 'API GraphQL', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api/', key: 'devtools/graphQL' },
+	{ text: 'API GraphQL', header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/graphql-api/', key: 'devtools/graphQL' },
 	{ text: 'SDK',header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/sdk/go/', key: 'devtools/sdk' },
 	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'Console Kit', header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/console-kit/', key: 'devtools/consoleKit' },
