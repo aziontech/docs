@@ -14,7 +14,12 @@ const menuData = {
       label: 'DevTools',
       href: '/pt-br/documentacao/produtos/devtools/',
       items: []
-    }
+    },
+		{
+			label: 'Arquiteturas',
+			href: '/pt-br/documentacao/arquiteturas/',
+			items: []
+		}
   ]
 };
 

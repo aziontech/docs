@@ -14,7 +14,12 @@ const menuData = {
       label: 'DevTools',
       href: '/en/documentation/devtools/',
       items: []
-    }
+    },
+		{
+			label: 'Architectures',
+			href: '/en/documentation/architectures/',
+			items: []
+		}
   ]
 };
 
