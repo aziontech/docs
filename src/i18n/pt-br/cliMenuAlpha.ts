@@ -50,7 +50,6 @@ export default [
 	{
         text: 'Configurações de projeto', header: true, type: 'learn', key: 'cli/configs', items: [
             { text: 'azion.config.js', header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/cli/configs/azion-config-js/', key: 'cli/config/azion' },
-            { text: 'vulcan.config.js', header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/vulcan/config/', key: 'cli/config/vulcan' },
         ]
     },
 
