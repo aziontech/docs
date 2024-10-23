@@ -1,5 +1,3 @@
-import header from "./header";
-
 /**
  * This configures the navigation sidebar.
  * All other languages follow this ordering/structure and will fall back to
