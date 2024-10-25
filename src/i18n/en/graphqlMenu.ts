@@ -38,8 +38,8 @@
 		{ text: 'How to select Top X queries', slug: '/documentation/products/guides/graphql-top-x-query', key: 'guides/graphql-top-x' },
 		{ text: 'How to query Connected Users data', slug: '/documentation/products/guides/query-connected-users-data-with-graphql/', key: 'guides/connected-users-graphql' },
 		{ text: 'How to query Bot Manager data', slug: '/documentation/products/guides/query-bot-manager-data-with-graphql/', key: 'guides/bot-data-graphql' },
-		{ text: 'How to query the top URLs impacted by bots', slug: '/documentation/products/guides/query-bot-manager-breakdown-data-with-graphql/', key: 'guides/bot-breakdown-data-graphql' }
-		{ text: 'How to query HTTP request events blocked', slug: '/documentation/products/guides/query-httpBreakdownMetrics-data-with-graphql/', key: 'guides/httpBreakdownMetrics-data' }
+		{ text: 'How to query the top URLs impacted by bots', slug: '/documentation/products/guides/query-bot-manager-breakdown-data-with-graphql/', key: 'guides/bot-breakdown-data-graphql' },
+		{ text: 'How to query HTTP request events blocked', slug: '/documentation/products/guides/query-httpbreakdownmetrics-data-with-graphql/', key: 'guides/httpbreakdownmetrics-data' }
 	] },
 
 
