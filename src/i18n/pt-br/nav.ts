@@ -10,6 +10,10 @@
 import { NavDictionary } from '../translation-checkers';
 
 export default NavDictionary([
+	{ text: 'Documentação', slug: '/documentacao/', key: 'documentation' },
+	{ text: 'Guias', slug: '/documentacao/produtos/guias/', key: 'guides' },
+	{ text: 'Dev Tools', slug: '/documentacao/produtos/devtools/', key: 'devTools' },
+	{ text: 'Arquiteturas', slug: '/documentacao/arquiteturas/', key: 'architectures' },
 
 	{ text: 'Conceitos básicos', slug: '/documentacao/produtos/conceitos-basicos/', key: 'beforeBegin/core' },
 	{ text: 'Obtenha ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getHelp' },
