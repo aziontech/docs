@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 async function deleteFiles(filePathList) {
   for (const item of filePathList) {
@@ -21,7 +21,7 @@ async function deleteFiles(filePathList) {
 
 function main() {
   try {
-    const jsonFilePath = './request-en-redirects.json';
+    const jsonFilePath = './request-ptbr-redirects.json';
     const data = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
     
     deleteFiles(data);
