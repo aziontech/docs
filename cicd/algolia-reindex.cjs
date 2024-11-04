@@ -104,8 +104,8 @@ const config = {
 		api: getArgApi()
 	},
 	filepath: {
-		en: '.dist/en/doc-all-data.json',
-		ptbr: '.dist/pt-br/doc-all-data.json'
+		en: './dist/en/doc-all-data.json',
+		ptbr: './dist/pt-br/doc-all-data.json'
 	}
 }
 
