@@ -1,0 +1,159 @@
+---
+title: Como implementar o Vector Search do Edge SQL
+description: Implemente mecanismos de busca semântica usando Langchain e a Edge SQL API da Azion em uma edge application TypeScript.
+meta_tags: vector search, busca vetorial, Azion Edge SQL, aplicações baseadas em IA, vector embeddings
+namespace: documentation_guides_edge_sql_vector_search
+permalink: /documentacao/produtos/guias/edge-sql-vector-search/
+menu_namespace: storeMenu
+---
+
+import LinkButton from 'azion-webkit/linkbutton'
+
+**Vector Search** é um recurso do **Edge SQL da Azion** que permite aos clientes implementar mecanismos de busca semântica. Enquanto os modelos de busca tradicionais visam encontrar correspondências exatas, como correspondências de palavras-chave, os modelos de busca vetorial usam algoritmos especializados para identificar itens semelhantes com base em suas representações matemáticas, ou embeddings vetoriais.
+
+<LinkButton link="/pt-br/documentacao/produtos/store/edge-sql/vector-search/" label="Saiba mais sobre o Vector Search" severity="secondary" target="_blank" />
+
+Como exemplo de implementação, este guia abordará a configuração da lógica de busca vetorial em uma aplicação TypeScript, com um banco de dados usando a biblioteca Langchain com OpenAI e a Edge SQL API da Azion.
+
+---
+
+## Pré-requisitos
+
+- Gere um [personal token da Azion](/pt-br/documentacao/produtos/guias/personal-tokens/).
+- Gere uma [OpenAI API Key](https://platform.openai.com/docs/quickstart/create-and-export-an-api-key).
+- Instale a [Azion CLI](/pt-br/documentacao/produtos/azion-cli/visao-geral/).
+- Crie uma aplicação TypeScript. 
+    - Como no exemplo, você pode usar a [Azion CLI](/pt-br/documentacao/devtools/cli/init/) para criar uma aplicação Simple Typescript Router.
+- Configure o [Edge SQL](/pt-br/documentacao/produtos/store/edge-sql/).
+- Instale as [Azion Libraries](https://github.com/aziontech/lib).
+
+---
+
+## Configure o arquivo main.ts
+
+A primeira etapa é configurar o arquivo `main.ts`, o ponto de entrada para sua implementação. Ele estabelece a conexão com a API da Azion e a OpenAI, configura o ambiente usando credenciais e contém a lógica principal para realizar e testar consultas de busca baseadas em vetores.
+
+1. No arquivo `.env`, adicione seu personal token da Azion e a OpenAI API Key como variáveis.
+2. Configure o arquivo `main.ts`, usando a seguinte estrutura como exemplo:
+
+```bash
+import { OpenAIEmbeddings } from "@langchain/openai";
+import { useExecute, useQuery, createDatabase } from "azion/sql";
+
+export default async function vectorSearch() {
+
+  // // Create the database
+   const {data:createDatabaseData, error:createDatabaseError} = await createDatabase('vectorDatabase',{debug:true})
+
+   if (createDatabaseError) {
+     return Response.json({ error: createDatabaseError.message }, { status: 500 });
+   }
+
+  // // Setup the database
+  // // Create the embeddings column according to the dimension of the embeddings model
+  // // In this case, the text-embedding-3-small model has 1536 dimensions
+  // // You should also create the index, which makes the search faster!
+  const setupStatements = [
+    `CREATE TABLE documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content TEXT NOT NULL, 
+      embedding F32_BLOB(1536)
+    );`,
+    `CREATE INDEX documents_idx ON documents (
+      libsql_vector_idx(embedding, 'metric=cosine')
+    );`
+  ];
+
+  // Here, use useExecute, which supports create and insert statements
+  const {data:setupData, error:setupError} = await useExecute('vectorDatabase',setupStatements)
+
+  if (setupError) {
+    return Response.json({ error: setupError.message }, { status: 500 });
+  }
+
+  // Create the embeddings model
+  const embeddings = new OpenAIEmbeddings({
+    model: "text-embedding-3-small",
+    verbose: false,
+    apiKey: process.env.OPENAI_API_KEY
+  });
+
+  // Sample documents about France, England, and Brazil
+  const documents = [
+    "Paris is the capital of France",
+    "The Eiffel Tower is a French landmark",
+    "London is the capital of England", 
+    "Big Ben is located in London",
+    "Brasilia is the capital of Brazil",
+    "The Amazon rainforest is in Brazil",
+    "French cuisine is world-famous",
+    "Tea is popular in England",
+    "The English Channel separates Britain and France"
+  ];
+
+  // Generate embeddings for all documents and prepare statements
+  const insertStatements = [];
+  for (const doc of documents) {
+    const embedding = await embeddings.embedQuery(doc);
+    insertStatements.push(
+      `INSERT INTO documents (content, embedding) 
+       VALUES ('${doc}', vector('[${embedding}]'));`
+    );
+  }
+
+  // Here, use useExecute, which supports insert statements
+  const {data:insertData, error:insertError} = await useExecute('vectorDatabase',insertStatements,{debug:true}) 
+
+  if (insertError) {
+    return Response.json({ error: insertError.message }, { status: 500 });
+  } 
+
+  // Search for the most similar document to the query
+  // The same embedding model is used to generate the query embedding
+  const query = "What is the capital of Brazil?";
+  const queryEmbedding = await embeddings.embedQuery(query); 
+
+  // Prepare the search statement
+  // The vector_top_k function is used to find the most similar documents to the query
+  const searchStatements = [
+    `
+      SELECT id, content
+      FROM documents
+      WHERE rowid IN vector_top_k('documents_idx', vector('[${queryEmbedding}]'), 2)
+    `
+  ];
+
+  const {data:searchData, error:searchError} = await useQuery('vectorDatabase',searchStatements)
+
+  if (searchError) {
+    return Response.json({ error: searchError.message }, { status: 500 });
+  } 
+
+  return Response.json({ data: searchData });
+}
+```
+
+Em resumo, este código cria uma função TypeScript chamada `vectorSearch`, que implementa um recurso de busca semântica no Edge SQL da Azion:
+
+- **Configuração do banco de dados**: conecta-se a um banco de dados (`vectorDatabase`) e cria uma tabela `documents` com `content` e uma columna `embedding`, indexando os embeddings para buscas vetoriais mais rápidas.
+- **Modelo de embedding**: utiliza o modelo `text-embedding-3-small` para gerar embeddings vetoriais para cada documento.
+- **Inserção de dados**: insere dados de texto de exemplo com embeddings no banco de dados.
+- **Execução de consultas**: busca os documentos mais relevantes relacionados a uma consulta dada, usando similaridade para classificar os resultados.
+- **Tratamento de erros**: cada operação principal possui uma configuração de tratamento de erros, garantindo que uma mensagem de erro em JSON seja retornada se ocorrer um erro.
+
+---
+
+## Execute e teste a busca vetorial
+
+Agora, é hora de executar sua aplicação e testar a implementação da busca vetorial. Para fazer isso:
+
+1. Crie sua aplicação localmente usando o comando `azion build`.
+2. Inicie um servidor de desenvolvimento local para a aplicação com o comando `azion dev`.
+3. Com a aplicação em execução, faça um query no Edge SQL da Azion para criar o banco de dados na plataforma.
+4. Envie seu query para o localhost com o valor.
+    - Por exemplo: `What is the capital of Brazil?`
+5. O servidor deve interpretar a consulta e retornar uma resposta apropriada.
+    - Neste caso, o servidor retorna uma representação vetorial do query e você receberá uma lista dos documentos mais semelhantes à consulta.
+6. Se estiver pesquisando no shell do Edge SQL, você pode encontrar as informações inseridas na tabela do banco de dados `vectorDatabase`.
+
+Pronto! Você implementou uma busca vetorial em sua aplicação. Agora você pode refiná-la e adaptá-la para atender melhor ao seu caso de uso.
