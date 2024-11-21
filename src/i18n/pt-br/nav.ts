@@ -93,7 +93,14 @@ export default NavDictionary([
 	{ text: 'Origins', key: 'reference/origins', slug: '/documentacao/produtos/edge-application/origins/' },
 	{ text: 'Real-Time Purge', key: 'reference/realTimePurge', slug: '/documentacao/produtos/edge-application/real-time-purge/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineedgeApplication', slug: '/documentacao/produtos/edge-application/rules-engine/' },
-
+	
+	{
+		text: 'Store', key: 'storeRef'
+	},
+	{ text: 'Edge Storage', key: 'reference/storage', slug: '/documentacao/produtos/store/edge-storage/' },
+	{ text: 'Edge SQL', key: 'reference/sql', slug: '/documentacao/produtos/store/edge-sql/' },
+	{ text: 'Vector Search', key: 'reference/vector-search', slug: '/documentacao/produtos/store/edge-sql/vector-search/' },
+	
 	{
 		text: 'Secure', key: 'secureRef'
 	},
@@ -124,11 +131,6 @@ export default NavDictionary([
 	{ text: 'Real-Time Events', key: 'reference/realTimeEvents', slug: '/documentacao/produtos/real-time-events/' },
 	{ text: 'Real-Time Metrics', key: 'reference/realTimeMetrics', slug: '/documentacao/produtos/real-time-metrics/' },
 	{ text: 'Real-Time Metrics Histórico', key: 'reference/historicalRealTimeMetrics', slug: '/documentacao/produtos/real-time-metrics-historico/' },
-
-	
-	{ text: 'Edge Storage', key: 'reference/storage', slug: '/documentacao/produtos/store/edge-storage/' },
-	{ text: 'Edge SQL', key: 'reference/sql', slug: '/documentacao/produtos/store/edge-sql/' },
-	
 
 	{ text: 'Marketplace', key: 'mktpRef' },
 	{ text: 'Marketplace', key: 'mktp', slug: '/documentacao/produtos/marketplace/' },

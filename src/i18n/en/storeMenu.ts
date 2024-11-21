@@ -227,4 +227,10 @@ export default [
 			},
 		],
 	},
+	{
+		text: 'Implement Vector Search',
+		type: 'learn',
+		key: 'edgeSQL/vector-search',
+		slug: '/documentation/products/guides/edge-sql-vector-search/',
+	}
 ] as const;
