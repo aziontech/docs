@@ -228,6 +228,29 @@ export default [
 		],
 	},
 	{
+		text: 'Use the EdgeSQL Shell',
+		type: 'learn',
+		key: 'edgeSQL/edge-sql-shell',
+		items: [
+			{
+				text: 'Install EdgeSQL Shell',
+				header: true,
+				anchor: true,
+				type: 'learn',
+				slug: '/documentation/products/store/sql/install-edge-sql-shell/',
+				key: 'installEdgeSQLShell',
+			},
+			{
+				text: 'EdgeSQL Shell commands',
+				header: true,
+				anchor: true,
+				type: 'learn',
+				slug: '/documentation/products/store/sql/edge-sql-shell-commands/',
+				key: 'edgeSQLShellCommands',
+			}
+		]
+	},
+	{
 		text: 'Implement Vector Search',
 		type: 'learn',
 		key: 'edgeSQL/vector-search',
