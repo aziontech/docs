@@ -4,6 +4,7 @@ import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
 import tailwind from '@astrojs/tailwind';
 import vue from '@astrojs/vue';
+import preact from '@astrojs/preact';
 import AutoImport from 'astro-auto-import';
 
 import cssnano from 'cssnano';
@@ -32,6 +33,7 @@ export default defineConfig({
 	},
 	integrations: [
 		AutoImport({ imports: [asideAutoImport] }),
+		preact({ compat: true }),
 		sitemap(),
 		astroAsides(),
 
