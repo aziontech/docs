@@ -8,7 +8,6 @@ import preact from '@astrojs/preact';
 import AutoImport from 'astro-auto-import';
 
 import cssnano from 'cssnano';
-import dynamicImport from 'vite-plugin-dynamic-import';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import remarkSmartypants from 'remark-smartypants';
 
@@ -23,7 +22,6 @@ import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headi
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
 import rehypeScrollableTables from './plugins/rehype-scrollable-tables.js'
-// import { rehypeLinks } from './plugins/rehypeLinks.mjs';
 
 const productionBuild = import.meta.env.PROD;
 
@@ -75,20 +73,21 @@ export default defineConfig({
       }
     },
 		plugins: [
-      dynamicImport(),
-      cssnano
+      cssnano({
+        preset: [
+          'default', {
+            discardComments: { removeAll: true },
+            minifyFontValues: { removeQuotes: false }
+          }
+        ]
+      })
     ],
 		ssr: {
-      noExternal: [
-        '@astrojs/vue',
-        'azion-webkit',
-				'azion-theme'
-      ],
-      external: [
-        'algoliasearch',
-        'instantsearch.js',
-        'vue-instantsearch/vue3/es',
-      ]
-    }
+      noExternal: ['@astrojs/vue', 'azion-webkit', 'azion-theme'],
+      external: ['vue']
+    },
+		optimizeDeps: {
+			include: ['vue', 'primevue/config']
+		}
 	}
 });
