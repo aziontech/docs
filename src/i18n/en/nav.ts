@@ -90,6 +90,13 @@ export default [
 		]
 	},
 	{
+		text: 'Store', header: true, type: 'learn', key: 'storeRef', items: [
+			{ text: 'Edge Storage', header: true, anchor: true, type: 'learn', key: 'reference/storage', slug: '/documentation/products/store/edge-storage/' },
+			{ text: 'Edge SQL', header: true, anchor: true, type: 'learn', key: 'reference/sql', slug: '/documentation/products/store/edge-sql/' },
+			{ text: 'Vector Search', header: true, anchor: true, type: 'learn', key: 'reference/vector-search', slug: '/documentation/products/store/edge-sql/vector-search/' },
+		]
+	},
+	{
 		text: 'Secure', header: true, type: 'learn', key: 'secureRef', items: [
 			{ text: 'Edge Firewall', header: true, anchor: true, type: 'learn', key: 'reference/edgeFirewall', slug: '/documentation/products/secure/edge-firewall/' },
 			{ text: 'DDoS Protection', header: true, anchor: true, type: 'learn', key: 'reference/ddosProtection', slug: '/documentation/products/secure/edge-firewall/ddos-protection/' },
@@ -124,12 +131,6 @@ export default [
 			{ text: 'Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/realTimeMetrics', slug: '/documentation/products/observe/real-time-metrics/' },
 			{ text: 'Historical Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/historicalRealTimeMetrics', slug: '/documentation/products/historical-real-time-metrics/' },
 
-		]
-	},
-	{
-		text: 'Store', header: true, type: 'learn', key: 'storeRef', items: [
-			{ text: 'Edge Storage', header: true, anchor: true, type: 'learn', key: 'reference/storage', slug: '/documentation/products/store/edge-storage/' },
-			{ text: 'Edge SQL', header: true, anchor: true, type: 'learn', key: 'reference/sql', slug: '/documentation/products/store/edge-sql/' },
 		]
 	},
 	{

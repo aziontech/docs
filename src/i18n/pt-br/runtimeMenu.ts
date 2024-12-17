@@ -27,6 +27,7 @@
 	{ text: 'Compatibilidade', header: true, type: 'learn', key: 'runtime/compatibility', items: [
 		{ text: 'Web frameworks', header: true, anchor: true, type: 'learn', key: 'runtime/frameworks', slug: '/documentacao/produtos/devtools/azion-edge-runtime/compatibilidade-frameworks/' },
 		{ text: 'Node.js', header: true, anchor: true, type: 'learn', key: 'runtime/node', slug: '/documentacao/produtos/devtools/azion-edge-runtime/compatibilidade/node/' },
+		{ text: 'Use polyfills', header: true, anchor: true, type: 'learn', key: 'runtime/polyfills', slug: '/documentacao/devtools/guias/use-polyfills/' },
 	]},
 
 	{ text: 'Exemplos em JavaScript', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/edge-application/edge-functions/javascript-examples/', key: 'runtime/jsExamples' },
