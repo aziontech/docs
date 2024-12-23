@@ -25,7 +25,7 @@ export default [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/edge-firewall-definir-main-settings/', key: 'secureMainSettings' },
             { text: 'Instancie uma edge function', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/instanciar-edge-functions/', key: 'secureFunctions' },
             { text: 'Trabalhe com rules engine', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/trabalhar-com-rules-engine/', key: 'secureRules' },
-
+						{ text: 'Proteja seu domínio', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/proteja-seu-dominio/', key: 'secureDomain' },
         ]
     },
 
