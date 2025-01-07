@@ -4,11 +4,13 @@ import { createReadStream } from 'fs'
 import path from 'path'
 import matter from 'gray-matter'
 
-let PATH = {}
-PATH.csv = './www.azion.com_permanent_redirects_20241225.csv'
-PATH.docs = `${process.env.OLDPWD}/src/content/docs`
 
 let counterFoundLinks = 0
+let PATH = {
+	csv: './www.azion.com_permanent_redirects_20241225.csv',
+	docs: `${process.env.OLDPWD}/src/content/docs`
+}
+const wwwazioncom = 'https://www.azion.com'
 
 function findReplace(content, oldUrl, newUrl) {
 	return content.replace(oldUrl, newUrl)
@@ -36,37 +38,52 @@ async function loadRedirects() {
 	return redirects
 }
 
-async function processFile(filePath, redirects) {	
-	fs.readFile(filePath, function(err, content) {
+
+async function processFile(filePath, redirects) {
+	fs.readFile(filePath, async (err, content) => {
 		if(err) {
 			console.error(err)
 			return
 		}
 
 		const { data, content: markdownContent } = matter(content)
-		const utf8Content = Buffer.from(markdownContent).toString('utf-8')
+		const utf8Content = Buffer.from(content).toString('utf-8')
 
-		for(let i = 0; i < redirects.length; i++) {
-			const item = redirects[i]
-			const url3xx = item.initialUrl
+		for (const item of redirects) {
+			const pagePermalink = item.page.replace(wwwazioncom, '').replace('/pt-br', '').replace('/en', '')
+			const url30x = item.initialUrl === wwwazioncom ? wwwazioncom : item.initialUrl
 			const url200 = item.destinationUrl
-			const rgx = new RegExp(`(${url3xx})`, 'g')
+			const isRoot = url30x === wwwazioncom
+			const rgx = new RegExp(`\\(${url30x}\\)`, 'g')
+			const contentMatch = utf8Content.match(rgx)
 
-			if(!utf8Content.match(rgx)) {
-				continue
-			}
-
+			if(!contentMatch) continue
 			counterFoundLinks++
-			const newContent = findReplace(markdownContent, url3xx, url200)
-			const updatedContent = matter.stringify(data, newContent)
-			
-			fs.writeFile(filePath, updatedContent)
+
+			console.log(`{
+			isRoot: ${isRoot},
+			pagePermalink: ${pagePermalink},
+			file: ${filePath},
+			permalink: ${data.permalink},
+			rgx: ${rgx},
+			url30x: ${url30x},
+			url200: ${url200},
+			contentMatch: ${contentMatch},
+			contentMatchCount: ${contentMatch.length},
+			processedCount: ${counterFoundLinks}
+			}`)
+
+			const newContent = findReplace(utf8Content, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgx, `(${url200})`)
+			await fs.writeFile(filePath, newContent, async (err) => {
+				if(err) throw err
+				console.log(`[OK] ${filePath} updated`)
+			})
 		}
 	})
 }
 
-async function processDirectory(directory, redirects) {
-	fs.readdir(directory, { withFileTypes: true }, async (err, entries) => {
+function processDirectory(directory, redirects) {
+	fs.readdir(directory, { withFileTypes: true }, (err, entries) => {
 		if (err) {
 			console.error('[ERROR] directory can not be readed:', err)
 			return
@@ -76,9 +93,9 @@ async function processDirectory(directory, redirects) {
 			const fullPath = path.join(directory, entry.name)
 
 			if(entry.isDirectory()) {
-				await	processDirectory(fullPath, redirects)
+				processDirectory(fullPath, redirects)
 			} else if (entry.isFile()) {
-				await processFile(fullPath, redirects)
+				processFile(fullPath, redirects)
 			} else {
 				console.error(`[ERROR] ${fullPath} is not a file or directory`)
 			}
@@ -89,12 +106,7 @@ async function processDirectory(directory, redirects) {
 async function main() {
 	try {
 		const redirects = await loadRedirects()
-		await processDirectory(PATH.docs, redirects)
-		
-		console.log(`{
-			totalRedirects: ${redirects.length},
-			counterFoundLinks: ${counterFoundLinks}
-		}`)
+		processDirectory(PATH.docs, redirects)
 	} catch (error) {
 		console.error('[ERROR] ', error)
 		process.exit(1)
