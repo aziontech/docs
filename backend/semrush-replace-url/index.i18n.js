@@ -2,19 +2,13 @@ import { parse } from 'csv-parse'
 import fs from 'fs'
 import { createReadStream } from 'fs'
 import path from 'path'
-import matter from 'gray-matter'
-
 
 let counterFoundLinks = 0
 let PATH = {
 	csv: './www.azion.com_permanent_redirects_20241225.csv',
-	docs: `${process.env.OLDPWD}/src/content/docs`
+	i18n: `${process.env.OLDPWD}/src/i18n`
 }
 const wwwazioncom = 'https://www.azion.com'
-
-function findReplace(content, oldUrl, newUrl) {
-	return content.replace(oldUrl, newUrl)
-}
 
 async function loadRedirects() {
 	const redirects = []
@@ -38,7 +32,6 @@ async function loadRedirects() {
 	return redirects
 }
 
-
 async function processFile(filePath, redirects) {
 	fs.readFile(filePath, async (err, content) => {
 		if(err) {
@@ -46,15 +39,13 @@ async function processFile(filePath, redirects) {
 			return
 		}
 
-		const { data, content: markdownContent } = matter(content)
 		const utf8Content = Buffer.from(content).toString('utf-8')
 
 		for (const item of redirects) {
-			const pagePermalink = item.page.replace(wwwazioncom, '').replace('/pt-br', '').replace('/en', '')
 			const url30x = item.initialUrl === wwwazioncom ? wwwazioncom : item.initialUrl
 			const url200 = item.destinationUrl
 			const isRoot = url30x === wwwazioncom
-			const rgx = new RegExp(`\\(${url30x}\\)`, 'g')
+			const rgx = new RegExp(`${url30x}`, 'g')
 			const contentMatch = utf8Content.match(rgx)
 
 			if(!contentMatch) continue
@@ -62,9 +53,7 @@ async function processFile(filePath, redirects) {
 
 			console.log(`{
 			isRoot: ${isRoot},
-			pagePermalink: ${pagePermalink},
 			file: ${filePath},
-			permalink: ${data.permalink},
 			rgx: ${rgx},
 			url30x: ${url30x},
 			url200: ${url200},
@@ -73,7 +62,7 @@ async function processFile(filePath, redirects) {
 			processedCount: ${counterFoundLinks}
 			}`)
 
-			const newContent = findReplace(utf8Content, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgx, `(${url200})`)
+			const newContent = utf8Content.replace(isRoot ? /https\:\/\/www\.azion\.com\// : rgx, url200)
 			await fs.writeFile(filePath, newContent, async (err) => {
 				if(err) throw err
 				console.log(`[OK] ${filePath} updated`)
@@ -106,7 +95,7 @@ function processDirectory(directory, redirects) {
 async function main() {
 	try {
 		const redirects = await loadRedirects()
-		processDirectory(PATH.docs, redirects)
+		processDirectory(PATH.i18n, redirects)
 	} catch (error) {
 		console.error('[ERROR] ', error)
 		process.exit(1)
