@@ -51,10 +51,10 @@ async function processFile(filePath, redirects) {
 
 		for (const item of redirects) {
 			const pagePermalink = item.page.replace(wwwazioncom, '').replace('/pt-br', '').replace('/en', '')
-			const url30x = item.initialUrl === wwwazioncom ? wwwazioncom : item.initialUrl // add .replace(wwwazioncom, '') to find permalinks only
-			const url200 = item.destinationUrl // add .replace(wwwazioncom, '') to find permalinks only
+			const url30x = item.initialUrl === wwwazioncom ? wwwazioncom : item.initialUrl.replace(wwwazioncom, '') // add .replace(wwwazioncom, '') to find permalinks only
+			const url200 = item.destinationUrl.replace(wwwazioncom, '') // add .replace(wwwazioncom, '') to find permalinks only
 			const isRoot = url30x === wwwazioncom
-			const rgx = new RegExp(`\\(${url30x}\\)`, 'g')
+			const rgx = new RegExp(`\\(${url30x}\\#`, 'g')
 			const contentMatch = utf8Content.match(rgx)
 
 			if(!contentMatch) continue
@@ -73,10 +73,10 @@ async function processFile(filePath, redirects) {
 			processedCount: ${counterFoundLinks}
 			}`)
 
-			const newContent = findReplace(utf8Content, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgx, `(${url200})`)
+			const newContent = findReplace(utf8Content, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgx, `(${url200}#`)
 			await fs.writeFile(filePath, newContent, async (err) => {
 				if(err) throw err
-				console.log(`[OK] ${filePath} updated`)
+				// console.log(`[OK] ${filePath} updated`)
 			})
 		}
 	})
