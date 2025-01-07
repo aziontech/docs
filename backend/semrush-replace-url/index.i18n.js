@@ -45,7 +45,7 @@ async function processFile(filePath, redirects) {
 			const url30x = item.initialUrl === wwwazioncom ? wwwazioncom : item.initialUrl
 			const url200 = item.destinationUrl
 			const isRoot = url30x === wwwazioncom
-			const rgx = new RegExp(`${url30x}`, 'g')
+			const rgx = new RegExp(`'${url30x}'`, 'g')
 			const contentMatch = utf8Content.match(rgx)
 
 			if(!contentMatch) continue
@@ -62,7 +62,7 @@ async function processFile(filePath, redirects) {
 			processedCount: ${counterFoundLinks}
 			}`)
 
-			const newContent = utf8Content.replace(isRoot ? /https\:\/\/www\.azion\.com\// : rgx, url200)
+			const newContent = utf8Content.replace(isRoot ? /'https\:\/\/www\.azion\.com\/'/ : rgx, `'${url200}'`)
 			await fs.writeFile(filePath, newContent, async (err) => {
 				if(err) throw err
 				console.log(`[OK] ${filePath} updated`)
