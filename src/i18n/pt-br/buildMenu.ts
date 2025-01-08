@@ -52,7 +52,7 @@ export default [
         ]
     },
 
-    { text: 'Environment Variables', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/environment-variables/', key: 'envVars', hasLabel: 'menu.buildData', addBorder: true, },
+    { text: 'Environment Variables', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build'/en/'vironment-variables/', key: 'envVars', hasLabel: 'menu.buildData', addBorder: true, },
 
 
     { text: 'Monitore métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/troubleshooting/monitorar-metricas/', key: 'understandMetrics', hasLabel: 'menu.buildTroubleshoot' },

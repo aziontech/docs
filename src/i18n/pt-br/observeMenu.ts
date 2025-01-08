@@ -43,7 +43,7 @@ export default [
 
     {
         text: 'Analise logs', header: true, type: 'learn', key: 'observeanalyzeLogs', hasLabel: 'menu.realTimeEvents', items: [
-            { text: 'Entenda logs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/entender-logs/', key: 'observeUnderstandLogs' },
+            { text: 'Entenda logs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe'/en/'tender-logs/', key: 'observeUnderstandLogs' },
             { text: 'Adicione filtros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/adicionar-filtros-events/', key: 'observeEventsAddFilters' },
             { text: 'Colete dados de navegação', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/analisar-dados-navegacao/', key: 'observeEventsCollectNavigationData' },
             { text: 'Use a API GraphQL', header: true, anchor: true, type: 'learn', slug: 'documentacao/produtos/graphql-api/visao-geral/', key: 'observeGql' },

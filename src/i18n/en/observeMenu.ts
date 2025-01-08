@@ -64,15 +64,15 @@ export default [
         ]
     },
 
-    { text: 'AWS Kinesis Data Firehose', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-amazon-kinesis/', key: 'observeIntegrationsAws', hasLabel: 'menu.observeIntegrations' },
+    { text: 'AWS Kinesis Data Firehose', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides'/en/'dpoint-amazon-kinesis/', key: 'observeIntegrationsAws', hasLabel: 'menu.observeIntegrations' },
     { text: 'Azion Edge Storage', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/connector-azion-edge-storage/', key: 'observeIntegrationsEdgeStorage' },
-    { text: 'Azure Blob Storage', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-azure-blob/', key: 'observeIntegrationsBlob' },
-    { text: 'Azure Monitor', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-azure-monitor/', key: 'observeIntegrationsMonitor' },
-    { text: 'Datadog', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-datadog/', key: 'observeIntegrationsDatadog' },
-    { text: 'Elasticsearch', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-elasticsearch/', key: 'observeIntegrationsElasticsearch' },
-    { text: 'Google BigQuery', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-google-bigquery/', key: 'observeIntegrationsBigQuery' },
-    { text: 'S3 - Simple Storage Service', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-amazon-s3/', key: 'observeIntegrationsS3' },
-    { text: 'Splunk', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-splunk/', key: 'observeIntegrationsSplunk' },
+    { text: 'Azure Blob Storage', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides'/en/'dpoint-azure-blob/', key: 'observeIntegrationsBlob' },
+    { text: 'Azure Monitor', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides'/en/'dpoint-azure-monitor/', key: 'observeIntegrationsMonitor' },
+    { text: 'Datadog', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides'/en/'dpoint-datadog/', key: 'observeIntegrationsDatadog' },
+    { text: 'Elasticsearch', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides'/en/'dpoint-elasticsearch/', key: 'observeIntegrationsElasticsearch' },
+    { text: 'Google BigQuery', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides'/en/'dpoint-google-bigquery/', key: 'observeIntegrationsBigQuery' },
+    { text: 'S3 - Simple Storage Service', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides'/en/'dpoint-amazon-s3/', key: 'observeIntegrationsS3' },
+    { text: 'Splunk', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides'/en/'dpoint-splunk/', key: 'observeIntegrationsSplunk' },
     { text: 'Standard HTTP/HTTPS POST', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/connector-standard-https-post/', key: 'observeIntegrationsStandard' },
 
 

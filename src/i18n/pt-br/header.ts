@@ -27,7 +27,7 @@ const menuSecondary = [
   {
     text: "Contato",
     title: "Contact Sales",
-    link: "/pt-br/contate-vendas/",
+    link: "'/pt-br/contate-vendas/'/",
     destak: false,
   },
   {
@@ -87,7 +87,7 @@ const bottomButtonsMobile = [
   },
   {
     label: 'Contato',
-    url: '/pt-br/contate-vendas/',
+    url: ''/pt-br/contate-vendas/'/',
     urlTitle: 'Contact Page',
     icon: 'pi pi-chevron-right text-xs'
   }
@@ -134,4 +134,6 @@ export default {
   algoliaIndex,
   algoliaModel,
   algoliaInputPlaceholder
+}
+goliaInputPlaceholder
 }

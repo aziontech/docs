@@ -62,7 +62,7 @@ const listData = [
       },
       {
         title: "Pricing",
-        link: "/en/pricing/"
+        link: "'/en/pricing/'/"
       },
       {
         title: "Contact Sales",
@@ -130,6 +130,11 @@ const copyright = '© Azion Technologies, Inc or its affiliates. All rights rese
 
 export default {
   listData,
+  cta,
+  copyright,
+  socialButtons
+}
+
   cta,
   copyright,
   socialButtons

@@ -16,7 +16,7 @@
 
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/edge-application/edge-functions/runtime/overview', hasLabel: 'menu.runtime' },
 	{ text: 'API Reference', header: true, type: 'learn', key: 'apiReference', items: [
-		{ text: 'Environment Variables', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/environment-variables', key: 'runtime/variables' },
+		{ text: 'Environment Variables', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference'/en/'vironment-variables', key: 'runtime/variables' },
 		{ text: 'Metadata', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/metadata', key: 'runtime/metadata' },
 		{ text: 'Network List interface', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/network-list', key: 'runtime/network-list' },
 		{ text: 'Edge Storage', slug: '/documentation/runtime/api-reference/storage/', key: 'runtime/storage-api' },

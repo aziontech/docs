@@ -62,7 +62,7 @@ const menuSecondaryMobile = [
       {
         label: 'Support',
         // icon: 'pi pi-question-circle'
-        url: '/en/pricing/'
+        url: ''/en/pricing/'/'
       },
       {
         label: 'Privacy policy',
@@ -134,4 +134,6 @@ export default {
   algoliaIndex,
   algoliaModel,
   algoliaInputPlaceholder
+}
+ algoliaInputPlaceholder
 }

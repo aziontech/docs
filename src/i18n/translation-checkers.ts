@@ -1,5 +1,5 @@
-import enNav from './en/nav';
-import type enUI from './en/ui';
+import enNav from '.'/en/'/nav';
+import type enUI from '.'/en/'/ui';
 import type languages from './languages';
 
 export type UIDictionaryKeys = keyof typeof enUI;

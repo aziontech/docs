@@ -3,15 +3,15 @@ import { headerMenuDict } from '../translation-checkers';
 export default headerMenuDict({
 	nav: [{
 		title: "Documentation",
-		href: "/en/documentation/"
+		href: "'/en/'/documentation/"
 	},
 	{
 		title: "Guides",
-		href: "/en/documentation/products/guides/"
+		href: "'/en/'/documentation/products/guides/"
 	},
 	{
 		title: "DevTools",
-		href: "/en/documentation/devtools/",
+		href: "'/en/'/documentation/devtools/",
 		// dropdown: [
 		//     {
 		//         title: "CLI",

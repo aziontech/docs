@@ -5,11 +5,11 @@ const listData = [
     "list": [
       {
         "title": "Sobre Nós",
-        "link": "/pt-br/sobre-nos/"
+        "link": "'/pt-br/'/sobre-nos/"
       },
       {
         "title": "Our Network",
-        "link": "/pt-br/produtos/nossa-rede/"
+        "link": "'/pt-br/'/produtos/nossa-rede/"
       },
       {
         title: "Roadmap",
@@ -17,16 +17,16 @@ const listData = [
       },
       {
         "title": "Carreiras",
-        "link": "/pt-br/carreiras/",
+        "link": "'/pt-br/'/carreiras/",
         "flag": "Estamos contratando!"
       },
       {
         "title": "Compliance",
-        "link": "/pt-br/compliance/"
+        "link": "'/pt-br/'/compliance/"
       },
       {
         "title": "Política de privacidade",
-        "link": "/pt-br/documentacao/contratos/politica-de-privacidade/"
+        "link": "'/pt-br/'/documentacao/contratos/politica-de-privacidade/"
       }
     ]
   },
@@ -35,19 +35,19 @@ const listData = [
     "list": [
       {
         "title": "Blog",
-        "link": "/pt-br/blog/"
+        "link": "'/pt-br/'/blog/"
       },
       {
         title: "Resource Hub",
-        link: "/pt-br/resource-hub/"
+        link: "'/pt-br/'/resource-hub/"
       },
       {
         title: "Learning",
-        link: "/pt-br/learning/"
+        link: "'/pt-br/'/learning/"
       },
       {
         "title": "Marketplace",
-        "link": "/pt-br/marketplace/"
+        "link": "'/pt-br/'/marketplace/"
       },
     ]
   },
@@ -60,19 +60,19 @@ const listData = [
       },
       {
         "title": "Documentação",
-        "link": "/pt-br/documentacao/"
+        "link": "'/pt-br/'/documentacao/"
       },
       {
         "title": "Preços",
-        "link": "/pt-br/precos/"
+        "link": "'/pt-br/'/precos/"
       },
       {
         "title": "Contate Vendas",
-        "link": "/pt-br/contate-vendas/"
+        "link": "'/pt-br/'/contate-vendas/"
       },
       {
         "title": "Serviços Profissionais",
-        "link": "/pt-br/servicos-profissionais/"
+        "link": "'/pt-br/'/servicos-profissionais/"
       }
     ]
   },
