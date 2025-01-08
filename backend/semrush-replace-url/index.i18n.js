@@ -42,13 +42,18 @@ async function processFile(filePath, redirects) {
 		const utf8Content = Buffer.from(content).toString('utf-8')
 
 		for (const item of redirects) {
-			const url30x = item.initialUrl === wwwazioncom ? wwwazioncom : item.initialUrl
-			const url200 = item.destinationUrl
+			const url30x = item.initialUrl === wwwazioncom ? wwwazioncom : item.initialUrl.replace(wwwazioncom, '')
+			const url200 = item.destinationUrl.replace(wwwazioncom, '')
 			const isRoot = url30x === wwwazioncom
-			const rgx = new RegExp(`'${url30x}'`, 'g')
+			const rgx = new RegExp(`${url30x}`, 'g')
 			const contentMatch = utf8Content.match(rgx)
 
-			if(!contentMatch) continue
+			if(!contentMatch) {
+				// console.log(`NOT MATCH `, `${rgx} : ${url30x}`)
+				continue
+			} else {
+				console.log(`MATCH`, `${rgx} : ${url30x}`)
+			}
 			counterFoundLinks++
 
 			console.log(`{
