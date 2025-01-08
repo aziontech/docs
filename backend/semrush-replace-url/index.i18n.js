@@ -49,7 +49,7 @@ async function processFile(filePath, redirects) {
 			const contentMatch = utf8Content.match(rgx)
 
 			if(!contentMatch) {
-				console.log(`NOT MATCH `, `${rgx} : ${url30x}`)
+				// console.log(`NOT MATCH `, `${rgx} : ${url30x}`)
 				continue
 			} else {
 				console.log(`MATCH`, `${rgx} : ${url30x}`)
