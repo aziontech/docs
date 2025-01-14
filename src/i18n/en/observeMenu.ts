@@ -60,7 +60,7 @@ export default [
         text: 'Edit a stream', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', items: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/use-data-stream/', key: 'observeConfigureMainSettings' },
             { text: 'Set a payload', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/data-stream-set-payload/', key: 'observeSetPayload' },
-            
+						{ text: 'Stop or delete a stream', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/observe/delete-data-stream/', key: 'observeDeleteStream' }
         ]
     },
 

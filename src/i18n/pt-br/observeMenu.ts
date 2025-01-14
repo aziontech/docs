@@ -63,6 +63,7 @@ export default [
         text: 'Edite um stream', header: true, type: 'learn', key: 'observeEditDataStreaming', hasLabel: 'menu.dataStreaming', items: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-usar-data-stream/', key: 'observeConfigureMainSettings' },
             { text: 'Adicione um payload', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/data-stream-adicionar-payload/', key: 'observeSetPayload' },
+						{ text: 'Parar ou deletar um stream', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/observe/deletar-data-stream/', key: 'observeDeleteStream' }
         ]
     },
 
