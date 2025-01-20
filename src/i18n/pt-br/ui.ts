@@ -1,6 +1,7 @@
 import { UIDictionary } from '../translation-checkers';
 
 export default UIDictionary({
+	'lang': 'Português',
 	'a11y.skipLink': 'Pular para o Conteúdo',
 	'a11y.sectionLink': 'Seção intitulada',
 	'navbar.a11yTitle': 'Superior',
