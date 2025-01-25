@@ -14,14 +14,14 @@
 
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
-	{ text: 'Visão geral' , header: true, anchor: true, type: 'learn',  key: 'overview', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/visao-geral/', hasLabel:'menu.runtime' },
+	{ text: 'Visão geral' , header: true, anchor: true, type: 'learn',  key: 'overview', slug: '/documentacao/runtime/visao-geral/', hasLabel:'menu.runtime' },
 	{ text: 'Referências de API', header: true, type: 'learn',  key: 'apiReference', items: [
 		{ text: 'Variáveis de Ambiente', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/environment-variables/', key: 'runtime/variables' },
 		{ text: 'Metadados', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/metadata/', key: 'runtime/metadata' },
 		{ text: 'Network List', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/network-list/', key: 'runtime/network-list' },
 		{ text: 'Edge Storage', slug: '/documentacao/runtime/api-reference/storage/', key: 'runtime/storage-api' },
 		{ text: 'Edge SQL', slug: '/documentacao/runtime/api-reference/edge-sql/', key: 'runtime/storage-api' },
-		{ text: 'Web APIs', slug: '/documentacao/produtos/edge-application/edge-functions/runtime-apis/javascript/', key: 'runtime/web-standards' },
+		{ text: 'Web APIs', slug: '/documentacao/runtime-apis/javascript/', key: 'runtime/web-standards' },
 	] },
 
 	{ text: 'Compatibilidade', header: true, type: 'learn', key: 'runtime/compatibility', items: [
@@ -30,8 +30,8 @@
 		{ text: 'Use polyfills', header: true, anchor: true, type: 'learn', key: 'runtime/polyfills', slug: '/documentacao/devtools/guias/use-polyfills/' },
 	]},
 
-	{ text: 'Exemplos em JavaScript', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/edge-application/edge-functions/javascript-examples/', key: 'runtime/jsExamples' },
-	{ text: 'Debugging', header: true, anchor: true,  type: 'learn', slug: '/documentacao/produtos/edge-application/edge-functions/debugging/', key: 'runtime/debugging' },
+	{ text: 'Exemplos em JavaScript', header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/javascript-exemplos/', key: 'runtime/jsExamples' },
+	{ text: 'Debugging', header: true, anchor: true,  type: 'learn', slug: '/documentacao/devtools/debugging/', key: 'runtime/debugging' },
 	
 	{ text: 'Desenvolvimento', header: true, type: 'learn',  key: 'development', items: [
 		{ text: 'Editor de Código', slug: '/documentacao/produtos/edge-application/edge-functions/runtime-api/code-editor/', key: 'runtime/code-editor' },
