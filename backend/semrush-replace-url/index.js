@@ -1,4 +1,4 @@
-import matter from 'gray-matter'
+// import matter from 'gray-matter'
 import { promises as fs } from 'fs';
 import path from 'path'
 
@@ -20,8 +20,7 @@ async function processFile(filePath, redirects) {
 		let fileModified = false;
 
 		const content = await fs.readFile(filePath, 'utf-8');
-		const { data, content: markdownContent } = matter(content)
-		const utf8Content = Buffer.from(content).toString('utf-8')
+		let newContent = content;
 
 		for (const item of redirects) {
 			const pagePermalink = removeHostFromUrl(item.page)
@@ -29,20 +28,19 @@ async function processFile(filePath, redirects) {
 			const url200 = removeHostFromUrl(item.destinationUrl)
 			const isRoot = isFromRoot(url30x)
 			const rgx = new RegExp(`\\(${url30x}\\)`, 'g')
-			const contentMatch = utf8Content.match(rgx)
+			const contentMatch = newContent.match(rgx)
 
 			if(!contentMatch) continue
 			
 			counterFoundLinks++
 			fileModified = true
 
-			const newContent = findReplace(utf8Content, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgx, `(${url200})`)
+			newContent = findReplace(newContent, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgx, `(${url200})`)
 
 			console.log(`{
 			isRoot: ${isRoot},
 			pagePermalink: ${pagePermalink},
 			file: ${filePath},
-			permalink: ${data.permalink},
 			rgx: ${rgx},
 			initialUrl: ${item.initialUrl},
 			url30x: ${url30x},
