@@ -1,4 +1,4 @@
-import matter from 'gray-matter'
+// import matter from 'gray-matter'
 import { promises as fs } from 'fs';
 import path from 'path'
 
@@ -17,38 +17,45 @@ function findReplace(content, oldUrl, newUrl) {
 
 async function processFile(filePath, redirects) {
 	try {
-		let fileModified = false;
-
 		const content = await fs.readFile(filePath, 'utf-8');
-		const { data, content: markdownContent } = matter(content)
-		const utf8Content = Buffer.from(content).toString('utf-8')
+		
+		let newContent = content;
+		let fileModified = false;
 
 		for (const item of redirects) {
 			const pagePermalink = removeHostFromUrl(item.page)
 			const url30x = isFromRoot(item.initialUrl) ? wwwazioncom() : removeHostFromUrl(item.initialUrl);
 			const url200 = removeHostFromUrl(item.destinationUrl)
 			const isRoot = isFromRoot(url30x)
-			const rgx = new RegExp(`\\(${url30x}\\)`, 'g')
-			const contentMatch = utf8Content.match(rgx)
-
-			if(!contentMatch) continue
 			
+			const rgxMdLink = new RegExp(`\\(${url30x}\\)`, 'g')
+			const contentMatchMdLink = newContent.match(rgxMdLink)
+
+			const rgxMdLinkAnchor = new RegExp(`\\(${url30x}\\#`, 'g')
+			const contentMatchMdLinkAnchor = newContent.match(rgxMdLinkAnchor)
+
+			if (!contentMatchMdLink && !contentMatchMdLinkAnchor) continue;
+
 			counterFoundLinks++
 			fileModified = true
+			
+			if(contentMatchMdLinkAnchor.length)
+				newContent = findReplace(newContent, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgxMdLink, `(${url200})`)
 
-			const newContent = findReplace(utf8Content, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgx, `(${url200})`)
+			if(contentMatchMdLinkAnchor.length)
+				newContent = findReplace(newContent, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgxMdLinkAnchor, `(${url200}#`)
 
 			console.log(`{
 			isRoot: ${isRoot},
 			pagePermalink: ${pagePermalink},
 			file: ${filePath},
-			permalink: ${data.permalink},
-			rgx: ${rgx},
+			rgxMdLink: ${rgxMdLink},
+			contentMatchMdLink: ${contentMatchMdLink},
+			rgxMdLinkAnchor: ${rgxMdLinkAnchor},
+			contentMatchMdLinkAnchor: ${contentMatchMdLinkAnchor},
 			initialUrl: ${item.initialUrl},
 			url30x: ${url30x},
 			url200: ${url200},
-			contentMatch: ${contentMatch},
-			contentMatchCount: ${contentMatch.length},
 			processedCount: ${counterFoundLinks}
 			}`)
 			
