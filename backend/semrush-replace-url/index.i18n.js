@@ -3,16 +3,13 @@ import { promises as fs } from 'fs';
 import { createReadStream } from 'fs';
 import path from 'path';
 
+import { wwwazioncom, removeHostAndLangFromUrl, isFromRoot } from './helpers/url.js';
+
 let counterFoundLinks = 0;
 const PATH = {
   csv: './www.azion.com_permanent_redirects_20241225.csv',
   i18n: `${process.env.OLDPWD}/src/i18n`
 };
-const wwwazioncom = 'https://www.azion.com';
-const removeLangFromUrl = (url) => url.replace('/pt-br', '').replace('/en', '');
-const removeHostFromUrl = (url) => url.replace(wwwazioncom, '');
-const removeHostAndLangFromUrl = (url) => removeLangFromUrl(removeHostFromUrl(url));
-const isFromRoot = (url) => url === wwwazioncom;
 
 async function loadRedirects() {
   const redirects = [];
@@ -46,7 +43,7 @@ async function processFile(filePath, redirects) {
     let fileModified = false;
 
     for (const item of redirects) {
-      const url30x = isFromRoot(item.initialUrl) ? wwwazioncom : removeHostAndLangFromUrl(item.initialUrl);
+      const url30x = isFromRoot(item.initialUrl) ? wwwazioncom() : removeHostAndLangFromUrl(item.initialUrl);
       const url200 = removeHostAndLangFromUrl(item.destinationUrl);
       const isRoot = isFromRoot(url30x);
       const rgx = new RegExp(`'${url30x}'`, 'g');
