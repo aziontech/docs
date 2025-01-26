@@ -21,17 +21,14 @@ async function processFile(filePath, redirects) {
       const url30x = isFromRoot(item.initialUrl) ? wwwazioncom() : removeHostAndLangFromUrl(item.initialUrl);
       const url200 = removeHostAndLangFromUrl(item.destinationUrl);
       const isRoot = isFromRoot(url30x);
-      
-			const rgx = new RegExp(`'${url30x}'`, 'g');
-      const contentMatch = newContent.match(rgx);
-
+  
 			const rgxSingleQuote = new RegExp(`'${url30x}'`, 'g');
-			const rgxDoubleQuote = new RegExp(`"${url30x}"`, 'g');
-			
 			const contentMatchSingleQuote = newContent.match(rgxSingleQuote);
+			
+			const rgxDoubleQuote = new RegExp(`"${url30x}"`, 'g');
 			const contentMatchDoubleQuote = newContent.match(rgxDoubleQuote);
 
-      if (!contentMatchSingleQuote || !contentMatchDoubleQuote) continue;
+      if (!contentMatchSingleQuote && !contentMatchDoubleQuote) continue;
 
 			counterFoundLinks++;
       fileModified = true;
@@ -39,7 +36,8 @@ async function processFile(filePath, redirects) {
       console.log({
         isRoot,
         file: filePath,
-        rgx: rgx.toString(),
+        rgxSingleQuote: rgxSingleQuote.toString(),
+        rgxDoubleQuote: rgxDoubleQuote.toString(),
         url30x,
         url200,
         contentMatchCount: contentMatch.length,
@@ -48,14 +46,14 @@ async function processFile(filePath, redirects) {
 
 			if(contentMatchSingleQuote.length) {
 				newContent = newContent.replace(
-					isRoot ? /'https\:\/\/www\.azion\.com\/'/ : rgx,
+					isRoot ? /'https\:\/\/www\.azion\.com\/'/ : rgxSingleQuote,
 					`'${url200}'`
 				);
 			}
 
 			if(contentMatchDoubleQuote.length) {
 				newContent = newContent.replace(
-					isRoot ? /"https\:\/\/www\.azion\.com\/"/ : rgx,
+					isRoot ? /"https\:\/\/www\.azion\.com\/"/ : rgxDoubleQuote,
 					`'${url200}'`
 				);
 			}

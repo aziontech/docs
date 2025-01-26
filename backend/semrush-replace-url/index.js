@@ -27,26 +27,35 @@ async function processFile(filePath, redirects) {
 			const url30x = isFromRoot(item.initialUrl) ? wwwazioncom() : removeHostFromUrl(item.initialUrl);
 			const url200 = removeHostFromUrl(item.destinationUrl)
 			const isRoot = isFromRoot(url30x)
-			const rgx = new RegExp(`\\(${url30x}\\)`, 'g')
-			const contentMatch = newContent.match(rgx)
-
-			if(!contentMatch) continue
 			
+			const rgxMdLink = new RegExp(`\\(${url30x}\\)`, 'g')
+			const contentMatchMdLink = newContent.match(rgxMdLink)
+
+			const rgxMdLinkAnchor = new RegExp(`\\(${url30x}\\#`, 'g')
+			const contentMatchMdLinkAnchor = newContent.match(rgxMdLinkAnchor)
+
+			if (!contentMatchMdLink && !contentMatchMdLinkAnchor) continue;
+
 			counterFoundLinks++
 			fileModified = true
+			
+			if(contentMatchMdLinkAnchor.length)
+				newContent = findReplace(newContent, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgxMdLink, `(${url200})`)
 
-			newContent = findReplace(newContent, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgx, `(${url200})`)
+			if(contentMatchMdLinkAnchor.length)
+				newContent = findReplace(newContent, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgxMdLinkAnchor, `(${url200}#`)
 
 			console.log(`{
 			isRoot: ${isRoot},
 			pagePermalink: ${pagePermalink},
 			file: ${filePath},
-			rgx: ${rgx},
+			rgxMdLink: ${rgxMdLink},
+			contentMatchMdLink: ${contentMatchMdLink},
+			rgxMdLinkAnchor: ${rgxMdLinkAnchor},
+			contentMatchMdLinkAnchor: ${contentMatchMdLinkAnchor},
 			initialUrl: ${item.initialUrl},
 			url30x: ${url30x},
 			url200: ${url200},
-			contentMatch: ${contentMatch},
-			contentMatchCount: ${contentMatch.length},
 			processedCount: ${counterFoundLinks}
 			}`)
 			
