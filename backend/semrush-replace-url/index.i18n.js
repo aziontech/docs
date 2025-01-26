@@ -12,7 +12,9 @@ const PATH = {
 
 async function processFile(filePath, redirects) {
   try {
-    let newContent = await fs.readFile(filePath, 'utf-8');
+    const content = await fs.readFile(filePath, 'utf-8');
+		
+		let newContent = content;
     let fileModified = false;
 
     for (const item of redirects) {

@@ -17,10 +17,10 @@ function findReplace(content, oldUrl, newUrl) {
 
 async function processFile(filePath, redirects) {
 	try {
-		let fileModified = false;
-
 		const content = await fs.readFile(filePath, 'utf-8');
+		
 		let newContent = content;
+		let fileModified = false;
 
 		for (const item of redirects) {
 			const pagePermalink = removeHostFromUrl(item.page)
