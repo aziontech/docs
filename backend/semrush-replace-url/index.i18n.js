@@ -53,7 +53,7 @@ async function processFile(filePath, redirects) {
 
 			if(contentMatchDoubleQuote.length) {
 				newContent = newContent.replace(
-					isRoot ? /"https\:\/\/www\.azion\.com\/"çççç/ : rgx,
+					isRoot ? /"https\:\/\/www\.azion\.com\/"/ : rgx,
 					`'${url200}'`
 				);
 			}
