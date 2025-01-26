@@ -12,20 +12,21 @@ const PATH = {
 
 async function processFile(filePath, redirects) {
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
-		console.log(`[INFO] Opened file ${filePath}...`);
-    let newContent = content;
+    let newContent = await fs.readFile(filePath, 'utf-8');
     let fileModified = false;
 
     for (const item of redirects) {
       const url30x = isFromRoot(item.initialUrl) ? wwwazioncom() : removeHostAndLangFromUrl(item.initialUrl);
       const url200 = removeHostAndLangFromUrl(item.destinationUrl);
       const isRoot = isFromRoot(url30x);
+      
+			const rgx = new RegExp(`'${url30x}'`, 'g');
+      const contentMatch = newContent.match(rgx);
 
 			const rgxSingleQuote = new RegExp(`'${url30x}'`, 'g');
-			const contentMatchSingleQuote = newContent.match(rgxSingleQuote);
-			
 			const rgxDoubleQuote = new RegExp(`"${url30x}"`, 'g');
+			
+			const contentMatchSingleQuote = newContent.match(rgxSingleQuote);
 			const contentMatchDoubleQuote = newContent.match(rgxDoubleQuote);
 
       if (!contentMatchSingleQuote || !contentMatchDoubleQuote) continue;
@@ -36,20 +37,26 @@ async function processFile(filePath, redirects) {
       console.log({
         isRoot,
         file: filePath,
-        rgxSingleQuote: rgxSingleQuote.toString(),
-        rgxDoubleQuote: rgxDoubleQuote.toString(),
+        rgx: rgx.toString(),
         url30x,
         url200,
-        contentMatchSingleQuoteCount: contentMatchSingleQuote.length,
-				contentMatchDoubleQuoteCount: contentMatchDoubleQuote.length,
+        contentMatchCount: contentMatch.length,
         processedCount: counterFoundLinks
       });
 
-			if(contentMatchSingleQuote.length)
-				newContent = newContent.replace(isRoot ? /'https\:\/\/www\.azion\.com\/'/ : rgxSingleQuote, `'${url200}'`);
-			
-			if(contentMatchDoubleQuote.length)
-				newContent = newContent.replace(isRoot ? /"https\:\/\/www\.azion\.com\/"/ : rgxDoubleQuote, `"${url200}"`);
+			if(contentMatchSingleQuote.length) {
+				newContent = newContent.replace(
+					isRoot ? /'https\:\/\/www\.azion\.com\/'/ : rgx,
+					`'${url200}'`
+				);
+			}
+
+			if(contentMatchDoubleQuote.length) {
+				newContent = newContent.replace(
+					isRoot ? /"https\:\/\/www\.azion\.com\/"çççç/ : rgx,
+					`'${url200}'`
+				);
+			}
     }
 
     if (fileModified) {
