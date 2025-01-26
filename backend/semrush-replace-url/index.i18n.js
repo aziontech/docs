@@ -13,6 +13,7 @@ const PATH = {
 async function processFile(filePath, redirects) {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
+		console.log(`[INFO] Opened file ${filePath}...`);
     let newContent = content;
     let fileModified = false;
 
