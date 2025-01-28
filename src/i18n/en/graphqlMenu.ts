@@ -21,8 +21,8 @@
 	{ text: 'Features',header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/features/', key: 'features' },
 
 	{ text: 'Fields', header: true, key: 'fields', type: 'learn', items: [
-		{ text: 'Real-Time Events GQL', slug: '/documentation/products/graphql-api/features/events-fields/', key: 'fields/Events' },
-		{ text: 'Real-Time Metrics GQL', slug: '/documentation/products/graphql-api/features/metrics-fields/', key: 'fields/Metrics' },
+		{ text: 'Real-Time Events GQL', slug: '/documentation/devtools/graphql-api/features/gql-real-time-events-fields/', key: 'fields/Events' },
+		{ text: 'Real-Time Metrics GQL', slug: '/documentation/devtools/graphql-api/features/gql-real-time-metrics-fields/', key: 'fields/Metrics' },
 		{ text: 'Billing GQL', slug: '/documentation/devtools/graphql-api/features/gql-billing-fields/', key: 'fields/Billing' },
 		{ text: 'Accounting GQL', slug: '/documentation/devtools/graphql-api/features/gql-accounting-fields/', key: 'fields/Accounting' },
 	]

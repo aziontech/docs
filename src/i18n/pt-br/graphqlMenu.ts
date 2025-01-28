@@ -22,8 +22,8 @@
 	{ text: 'Recursos', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api-recursos', key: 'features' },
 
 	{ text: 'Campos', header: true, key: 'fields', type: 'learn', items: [
-		{ text: 'Real-Time Events GQL', slug: '/documentacao/produtos/graphql-api/recursos/campos-events/', key: 'fields/Events' },
-		{ text: 'Real-Time Metrics GQL', slug: '/documentacao/produtos/graphql-api/recursos/campos-metrics/', key: 'fields/Metrics' },
+		{ text: 'Real-Time Events GQL', slug: '/documentacao/devtools/graphql-api/recursos/campos-gql-real-time-events/', key: 'fields/Events' },
+		{ text: 'Real-Time Metrics GQL', slug: '/documentacao/devtools/graphql-api/recursos/campos-gql-real-time-metrics/', key: 'fields/Metrics' },
 		{ text: 'Billing GQL', slug: '/documentacao/devtools/graphql-api/recursos/campos-gql-billing/', key: 'fields/Billing' },
 		{ text: 'Accounting GQL', slug: '/documentacao/devtools/graphql-api/recursos/campos-gql-accounting/', key: 'fields/Accounting' },
 	]
