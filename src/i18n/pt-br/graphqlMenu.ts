@@ -39,7 +39,9 @@
 		{ text: 'Como selecionar Top X queries', slug: '/documentacao/produtos/guias/graphql-query-top-x', key: 'guides/graphql-top-x' },
 		{ text: 'Como consultar dados de usuários conectados', slug: '/documentacao/produtos/guias/query-dados-connected-users-com-graphql/', key: 'guides/connected-users-graphql' },
 		{ text: 'Como consultar dados do Bot Manager', slug: '/documentacao/produtos/guias/consultar-dados-bot-manager-com-graphql/', key: 'guides/bot-data-graphql' },
-		{ text: 'Como consultar as principais URLs impactadas por bots', slug: '/documentacao/produtos/guias/consultar-dados-bot-manager-breakdown-com-graphql/', key: 'guides/bot-breakdown-data-graphql' }
+		{ text: 'Como consultar as principais URLs impactadas por bots', slug: '/documentacao/produtos/guias/consultar-dados-bot-manager-breakdown-com-graphql/', key: 'guides/bot-breakdown-data-graphql' },
+		{ text: 'Como identificar os principais IPs gerando tráfego de ataque', slug: '/documentacao/produtos/guias/consultar-top-ips-gerando-trafego-de-ataque-com-graphql/', key: 'guides/top-ips-graphql' },
+		{ text: 'Como identificar os principais ataques ', slug: '/documentacao/produtos/guias/consultar-top-attacks-com-graphql/', key: 'guides/bot-top-attacks-graphql' }
 	] },
 
 
