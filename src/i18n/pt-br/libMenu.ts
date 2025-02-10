@@ -14,7 +14,7 @@ export default [
 
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
-	{ text: 'Visão Geral', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentacao/produtos/azion-lib/overview' },
+	{ text: 'Visão geral', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentacao/produtos/azion-lib/overview' },
 
 	{ text: 'Uso', header: true, key: 'commands', type: 'learn', items: [
 		{ text: 'Client', slug: '/documentacao/produtos/azion-lib/client/', key: 'usage/client' },
