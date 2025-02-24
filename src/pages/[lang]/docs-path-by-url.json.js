@@ -36,12 +36,14 @@ export async function GET({ params, props }) {
     const lang = id.split('/')[0];
     const slug = docsSlug[lang];
 		const permalink = `${params.lang}/${removeTrailingLeadingSlashs(page.permalink)}`;
+    const namespace = page.namespace
 
     return {
 			repository: 'docs',
       filePath: `${paths.collections}/${collection}/${id}`,
 			permalink: `/${permalink}/`,
-      url: `${SITE_URL}/${permalink}/`
+      url: `${SITE_URL}/${permalink}/`,
+      namespace
     };
   });
 
