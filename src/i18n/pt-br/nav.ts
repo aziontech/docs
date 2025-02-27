@@ -112,6 +112,7 @@ export default NavDictionary([
 	{ text: 'Web Application Firewall', key: 'reference/webApplicationFirewall', slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/' },
 	{ text: 'WAF Rule Sets', key: 'reference/wafRuleSets', slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/rule-sets/' },
 	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/custom-allowed-rules/' },
+	{ text: 'Bot Manager', key: 'reference/botManager', slug: '/documentacao/produtos/secure/edge-firewall/bot-manager/' },
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/secure/edge-firewall/edge-functions/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/secure/edge-firewall/edge-functions-instances/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/secure/edge-firewall/rules-engine/' },
