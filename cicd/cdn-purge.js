@@ -7,14 +7,14 @@ import axios from "axios"
 
 function basicToken() {
 	let token = '';
-	
+
 	args.argv.forEach((val) => {
 		let t = val.match(/basic_token=(.*)/gi) || [];
 		if (t.length) {
 			token = t[0]
 		}
 	});
-	
+
 	return token.replace(`basic_token=`, '') + '==' || null;
 }
 
@@ -58,54 +58,67 @@ async function purge(strUri, token, data) {
 	return response.data;
 }
 
-async function performPurge(TOKEN_API_URL, PURGE_WILDCARD_URL) {
-	try {
-		const tokenRequest = await fetchToken(TOKEN_API_URL);
-		const token = tokenRequest.token;
+async function docsPagesWildcard(PURGE_WILDCARD_URL, token) {
+	console.log(
+		await purge(PURGE_WILDCARD_URL, token, {
+			urls: ["https://www.azion.com/pt-br/documentacao/*"],
+			method: "delete",
+		})
+	);
 
-		console.log(
-			await purge(PURGE_WILDCARD_URL, token, {
-				urls: ["https://www.azion.com/en/documentation/*"],
-				method: "delete",
-			})
-		);
-
-		console.log(
-			await purge(PURGE_WILDCARD_URL, token, {
-				urls: ["https://www.azion.com/pt-br/documentacao/*"],
-				method: "delete",
-			})
-		);
-	} catch (error) {
-		console.error(error);
-	}
+	console.log(
+		await purge(PURGE_WILDCARD_URL, token, {
+			urls: ["https://www.azion.com/en/documentation/*"],
+			method: "delete",
+		})
+	);
 }
 
-async function performPurgeUrl(TOKEN_API_URL, PURGE_URL) {
-	try {
-		const tokenRequest = await fetchToken(TOKEN_API_URL);
-		const token = tokenRequest.token;
-
-		console.log(
-			await purge(PURGE_URL, token, {
-				urls: [
-					"https://www.azion.com/en/docs-path-by-url.json",
-					"https://www.azion.com/pt-br/docs-path-by-url.json"
-				],
-				method: "delete",
-			})
-		);
-	} catch (error) {
-		console.error(error);
-	}
+async function astroDocsWildcard(PURGE_WILDCARD_URL, token) {
+	console.log(
+		await purge(PURGE_WILDCARD_URL, token, {
+			urls: ["https://www.azion.com/_astro_docs/*"],
+			method: "delete",
+		})
+	);
 }
 
-(function main() {
-	const API_HOST = 'api.azionapi.net';
-	const TOKEN_API_URL = `https://${API_HOST}/tokens`;
-	const PURGE_WILDCARD_URL = `https://${API_HOST}/purge/wildcard`;
-	const PURGE_URL = `https://${API_HOST}/purge/url`;
+async function docsPathData(PURGE_URL, token) {
+	console.log(
+		await purge(PURGE_URL, token, {
+			urls: [
+				"https://www.azion.com/en/docs-path-by-url.json",
+				"https://www.azion.com/pt-br/docs-path-by-url.json"
+			],
+			method: "delete",
+		})
+	)
+}
 
-	performPurge(TOKEN_API_URL, PURGE_WILDCARD_URL);
-	performPurgeUrl(TOKEN_API_URL, PURGE_URL);
+async function sitemap(PURGE_URL, token) {
+	console.log(
+		await purge(PURGE_URL, token, {
+			urls: ["https://www.azion.com/sitemap.xml"],
+			method: "delete",
+		})
+	)
+}
+
+(async function main() {
+	const API_HOST = 'api.azionapi.net'
+	const TOKEN_API_URL = `https://${API_HOST}/tokens`
+	const PURGE_WILDCARD_URL = `https://${API_HOST}/purge/wildcard`
+	const PURGE_URL = `https://${API_HOST}/purge/url`
+
+	try {
+		const tokenRequest = await fetchToken(TOKEN_API_URL)
+		const token = tokenRequest.token
+
+		sitemap(PURGE_URL, token)
+		docsPathData(PURGE_URL, token)
+		astroDocsWildcard(PURGE_WILDCARD_URL, token)
+		docsPagesWildcard(PURGE_WILDCARD_URL, token)
+	} catch (error) {
+		console.error(error)
+	}
 })();

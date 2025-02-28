@@ -106,6 +106,7 @@ export default [
 			{ text: 'Web Application Firewall', header: true, anchor: true, type: 'learn', key: 'reference/webApplicationFirewall', slug: '/documentation/products/secure/edge-firewall/web-application-firewall/' },
 			{ text: 'WAF Rule Sets', header: true, anchor: true, type: 'learn', key: 'reference/wafRuleSets', slug: '/documentation/products/secure/edge-firewall/web-application-firewall/rules-set/' },
 			{ text: 'WAF Custom Allowed Rules', header: true, anchor: true, type: 'learn', key: 'reference/wafCustomAllowedRules', slug: '/documentation/products/secure/edge-firewall/web-application-firewall/custom-allowed-rules/' },
+			{ text: 'Bot Manager', header: true, anchor: true, type: 'learn', key: 'reference/botManager', slug: '/documentation/products/secure/edge-firewall/bot-manager/' },
 			{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsFirewall', slug: '/documentation/products/secure/edge-firewall/edge-functions/' },
 			{ text: 'Edge Functions Instances', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentation/products/secure/edge-firewall/edge-functions-instances/' },
 			{ text: 'Rules Engine', header: true, anchor: true, type: 'learn', key: 'reference/rulesEngineFirewall', slug: '/documentation/products/secure/edge-firewall/rules-engine/' },
