@@ -17,6 +17,8 @@ export default [
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/azion-lib/overview' },
 
 	{ text: 'Usage', header: true, key: 'commands', type: 'learn', items: [
+		{ text: 'Ai Client', slug: '/documentation/products/azion-lib/ai-client/', key: 'usage/ai-client' },
+		{ text: 'Application', slug: '/documentation/products/azion-lib/application/', key: 'usage/application' },
 		{ text: 'Client', slug: '/documentation/products/azion-lib/client/', key: 'usage/client' },
 		{ text: 'Config', slug: '/documentation/products/azion-lib/config/', key: 'usage/config' },
 		{ text: 'Cookies', slug: '/documentation/products/azion-lib/cookies/', key: 'usage/cookies' },
@@ -26,6 +28,7 @@ export default [
 		{ text: 'SQL', slug: '/documentation/products/azion-lib/sql/', key: 'usage/sql' },
 		{ text: 'Storage', slug: '/documentation/products/azion-lib/storage/', key: 'usage/storage' },
 		{ text: 'Types', slug: '/documentation/products/azion-lib/types/', key: 'usage/types' },
+		{ text: 'Unenv', slug: '/documentation/products/azion-lib/unenv/', key: 'usage/unenv' },
 		{ text: 'Utils', slug: '/documentation/products/azion-lib/utils/', key: 'usage/utils' },
 		{ text: 'WASM Image Processor', slug: '/documentation/products/azion-lib/wasm-image-processor/', key: 'usage/wasm' },
 	] },
