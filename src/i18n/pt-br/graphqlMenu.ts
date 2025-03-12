@@ -41,7 +41,10 @@
 		{ text: 'Como consultar dados do Bot Manager', slug: '/documentacao/produtos/guias/consultar-dados-bot-manager-com-graphql/', key: 'guides/bot-data-graphql' },
 		{ text: 'Como consultar as principais URLs impactadas por bots', slug: '/documentacao/produtos/guias/consultar-dados-bot-manager-breakdown-com-graphql/', key: 'guides/bot-breakdown-data-graphql' },
 		{ text: 'Como identificar os principais IPs gerando tráfego de ataque', slug: '/documentacao/produtos/guias/consultar-top-ips-gerando-trafego-de-ataque-com-graphql/', key: 'guides/top-ips-graphql' },
-		{ text: 'Como identificar os principais ataques ', slug: '/documentacao/produtos/guias/consultar-top-attacks-com-graphql/', key: 'guides/bot-top-attacks-graphql' }
+		{ text: 'Como identificar os principais ataques', slug: '/documentacao/produtos/guias/consultar-top-attacks-com-graphql/', key: 'guides/bot-top-attacks-graphql' },
+		{ text: 'Como consultar dados de uso de Edge Functions', slug: '/documentacao/produtos/guias/consultar-dados-de-uso-edge-functions-com-graphql/', key: 'guides/edge-functions-usage-data' },
+		{ text: 'Como consultar dados de uso do Image Processor', slug: '/documentacao/produtos/guias/consultar-dados-de-uso-image-processor-com-graphql/', key: 'guides/image-processor-usage-data' }
+
 	] },
 
 
