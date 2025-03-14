@@ -20,12 +20,14 @@
 	{ text: 'Queries', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api-queries', key: 'queries' },
 	{ text: 'Exemplos de queries' , header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api-exemplos-queries', key: 'queries/examples' },
 	{ text: 'Recursos', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api-recursos', key: 'features' },
+	{ text: 'Playground GraphiQL', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'playground' },
 
 	{ text: 'Campos', header: true, key: 'fields', type: 'learn', items: [
 		{ text: 'Real-Time Events GQL', slug: '/documentacao/devtools/graphql-api/recursos/campos-gql-real-time-events/', key: 'fields/Events' },
 		{ text: 'Real-Time Metrics GQL', slug: '/documentacao/devtools/graphql-api/recursos/campos-gql-real-time-metrics/', key: 'fields/Metrics' },
 		{ text: 'Billing GQL', slug: '/documentacao/devtools/graphql-api/recursos/campos-gql-billing/', key: 'fields/Billing' },
 		{ text: 'Accounting GQL', slug: '/documentacao/devtools/graphql-api/recursos/campos-gql-accounting/', key: 'fields/Accounting' },
+		{ text: 'Consumption GQL', slug: '/documentacao/devtools/graphql-api/recursos/campos-gql-consumption/', key: 'fields/Consumption' },
 	]
 },
 
