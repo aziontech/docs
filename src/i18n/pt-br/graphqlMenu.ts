@@ -45,7 +45,9 @@
 		{ text: 'Como identificar os principais IPs gerando tráfego de ataque', slug: '/documentacao/produtos/guias/consultar-top-ips-gerando-trafego-de-ataque-com-graphql/', key: 'guides/top-ips-graphql' },
 		{ text: 'Como identificar os principais ataques', slug: '/documentacao/produtos/guias/consultar-top-attacks-com-graphql/', key: 'guides/bot-top-attacks-graphql' },
 		{ text: 'Como consultar dados de uso de Edge Functions', slug: '/documentacao/produtos/guias/consultar-dados-de-uso-edge-functions-com-graphql/', key: 'guides/edge-functions-usage-data' },
-		{ text: 'Como consultar dados de uso do Image Processor', slug: '/documentacao/produtos/guias/consultar-dados-de-uso-image-processor-com-graphql/', key: 'guides/image-processor-usage-data' }
+		{ text: 'Como consultar dados de uso do Image Processor', slug: '/documentacao/produtos/guias/consultar-dados-de-uso-image-processor-com-graphql/', key: 'guides/image-processor-usage-data' },
+		{ text: 'Como consultar dados de uso do Data Stream', slug: '/documentacao/produtos/guias/consultar-dados-de-uso-data-stream-com-graphql/', key: 'guides/data-stream-usage-data' },
+		{ text: 'Como consultar dados de uso do Tiered Cache', slug: '/documentacao/produtos/guias/consultar-dados-de-uso-tiered-cache-com-graphql/', key: 'guides/tiered-cache-usage-data' }
 
 	] },
 
