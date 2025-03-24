@@ -19,7 +19,7 @@
 	{ text: 'Primeiros passos', header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentacao/produtos/graphql-api-primeiros-passos' },
 	{ text: 'Queries', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api-queries', key: 'queries' },
 	{ text: 'Exemplos de queries' , header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api-exemplos-queries', key: 'queries/examples' },
-	{ text: 'Recursos', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/graphql-api-recursos', key: 'features' },
+	{ text: 'Recursos', header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/graphql-api/recursos/', key: 'features' },
 	{ text: 'Playground GraphiQL', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'playground' },
 
 	{ text: 'Campos', header: true, key: 'fields', type: 'learn', items: [
