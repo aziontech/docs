@@ -43,6 +43,7 @@
 		{ text: 'How to query the top URLs impacted by bots', slug: '/documentation/products/guides/query-bot-manager-breakdown-data-with-graphql/', key: 'guides/bot-breakdown-data-graphql' },
 		{ text: 'How to identify the Top IPs generating attack traffic', slug: '/documentation/products/guides/query-top-ips-attack-traffic-with-graphql/', key: 'guides/top-ips-graphql' },
 		{ text: 'How to identify the top attacks', slug: '/documentation/products/guides/query-top-attacks-with-graphql/', key: 'guides/bot-top-attacks-graphql' },
+		{ text: 'How to query HTTP request events blocked', slug: '/documentation/products/guides/query-httpbreakdownmetrics-data-with-graphql/', key: 'guides/httpbreakdownmetrics-data' },
 		{ text: 'How to query usage data from Edge Functions', slug: '/documentation/products/guides/query-edge-functions-usage-data-with-graphql/', key: 'guides/edge-functions-usage-data' },
 		{ text: 'How to query usage data from Image Processor', slug: '/documentation/products/guides/query-image-processor-usage-data-with-graphql/', key: 'guides/image-processor-usage-data' },
 		{ text: 'How to query usage data from Edge Application', slug: '/documentation/products/guides/query-edge-application-usage-data-with-graphql/', key: 'guides/edge-application-usage-data' },
