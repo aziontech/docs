@@ -130,18 +130,6 @@ export default [
 					{ text: 'Tiered Cache', header: true, anchor: true, type: 'learn', key: 'reference/l2Caching', slug: '/documentation/products/build/edge-application/tiered-cache/' },
 				]					
 		},
-		{
-			text: 'Edge Application features', header: true, type: 'learn', key: 'reference/edgeApplicationFeatures', items: [
-				{ text: 'Main Settings', header: true, anchor: true, type: 'learn', key: 'reference/mainSettings', slug: '/documentation/products/build/edge-application/main-settings/' },
-				{ text: 'Cache Settings', header: true, anchor: true, type: 'learn', key: 'reference/cacheSettings', slug: '/documentation/products/build/edge-application/cache-settings/' },
-				{ text: 'Edge Functions Instances', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsInstancesApplication', slug: '/documentation/products/build/edge-application/edge-functions-instances/' },
-				{ text: 'Device Groups', header: true, anchor: true, type: 'learn', key: 'reference/deviceGroups', slug: '/documentation/products/build/edge-application/device-groups/' },
-				{ text: 'Error Responses', header: true, anchor: true, type: 'learn', key: 'reference/errorResponses', slug: '/documentation/products/build/edge-application/error-responses/' },
-				{ text: 'Origins', header: true, anchor: true, type: 'learn', key: 'reference/origins', slug: '/documentation/products/build/edge-application/origins/' },
-				{ text: 'Real-Time Purge', header: true, anchor: true, type: 'learn', key: 'reference/realTimePurge', slug: '/documentation/products/build/edge-application/real-time-purge/' },
-				{ text: 'Rules Engine', header: true, anchor: true, type: 'learn', key: 'reference/rulesEngineedgeApplication', slug: '/documentation/products/build/edge-application/rules-engine/' },
-			]					
-	},
 		]
 	},
 	{
