@@ -148,11 +148,6 @@ export default [
 		text: 'Store', header: true, type: 'learn', key: 'storeRef', items: [
 			{ text: 'Edge Storage', header: true, anchor: true, type: 'learn', key: 'reference/storage', slug: '/documentation/products/store/edge-storage/' },
 			{ text: 'Edge SQL', header: true, anchor: true, type: 'learn', key: 'reference/sql', slug: '/documentation/products/store/edge-sql/' },
-			{
-				text: 'Edge SQL features', header: true, type: 'learn', key: 'compliance', items: [
-					{ text: 'Vector Search', header: true, anchor: true, type: 'learn', key: 'reference/vector-search', slug: '/documentation/products/store/edge-sql/vector-search/' },
-				]
-		},
 		]
 	},
 	{
@@ -170,18 +165,6 @@ export default [
 
 				],				
 		},
-		{
-			text: 'Edge Firewall features', header: true, type: 'learn', key: 'reference/edgeFirewallFeatures', items: [	
-			 { text: 'Network Lists', header: true, anchor: true, type: 'learn', key: 'reference/networkLists', slug: '/documentation/products/secure/edge-firewall/network-layer-protection/network-lists/' },
-			 { text: 'WAF Rule Sets', header: true, anchor: true, type: 'learn', key: 'reference/wafRuleSets', slug: '/documentation/products/secure/edge-firewall/web-application-firewall/rules-set/' },
-			 { text: 'WAF Custom Allowed Rules', header: true, anchor: true, type: 'learn', key: 'reference/wafCustomAllowedRules', slug: '/documentation/products/secure/edge-firewall/web-application-firewall/custom-allowed-rules/' },
-			 { text: 'Edge Functions Instances', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentation/products/secure/edge-firewall/edge-functions-instances/' },
-			 { text: 'Rules Engine', header: true, anchor: true, type: 'learn', key: 'reference/rulesEngineFirewall', slug: '/documentation/products/secure/edge-firewall/rules-engine/' },
-			 { text: 'Digital Certificates', header: true, anchor: true, type: 'learn', key: 'reference/digitalCertificates', slug: '/documentation/products/secure/edge-firewall/digital-certificates/' },
-			 { text: 'DNSSEC Compatibility', header: true, anchor: true, type: 'learn', key: 'reference/dnssecCompatibility', slug: '/documentation/products/secure/edge-dns/dnssec-compatibility/' },
-	 
-			 ],	
-	 },
 		{ text: 'Edge DNS', header: true, anchor: true, type: 'learn', key: 'reference/intelligentDNS', slug: '/documentation/products/secure/edge-dns/' },
 		]
 	},
