@@ -36,32 +36,10 @@ export default [
         ]
     },
 
+    { text: 'Environment Variables', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/environment-variables/', key: 'envVars', addBorder: true, },
 
-
-    { text: 'CLI', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/cli/', key: 'developCli', hasLabel: 'menu.buildDev' },
-    { text: 'Azion IDE', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/code-editor/', key: 'developIDE' },
-    { text: 'Local Development', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/local-dev/', key: 'developLocalDev' },
-    { text: 'SDKs', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/sdk/go/', key: 'developSDK' },
-    { text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/terraform-provider/', key: 'developTerraform' },
-    { text: 'Azion Runtime', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/runtime-apis/', key: 'developEdgeRuntime' },
-
-
-    { text: 'Framework specific guides', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/overview/', key: 'frameworkAngular' },
-
-    {
-        text: 'Language specific guides', header: true, type: 'learn', key: 'languageSpecifics', addBorder: true, items: [
-            { text: 'JavaScript', slug: '/documentation/products/build/develop-with-azion/language-specific/javascript/', key: 'devJS' },
-            { text: 'WebAssembly', slug: '/documentation/products/build/develop-with-azion/language-specific/wasm/', key: 'devWasm' },
-        ]
-    },
-
-    { text: 'Environment Variables', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/environment-variables/', key: 'envVars', hasLabel: 'menu.buildData', addBorder: true, },
-
-
-    { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/troubleshooting/understand-metrics/', key: 'understandMetrics', hasLabel: 'menu.buildTroubleshoot' },
+    { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/troubleshooting/understand-metrics/', key: 'understandMetrics' },
     { text: 'Debug applications', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/troubleshooting/debug-applications/', key: 'debugApps', addBorder: true, },
-
-
 	]},
 	{ text: 'Migrate your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/migrate-to-azion/', key: 'migrateAzion' },
 	{ text: 'Secure your application', header: true, anchor: true, type: 'learn', key: 'secure', items:
@@ -72,7 +50,7 @@ export default [
     { text: 'Secure a DNS', header: true, anchor: true, slug: '/documentation/products/secure/secure-dns/', key: 'secureDns', addBorder: true },
 
     {
-        text: 'Edit a firewall', header: true, type: 'learn', key: 'editEdgeFirewall', hasLabel: 'menu.edgeFirewall', items: [
+        text: 'Edit a firewall', header: true, type: 'learn', key: 'editEdgeFirewall', items: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/edge-firewall-configure-main-settings/', key: 'secureMainSettings' },
             { text: 'Instantiate an edge function', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/instantiate-edge-functions/', key: 'secureFunctions' },
             { text: 'Work with rules engine', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/work-with-rules-engine/', key: 'secureRules' },
@@ -97,22 +75,22 @@ export default [
         ]
     },
 
-    { text: 'Select TLS ciphers', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/ciphers/', key: 'ciphers', hasLabel: 'menu.secureTransportLayerSecurity' },
+    { text: 'Select TLS ciphers', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/ciphers/', key: 'ciphers' },
     { text: 'Configure mTLS', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/mtls/', key: 'mtls' },
     { text: 'Manage Digital Certificates', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/digital-certificates/', key: 'digitalCertificates' },
 
 
-    { text: 'Edge Functions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/functions/', key: 'automateEdgeFunctions', hasLabel: 'menu.secureAutomate' },
+    { text: 'Edge Functions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/functions/', key: 'automateEdgeFunctions' },
     { text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/sdk/', key: 'automateSdk' },
     { text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/terraform/', key: 'automateTerraform' },
     { text: 'Integrate with SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/integrate-siems/', key: 'automateIntegrateSiems' },
 
 
-    { text: 'Understand WAF metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-firewall-understand-metrics/', key: 'firewallUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot', addBorder: true },
+    { text: 'Understand WAF metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-firewall-understand-metrics/', addBorder: true },
 
 
     {
-        text: 'Edit a zone', header: true, type: 'learn', key: 'editIntelligentDns', hasLabel: 'menu.intelligentDns', items: [
+        text: 'Edit DNS zone', header: true, type: 'learn', key: 'editIntelligentDns', items: [
             { text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/edge-dns-configure-main-settings/', key: 'intelligentDnsMainSettings' },
             { text: 'Add records', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/add-records/', key: 'addRecords' },
             
@@ -130,17 +108,17 @@ export default [
     },
 
 
-    { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-dns-understand-metrics/', key: 'intelligentDnsUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot' },
+    { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-dns-understand-metrics/', key: 'intelligentDnsUnderstandMetrics' },
     { text: 'Test zone', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/test-zone/', key: 'testZone' }
 
 		]
 	 },
 	{ text: 'Pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'},
+	{ text: 'Release Notes', header: true, anchor: true, type: 'learn', slug: '/documentation/products/release-notes/', key: 'releaseNotes'},
 	{ text: 'Get help', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-help/', key: 'getStarted/getHelp' },
 
 	{
 		text: 'Build', header: true, type: 'learn', key: 'buildRef', hasLabel: 'menu.reference', items: [
-			{ text: 'Overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/overview/', key: 'build-overview' },
 			{ text: 'Edge Application', header: true, anchor: true, type: 'learn', key: 'reference/edgeApplication', slug: '/documentation/products/build/edge-application/' },
 			{
 				text: 'Edge Application add-ons', header: true, type: 'learn', key: 'reference/edgeApplicationAddons', items: [
@@ -168,7 +146,6 @@ export default [
 	},
 	{
 		text: 'Store', header: true, type: 'learn', key: 'storeRef', items: [
-			{ text: 'Overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/store/overview/', key: 'store' },
 			{ text: 'Edge Storage', header: true, anchor: true, type: 'learn', key: 'reference/storage', slug: '/documentation/products/store/edge-storage/' },
 			{ text: 'Edge SQL', header: true, anchor: true, type: 'learn', key: 'reference/sql', slug: '/documentation/products/store/edge-sql/' },
 			{
@@ -180,7 +157,6 @@ export default [
 	},
 	{
 		text: 'Secure', header: true, type: 'learn', key: 'secureRef', items: [
-			{ text: 'Overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/overview/', key: 'secure-overview' },
 			{ text: 'Edge Firewall', header: true, anchor: true, type: 'learn', key: 'reference/edgeFirewall', slug: '/documentation/products/secure/edge-firewall/' },
 			{
 				text: 'Edge Firewall add-ons', header: true, type: 'learn', key: 'reference/edgeApplicationAddons', items: [
@@ -211,7 +187,6 @@ export default [
 	},
 	{
 		text: 'Deploy', header: true, type: 'learn', key: 'deployRef', items: [
-			{ text: 'Overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/deploy/overview/', key: 'deploy' },
 			{ text: 'Edge Orchestrator', header: true, anchor: true, type: 'learn', key: 'reference/edgeOrchestrator', slug: '/documentation/products/deploy/edge-orchestrator/' },
 			{ text: 'Edge Services', header: true, anchor: true, type: 'learn', key: 'reference/edgeServices', slug: '/documentation/products/deploy/edge-orchestrator/edge-services/' },
 			{ text: 'Edge Node', header: true, anchor: true, type: 'learn', key: 'reference/edgeNode', slug: '/documentation/products/deploy/edge-orchestrator/edge-node/' },
@@ -220,7 +195,7 @@ export default [
 	},
 	{
 		text: 'Observe', header: true, type: 'learn', key: 'observeRef', items: [
-			{ text: 'Overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/observe/overview/', key: 'observe' },			{ text: 'Data Stream', header: true, anchor: true, type: 'learn', key: 'reference/dataStreaming', slug: '/documentation/products/observe/data-stream/' },
+			{ text: 'Data Stream', header: true, anchor: true, type: 'learn', key: 'reference/dataStreaming', slug: '/documentation/products/observe/data-stream/' },
 			{ text: 'Edge Pulse', header: true, anchor: true, type: 'learn', key: 'reference/edgePulse', slug: '/documentation/products/observe/edge-pulse/' },
 			{ text: 'Real-Time Events', header: true, anchor: true, type: 'learn', key: 'reference/realTimeEvents', slug: '/documentation/products/observe/real-time-events/' },
 			{ text: 'Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/realTimeMetrics', slug: '/documentation/products/observe/real-time-metrics/' },
@@ -257,29 +232,35 @@ export default [
 					{ text: 'MFA', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/multi-factor-authentication/', key: 'account/mfa' },
 					{ text: 'User Session Timeout', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/configure-user-session-timeout/', key: 'account/user-session-timeout' },
 					{ text: 'Billing and subscriptions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
+					{ text: 'Activity History', header: true, type: 'learn', key: 'accounts/ActivityHistory', slug: '/documentation/products/accounts/activity-history/' },
+					{ text: 'Clients', key: 'accounts/Clients', slug: '/documentation/products/accounts/accounts/' },
+					{ text: 'Account settings', key: 'accounts/accountSettings', slug: '/documentation/products/accounts/account-settings/' },
+					{ text: 'Billing', key: 'accounts/billing', slug: '/documentation/products/accounts/billing-and-subscriptions/' },	
 				]
 			},
 			{
 				text: 'Configure profile', header: true, type: 'learn', key: 'manageProfile', items: [
 					{ text: 'Personal tokens', header: true, anchor: true, type: 'learn', key: 'accountsProfile/personalTokens', slug: '/documentation/products/guides/personal-tokens/' },
 					{ text: 'Settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/account-settings/', key: 'accountsProfile/settings' },
+					{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentation/products/accounts/your-settings/' },
 					{ text: 'Delete account', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/delete-account/', key: 'accountsProfile/deleteAccount' },
 				]
 			},
-			{ text: 'Activity History', header: true, type: 'learn', key: 'accounts/ActivityHistory', slug: '/documentation/products/accounts/activity-history/' },
-			{ text: 'Clients', key: 'accounts/Clients', slug: '/documentation/products/accounts/accounts/' },
-			{ text: 'Account settings', key: 'accounts/accountSettings', slug: '/documentation/products/accounts/account-settings/' },
-			{ text: 'Account Lockout Policy', key: 'accounts/accountLockoutPolicy', slug: '/documentation/products/accounts/account-lockout-policy/' },
-			{ text: 'Billing', key: 'accounts/billing', slug: '/documentation/products/accounts/billing-and-subscriptions/' },
-			{ text: 'Multi-Factor Authentication', key: 'accounts/MFA', slug: '/documentation/products/accounts/multi-factor-authentication/' },
-			{ text: 'Personal Tokens', key: 'accounts/personalTokens', slug: '/documentation/products/accounts/personal-tokens/' },
-			{ text: 'Social Login', key: 'accounts/socialLogin', slug: '/documentation/products/accounts/social-login/' },
-			{ text: 'Single Sign-On', key: 'accounts/SSO', slug: '/documentation/products/accounts/single-sign-on/' },
-			{ text: 'Teams Permissions', key: 'accounts/teamsPermissions', slug: '/documentation/products/accounts/teams-permissions/' },
-			{ text: 'Users Management', key: 'accounts/usersManagement', slug: '/documentation/products/accounts/users-management/' },
-			{ text: 'User Session Timeout', key: 'accounts/userSessionTimeout', slug: '/documentation/products/accounts/user-session-timeout/' },
-			{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentation/products/accounts/your-settings/' },
-			
+			{
+				text: 'Security and policies', header: true, type: 'learn', key: 'accountPolicies', items: [
+					{ text: 'Account Lockout Policy', key: 'accounts/accountLockoutPolicy', slug: '/documentation/products/accounts/account-lockout-policy/' },
+					{ text: 'Multi-Factor Authentication', key: 'accounts/MFA', slug: '/documentation/products/accounts/multi-factor-authentication/' },
+					{ text: 'Personal Tokens', key: 'accounts/personalTokens', slug: '/documentation/products/accounts/personal-tokens/' },
+					{ text: 'Social Login', key: 'accounts/socialLogin', slug: '/documentation/products/accounts/social-login/' },
+					{ text: 'Single Sign-On', key: 'accounts/SSO', slug: '/documentation/products/accounts/single-sign-on/' },
+					{ text: 'Teams Permissions', key: 'accounts/teamsPermissions', slug: '/documentation/products/accounts/teams-permissions/' },
+					{ text: 'Users Management', key: 'accounts/usersManagement', slug: '/documentation/products/accounts/users-management/' },
+					{ text: 'User Session Timeout', key: 'accounts/userSessionTimeout', slug: '/documentation/products/accounts/user-session-timeout/' },
+
+
+					
+				]
+			},		
 		]
 	},
 	{
@@ -287,9 +268,19 @@ export default [
 			{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: '/documentation/products/overview-azion-api/' },
 			{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentation/products/azion-cli/overview/' },
 			{ text: 'API GraphQL Playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'devtools/graphQLplayground' },
+			{ text: 'Azion IDE', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/code-editor/', key: 'developIDE' },
+			{ text: 'Local Development', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/local-dev/', key: 'developLocalDev' },
 			{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
 			{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
 			{ text: 'GitHub', header: true, anchor: true, type: 'learn', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
+			{ text: 'Azion Runtime', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/runtime-apis/', key: 'developEdgeRuntime' },
+			{ text: 'Framework specific guides', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/frameworks-specific/overview/', key: 'frameworkAngular' },
+    	{
+        text: 'Language specific guides', header: true, type: 'learn', key: 'languageSpecifics', addBorder: true, items: [
+            { text: 'JavaScript', slug: '/documentation/products/build/develop-with-azion/language-specific/javascript/', key: 'devJS' },
+            { text: 'WebAssembly', slug: '/documentation/products/build/develop-with-azion/language-specific/wasm/', key: 'devWasm' },
+        ]
+    },
 		]
 	},
 	{
@@ -333,11 +324,8 @@ export default [
 				{ text: 'Azion Network Program', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-network-program/', key: 'azionNetworkProgram' },
 			]
 },
-
-	
 	
 	{ text: 'Glossary', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-glossary/', key: 'glossary', addBorder: true },
-	{ text: 'Release Notes', header: true, anchor: true, type: 'learn', slug: '/documentation/products/release-notes/', key: 'releaseNotes'},
 	{ text: 'System Status', header: true, anchor: true, type: 'learn', slug: 'https://status.azion.com/', key: 'systemStatus'},
 	
 	
