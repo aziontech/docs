@@ -15,7 +15,7 @@ export default [
 	{ text: 'Azion platform overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-started/', key: 'getStarted/welcome', hasLabel: "menu.getStarted" },
 	{ text: 'Build your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/build-an-application/', key: 'build' },
 	{ text: 'Migrate your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/migrate-to-azion/', key: 'migrateAzion' },
-	{ text: 'Secure your application', header: true, anchor: true, type: 'learn', slug: '/en/documentation/products/secure/secure-application/', key: 'secure' },
+	{ text: 'Secure your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/secure-application/', key: 'secure' },
 	{ text: 'Pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'},
 	{ text: 'Get help', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-help/', key: 'getStarted/getHelp' },
 
