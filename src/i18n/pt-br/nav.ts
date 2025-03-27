@@ -15,21 +15,25 @@ export default NavDictionary([
 	{ text: 'Dev Tools', slug: '/documentacao/produtos/devtools/', key: 'devTools' },
 	{ text: 'Arquiteturas', slug: '/documentacao/arquiteturas/', key: 'architectures' },
 
-	{ text: 'Conceitos básicos', slug: '/documentacao/produtos/conceitos-basicos/', key: 'beforeBegin/core' },
-	{ text: 'Obtenha ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getHelp' },
+	{ text: 'Visão geral da Azion', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
 
-	{ text: 'Boas-vindas ao edge', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
-	{ text: 'Comece com um template', slug: '/documentacao/produtos/comecar-com-um-template/', key: 'getStarted/template' },
-	{ text: 'Ative em produção', slug: '/documentacao/produtos/ative-em-producao/', key: 'getStarted/goLive' },
-	{ text: 'Visualize métricas', slug: '/documentacao/produtos/guias/usar-real-time-metrics/', key: 'getStarted/viewMetrics' },
+	{ text: 'Construa sua applicação', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
 
+	{ text: 'Migre para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
 
-	{ text: 'Build', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
-	{ text: 'Store', slug: '/documentacao/produtos/store/visao-geral/', key: 'store' },
-	{ text: 'Secure', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
-	{ text: 'Deploy', slug: '/documentacao/produtos/deploy/visao-geral/', key: 'deploy' },
-	{ text: 'Observe', slug: '/documentacao/produtos/observe/visao-geral/', key: 'observe' },
+	{ text: 'Proteja sua aplicação', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
 
+	{
+		text: 'Preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
+	},
+
+	{
+		text: 'Release Notes', slug: '/documentacao/produtos/release-notes/', key: 'releaseNotes'
+	},
+
+	{ text: 'Obtenha ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getStarted/getHelp' },
+
+	{ text: 'Trabalhe com domínios', key: 'menu.domains' },
 	{ text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
 	{ text: 'Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
 	{ text: 'Aponte um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
@@ -47,6 +51,7 @@ export default NavDictionary([
 	{ text: 'MFA', slug: '/documentacao/produtos/guias/multi-factor-authentication/', key: 'account/mfa' },
 	{ text: 'User Session Timeout', slug: '/documentacao/produtos/guias/configurar-user-session-timeout/', key: 'account/user-session-timeout' },
 	{ text: 'Faturamento e assinaturas', slug: '/documentacao/produtos/guias/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
+	{ text: 'Segurança e políticas', key: 'accountPolicies' },
 
 
 	{ text: 'Configurar perfis', key: 'manageProfile' },
@@ -58,12 +63,17 @@ export default NavDictionary([
 	{ text: 'Developer tools', key: 'developerTools' },
 	{ text: 'API', key: 'devtools/api', slug: '/documentacao/produtos/devtools/primeiros-passos-api/' },
 	{ text: 'CLI', key: 'devtools/cli', slug: '/documentacao/produtos/azion-cli/visao-geral/' },
-	{ text: 'API GraphQL Playground', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'devtools/graphQLplayground' },
+	{ text: 'API GraphiQL Playground', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'devtools/graphQLplayground' },
+	{ text: 'Azion IDE', slug: '/documentacao/produtos/build/desenvolvimento-azion/code-editor/', key: 'developIDE' },
+	{ text: 'Local Development', slug: '/documentacao/produtos/build/desenvolvimento-azion/local-dev/', key: 'developLocalDev' },
 	{ text: 'SDK', slug: '/documentacao/devtools/sdk/go/', key: 'devtools/sdk' },
 	{ text: 'Terraform', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
 	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
-
-	{ text: 'Migre para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
+	{ text: 'Azion Runtime', slug: '/documentacao/produtos/build/desenvolvimento-azion/runtime/', key: 'developEdgeRuntime' },
+	{ text: 'Guias por framework', slug: '/documentacao/produtos/build/develop-with-azion/frameworks-specific/visao-geral/', key: 'frameworkAngular' },
+	{ text: 'Guias por linguagem', key: 'languageSpecifics' },
+	{ text: 'JavaScript', slug: '/documentacao/produtos/build/develop-with-azion/frameworks-specific/visao-geral/', key: 'devJS' },
+	{ text: 'WebAssembly', slug: '/documentacao/produtos/build/develop-with-azion/frameworks-specific/visao-geral/', key: 'devWasm' },
 
 	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
 	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },
@@ -155,6 +165,7 @@ export default NavDictionary([
 	{ text: 'User Session Timeout', key: 'accounts/userSessionTimeout', slug: '/documentacao/produtos/gestao-de-contas/user-session-timeout//' },
 	{ text: 'Your Settings', key: 'accounts/youtSettings', slug: '/documentacao/produtos/gestao-de-contas/your-settings/' },
 
+	{ text: 'Suporte', key: 'support' },
 	{ text: 'Technical Support', slug: '/documentacao/servicos/suporte/', key: 'technicalSupport' },
 
 	{ text: 'Professional Services', key: 'professionalServicesRef' },
@@ -167,18 +178,7 @@ export default NavDictionary([
 	{ text: 'Business Events Support', slug: '/documentacao/servicos/business-events-support/', key: 'professionalServices/businessEventsSupport' },
 	{ text: 'Slack Channel', slug: '/documentacao/servicos/slack-channel/', key: 'professionalServices/SlackChannel' },
 
-	{
-		text: 'Glossário', slug: '/documentacao/produtos/glossario-azion/', key: 'glossary'
-	},
-
-	{
-		text: 'System Status', slug: 'https://status.azion.com/', key: 'systemStatus'
-	},
-
-	{
-		text: 'Release Notes', slug: '/documentacao/produtos/release-notes/', key: 'releaseNotes'
-	},
-
+	{ text: 'Documentos legais', key: 'legal' },
 	{
 		text: 'Contratos', slug: '/documentacao/contratos/', key: 'agreements'
 	},
@@ -188,15 +188,19 @@ export default NavDictionary([
 	{ text: 'PCI DSS', key: 'compliance/pci-dss', slug: '/documentacao/compliance/pci-dss-certification/' },
 
 	{
-		text: 'Preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
-	},
-
-	{
 		text: 'Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
 	},
 
 	{
 		text: 'Azion Network Program', slug: '/documentacao/produtos/azion-network-program/', key: 'azionNetworkProgram'
+	},
+
+	{
+		text: 'Glossário', slug: '/documentacao/produtos/glossario-azion/', key: 'glossary'
+	},
+
+	{
+		text: 'System Status', slug: 'https://status.azion.com/', key: 'systemStatus'
 	},
 
 ]);

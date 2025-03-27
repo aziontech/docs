@@ -175,7 +175,7 @@ export default [
 		]
 	},
 	{
-		text: 'Work with domains', header: true, type: 'learn', key: 'manageAccount', items: [
+		text: 'Work with domains', header: true, type: 'learn', key: 'menu.domains', items: [
 			{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/' },
 			{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
 			{ text: 'Point domain to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/point-domain-to-azion/', key: 'pointDomain' },
