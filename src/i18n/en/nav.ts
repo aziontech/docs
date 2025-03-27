@@ -59,7 +59,7 @@ export default [
     },
 
     {
-        text: 'Configure Web Application Firewall', header: true, type: 'learn', key: 'secureWAF', items: [
+        text: 'Configure WAF', header: true, type: 'learn', key: 'secureWAF', items: [
             { text: 'Create WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentation/products/guides/secure/create-waf-rule-set/' },
             { text: 'Check WAF mode', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/how-to-check-your-waf-mode/', key: 'wafMode' },
             { text: 'Configure Custom Allowed Rule', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/configure-waf-allowed-rules/', key: 'customAllowedRules' },
@@ -86,7 +86,7 @@ export default [
     { text: 'Integrate with SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/integrate-siems/', key: 'automateIntegrateSiems' },
 
 
-    { text: 'Understand WAF metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-firewall-understand-metrics/', addBorder: true },
+    { text: 'Understand WAF metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-firewall-understand-metrics/', key: 'wafMetrics' },
 
 
     {
@@ -238,7 +238,7 @@ export default [
 		text: 'Developer tools', header: true, type: 'learn', key: 'developerTools', hasLabel: 'menu.addResources', items: [
 			{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: '/documentation/products/overview-azion-api/' },
 			{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentation/products/azion-cli/overview/' },
-			{ text: 'API GraphQL Playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'devtools/graphQLplayground' },
+			{ text: 'API GraphiQL Playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'devtools/graphQLplayground' },
 			{ text: 'Azion IDE', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/code-editor/', key: 'developIDE' },
 			{ text: 'Local Development', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/local-dev/', key: 'developLocalDev' },
 			{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },

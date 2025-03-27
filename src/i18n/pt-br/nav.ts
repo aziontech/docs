@@ -17,11 +17,80 @@ export default NavDictionary([
 
 	{ text: 'Visão geral da Azion', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
 
-	{ text: 'Construa sua applicação', slug: '/documentacao/produtos/guias/build/visao-geral/', key: 'build' },
+	{ text: 'Construa sua applicação', key: 'build' },
+	{ text: 'Visão geral',header: true, anchor: true, type: 'learn', key: 'buildOverview', slug: '/documentacao/produtos/guias/build/visao-geral/', },
+	{ text: 'Construa uma aplicação',header: true, anchor: true, type: 'learn', key: 'buildEdgeApps', slug: '/documentacao/produtos/guias/build/criar-uma-aplicacao/' },
+
+	{ text: 'Edite uma aplicação',header: true,  type: 'learn',  key: 'editEdgeApp' },
+	{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/definir-configuracoes-principais/', key: 'mainSettings' },
+  { text: 'Crie device groups', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/criar-device-groups/', key: 'deviceGroups' },
+  { text: 'Defina páginas de erro', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/configurar-paginas-de-erro/', key: 'errorPages' },
+  { text: 'Trabalhe com origins', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/definir-origens/', key: 'origins' },
+  { text: 'Ajuste cache settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/ajustar-cache-settings/', key: 'cacheSettings' },
+  { text: 'Trabalhe com rules engine', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/trabalhar-com-rules-engine/', key: 'rules' },
+  { text: 'Instancie uma edge function', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/instanciar-edge-functions/', key: 'functions' },
+
+  { text: 'Configurações avançadas', header: true, type: 'learn', key: 'advancedConfig' },
+  { text: 'Processe imagens', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/processar-imagens/', key: 'processImages' },
+  { text: 'Configure múltiplas origens', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/configure-multiplas-origens/', key: 'multiOrigin' },
+
+
+	{ text: 'Environment Variables', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/environment-variables/', key: 'envVars', hasLabel: 'menu.buildData', addBorder: true, },
+
+
+    { text: 'Monitore métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/troubleshooting/monitorar-metricas/', key: 'understandMetrics', hasLabel: 'menu.buildTroubleshoot' },
+    { text: 'Debugue aplicações', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/troubleshooting/debug-aplicacoes/', key: 'debugApps', addBorder: true, },
+
 
 	{ text: 'Migre para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
 
-	{ text: 'Proteja sua aplicação', slug: '/documentacao/produtos/secure/visao-geral/', key: 'secure' },
+	{ text: 'Proteja sua aplicação', key: 'secure' },
+
+	{ text: 'Visão geral', header: true, anchor: true, slug: '/documentacao/produtos/secure/visao-geral/', key: 'secureOverview', hasLabel: 'menu.secure' },
+	{ text: 'Proteja sua aplicação', header: true, anchor: true, slug: '/documentacao/produtos/secure/proteja-aplicacao/', key: 'secureApps' },
+	{ text: 'Proteja sua infraestrutura', header: true, anchor: true, slug: '/documentacao/produtos/secure/proteja-infraestrutura/', key: 'secureInfra' },
+	{ text: 'Proteja seu DNS', header: true, anchor: true, slug: '/documentacao/produtos/secure/proteja-dns/', key: 'secureDns', addBorder: true },
+
+	{ text: 'Edite um firewall', header: true, type: 'learn', key: 'editEdgeFirewall', hasLabel: 'menu.edgeFirewall'},
+		{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/edge-firewall-definir-main-settings/', key: 'secureMainSettings' },
+		{ text: 'Instancie uma edge function', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/instanciar-edge-functions/', key: 'secureFunctions' },
+		{ text: 'Trabalhe com rules engine', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/trabalhar-com-rules-engine/', key: 'secureRules' },
+		{ text: 'Proteja seu domínio', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/proteja-seu-dominio/', key: 'secureDomain' },
+
+	{ text: 'Configure o WAF', header: true, type: 'learn', key: 'secureWafAdvancedConfigs' }, 
+					{ text: 'Crie um WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentacao/produtos/guias/secure/criar-waf-rule-set/' },
+					{ text: 'Verifique o modo do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-verificar-modo-do-seu-waf/', key: 'wafMode' },
+					{ text: 'Configure Custom Allowed Rules', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/configurar-waf-allowed-rules/', key: 'customAllowedRules' },
+					{ text: 'Faça tuning do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/tune-waf/', key: 'tuneWaf' },
+					{ text: 'Encontre score de requisições bloqueadas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf', key: 'wafRequestsScore' },
+
+	{ text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfig'}, 
+		{ text: 'Gerencie bots', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/gerenciar-bots/', key: 'manageBots' },
+		{ text: 'Bloqueie redes Tor', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/bloquear-redes-tor/', key: 'blockTor' },
+
+	{ text: 'Selecione cifras TLS', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/cifras/', key: 'ciphers', hasLabel: 'menu.secureTransportLayerSecurity' },
+	{ text: 'Configure mTLS', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/mtls/', key: 'mtls' },
+	{ text: 'Gerencie certificados digitais', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/certificado-digital', key: 'digitalCertificates' },
+
+	{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/functions/', key: 'automateEdgeFunctions', hasLabel: 'menu.secureAutomate' },
+	{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/sdk/', key: 'automateSdk' },
+	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/terraform/', key: 'automateTerraform' },
+	{ text: 'Integre com SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/integrar-siems/', key: 'automateIntegrateSiems' },
+
+	{ text: 'Monitore métricas do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-firewall-monitorar-metricas/', key: 'wafMetrics' },
+	
+	{ text: 'Edite uma zona', header: true, type: 'learn', key: 'editIntelligentDns', hasLabel: 'menu.intelligentDns' },
+		{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/edge-dns-definir-main-settings/', key: 'intelligentDnsMainSettings' },
+		{ text: 'Adicione registros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/adicionar-registros/', key: 'addRecords' },
+
+	{ text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfigDns' },
+		{ text: 'Acesse root domain', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/acessar-root-domain/', key: 'anames' },
+		{ text: 'Ative DNSSEC', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/ativar-dnssec/', key: 'activateDnssec' },
+		{ text: 'Autentique certificado Let\'s Encrypt', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/registro-lets-encrypt/', key: 'authenticateLetsEncryptCertificate' },
+		{ text: 'Realize balanceamento de carga', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/balanceamento-de-carga-dns/', key: 'dnsLoadBalance' },
+
+	{ text: 'Monitore metricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-dns-monitorar-metricas/', key: 'intelligentDnsUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot' },
+	{ text: 'Teste uma zona', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/testar-zona/', key: 'testZone' },
 
 	{
 		text: 'Preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
