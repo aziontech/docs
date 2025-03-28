@@ -15,7 +15,7 @@ export default NavDictionary([
 	{ text: 'Dev Tools', slug: '/documentacao/produtos/devtools/', key: 'devTools' },
 	{ text: 'Arquiteturas', slug: '/documentacao/arquiteturas/', key: 'architectures' },
 
-	{ text: 'Visão geral da Azion', slug: '/documentacao/produtos/ponto-de-partida/', key: 'getStarted/welcome' },
+	{ text: 'Visão geral da Azion', slug: '/documentacao/produtos/visao-geral-da-plataforma-da-azion/', key: 'getStarted/welcome' },
 
 	{ text: 'Construa sua applicação', key: 'build' },
 	{ text: 'Visão geral',header: true, anchor: true, type: 'learn', key: 'buildOverview', slug: '/documentacao/produtos/guias/build/visao-geral/', },

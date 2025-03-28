@@ -12,7 +12,7 @@ export default [
 	{ text: 'Guides', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/', key: 'guides' },
 	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/devtools/', key: 'devTools' },
 	{ text: 'Architectures', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/architectures/', key: 'architectures' },
-	{ text: 'Azion platform overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-started/', key: 'getStarted/welcome', hasLabel: "menu.getStarted" },
+	{ text: 'Azion platform overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-platform-overview/', key: 'getStarted/welcome', hasLabel: "menu.getStarted" },
 	{ text: 'Build your application', header: true, anchor: true, type: 'learn', key: 'build', items: [
 		{ text: 'Overview', header: true, anchor: true, slug: '/documentation/products/guides/build/overview/', key: 'buildOverview' },
     { text: 'Build an application', header: true, anchor: true, slug: '/documentation/products/guides/build/build-an-application/', key: 'buildEdgeApps' },
