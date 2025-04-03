@@ -24,11 +24,12 @@ In this guide you'll get an overview of the contribution workflow from opening a
 
 `aziontech/docs` has two teams as code owners:
 
-- Product Content Experience (PCX), the gatekeepers of all content.
-  
-  - [@MarianaAguilera](https://github.com/MarianaAguilera) :panda_face:
+- Developer education, the gatekeepers of all content.
+- 
   - [@guiafonso-ol](https://github.com/guiafonso-ol) :dog:
   - [@GabrielAzion](https://github.com/GabrielAzion) :owl:
+  - [@LuizaVSantos](https://github.com/LuizaVSantos) :guitar:
+  - [@MarianaReisAlcantara](https://github.com/MarianaReisAlcantara) :panda:
 
 - UX Engineering (UXE), the gatekeepers of all structure code.
 
