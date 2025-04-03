@@ -29,7 +29,7 @@ In this guide you'll get an overview of the contribution workflow from opening a
   - [@guiafonso-ol](https://github.com/guiafonso-ol) :dog:
   - [@GabrielAzion](https://github.com/GabrielAzion) :owl:
   - [@LuizaVSantos](https://github.com/LuizaVSantos) :guitar:
-  - [@MarianaReisAlcantara](https://github.com/MarianaReisAlcantara) :panda:
+  - [@MarianaReisAlcantara](https://github.com/MarianaReisAlcantara) :panda_face:
 
 - UX Engineering (UXE), the gatekeepers of all structure code.
 
