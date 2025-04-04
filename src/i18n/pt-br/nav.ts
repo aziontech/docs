@@ -57,14 +57,14 @@ export default NavDictionary([
 		{ text: 'Trabalhe com rules engine', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/trabalhar-com-rules-engine/', key: 'secureRules' },
 		{ text: 'Proteja seu domínio', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/proteja-seu-dominio/', key: 'secureDomain' },
 
-	{ text: 'Configure o WAF', header: true, type: 'learn', key: 'secureWafAdvancedConfigs' }, 
+	{ text: 'Configure o WAF', header: true, type: 'learn', key: 'secureWafAdvancedConfigs' },
 					{ text: 'Crie um WAF rule set', header: true, type: 'learn', key: 'createRuleSet', slug: '/documentacao/produtos/guias/secure/criar-waf-rule-set/' },
 					{ text: 'Verifique o modo do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-verificar-modo-do-seu-waf/', key: 'wafMode' },
 					{ text: 'Configure Custom Allowed Rules', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/configurar-waf-allowed-rules/', key: 'customAllowedRules' },
 					{ text: 'Faça tuning do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/tune-waf/', key: 'tuneWaf' },
 					{ text: 'Encontre score de requisições bloqueadas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf', key: 'wafRequestsScore' },
 
-	{ text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfig'}, 
+	{ text: 'Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfig'},
 		{ text: 'Gerencie bots', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/gerenciar-bots/', key: 'manageBots' },
 		{ text: 'Bloqueie redes Tor', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/bloquear-redes-tor/', key: 'blockTor' },
 
@@ -78,7 +78,7 @@ export default NavDictionary([
 	{ text: 'Integre com SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/integrar-siems/', key: 'automateIntegrateSiems' },
 
 	{ text: 'Monitore métricas do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-firewall-monitorar-metricas/', key: 'wafMetrics' },
-	
+
 	{ text: 'Edite uma zona', header: true, type: 'learn', key: 'editIntelligentDns', hasLabel: 'menu.intelligentDns' },
 		{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/edge-dns-definir-main-settings/', key: 'intelligentDnsMainSettings' },
 		{ text: 'Adicione registros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/adicionar-registros/', key: 'addRecords' },
@@ -172,14 +172,14 @@ export default NavDictionary([
 	{ text: 'Origins', key: 'reference/origins', slug: '/documentacao/produtos/build/edge-application/origins/' },
 	{ text: 'Real-Time Purge', key: 'reference/realTimePurge', slug: '/documentacao/produtos/build/edge-application/real-time-purge/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineedgeApplication', slug: '/documentacao/produtos/build/edge-application/rules-engine/' },
-	
+
 	{
 		text: 'Store', key: 'storeRef'
 	},
 	{ text: 'Edge Storage', key: 'reference/storage', slug: '/documentacao/produtos/store/edge-storage/' },
 	{ text: 'Edge SQL', key: 'reference/sql', slug: '/documentacao/produtos/store/edge-sql/' },
 	{ text: 'Vector Search', key: 'reference/vector-search', slug: '/documentacao/produtos/store/edge-sql/vector-search/' },
-	
+
 	{
 		text: 'Secure', key: 'secureRef'
 	},
@@ -192,6 +192,7 @@ export default NavDictionary([
 	{ text: 'WAF Rule Sets', key: 'reference/wafRuleSets', slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/rule-sets/' },
 	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/custom-allowed-rules/' },
 	{ text: 'Bot Manager', key: 'reference/botManager', slug: '/documentacao/produtos/secure/edge-firewall/bot-manager/' },
+	{ text: 'Origin Shield', key: 'reference/originShield', slug: '/documentacao/produtos/secure/proteja-infraestrutura/' },
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/secure/edge-firewall/edge-functions/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/secure/edge-firewall/edge-functions-instances/' },
 	{ text: 'Rules Engine', key: 'reference/rulesEngineFirewall', slug: '/documentacao/produtos/secure/edge-firewall/rules-engine/' },
