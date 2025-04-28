@@ -134,26 +134,24 @@ export default [
 	},
 	{
 		text: 'Store', header: true, type: 'learn', key: 'storeRef', items: [
-			{ text: 'Edge Storage', header: true, anchor: true, type: 'learn', key: 'reference/storage', slug: '/documentation/products/store/edge-storage/' },
 			{ text: 'Edge SQL', header: true, anchor: true, type: 'learn', key: 'reference/sql', slug: '/documentation/products/store/edge-sql/' },
+			{ text: 'Edge Storage', header: true, anchor: true, type: 'learn', key: 'reference/storage', slug: '/documentation/products/store/edge-storage/' },
 		]
 	},
 	{
 		text: 'Secure', header: true, type: 'learn', key: 'secureRef', items: [
+  		{ text: 'Edge DNS', header: true, anchor: true, type: 'learn', key: 'reference/intelligentDNS', slug: '/documentation/products/secure/edge-dns/' },			
 			{ text: 'Edge Firewall', header: true, anchor: true, type: 'learn', key: 'reference/edgeFirewall', slug: '/documentation/products/secure/edge-firewall/' },
 			{
 				text: 'Edge Firewall add-ons', header: true, type: 'learn', key: 'reference/edgeApplicationAddons', items: [
-					{ text: 'DDoS Protection', header: true, anchor: true, type: 'learn', key: 'reference/ddosProtection', slug: '/documentation/products/secure/edge-firewall/ddos-protection/' },
-					{ text: 'DDoS Mitigation', header: true, anchor: true, type: 'learn', key: 'reference/ddosMitigation', slug: '/documentation/products/secure/edge-firewall/ddos-protection/ddos-mitigation/' },
-					{ text: 'Web Application Firewall', header: true, anchor: true, type: 'learn', key: 'reference/webApplicationFirewall', slug: '/documentation/products/secure/edge-firewall/web-application-firewall/' },
-					{ text: 'Network Layer Protection', header: true, anchor: true, type: 'learn', key: 'reference/networkLayerProtection', slug: '/documentation/products/secure/edge-firewall/network-layer-protection/' },	
 					{ text: 'Bot Manager', header: true, anchor: true, type: 'learn', key: 'reference/botManager', slug: '/documentation/products/secure/edge-firewall/bot-manager/' },
-					{ text: 'Origin Shield', header: true, anchor: true, type: 'learn', key: 'reference/originShield', slug: '/documentation/products/secure/edge-firewall/network-layer-protection/#origin-shield' },
+					{ text: 'DDoS Protection', header: true, anchor: true, type: 'learn', key: 'reference/ddosProtection', slug: '/documentation/products/secure/edge-firewall/ddos-protection/' },
 					{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsFirewall', slug: '/documentation/products/secure/edge-firewall/edge-functions/' },
-
+					{ text: 'Network Layer Protection', header: true, anchor: true, type: 'learn', key: 'reference/networkLayerProtection', slug: '/documentation/products/secure/edge-firewall/network-layer-protection/' },	
+					{ text: 'Origin Shield', header: true, anchor: true, type: 'learn', key: 'reference/originShield', slug: '/documentation/products/secure/edge-firewall/network-layer-protection/#origin-shield' },
+					{ text: 'Web Application Firewall', header: true, anchor: true, type: 'learn', key: 'reference/webApplicationFirewall', slug: '/documentation/products/secure/edge-firewall/web-application-firewall/' },
 				],				
 		},
-		{ text: 'Edge DNS', header: true, anchor: true, type: 'learn', key: 'reference/intelligentDNS', slug: '/documentation/products/secure/edge-dns/' },
 		]
 	},
 	{
