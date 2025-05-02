@@ -176,8 +176,8 @@ export default [
 	},
 	{
 		text: 'Artificial Intelligence', header: true, type: 'learn', key: 'aiRef', items: [
-			{ text: 'Edge AI', header: true, anchor: true, type: 'learn', key: 'reference/edgeAI', slug: '/documentation/products/edge-ai/' },
-			{ text: 'Models', header: true, anchor: true, type: 'learn', key: 'reference/models', slug: '/documentation/products/edge-ai/models/' },
+			{ text: 'Edge AI', header: true, anchor: true, type: 'learn', key: 'reference/edgeAI', slug: '/documentation/products/ai/edge-ai/' },
+			{ text: 'Models', header: true, anchor: true, type: 'learn', key: 'reference/models', slug: '/documentation/products/ai/edge-ai/models/' },
 		]
 	},
 	{

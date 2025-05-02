@@ -214,8 +214,8 @@ export default NavDictionary([
 	{ text: 'Real-Time Metrics Histórico', key: 'reference/historicalRealTimeMetrics', slug: '/documentacao/produtos/observe/real-time-metrics-historico/' },
 
 	{ text: 'Inteligência Artificial', key: 'aiRef'},
-	{ text: 'Edge AI', key: 'reference/edgeAI', slug: '/documentacao/produtos/edge-ai/' },
-	{ text: 'Modelos', key: 'reference/models', slug: '/documentacao/produtos/edge-ai/modelos/' },
+	{ text: 'Edge AI', key: 'reference/edgeAI', slug: '/documentacao/produtos/ai/edge-ai/' },
+	{ text: 'Modelos', key: 'reference/models', slug: '/documentacao/produtos/ai/edge-ai/modelos/' },
 
 	{ text: 'Marketplace', key: 'mktpRef' },
 	{ text: 'Marketplace', key: 'mktp', slug: '/documentacao/produtos/marketplace/' },
