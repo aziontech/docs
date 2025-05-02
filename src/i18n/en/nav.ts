@@ -175,6 +175,12 @@ export default [
 		]
 	},
 	{
+		text: 'Artificial Intelligence', header: true, type: 'learn', key: 'aiRef', items: [
+			{ text: 'Edge AI', header: true, anchor: true, type: 'learn', key: 'reference/edgeAI', slug: '/documentation/products/edge-ai/' },
+			{ text: 'Models', header: true, anchor: true, type: 'learn', key: 'reference/models', slug: '/documentation/products/edge-ai/models/' },
+		]
+	},
+	{
 		text: 'Work with domains', header: true, type: 'learn', key: 'menu.domains', items: [
 			{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/' },
 			{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
