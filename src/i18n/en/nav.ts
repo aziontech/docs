@@ -119,6 +119,7 @@ export default [
 
 	{
 		text: 'Build', header: true, type: 'learn', key: 'buildRef', hasLabel: 'menu.reference', items: [
+			{ text: 'Edge AI', header: true, anchor: true, type: 'learn', key: 'reference/edgeAI', slug: '/documentation/products/ai/edge-ai/' },
 			{ text: 'Edge Application', header: true, anchor: true, type: 'learn', key: 'reference/edgeApplication', slug: '/documentation/products/build/edge-application/' },
 			{
 				text: 'Edge Application add-ons', header: true, type: 'learn', key: 'reference/edgeApplicationAddons', items: [
@@ -129,7 +130,7 @@ export default [
 					{ text: 'Load Balancer', header: true, anchor: true, type: 'learn', key: 'reference/loadBalancer', slug: '/documentation/products/build/edge-application/load-balancer/' },
 					{ text: 'Tiered Cache', header: true, anchor: true, type: 'learn', key: 'reference/l2Caching', slug: '/documentation/products/build/edge-application/tiered-cache/' },
 				]					
-		},
+		  },
 		]
 	},
 	{
@@ -172,12 +173,6 @@ export default [
 			{ text: 'Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/realTimeMetrics', slug: '/documentation/products/observe/real-time-metrics/' },
 			{ text: 'Historical Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/historicalRealTimeMetrics', slug: '/documentation/products/observe/historical-real-time-metrics/' },
 
-		]
-	},
-	{
-		text: 'Artificial Intelligence', header: true, type: 'learn', key: 'aiRef', items: [
-			{ text: 'Edge AI', header: true, anchor: true, type: 'learn', key: 'reference/edgeAI', slug: '/documentation/products/ai/edge-ai/' },
-			{ text: 'Models', header: true, anchor: true, type: 'learn', key: 'reference/models', slug: '/documentation/products/ai/edge-ai/models/' },
 		]
 	},
 	{
