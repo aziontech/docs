@@ -1,6 +1,6 @@
 ## Build with Edge Application
 
-Azion **Edge Application** allows you to build your applications to run on Azion Edge platform.
+Azion **Edge Application** allows you to build your applications to run on Azion Web Platform.
 
 ### Naming your Edge Application
 
