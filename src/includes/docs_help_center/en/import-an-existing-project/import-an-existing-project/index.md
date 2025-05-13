@@ -1,6 +1,6 @@
 ## Import an existing project from GitHub
 
-This option enables you to import an existing project from GitHub and deploy it on Azion Edge Platform.
+This option enables you to import an existing project from GitHub and deploy it on Azion Web Platform.
 
 You need to complete all the three steps to do so:
 
