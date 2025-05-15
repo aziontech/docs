@@ -30,4 +30,4 @@ In the *Getting Started* section, click the **Build an Edge Application** block 
 
 After your edge application is created, the Help Center window automatically shows you a recommendation with next steps related to the setup option you chose.
 
-Additionally, when you create your first edge application on Azion, you'll receive an email suggesting *Next Steps*. This way, you'll know some of the options to set up your applications and how to take advantage of Azion's edge platform.
+Additionally, when you create your first edge application on Azion, you'll receive an email suggesting *Next Steps*. This way, you'll know some of the options to set up your applications and how to take advantage of Azion Web Platform.
