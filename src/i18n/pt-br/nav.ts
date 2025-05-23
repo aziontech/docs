@@ -192,6 +192,7 @@ export default NavDictionary([
 	{ text: 'WAF Rule Sets', key: 'reference/wafRuleSets', slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/rule-sets/' },
 	{ text: 'WAF Custom Allowed Rules', key: 'reference/wafCustomAllowedRules', slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/custom-allowed-rules/' },
 	{ text: 'Bot Manager', key: 'reference/botManager', slug: '/documentacao/produtos/secure/edge-firewall/bot-manager/' },
+	{ text: 'Bot Manager Lite', key: 'reference/botManagerLite', slug: '/documentacao/produtos/secure/edge-firewall/bot-manager-lite/' },
 	{ text: 'Origin Shield', key: 'reference/originShield', slug: '/documentacao/produtos/secure/proteja-infraestrutura/' },
 	{ text: 'Edge Functions', key: 'reference/edgeFunctionsFirewall', slug: '/documentacao/produtos/secure/edge-firewall/edge-functions/' },
 	{ text: 'Edge Functions Instances', key: 'reference/edgeFunctionsInstancesFirewall', slug: '/documentacao/produtos/secure/edge-firewall/edge-functions-instances/' },
