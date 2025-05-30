@@ -41,7 +41,6 @@ export default [
     { text: 'Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/troubleshooting/understand-metrics/', key: 'understandMetrics' },
     { text: 'Debug applications', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/troubleshooting/debug-applications/', key: 'debugApps', addBorder: true, },
 	]},
-	{ text: 'Migrate your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/migrate-to-azion/', key: 'migrateAzion' },
 	{ text: 'Secure your application', header: true, anchor: true, type: 'learn', key: 'secure', items:
 		[
 			{ text: 'Overview', header: true, anchor: true, slug: '/documentation/products/secure/overview/', key: 'secureOverview' },
@@ -113,8 +112,16 @@ export default [
 
 		]
 	 },
-	{ text: 'Pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'},
-	{ text: 'Release Notes', header: true, anchor: true, type: 'learn', slug: '/documentation/products/release-notes/', key: 'releaseNotes'},
+	{ text: 'Migrate to Azion', header: true, type: 'learn', key: 'migrateAzion', items: [
+		{ text: 'Migrate your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/migrate-to-azion/', key: 'migrateAzion'},
+		{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/' },
+		{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
+		{ text: 'Point domain to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/point-domain-to-azion/', key: 'pointDomain' },
+		{ text: 'Migrate NS to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/migrate-ns-to-azion/', key: 'migrateDomain' },
+		{ text: 'Edge DNS', header: true, anchor: true, type: 'learn', key: 'reference/intelligentDNS', slug: '/documentation/products/secure/edge-dns/' },
+	] 
+	},
+	{ text: 'Check our pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'},
 	{ text: 'Get help', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-help/', key: 'getStarted/getHelp' },
 
 	{
@@ -154,7 +161,6 @@ export default [
 
 				],				
 		},
-		{ text: 'Edge DNS', header: true, anchor: true, type: 'learn', key: 'reference/intelligentDNS', slug: '/documentation/products/secure/edge-dns/' },
 		]
 	},
 	{
@@ -173,14 +179,6 @@ export default [
 			{ text: 'Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/realTimeMetrics', slug: '/documentation/products/observe/real-time-metrics/' },
 			{ text: 'Historical Real-Time Metrics', header: true, anchor: true, type: 'learn', key: 'reference/historicalRealTimeMetrics', slug: '/documentation/products/observe/historical-real-time-metrics/' },
 
-		]
-	},
-	{
-		text: 'Work with domains', header: true, type: 'learn', key: 'menu.domains', items: [
-			{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/' },
-			{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
-			{ text: 'Point domain to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/point-domain-to-azion/', key: 'pointDomain' },
-			{ text: 'Migrate NS to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/migrate-ns-to-azion/', key: 'migrateDomain' },
 		]
 	},
 	{
@@ -235,6 +233,7 @@ export default [
 			},		
 		]
 	},
+	{ text: 'Release Notes', header: true, anchor: true, type: 'learn', slug: '/documentation/products/release-notes/', key: 'releaseNotes'},
 	{
 		text: 'Developer tools', header: true, type: 'learn', key: 'developerTools', hasLabel: 'menu.addResources', items: [
 			{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: '/documentation/products/overview-azion-api/' },
