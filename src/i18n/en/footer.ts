@@ -11,10 +11,6 @@ const listData = [
         link: "/en/products/our-network/"
       },
       {
-        title: "Roadmap",
-        link: "/en/roadmap/"
-      },
-      {
         title: "Careers",
         link: "/en/careers/",
       },

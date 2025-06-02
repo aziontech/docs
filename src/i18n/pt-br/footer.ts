@@ -12,10 +12,6 @@ const listData = [
         "link": "/pt-br/produtos/nossa-rede/"
       },
       {
-        title: "Roadmap",
-        link: "/en/roadmap/"
-      },
-      {
         "title": "Carreiras",
         "link": "/pt-br/carreiras/",
         "flag": "Estamos contratando!"
