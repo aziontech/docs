@@ -156,6 +156,7 @@ export default [
 					{ text: 'Web Application Firewall', header: true, anchor: true, type: 'learn', key: 'reference/webApplicationFirewall', slug: '/documentation/products/secure/edge-firewall/web-application-firewall/' },
 					{ text: 'Network Layer Protection', header: true, anchor: true, type: 'learn', key: 'reference/networkLayerProtection', slug: '/documentation/products/secure/edge-firewall/network-layer-protection/' },	
 					{ text: 'Bot Manager', header: true, anchor: true, type: 'learn', key: 'reference/botManager', slug: '/documentation/products/secure/edge-firewall/bot-manager/' },
+					{ text: 'Bot Manager Lite', header: true, anchor: true, type: 'learn', key: 'reference/botManagerLite', slug: '/documentation/products/secure/edge-firewall/bot-manager-lite/' },
 					{ text: 'Origin Shield', header: true, anchor: true, type: 'learn', key: 'reference/originShield', slug: '/documentation/products/secure/secure-infrastructure/' },
 					{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edgeFunctionsFirewall', slug: '/documentation/products/secure/edge-firewall/edge-functions/' },
 				],				
