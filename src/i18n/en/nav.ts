@@ -15,6 +15,16 @@ export default [
 	{ text: 'Build your application', header: true, anchor: true, type: 'learn', key: 'build', items: [
 		{ text: 'Overview', header: true, anchor: true, slug: '/documentation/products/guides/build/overview/', key: 'buildOverview' },
 		{ text: 'Build an application', header: true, anchor: true, slug: '/documentation/products/guides/build/build-an-application/', key: 'buildEdgeApps' },
+		{ text: 'Start with templates', header: true, anchor: true, key: 'startWithTemplates', items: [
+			{ text: 'Angular', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/angular/', key: 'buildAngular' },
+			{ text: 'Astro', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/astro/', key: 'buildAstro' },
+			{ text: 'Hexo', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/hexo/', key: 'buildHexo' },
+			{ text: 'Next', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/next/', key: 'buildNext' },
+			{ text: 'React', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/react/', key: 'buildReact' },
+			{ text: 'Vue', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/vue/', key: 'buildVue' },
+			{ text: 'JavaScript', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/language-specific/javascript/', key: 'buildJavaScript' },
+			{ text: 'WebAssembly', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/language-specific/wasm/', key: 'buildWebAssembly' },
+		]},
 		{
 			text: 'Edit an application', header: true, anchor: true, type: 'learn', key: 'editEdgeApp', items: [
 				{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/configure-main-settings/', key: 'mainSettings' },
