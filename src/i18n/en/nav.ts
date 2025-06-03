@@ -11,11 +11,11 @@ export default [
 	{ text: 'Documentation', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/', key: 'documentation' },
 	{ text: 'Guides', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/', key: 'guides' },
 	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/devtools/', key: 'devTools' },
-	{ text: 'Azion platform overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-platform-overview/', key: 'getStarted/welcome', hasLabel: "menu.getStarted" },
+	{ text: 'Azion platform overview', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-platform-overview/', key: 'getStarted/welcome' },
 	{ text: 'Build your application', header: true, anchor: true, type: 'learn', key: 'build', items: [
 		{ text: 'Overview', header: true, anchor: true, slug: '/documentation/products/guides/build/overview/', key: 'buildOverview' },
 		{ text: 'Build an application', header: true, anchor: true, slug: '/documentation/products/guides/build/build-an-application/', key: 'buildEdgeApps' },
-		{ text: 'Start with templates', header: true, anchor: true, key: 'startWithTemplates', items: [
+		{ text: 'Quick start guides', header: true, anchor: true, key: 'startWithTemplates', items: [
 			{ text: 'Angular', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/angular/', key: 'buildAngular' },
 			{ text: 'Astro', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/astro/', key: 'buildAstro' },
 			{ text: 'Hexo', header: true, anchor: true, type: 'learn', slug: '/documentation/products/cli/frameworks/hexo/', key: 'buildHexo' },
@@ -25,6 +25,17 @@ export default [
 			{ text: 'JavaScript', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/language-specific/javascript/', key: 'buildJavaScript' },
 			{ text: 'WebAssembly', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/language-specific/wasm/', key: 'buildWebAssembly' },
 		]},
+		{ text: 'Develop with Azion', header: true, anchor: true, key: 'buildWithAzion', items: [
+			{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: '/documentation/products/overview-azion-api/' },
+			{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentation/products/azion-cli/overview/' },
+			{ text: 'API GraphiQL Playground', header: true, anchor: true, type: 'learn', slug: '/documentation/products/devtools/graphql-playground/', key: 'devtools/graphQLplayground' },
+			{ text: 'Azion IDE', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/code-editor/', key: 'developIDE' },
+			{ text: 'Local Development', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/local-dev/', key: 'developLocalDev' },
+			{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
+			{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
+			{ text: 'GitHub', header: true, anchor: true, type: 'learn', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
+			{ text: 'Azion Runtime', header: true, anchor: true, type: 'learn', slug: '/documentation/products/build/develop-with-azion/runtime-apis/', key: 'developEdgeRuntime' },
+		] },
 		{
 			text: 'Edit an application', header: true, anchor: true, type: 'learn', key: 'editEdgeApp', items: [
 				{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/configure-main-settings/', key: 'mainSettings' },
@@ -79,9 +90,13 @@ export default [
 					{ text: 'Block Tor networks', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/block-tor-networks/', key: 'blockTor' },
 				]
 			},
-			{ text: 'Select TLS ciphers', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/ciphers/', key: 'ciphers' },
-			{ text: 'Configure mTLS', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/mtls/', key: 'mtls' },
-			{ text: 'Manage Digital Certificates', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/digital-certificates/', key: 'digitalCertificates' },
+			{ 
+				text: 'Transport Layer Security', header: true, anchor: true, type: 'learn', key: 'tls', items: [
+					{ text: 'Select TLS ciphers', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/ciphers/', key: 'ciphers' },
+					{ text: 'Configure mTLS', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/mtls/', key: 'mtls' },
+					{ text: 'Manage Digital Certificates', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/digital-certificates/', key: 'digitalCertificates' },
+				] 
+			},
 			{
 				text: 'Automate with Azion', header: true, type: 'learn', key: 'automateSecure', items: [
 					{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/functions/', key: 'automateEdgeFunctions' },

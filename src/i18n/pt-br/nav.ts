@@ -1,7 +1,7 @@
 /**
  * This configures the navigation sidebar.
  * All other languages follow this ordering/structure and will fall back to
- * English for any entries they haven’t translated.
+ * English for any entries they haven't translated.
  *
  * - All entries MUST include `text` and `key`
  * - Heading entries MUST include `header: true` and `type`
@@ -17,9 +17,21 @@ export default NavDictionary([
 
 	{ text: 'Visão geral da Azion', slug: '/documentacao/produtos/visao-geral-da-plataforma-da-azion/', key: 'getStarted/welcome' },
 
-	{ text: 'Construa sua applicação', key: 'build' },
+	{ text: 'Construa sua aplicação', key: 'build' },
 	{ text: 'Visão geral',header: true, anchor: true, type: 'learn', key: 'buildOverview', slug: '/documentacao/produtos/guias/build/visao-geral/', },
 	{ text: 'Construa uma aplicação',header: true, anchor: true, type: 'learn', key: 'buildEdgeApps', slug: '/documentacao/produtos/guias/build/criar-uma-aplicacao/' },
+
+	{ text: 'Guias rápidos', header: true, anchor: true, key: 'startWithTemplates' },
+	{ text: 'Angular', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/angular/', key: 'buildAngular' },
+	{ text: 'Astro', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/astro/', key: 'buildAstro' },
+	{ text: 'Hexo', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/hexo/', key: 'buildHexo' },
+	{ text: 'Next', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/next/', key: 'buildNext' },
+	{ text: 'React', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/react/', key: 'buildReact' },
+	{ text: 'Vue', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/vue/', key: 'buildVue' },
+	{ text: 'JavaScript', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/develop-with-azion/language-specific/javascript/', key: 'buildJavaScript' },
+	{ text: 'WebAssembly', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/develop-with-azion/language-specific/wasm/', key: 'buildWebAssembly' },
+
+	{ text: 'Desenvolva com Azion', header: true, anchor: true, key: 'buildWithAzion' },
 
 	{ text: 'Edite uma aplicação',header: true,  type: 'learn',  key: 'editEdgeApp' },
 	{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/definir-configuracoes-principais/', key: 'mainSettings' },
@@ -71,7 +83,7 @@ export default NavDictionary([
 	{ text: 'Selecione cifras TLS', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/cifras/', key: 'ciphers', hasLabel: 'menu.secureTransportLayerSecurity' },
 	{ text: 'Configure mTLS', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/mtls/', key: 'mtls' },
 	{ text: 'Gerencie certificados digitais', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/certificado-digital', key: 'digitalCertificates' },
-
+{text: 'Automatize com a Azion', header: true, type: 'learn', key: 'automateSecure'},
 	{ text: 'Edge Functions', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/functions/', key: 'automateEdgeFunctions', hasLabel: 'menu.secureAutomate' },
 	{ text: 'SDK', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/sdk/', key: 'automateSdk' },
 	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/terraform/', key: 'automateTerraform' },
@@ -277,5 +289,7 @@ export default NavDictionary([
 	{
 		text: 'System Status', slug: 'https://status.azion.com/', key: 'systemStatus'
 	},
+
+	{ text: 'Encontre sua solução', header: true, anchor: true, type: 'learn', slug: '/documentacao/arquiteturas/', key: 'findSolutions'},
 
 ]);
