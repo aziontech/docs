@@ -13,7 +13,6 @@ export default NavDictionary([
 	{ text: 'Documentação', slug: '/documentacao/', key: 'documentation' },
 	{ text: 'Guias', slug: '/documentacao/produtos/guias/', key: 'guides' },
 	{ text: 'Dev Tools', slug: '/documentacao/produtos/devtools/', key: 'devTools' },
-	{ text: 'Arquiteturas', slug: '/documentacao/arquiteturas/', key: 'architectures' },
 
 	{ text: 'Visão geral da Azion', slug: '/documentacao/produtos/visao-geral-da-plataforma-da-azion/', key: 'getStarted/welcome' },
 
@@ -21,17 +20,16 @@ export default NavDictionary([
 	{ text: 'Visão geral',header: true, anchor: true, type: 'learn', key: 'buildOverview', slug: '/documentacao/produtos/guias/build/visao-geral/', },
 	{ text: 'Construa uma aplicação',header: true, anchor: true, type: 'learn', key: 'buildEdgeApps', slug: '/documentacao/produtos/guias/build/criar-uma-aplicacao/' },
 
-	{ text: 'Guias rápidos', header: true, anchor: true, key: 'startWithTemplates' },
-	{ text: 'Angular', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/angular/', key: 'buildAngular' },
-	{ text: 'Astro', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/astro/', key: 'buildAstro' },
-	{ text: 'Hexo', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/hexo/', key: 'buildHexo' },
-	{ text: 'Next', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/next/', key: 'buildNext' },
-	{ text: 'React', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/react/', key: 'buildReact' },
-	{ text: 'Vue', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/cli/frameworks/vue/', key: 'buildVue' },
-	{ text: 'JavaScript', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/develop-with-azion/language-specific/javascript/', key: 'buildJavaScript' },
-	{ text: 'WebAssembly', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/develop-with-azion/language-specific/wasm/', key: 'buildWebAssembly' },
-
 	{ text: 'Desenvolva com Azion', header: true, anchor: true, key: 'buildWithAzion' },
+	{ text: 'API', key: 'devtools/api', slug: '/documentacao/produtos/devtools/primeiros-passos-api/' },
+	{ text: 'CLI', key: 'devtools/cli', slug: '/documentacao/produtos/azion-cli/visao-geral/' },
+	{ text: 'API GraphiQL Playground', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'devtools/graphQLplayground' },
+	{ text: 'Azion IDE', slug: '/documentacao/produtos/build/desenvolvimento-azion/code-editor/', key: 'developIDE' },
+	{ text: 'Local Development', slug: '/documentacao/produtos/build/desenvolvimento-azion/local-dev/', key: 'developLocalDev' },
+	{ text: 'SDK', slug: '/documentacao/devtools/sdk/go/', key: 'devtools/sdk' },
+	{ text: 'Terraform', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
+	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
+	{ text: 'Azion Runtime', slug: '/documentacao/produtos/build/desenvolvimento-azion/runtime/', key: 'developEdgeRuntime' },
 
 	{ text: 'Edite uma aplicação',header: true,  type: 'learn',  key: 'editEdgeApp' },
 	{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/build/definir-configuracoes-principais/', key: 'mainSettings' },
@@ -139,22 +137,6 @@ export default NavDictionary([
 	{ text: 'Personal tokens', key: 'accountsProfile/personalTokens', slug: '/documentacao/produtos/guias/personal-tokens/' },
 	{ text: 'Configurações', slug: '/documentacao/produtos/guias/configuracoes-de-conta/', key: 'accountsProfile/settings' },
 	{ text: 'Deletar conta', slug: '/documentacao/produtos/guias/contas/excluir-conta/', key: 'accountsProfile/deleteAccount' },
-
-
-	{ text: 'Developer tools', key: 'developerTools' },
-	{ text: 'API', key: 'devtools/api', slug: '/documentacao/produtos/devtools/primeiros-passos-api/' },
-	{ text: 'CLI', key: 'devtools/cli', slug: '/documentacao/produtos/azion-cli/visao-geral/' },
-	{ text: 'API GraphiQL Playground', slug: '/documentacao/produtos/devtools/playground-graphql/', key: 'devtools/graphQLplayground' },
-	{ text: 'Azion IDE', slug: '/documentacao/produtos/build/desenvolvimento-azion/code-editor/', key: 'developIDE' },
-	{ text: 'Local Development', slug: '/documentacao/produtos/build/desenvolvimento-azion/local-dev/', key: 'developLocalDev' },
-	{ text: 'SDK', slug: '/documentacao/devtools/sdk/go/', key: 'devtools/sdk' },
-	{ text: 'Terraform', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform' },
-	{ text: 'GitHub', slug: 'https://github.com/aziontech/', key: 'devtools/gitHub' },
-	{ text: 'Azion Runtime', slug: '/documentacao/produtos/build/desenvolvimento-azion/runtime/', key: 'developEdgeRuntime' },
-	{ text: 'Guias por framework', slug: '/documentacao/produtos/build/develop-with-azion/frameworks-specific/visao-geral/', key: 'frameworkAngular' },
-	{ text: 'Guias por linguagem', key: 'languageSpecifics' },
-	{ text: 'JavaScript', slug: '/documentacao/produtos/build/develop-with-azion/frameworks-specific/visao-geral/', key: 'devJS' },
-	{ text: 'WebAssembly', slug: '/documentacao/produtos/build/develop-with-azion/frameworks-specific/visao-geral/', key: 'devWasm' },
 
 	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
 	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },
