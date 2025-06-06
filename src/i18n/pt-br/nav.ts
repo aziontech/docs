@@ -110,7 +110,7 @@ export default NavDictionary([
 	{ text: '      Teste uma zona', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/testar-zona/', key: 'testZone' },
 
 	{
-		text: 'Preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
+		text: 'Conheça nossos preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
 	},
 
 	{
