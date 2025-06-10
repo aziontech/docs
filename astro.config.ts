@@ -12,7 +12,7 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import remarkSmartypants from 'remark-smartypants';
 
 import { asideAutoImport, astroAsides } from './integrations/astro-asides';
-import { astroDocsExpressiveCode } from './integrations/expressive-code';
+import AzionExpressiveCode from './integrations/expressive-code';
 
 import { sitemap } from './integrations/sitemap';
 import { autoLinks } from './plugins/rehype-autolink-config';
@@ -36,8 +36,7 @@ export default defineConfig({
 		preact({ compat: true }),
 		sitemap(),
 		astroAsides(),
-
-		astroDocsExpressiveCode(),
+		AzionExpressiveCode(),,
 		mdx(),
 		tailwind({ applyBaseStyles: false }),
 		vue({ appEntrypoint: '/src/vue.config.js' })
@@ -72,17 +71,17 @@ export default defineConfig({
         allow: ['..']
       }
     },
-		plugins: [
-      cssnano({
-        preset: [
-          'default', {
-            discardComments: { removeAll: true },
-            minifyFontValues: { removeQuotes: false }
-          }
-        ]
-      })
-    ],
-		ssr: {
+	plugins: [
+		cssnano({
+			preset: [
+			'default', {
+				discardComments: { removeAll: true },
+				minifyFontValues: { removeQuotes: false }
+			}
+			]
+		})
+	],
+	ssr: {
       noExternal: ['@astrojs/vue', 'azion-webkit', 'azion-theme'],
       external: ['vue']
     },
