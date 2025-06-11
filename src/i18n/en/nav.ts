@@ -115,7 +115,7 @@ export default [
 			
 		]
 	},
-	{ text: 'Migrate to Azion', header: true, type: 'learn', key: 'migrateAzion', items: [
+	{ text: 'Migrate to Azion', header: true, type: 'learn', key: 'migrateAzionMenu', items: [
 		{ text: 'Migrate your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/migrate-to-azion/', key: 'migrateAzion'},
 		{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/' },
 		{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
