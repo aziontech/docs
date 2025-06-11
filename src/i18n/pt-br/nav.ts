@@ -109,7 +109,7 @@ export default NavDictionary([
 
 	
 	{ text: 'Migre para a Azion', header: true, anchor: true, type: 'learn',key: 'menu.migrateAzion' },
-	  { text: 'Migre para a Azion', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
+	  { text: 'Migre sua aplicação', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
   	{ text: 'Trabalhe com domínios', key: 'menu.domains' },
 	  { text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
 	  { text: 'Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
