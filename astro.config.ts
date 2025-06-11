@@ -36,7 +36,7 @@ export default defineConfig({
 		preact({ compat: true }),
 		sitemap(),
 		astroAsides(),
-		AzionExpressiveCode(),,
+		AzionExpressiveCode(),
 		mdx(),
 		tailwind({ applyBaseStyles: false }),
 		vue({ appEntrypoint: '/src/vue.config.js' })
