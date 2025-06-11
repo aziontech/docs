@@ -115,7 +115,7 @@ export default [
 			
 		]
 	},
-	{ text: 'Migrate to Azion', header: true, type: 'learn', key: 'migrateAzionMenu', items: [
+	{ text: 'Migrate to Azion', header: true, type: 'learn', key: 'menu.migrateAzion', items: [
 		{ text: 'Migrate your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/migrate-to-azion/', key: 'migrateAzion'},
 		{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/' },
 		{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
@@ -230,7 +230,7 @@ export default [
 				text: 'Configure profile', header: true, type: 'learn', key: 'manageProfile', items: [
 					{ text: '      Personal tokens', header: true, anchor: true, type: 'learn', key: 'accountsProfile/personalTokens', slug: '/documentation/products/guides/personal-tokens/' },
 					{ text: '      Settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/account-settings/', key: 'accountsProfile/settings' },
-					{ text: '      Your Settings', key: 'accounts/youtSettings', slug: '/documentation/products/accounts/your-settings/' },
+					{ text: '      Your Settings', key: 'accounts/yourSettings', slug: '/documentation/products/accounts/your-settings/' },
 					{ text: '      Delete account', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/delete-account/', key: 'accountsProfile/deleteAccount' },
 				]
 			},
