@@ -58,9 +58,7 @@ export default NavDictionary([
     { text: '      Monitore métricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/troubleshooting/monitorar-metricas/', key: 'understandMetrics', hasLabel: 'menu.buildTroubleshoot' },
     { text: '      Debugue aplicações', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/build/troubleshooting/debug-aplicacoes/', key: 'debugApps', addBorder: true, },
 
-
-	{ text: 'Migre para a Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
-
+	
 	{ text: 'Proteja sua aplicação', key: 'secure' },
 
 	{ text: 'Visão geral', header: true, anchor: true, slug: '/documentacao/produtos/secure/visao-geral/', key: 'secureOverview', hasLabel: 'menu.secure' },
@@ -109,50 +107,20 @@ export default NavDictionary([
 	{ text: '      Monitore metricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-dns-monitorar-metricas/', key: 'intelligentDnsUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot' },
 	{ text: '      Teste uma zona', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/testar-zona/', key: 'testZone' },
 
+	
+	{ text: 'Migre para a Azion', header: true, anchor: true, type: 'learn',key: 'menu.migrateAzion' },
+	  { text: 'Migre para a Azion', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
+  	{ text: 'Trabalhe com domínios', key: 'menu.domains' },
+	  { text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
+	  { text: 'Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
+	  { text: 'Aponte um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
+	  { text: 'Migre NS para a Azion', slug: '/documentacao/produtos/guias/migrar-ns-para-a-azion/', key: 'migrateDomain' },
+	
 	{
 		text: 'Conheça nossos preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
 	},
 
-	{
-		text: 'Release Notes', slug: '/documentacao/produtos/release-notes/', key: 'releaseNotes'
-	},
-
 	{ text: 'Obtenha ajuda', slug: '/documentacao/produtos/obter-ajuda/', key: 'getStarted/getHelp' },
-
-	{ text: 'Trabalhe com domínios', key: 'menu.domains' },
-	{ text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
-	{ text: 'Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
-	{ text: 'Aponte um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
-	{ text: 'Migre NS para a Azion', slug: '/documentacao/produtos/guias/migrar-ns-para-a-azion/', key: 'migrateDomain' },
-
-	{ text: 'Crie uma conta', key: 'account/createAccount', slug: '/documentacao/produtos/contas/criar-uma-conta/' },
-
-	{ text: 'Configurar conta', key: 'manageAccount' },
-	{ text: '      Usuários', key: 'account/Users', slug: '/documentacao/produtos/guias/users-management/' },
-	{ text: '      Times', slug: '/documentacao/produtos/guias/teams-permissions/', key: 'account/teamsPermissions' },
-	{ text: '      Activity history', slug: '/documentacao/produtos/guias/activity-history/', key: 'account/activityHistory' },
-	{ text: '      Account Lockout Policy', slug: '/documentacao/produtos/guias/configurar-account-lockout-policy/', key: 'account/accountLockoutPolicy' },
-	{ text: '      Conditional Access by IP Address', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/conditional-access-by-ip-address/', key: 'account/conditionalAccess' },
-	{ text: '      SSO', slug: '/documentacao/produtos/guias/sso/', key: 'account/sso' },
-	{ text: '      MFA', slug: '/documentacao/produtos/guias/multi-factor-authentication/', key: 'account/mfa' },
-	{ text: '      User Session Timeout', slug: '/documentacao/produtos/guias/configurar-user-session-timeout/', key: 'account/user-session-timeout' },
-	{ text: '      Faturamento e assinaturas', slug: '/documentacao/produtos/guias/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
-	{ text: 'Segurança e políticas', key: 'accountPolicies' },
-
-
-	{ text: 'Configurar perfis', key: 'manageProfile' },
-	{ text: '      Personal tokens', key: 'accountsProfile/personalTokens', slug: '/documentacao/produtos/guias/personal-tokens/' },
-	{ text: '      Configurações', slug: '/documentacao/produtos/guias/configuracoes-de-conta/', key: 'accountsProfile/settings' },
-	{ text: '      Deletar conta', slug: '/documentacao/produtos/guias/contas/excluir-conta/', key: 'accountsProfile/deleteAccount' },
-
-	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
-	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },
-	{ text: 'Conheça os Azion Templates', slug: '/documentacao/produtos/marketplace/templates/', key: 'templatesIntegrations/templates' },
-	{ text: 'Use um template', slug: '/documentacao/produtos/usar-um-template-via-azion-console/', key: 'templatesIntegrations/createPublishTemplate' },
-	{ text: 'Conheça as Azion Integrations', slug: '/documentacao/produtos/marketplace/integracoes/', key: 'templatesIntegrations/integrations' },
-	{ text: 'Instale uma integração', slug: '/documentacao/produtos/marketplace/instalar-uma-integracao/', key: 'templatesIntegrations/installIntegration' },
-	{ text: 'Atualize uma integração', slug: '/documentacao/produtos/marketplace/atualizar-uma-integracao/', key: 'templatesIntegrations/updateIntegration' },
-	{ text: 'Seja um ISV', slug: '/documentacao/produtos/marketplace/isv-signup/', key: 'templatesIntegrations/isv' },
 
 
 	{
@@ -239,20 +207,62 @@ export default NavDictionary([
 	{ text: '      Teams Permissions', key: 'accounts/teamsPermissions', slug: '/documentacao/produtos/gestao-de-contas/teams-permissions/' },
 	{ text: '      Users Management', key: 'accounts/usersManagement', slug: '/documentacao/produtos/gestao-de-contas/users-management/' },
 	{ text: '      User Session Timeout', key: 'accounts/userSessionTimeout', slug: '/documentacao/produtos/gestao-de-contas/user-session-timeout//' },
-	{ text: '      Your Settings', key: 'accounts/youtSettings', slug: '/documentacao/produtos/gestao-de-contas/your-settings/' },
+	{ text: '      Your Settings', key: 'accounts/yourSettings', slug: '/documentacao/produtos/gestao-de-contas/your-settings/' },
 
+	
+	{ text: 'Crie uma conta', key: 'account/createAccount', slug: '/documentacao/produtos/contas/criar-uma-conta/' },
+
+	{ text: 'Configurar conta', key: 'manageAccount' },
+	{ text: '      Usuários', key: 'account/Users', slug: '/documentacao/produtos/guias/users-management/' },
+	{ text: '      Times', slug: '/documentacao/produtos/guias/teams-permissions/', key: 'account/teamsPermissions' },
+	{ text: '      Activity history', slug: '/documentacao/produtos/guias/activity-history/', key: 'account/activityHistory' },
+	{ text: '      Account Lockout Policy', slug: '/documentacao/produtos/guias/configurar-account-lockout-policy/', key: 'account/accountLockoutPolicy' },
+	{ text: '      Conditional Access by IP Address', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/conditional-access-by-ip-address/', key: 'account/conditionalAccess' },
+	{ text: '      SSO', slug: '/documentacao/produtos/guias/sso/', key: 'account/sso' },
+	{ text: '      MFA', slug: '/documentacao/produtos/guias/multi-factor-authentication/', key: 'account/mfa' },
+	{ text: '      User Session Timeout', slug: '/documentacao/produtos/guias/configurar-user-session-timeout/', key: 'account/user-session-timeout' },
+	{ text: '      Faturamento e assinaturas', slug: '/documentacao/produtos/guias/billing-and-subscriptions/', key: 'account/billingAndSubscriptions' },
+
+
+	{ text: 'Configurar perfis', key: 'manageProfile' },
+	{ text: '      Personal tokens', key: 'accountsProfile/personalTokens', slug: '/documentacao/produtos/guias/personal-tokens/' },
+	{ text: '      Configurações', slug: '/documentacao/produtos/guias/configuracoes-de-conta/', key: 'accountsProfile/settings' },
+	{ text: '      Deletar conta', slug: '/documentacao/produtos/guias/contas/excluir-conta/', key: 'accountsProfile/deleteAccount' },
+
+	{ text: 'Segurança e políticas', key: 'accountPolicies' },
+
+
+	{ text: 'Templates e integrações ', key: 'templatesIntegrationsRef' },
+	
+	{ text: 'Visão geral', slug: '/documentacao/produtos/marketplace/visao-geral-templates-e-integracoes/', key: 'templatesIntegrations/overview' },
+	{ text: 'Conheça os Azion Templates', slug: '/documentacao/produtos/marketplace/templates/', key: 'templatesIntegrations/templates' },
+	{ text: 'Use um template', slug: '/documentacao/produtos/usar-um-template-via-azion-console/', key: 'templatesIntegrations/createPublishTemplate' },
+	{ text: 'Conheça as Azion Integrations', slug: '/documentacao/produtos/marketplace/integracoes/', key: 'templatesIntegrations/integrations' },
+	{ text: 'Instale uma integração', slug: '/documentacao/produtos/marketplace/instalar-uma-integracao/', key: 'templatesIntegrations/installIntegration' },
+	{ text: 'Atualize uma integração', slug: '/documentacao/produtos/marketplace/atualizar-uma-integracao/', key: 'templatesIntegrations/updateIntegration' },
+	{ text: 'Seja um ISV', slug: '/documentacao/produtos/marketplace/isv-signup/', key: 'templatesIntegrations/isv' },
+
+
+	
 	{ text: 'Suporte', key: 'support' },
-	{ text: 'Technical Support', slug: '/documentacao/servicos/suporte/', key: 'technicalSupport' },
+	    { text: 'Technical Support', slug: '/documentacao/servicos/suporte/', key: 'technicalSupport' },
 
-	{ text: 'Professional Services', key: 'professionalServicesRef' },
-	{ text: '      Integration Services', slug: '/documentacao/servicos/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
-	{ text: '      Managed Configurations', slug: '/documentacao/servicos/managed-configurations/', key: 'professionalServices/managedConfigurations' },
-	{ text: '      Technical Account Manager', slug: '/documentacao/servicos/technical-account-manager/', key: 'professionalServices/TAM' },
-	{ text: '      Best Practices Review', slug: '/documentacao/servicos/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
-	{ text: '      Instructor-Led Training', slug: '/documentacao/servicos/instructor-led-training/', key: 'professionalServices/customEducationPrograms' },
-	{ text: '      Security Response Team', slug: '/documentacao/servicos/security-response-team/', key: 'professionalServices/SRT' },
-	{ text: '      Business Events Support', slug: '/documentacao/servicos/business-events-support/', key: 'professionalServices/businessEventsSupport' },
-	{ text: '      Slack Channel', slug: '/documentacao/servicos/slack-channel/', key: 'professionalServices/SlackChannel' },
+    	{ text: 'Professional Services', key: 'professionalServicesRef' },
+    	{ text: '      Integration Services', slug: '/documentacao/servicos/solutions-lab/integration-services/', key: 'professionalServices/integrationServices' },
+	    { text: '      Managed Configurations', slug: '/documentacao/servicos/managed-configurations/', key: 'professionalServices/managedConfigurations' },
+    	{ text: '      Technical Account Manager', slug: '/documentacao/servicos/technical-account-manager/', key: 'professionalServices/TAM' },
+    	{ text: '      Best Practices Review', slug: '/documentacao/servicos/best-practices-review/', key: 'professionalServices/bestPracticesReview' },
+    	{ text: '      Instructor-Led Training', slug: '/documentacao/servicos/instructor-led-training/', key: 'professionalServices/customEducationPrograms' },
+    	{ text: '      Security Response Team', slug: '/documentacao/servicos/security-response-team/', key: 'professionalServices/SRT' },
+    	{ text: '      Business Events Support', slug: '/documentacao/servicos/business-events-support/', key: 'professionalServices/businessEventsSupport' },
+    	{ text: '      Slack Channel', slug: '/documentacao/servicos/slack-channel/', key: 'professionalServices/SlackChannel' },
+
+	{ text: 'Encontre sua solução', header: true, anchor: true, type: 'learn', slug: '/documentacao/arquiteturas/', key: 'findSolutions'},
+
+	
+	{
+		text: 'Release Notes', slug: '/documentacao/produtos/release-notes/', key: 'releaseNotes'
+	},
 
 	{ text: 'Documentos legais', key: 'legal' },
 	{
@@ -278,7 +288,5 @@ export default NavDictionary([
 	{
 		text: 'System Status', slug: 'https://status.azion.com/', key: 'systemStatus'
 	},
-
-	{ text: 'Encontre sua solução', header: true, anchor: true, type: 'learn', slug: '/documentacao/arquiteturas/', key: 'findSolutions'},
 
 ]);
