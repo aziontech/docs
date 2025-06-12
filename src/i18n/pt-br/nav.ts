@@ -94,9 +94,9 @@ export default NavDictionary([
 
 	{ text: '      Monitore métricas do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-firewall-monitorar-metricas/', key: 'wafMetrics' },
 
-	{ text: 'Edite uma zona', header: true, type: 'learn', key: 'editIntelligentDns', hasLabel: 'menu.intelligentDns' },
-		{ text: '      Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/edge-dns-definir-main-settings/', key: 'intelligentDnsMainSettings' },
-		{ text: '      Adicione registros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/adicionar-registros/', key: 'addRecords' },
+	{ text: '      Edite uma zona', header: true, type: 'learn', key: 'editIntelligentDns', hasLabel: 'menu.intelligentDns' },
+						{ text: '      Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/edge-dns-definir-main-settings/', key: 'intelligentDnsMainSettings' },
+						{ text: '      Adicione registros', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/adicionar-registros/', key: 'addRecords' },
 
 	{ text: '      Configurações avançadas', header: true, type: 'learn', key: 'secureAdvancedConfigDns' },
 		{ text: '      Acesse root domain', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/acessar-root-domain/', key: 'anames' },
@@ -114,7 +114,8 @@ export default NavDictionary([
 	  { text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
 	  { text: 'Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
 	  { text: 'Aponte um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
-	  { text: 'Migre NS para a Azion', slug: '/documentacao/produtos/guias/migrar-ns-para-a-azion/', key: 'migrateDomain' },
+	  { text: 'Migre Nameservers', key: 'migrateNameserver' },
+	  		{ text: '      Migre NS para a Azion', slug: '/documentacao/produtos/guias/migrar-ns-para-a-azion/', key: 'migrateDomain' },
 	
 	{
 		text: 'Conheça nossos preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
