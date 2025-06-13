@@ -103,23 +103,18 @@ export default [
 					{ text: '      Integrate with SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/integrate-siems/', key: 'automateIntegrateSiems' },		
 				]
 			},
-			{
-				text: 'Troubleshoot', header: true, type: 'learn', key: 'menu.secureTroubleshoot', items: [
-					{ text: '      Understand WAF metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-firewall-understand-metrics/', key: 'wafMetrics' },
-					{ text: '      Understand Edge DNS metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-dns-understand-metrics/', key: 'intelligentDnsUnderstandMetrics' },
-					{ text: '      Test a DNS zone', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/test-zone/', key: 'testZone' }
-				]
-			},
+
 			
 			
 		]
 	},
 	{ text: 'Migrate to Azion', header: true, type: 'learn', key: 'menu.migrateAzion', items: [
 		{ text: 'Migrate your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/migrate-to-azion/', key: 'migrateAzion'},
+		{ text: '      Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/' },
+		{ text: '      Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
+		{ text: '      Point domain to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/point-domain-to-azion/', key: 'pointDomain' },
 		{ text: 'Migrate Nameservers', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/migrate-ns-to-azion/', key: 'migrateDomain' },
-		{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/' },
-		{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
-		{ text: 'Point domain to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/point-domain-to-azion/', key: 'pointDomain' },		 	
+		 	
 	] 
 	},
 	{ text: 'Check our pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'},

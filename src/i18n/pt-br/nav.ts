@@ -91,21 +91,14 @@ export default NavDictionary([
 		{ text: '      SDK', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/sdk/', key: 'automateSdk' },
 		{ text: '      Terraform', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/terraform/', key: 'automateTerraform' },
 		{ text: '      Integre com SIEMs', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/integrar-siems/', key: 'automateIntegrateSiems' },
-
-
-
-	{ text: 'Troubleshoot', header: true, 	anchor: true, type: 'learn',key: 'menu.secureTroubleshoot' },
-		{ text: '      Monitore métricas do WAF', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-firewall-monitorar-metricas/', key: 'wafMetrics' },
-		{ text: '      Entenda métricas Edge DNS', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-dns-monitorar-metricas/', key: 'intelligentDnsUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot' },
-		{ text: '      Teste uma zona DNS', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/testar-zona/', key: 'testZone' },
-		
 	
 	{ text: 'Migre para a Azion', header: true, anchor: true, type: 'learn',key: 'menu.migrateAzion' },
 	  { text: 'Migre sua aplicação', slug: '/documentacao/produtos/migrar-para-a-azion/', key: 'migrateAzion' },
+	  { text: '      Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
+	  { text: '      Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
+	  { text: '      Aponte um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
 	  { text: 'Migre Nameservers', slug: '/documentacao/produtos/guias/migrar-ns-para-a-azion/', key: 'migrateDomain' },
-	  { text: 'Configure um domínio', key: 'configureDomain', slug: '/documentacao/produtos/guias/configurar-dominio/' },
-	  { text: 'Crie um certificado digital', slug: '/documentacao/produtos/guias/criar-certificado-digital/', key: 'certificateDomain' },
-	  { text: 'Aponte um domínio para a Azion', slug: '/documentacao/produtos/guias/apontar-dominio-para-a-azion/', key: 'pointDomain' },
+
 	
 	{
 		text: 'Conheça nossos preços', slug: '/documentacao/produtos/precos/', key: 'pricing'
