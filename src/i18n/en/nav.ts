@@ -65,7 +65,6 @@ export default [
 			{ text: 'Overview', header: true, anchor: true, slug: '/documentation/products/secure/overview/', key: 'secureOverview' },
 			{ text: 'Secure an application', header: true, anchor: true, slug: '/documentation/products/secure/secure-application/', key: 'secureApps' },
 			{ text: 'Secure an infrastructure', header: true, anchor: true, slug: '/documentation/products/secure/secure-infrastructure/', key: 'secureInfra' },
-			{ text: 'Secure a DNS', header: true, anchor: true, slug: '/documentation/products/secure/secure-dns/', key: 'secureDns', addBorder: true },
 			{
 				text: 'Edit a firewall', header: true, type: 'learn', key: 'editEdgeFirewall', items: [
 					{ text: '      Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/edge-firewall-configure-main-settings/', key: 'secureMainSettings' },
@@ -105,10 +104,10 @@ export default [
 				]
 			},
 			{
-				text: 'Troubleshoot', header: true, type: 'learn', key: 'secureTroubleshoot', items: [
+				text: 'Troubleshoot', header: true, type: 'learn', key: 'menu.secureTroubleshoot', items: [
 					{ text: '      Understand WAF metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-firewall-understand-metrics/', key: 'wafMetrics' },
-					{ text: '      Understand metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-dns-understand-metrics/', key: 'intelligentDnsUnderstandMetrics' },
-					{ text: '      Test zone', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/test-zone/', key: 'testZone' }
+					{ text: '      Understand Edge DNS metrics', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/edge-dns-understand-metrics/', key: 'intelligentDnsUnderstandMetrics' },
+					{ text: '      Test a DNS zone', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/troubleshoot/test-zone/', key: 'testZone' }
 				]
 			},
 			
@@ -117,28 +116,10 @@ export default [
 	},
 	{ text: 'Migrate to Azion', header: true, type: 'learn', key: 'menu.migrateAzion', items: [
 		{ text: 'Migrate your application', header: true, anchor: true, type: 'learn', slug: '/documentation/products/migrate-to-azion/', key: 'migrateAzion'},
+		{ text: 'Migrate Nameservers', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/migrate-ns-to-azion/', key: 'migrateDomain' },
 		{ text: 'Configure a domain', header: true, anchor: true, type: 'learn', key: 'configureDomain', slug: '/documentation/products/guides/configure-a-domain/' },
 		{ text: 'Create digital certificate', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/create-a-digital-certificate/', key: 'certificateDomain' },
-		{ text: 'Point domain to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/point-domain-to-azion/', key: 'pointDomain' },
-		{ text: 'Migrate Nameservers', header: true, anchor: true, type: 'learn', key: 'migrateNameserver', items:
-			[
-				{ text: '      Migrate NS', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/migrate-ns-to-azion/', key: 'migrateDomain' },
-				{
-					text: '      Edit DNS zone', header: true, type: 'learn', key: 'editIntelligentDns', items: [
-						{ text: '      Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/edge-dns-configure-main-settings/', key: 'intelligentDnsMainSettings' },
-						{ text: '      Add records', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/add-records/', key: 'addRecords' },
-					]
-				},
-				{
-					text: '      Advanced configurations', header: true, type: 'learn', key: 'secureAdvancedConfigDns', items: [
-						{ text: '      Access root domain', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/access-root-domain/', key: 'anames' },
-						{ text: '      Activate DNSSEC', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/activate-dnssec/', key: 'activateDnssec' },
-						{ text: '      Authenticate Let\'s Encrypt', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/lets-encrypt-record/', key: 'authenticateLetsEncryptCertificate' },
-						{ text: '      Perform DNS load balance', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/load-balance-dns/', key: 'dnsLoadBalance' },
-					]
-				},
-			]
-		 },		
+		{ text: 'Point domain to Azion', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/point-domain-to-azion/', key: 'pointDomain' },		 	
 	] 
 	},
 	{ text: 'Check our pricing', header: true, anchor: true, type: 'learn', slug: '/documentation/products/pricing/', key: 'pricing'},
