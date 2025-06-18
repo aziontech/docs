@@ -123,16 +123,16 @@ export default [
 		text: 'Build', header: true, type: 'learn', key: 'buildRef', hasLabel: 'menu.reference', items: [
 			{ text: 'Edge AI', header: true, anchor: true, type: 'learn', key: 'reference/edgeAI', slug: '/documentation/products/ai/edge-ai/' },
 			{ text: 'Edge Application', header: true, anchor: true, type: 'learn', key: 'reference/edgeApplication', slug: '/documentation/products/build/edge-application/' },
-			{
-				text: 'Edge Application add-ons', header: true, type: 'learn', key: 'reference/edgeApplicationAddons', items: [
-					{ text: '      Application Accelerator', header: true, anchor: true, type: 'learn', key: 'reference/applicationAcceleration', slug: '/documentation/products/build/edge-application/application-accelerator/' },
-					{ text: '      Edge Cache', header: true, anchor: true, type: 'learn', key: 'reference/edgeCaching', slug: '/documentation/products/build/edge-application/edge-cache/' },
-					{ text: '      Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edge Functions', slug: '/documentation/products/build/edge-application/edge-functions/' },
-					{ text: '      Image Processor', header: true, anchor: true, type: 'learn', key: 'reference/imageProcessor', slug: '/documentation/products/build/edge-application/image-processor/' },
-					{ text: '      Load Balancer', header: true, anchor: true, type: 'learn', key: 'reference/loadBalancer', slug: '/documentation/products/build/edge-application/load-balancer/' },
-					{ text: '      Tiered Cache', header: true, anchor: true, type: 'learn', key: 'reference/l2Caching', slug: '/documentation/products/build/edge-application/tiered-cache/' },
-				]					
-			},
+			
+				
+				{ text: '      Application Accelerator', header: true, anchor: true, type: 'learn', key: 'reference/applicationAcceleration', slug: '/documentation/products/build/edge-application/application-accelerator/' },
+				{ text: '      Edge Cache', header: true, anchor: true, type: 'learn', key: 'reference/edgeCaching', slug: '/documentation/products/build/edge-application/edge-cache/' },
+				{ text: '      Edge Functions', header: true, anchor: true, type: 'learn', key: 'reference/edge Functions', slug: '/documentation/products/build/edge-application/edge-functions/' },
+				{ text: '      Image Processor', header: true, anchor: true, type: 'learn', key: 'reference/imageProcessor', slug: '/documentation/products/build/edge-application/image-processor/' },
+				{ text: '      Load Balancer', header: true, anchor: true, type: 'learn', key: 'reference/loadBalancer', slug: '/documentation/products/build/edge-application/load-balancer/' },
+				{ text: '      Tiered Cache', header: true, anchor: true, type: 'learn', key: 'reference/l2Caching', slug: '/documentation/products/build/edge-application/tiered-cache/' },
+									
+			
 		]
 	},
 	{
