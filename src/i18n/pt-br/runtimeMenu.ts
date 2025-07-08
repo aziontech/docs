@@ -16,6 +16,7 @@
 
 	{ text: 'Visão geral' , header: true, anchor: true, type: 'learn',  key: 'overview', slug: '/documentacao/runtime/visao-geral/', hasLabel:'menu.runtime' },
 	{ text: 'Referências de API', header: true, type: 'learn',  key: 'apiReference', items: [
+		{ text: 'Handlers', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/handlers/', key: 'runtime/handlers' },
 		{ text: 'Variáveis de Ambiente', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/environment-variables/', key: 'runtime/variables' },
 		{ text: 'Metadados', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/metadata/', key: 'runtime/metadata' },
 		{ text: 'Network List', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/network-list/', key: 'runtime/network-list' },
