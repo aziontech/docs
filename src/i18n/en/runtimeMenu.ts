@@ -19,6 +19,7 @@
 		{ text: 'Handlers', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/handlers', key: 'runtime/handlers' },
 		{ text: 'Environment Variables', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/environment-variables', key: 'runtime/variables' },
 		{ text: 'Metadata', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/metadata', key: 'runtime/metadata' },
+		{ text: 'Cache', slug: '/documentation/runtime/api-reference/cache/', key: 'runtime/cache-api' },
 		{ text: 'Network List interface', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/network-list', key: 'runtime/network-list' },
 		{ text: 'Edge Storage', slug: '/documentation/runtime/api-reference/storage/', key: 'runtime/storage-api' },
 		{ text: 'Edge SQL', slug: '/documentation/runtime/api-reference/edge-sql/', key: 'runtime/storage-api' },
