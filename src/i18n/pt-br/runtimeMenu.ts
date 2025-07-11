@@ -24,6 +24,7 @@
 		{ text: 'Edge Storage', slug: '/documentacao/runtime/api-reference/storage/', key: 'runtime/storage-api' },
 		{ text: 'Edge SQL', slug: '/documentacao/runtime/api-reference/edge-sql/', key: 'runtime/storage-api' },
 		{ text: 'Web APIs', slug: '/documentacao/runtime-apis/javascript/', key: 'runtime/web-standards' },
+		{ text: 'WebSocket', slug: '/documentacao/runtime/api-reference/websocket/', key: 'runtime/websocket' },
 	] },
 
 	{ text: 'Compatibilidade', header: true, type: 'learn', key: 'runtime/compatibility', items: [
