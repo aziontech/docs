@@ -16,12 +16,14 @@
 
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview', slug: '/documentation/products/edge-application/edge-functions/runtime/overview', hasLabel: 'menu.runtime' },
 	{ text: 'API Reference', header: true, type: 'learn', key: 'apiReference', items: [
+		{ text: 'Handlers', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/handlers', key: 'runtime/handlers' },
 		{ text: 'Environment Variables', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/environment-variables', key: 'runtime/variables' },
 		{ text: 'Metadata', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/metadata', key: 'runtime/metadata' },
+		{ text: 'Cache', slug: '/documentation/runtime/api-reference/cache/', key: 'runtime/cache-api' },
 		{ text: 'Network List interface', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/network-list', key: 'runtime/network-list' },
 		{ text: 'Edge Storage', slug: '/documentation/runtime/api-reference/storage/', key: 'runtime/storage-api' },
 		{ text: 'Edge SQL', slug: '/documentation/runtime/api-reference/edge-sql/', key: 'runtime/storage-api' },
-		{ text: 'Web APIs', slug: '/documentation/products/edge-application/edge-functions/runtime-apis/javascript', key: 'runtime/web-standards' },
+		{ text: 'WebSocket', slug: '/documentation/runtime/api-reference/websocket/', key: 'runtime/websocket' },
 	]},
 
 	{ text: 'Compatibility', header: true, type: 'learn', key: 'runtime/compatibility', items: [

@@ -1,6 +1,6 @@
 ## Getting started
 
-It's time to start using Azion Edge platform! Now you can build an **Edge Application from scratch**, set it up, and connect it to domains and traffic metrics. To do so, it's necessary to complete the following journey:
+It's time to start using Azion Web Platform! Now you can build an **Edge Application from scratch**, set it up, and connect it to domains and traffic metrics. To do so, it's necessary to complete the following journey:
 
 - Step 1. [Build an Edge Application from scratch](https://www.azion.com/en/documentation/products/getting-started#build-edge-app){: target="blank"}: build your application as you complete the set up presented to you.
 - Step 2. [Launch an Edge Application](/build-application/launch){: target="blank"}: after creating an application, you'll see a summary of your newly created application and its link. You'll also find a set of available options to finalize it according to your chosen settings.
@@ -30,4 +30,4 @@ In the *Getting Started* section, click the **Build an Edge Application** block 
 
 After your edge application is created, the Help Center window automatically shows you a recommendation with next steps related to the setup option you chose.
 
-Additionally, when you create your first edge application on Azion, you'll receive an email suggesting *Next Steps*. This way, you'll know some of the options to set up your applications and how to take advantage of Azion's edge platform.
+Additionally, when you create your first edge application on Azion, you'll receive an email suggesting *Next Steps*. This way, you'll know some of the options to set up your applications and how to take advantage of Azion Web Platform.

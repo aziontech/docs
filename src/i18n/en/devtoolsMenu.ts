@@ -13,13 +13,13 @@
 	{ text: 'Dev Tools', header: true, onlyMobile: true, anchor: true, type: 'learn', slug: '/documentation/devtools/', key: 'devTools' },
 
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
-
-	{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentation/products/azion-cli/overview/', hasLabel:'menu.devTools' },
-	{ text: 'Azion Lib', header: true, anchor: true, type: 'learn', key: 'devtools/azionlib', slug: 'https://www.npmjs.com/package/azion'},
-	{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: 'https://api.azion.com/' },
+	{ text: 'API', header: true, anchor: true, type: 'learn', key: 'devtools/api', slug: 'https://api.azion.com/', hasLabel:'menu.devTools' },
 	{ text: 'API GraphQL', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/graphql-api/', key: 'devtools/graphQL' },
+	{ text: 'Azion Lib', header: true, anchor: true, type: 'learn', key: 'devtools/azionlib', slug: '/documentation/products/azion-lib/overview/'},
+	{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: '/documentation/products/azion-cli/overview/' },
+	{ text: 'Console Kit', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/console-kit/', key: 'devtools/consoleKit' },
 	{ text: 'SDK',header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
 	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
-	{ text: 'Console Kit', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/console-kit/', key: 'devtools/consoleKit' },
+
 
 ] as const;
