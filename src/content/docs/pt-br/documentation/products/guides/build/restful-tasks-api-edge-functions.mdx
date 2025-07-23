@@ -22,55 +22,44 @@ Antes de começar, certifique-se de ter:
 - Uma [conta na Azion](https://manager.azion.com/signup/)
 - [Azion CLI](https://www.azion.com/en/documentation/products/azion-cli/) instalada e configurada
 - [Node.js](https://nodejs.org/) versão 18 ou superior
-- Gerenciador de pacotes [pnpm](https://pnpm.io/) instalado
-- **Edge SQL** habilitado em sua conta Azion
-- Conhecimento básico de JavaScript, APIs REST e SQL
-- Uma instância Edge SQL configurada e funcionando
 
 ## Primeiros passos
 
-### Passo 1: Configure seu ambiente de desenvolvimento
+### Passo 1: Criar um novo banco de dados Edge SQL
 
-1. Clone o repositório de exemplo de tarefas RESTful:
-
-```bash
-git clone https://github.com/egermano/edge-functions-examples.git
-cd edge-functions-examples/packages/restful-tasks
-```
-
-2. Instale as dependências do projeto:
+1. Crie um banco de dados Edge SQL usando a API da Azion
 
 ```bash
-pnpm install
+curl --location 'https://api.azion.com/v4/edge_sql/databases' \
+--header 'Authorization: Token [TOKEN VALUE]' \
+--header 'Content-Type: application/json' \
+--data '{
+   "name": "my-database"
+}'
 ```
 
-3. Revise a estrutura do projeto para entender a implementação:
+Você deve receber a seguinte resposta:
 
-```bash
-ls -la
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": 118,
+    "name": "my-database",
+    "client_id": "6832h",
+    "status": "creating",
+    "created_at": "2024-04-18T11:22:59.468536Z",
+    "updated_at": "2024-04-18T11:22:59.468586Z",
+    "deleted_at": null
+  }
+}
 ```
 
-Você deve ver os arquivos principais incluindo a implementação da Edge Function, schema SQL e arquivos de configuração.
+Para mais detalhes, veja a [documentação do Edge SQL](https://www.azion.com/pt-br/documentacao/produtos/store/visao-geral/#edge-sql).
 
-### Passo 2: Configure a conexão Edge SQL
+### Passo 2: Configurar o schema do banco de dados
 
-1. Crie um arquivo `.env` baseado no exemplo:
-
-```bash
-cp .env.example .env
-```
-
-2. Edite o arquivo `.env` para incluir sua configuração Edge SQL:
-
-```bash
-# Configuração Edge SQL
-EDGE_SQL_CONNECTION_STRING=sua_string_de_conexao_edge_sql
-DATABASE_NAME=tasks_db
-```
-
-3. Obtenha os detalhes de conexão Edge SQL do **Console Azion** > **Edge SQL**.
-
-### Passo 3: Configure o schema do banco de dados
+Você pode usar os seguintes comandos SQL para configurar o schema do banco de dados.
 
 1. Conecte-se à sua instância Edge SQL e crie a tabela de tarefas:
 
@@ -88,130 +77,193 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 ```sql
 INSERT INTO tasks (title, completed) VALUES 
-    ('Completar documentação da API', FALSE),
-    ('Testar deploy da edge function', FALSE),
-    ('Revisar configurações de segurança', TRUE);
+    ('Complete API documentation', FALSE),
+    ('Test edge function deployment', FALSE),
+    ('Review security configurations', TRUE);
 ```
 
-### Passo 4: Compile o projeto
+## Código
 
-Compile sua Edge Function para deployment:
+Este é um exemplo de código de como criar uma API RESTful com Azion Edge Functions e Edge SQL. O exemplo completo do código você pode encontrar nesse [repositório do GitHub](https://github.com/egermano/edge-functions-examples/tree/main/packages/restful-tasks).
 
-```bash
-pnpm build
-```
+### Integração com banco de dados
 
-Este comando compila sua Edge Function e a prepara para deployment na rede edge da Azion.
+```typescript db.ts
+import { useExecute, useQuery } from "azion/sql";
 
-### Passo 5: Teste localmente
+const DATABASE_NAME = process.env.DATABASE_NAME || "tasks";
 
-Antes de fazer o deploy, teste sua API localmente:
-
-```bash
-pnpm dev
-```
-
-Isso inicia um servidor de desenvolvimento local onde você pode testar todos os endpoints da API.
-
-## Endpoints da API
-
-A API RESTful de Tarefas fornece os seguintes endpoints:
-
-### GET /tasks
-Recupera todas as tarefas do banco de dados.
-
-**Resposta:**
-```json
-{
-    "tasks": [
-        {
-            "id": 1,
-            "title": "Completar documentação da API",
-            "completed": false,
-            "created_at": "2023-01-01T10:00:00Z",
-            "updated_at": "2023-01-01T10:00:00Z"
-        }
-    ]
+export interface Task {
+  id: number;
+  title: string;
+  completed: boolean;
 }
+
+export const getTasks = async (): Promise<Task[]> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    "SELECT * FROM tasks",
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    data?.results?.[0]?.rows?.map(
+      (row) =>
+        ({
+          id: row[0],
+          title: row[1],
+          completed: row[2] === 1,
+        } as Task)
+    ) || []
+  );
+};
+
+export const getTask = async (id: number): Promise<Task | null> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    `SELECT * FROM tasks WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    (data?.results?.[0]?.rows?.[0] &&
+      ({
+        id: data?.results?.[0]?.rows?.[0][0],
+        title: data?.results?.[0]?.rows?.[0][1],
+        completed: data?.results?.[0]?.rows?.[0][2] === 1,
+      } as Task)) ||
+    null
+  );
+};
+
+export const createTask = async (task: Omit<Task, "id">): Promise<Task> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `INSERT INTO tasks (title, completed) VALUES ('${task.title}', ${task.completed}) RETURNING id`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  const newId = data?.results?.[0]?.rows?.[0]?.[0] || "";
+  return { ...task, id: Number(newId) };
+};
+
+export const updateTask = async (
+  id: number,
+  task: Partial<Omit<Task, "id">>
+): Promise<Task | null> => {
+  const existingTask = await getTask(id);
+  if (!existingTask) {
+    return null;
+  }
+
+  const updatedTitle =
+    task.title !== undefined ? task.title : existingTask.title;
+  const updatedCompleted =
+    task.completed !== undefined ? task.completed : existingTask.completed;
+
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `UPDATE tasks SET title = '${updatedTitle}', completed = ${updatedCompleted} WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return { ...existingTask, title: updatedTitle, completed: updatedCompleted };
+};
+
+export const deleteTask = async (id: number): Promise<boolean> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `DELETE FROM tasks WHERE id = ${id}`,
+  ]);
+  
+  if (error) {
+    throw error;
+  }
+
+  return data?.state === "executed" || data?.state === "pending";
+};
 ```
 
-### GET /tasks/:id
-Recupera uma tarefa específica por ID.
+### Aplicação
 
-**Resposta:**
-```json
-{
-    "task": {
-        "id": 1,
-        "title": "Completar documentação da API",
-        "completed": false,
-        "created_at": "2023-01-01T10:00:00Z",
-        "updated_at": "2023-01-01T10:00:00Z"
+```typescript app.ts
+import { Hono } from 'hono';
+import { fire } from 'hono/service-worker';
+import {
+  createTask,
+  deleteTask,
+  getTask,
+  getTasks,
+  updateTask,
+} from './db';
+
+const app = new Hono();
+
+app.get('/tasks', async (c) => {
+  try {
+    const tasks = await getTasks();
+    return c.json(tasks);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch tasks' }, 500);
+  }
+});
+
+app.get('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const task = await getTask(Number(id));
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
     }
-}
-```
+    return c.json(task);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch task' }, 500);
+  }
+});
 
-### POST /tasks
-Cria uma nova tarefa.
+app.post('/tasks', async (c) => {
+  try {
+    const { title, completed } = await c.req.json();
+    const newTask = await createTask({ title, completed: completed || false });
+    return c.json(newTask, 201);
+  } catch (error) {
+    console.log(error);
+    return c.json({ error: 'Failed to create task' }, 500);
+  }
+});
 
-**Corpo da requisição:**
-```json
-{
-    "title": "Título da nova tarefa",
-    "completed": false
-}
-```
-
-**Resposta:**
-```json
-{
-    "task": {
-        "id": 4,
-        "title": "Título da nova tarefa",
-        "completed": false,
-        "created_at": "2023-01-01T12:00:00Z",
-        "updated_at": "2023-01-01T12:00:00Z"
+app.put('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const { title, completed } = await c.req.json();
+    const updatedTask = await updateTask(Number(id), { title, completed });
+    if (!updatedTask) {
+      return c.json({ error: 'Task not found' }, 404);
     }
-}
-```
+    return c.json(updatedTask);
+  } catch (error) {
+    return c.json({ error: 'Failed to update task' }, 500);
+  }
+});
 
-### PUT /tasks/:id
-Atualiza uma tarefa existente.
-
-**Corpo da requisição:**
-```json
-{
-    "title": "Título da tarefa atualizada",
-    "completed": true
-}
-```
-
-**Resposta:**
-```json
-{
-    "task": {
-        "id": 1,
-        "title": "Título da tarefa atualizada",
-        "completed": true,
-        "created_at": "2023-01-01T10:00:00Z",
-        "updated_at": "2023-01-01T14:00:00Z"
+app.delete('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const success = await deleteTask(Number(id));
+    if (!success) {
+      return c.json({ error: 'Task not found' }, 404);
     }
-}
-```
+    return c.json({ message: 'Task deleted' });
+  } catch (error) {
+    return c.json({ error: 'Failed to delete task' }, 500);
+  }
+});
 
-### DELETE /tasks/:id
-Exclui uma tarefa por ID.
-
-**Resposta:**
-```json
-{
-    "message": "Tarefa excluída com sucesso"
-}
+fire(app);
 ```
 
 ## Deploy na Azion
 
-### Passo 1: Autentique-se na Azion
+### Passo 1: Autenticação na Azion
 
 1. Faça login na sua conta Azion via CLI:
 
@@ -221,25 +273,28 @@ azion login
 
 2. Siga os prompts de autenticação para conectar sua CLI com sua conta Azion.
 
-### Passo 2: Configure a conexão Edge SQL
+### Passo 2: Criar uma nova Edge Application
 
-1. Crie secrets para sua conexão com o banco de dados:
+1. Inicialize uma nova Edge Application:
 
 ```bash
-azion create secret EDGE_SQL_CONNECTION_STRING
+azion init
 ```
 
-2. Quando solicitado, digite sua string de conexão Edge SQL.
+2. Selecione o template Hono Boilerplate para usar para sua aplicação browserless.
 
-### Passo 3: Faça o deploy da Edge Function
+3. Siga os prompts para configurar sua nova Edge Application.
 
-Faça o deploy de sua API RESTful na rede edge da Azion:
+### Passo 3: Deploy da Edge Function
+
+Deploy da sua RESTful API para a rede da Azion:
 
 ```bash
 azion deploy
 ```
 
 O processo de deploy irá:
+
 - Fazer upload do código da sua Edge Function
 - Configurar a edge application
 - Configurar regras de roteamento para todos os endpoints da API
