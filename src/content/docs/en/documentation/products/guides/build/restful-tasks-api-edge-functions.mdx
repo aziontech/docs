@@ -22,55 +22,44 @@ Before you begin, ensure you have:
 - An [Azion account](https://manager.azion.com/signup/)
 - [Azion CLI](https://www.azion.com/en/documentation/products/azion-cli/) installed and configured
 - [Node.js](https://nodejs.org/) version 18 or higher
-- [pnpm](https://pnpm.io/) package manager installed
-- **Edge SQL** enabled in your Azion account
-- Basic understanding of JavaScript, REST APIs, and SQL
-- An Edge SQL instance configured and running
 
 ## Getting started
 
-### Step 1: Set up your development environment
+### Step 1: Create a new Edge SQL Database
 
-1. Clone the RESTful tasks example repository:
-
-```bash
-git clone https://github.com/egermano/edge-functions-examples.git
-cd edge-functions-examples/packages/restful-tasks
-```
-
-2. Install the project dependencies:
+1. Create a database using Azion API
 
 ```bash
-pnpm install
+curl --location 'https://api.azion.com/v4/edge_sql/databases' \
+--header 'Authorization: Token [TOKEN VALUE]' \
+--header 'Content-Type: application/json' \
+--data '{
+   "name": "my-database"
+}'
 ```
 
-3. Review the project structure to understand the implementation:
+You should receive the following response:
 
-```bash
-ls -la
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": 118,
+    "name": "my-database",
+    "client_id": "6832h",
+    "status": "creating",
+    "created_at": "2024-04-18T11:22:59.468536Z",
+    "updated_at": "2024-04-18T11:22:59.468586Z",
+    "deleted_at": null
+  }
+}
 ```
 
-You should see the main files including the Edge Function implementation, SQL schema, and configuration files.
+For more details, see [Edge SQL documentation](https://www.azion.com/en/documentation/products/store/overview/#edge-sql).
 
-### Step 2: Configure Edge SQL connection
+### Step 2: Set up the database schema
 
-1. Create a `.env` file based on the example:
-
-```bash
-cp .env.example .env
-```
-
-2. Edit the `.env` file to include your Edge SQL configuration:
-
-```bash
-# Edge SQL Configuration
-EDGE_SQL_CONNECTION_STRING=your_edge_sql_connection_string
-DATABASE_NAME=tasks_db
-```
-
-3. Get your Edge SQL connection details from **Azion Console** > **Edge SQL**.
-
-### Step 3: Set up the database schema
+You can use the following SQL commands to set up the database schema.
 
 1. Connect to your Edge SQL instance and create the tasks table:
 
@@ -93,120 +82,183 @@ INSERT INTO tasks (title, completed) VALUES
     ('Review security configurations', TRUE);
 ```
 
-### Step 4: Build the project
+## Code
 
-Compile your Edge Function for deployment:
+This is a code example of how to create a RESTful API with Azion Edge Functions and Edge SQL. The complete code example you can find in this [GitHub repository](https://github.com/egermano/edge-functions-examples/tree/main/packages/restful-tasks).
 
-```bash
-pnpm build
-```
+### Database integration
 
-This command builds your Edge Function and prepares it for deployment to Azion's edge network.
+```typescript db.ts
+import { useExecute, useQuery } from "azion/sql";
 
-### Step 5: Test locally
+const DATABASE_NAME = process.env.DATABASE_NAME || "tasks";
 
-Before deploying, test your API locally:
-
-```bash
-pnpm dev
-```
-
-This starts a local development server where you can test all API endpoints.
-
-## API endpoints
-
-The RESTful Tasks API provides the following endpoints:
-
-### GET /tasks
-Retrieve all tasks from the database.
-
-**Response:**
-```json
-{
-    "tasks": [
-        {
-            "id": 1,
-            "title": "Complete API documentation",
-            "completed": false,
-            "created_at": "2023-01-01T10:00:00Z",
-            "updated_at": "2023-01-01T10:00:00Z"
-        }
-    ]
+export interface Task {
+  id: number;
+  title: string;
+  completed: boolean;
 }
+
+export const getTasks = async (): Promise<Task[]> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    "SELECT * FROM tasks",
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    data?.results?.[0]?.rows?.map(
+      (row) =>
+        ({
+          id: row[0],
+          title: row[1],
+          completed: row[2] === 1,
+        } as Task)
+    ) || []
+  );
+};
+
+export const getTask = async (id: number): Promise<Task | null> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    `SELECT * FROM tasks WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    (data?.results?.[0]?.rows?.[0] &&
+      ({
+        id: data?.results?.[0]?.rows?.[0][0],
+        title: data?.results?.[0]?.rows?.[0][1],
+        completed: data?.results?.[0]?.rows?.[0][2] === 1,
+      } as Task)) ||
+    null
+  );
+};
+
+export const createTask = async (task: Omit<Task, "id">): Promise<Task> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `INSERT INTO tasks (title, completed) VALUES ('${task.title}', ${task.completed}) RETURNING id`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  const newId = data?.results?.[0]?.rows?.[0]?.[0] || "";
+  return { ...task, id: Number(newId) };
+};
+
+export const updateTask = async (
+  id: number,
+  task: Partial<Omit<Task, "id">>
+): Promise<Task | null> => {
+  const existingTask = await getTask(id);
+  if (!existingTask) {
+    return null;
+  }
+
+  const updatedTitle =
+    task.title !== undefined ? task.title : existingTask.title;
+  const updatedCompleted =
+    task.completed !== undefined ? task.completed : existingTask.completed;
+
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `UPDATE tasks SET title = '${updatedTitle}', completed = ${updatedCompleted} WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return { ...existingTask, title: updatedTitle, completed: updatedCompleted };
+};
+
+export const deleteTask = async (id: number): Promise<boolean> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `DELETE FROM tasks WHERE id = ${id}`,
+  ]);
+  
+  if (error) {
+    throw error;
+  }
+
+  return data?.state === "executed" || data?.state === "pending";
+};
 ```
 
-### GET /tasks/:id
-Retrieve a specific task by ID.
+### Application
 
-**Response:**
-```json
-{
-    "task": {
-        "id": 1,
-        "title": "Complete API documentation",
-        "completed": false,
-        "created_at": "2023-01-01T10:00:00Z",
-        "updated_at": "2023-01-01T10:00:00Z"
+```typescript app.ts
+import { Hono } from 'hono';
+import { fire } from 'hono/service-worker';
+import {
+  createTask,
+  deleteTask,
+  getTask,
+  getTasks,
+  updateTask,
+} from './db';
+
+const app = new Hono();
+
+app.get('/tasks', async (c) => {
+  try {
+    const tasks = await getTasks();
+    return c.json(tasks);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch tasks' }, 500);
+  }
+});
+
+app.get('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const task = await getTask(Number(id));
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
     }
-}
-```
+    return c.json(task);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch task' }, 500);
+  }
+});
 
-### POST /tasks
-Create a new task.
+app.post('/tasks', async (c) => {
+  try {
+    const { title, completed } = await c.req.json();
+    const newTask = await createTask({ title, completed: completed || false });
+    return c.json(newTask, 201);
+  } catch (error) {
+    console.log(error);
+    return c.json({ error: 'Failed to create task' }, 500);
+  }
+});
 
-**Request body:**
-```json
-{
-    "title": "New task title",
-    "completed": false
-}
-```
-
-**Response:**
-```json
-{
-    "task": {
-        "id": 4,
-        "title": "New task title",
-        "completed": false,
-        "created_at": "2023-01-01T12:00:00Z",
-        "updated_at": "2023-01-01T12:00:00Z"
+app.put('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const { title, completed } = await c.req.json();
+    const updatedTask = await updateTask(Number(id), { title, completed });
+    if (!updatedTask) {
+      return c.json({ error: 'Task not found' }, 404);
     }
-}
-```
+    return c.json(updatedTask);
+  } catch (error) {
+    return c.json({ error: 'Failed to update task' }, 500);
+  }
+});
 
-### PUT /tasks/:id
-Update an existing task.
-
-**Request body:**
-```json
-{
-    "title": "Updated task title",
-    "completed": true
-}
-```
-
-**Response:**
-```json
-{
-    "task": {
-        "id": 1,
-        "title": "Updated task title",
-        "completed": true,
-        "created_at": "2023-01-01T10:00:00Z",
-        "updated_at": "2023-01-01T14:00:00Z"
+app.delete('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const success = await deleteTask(Number(id));
+    if (!success) {
+      return c.json({ error: 'Task not found' }, 404);
     }
-}
-```
+    return c.json({ message: 'Task deleted' });
+  } catch (error) {
+    return c.json({ error: 'Failed to delete task' }, 500);
+  }
+});
 
-### DELETE /tasks/:id
-Delete a task by ID.
-
-**Response:**
-```json
-{
-    "message": "Task deleted successfully"
-}
+fire(app);
 ```
 
 ## Deploying to Azion
@@ -221,15 +273,17 @@ azion login
 
 2. Follow the authentication prompts to connect your CLI with your Azion account.
 
-### Step 2: Configure Edge SQL connection
+### Step 2: Create a new Edge Application from a template
 
-1. Create secrets for your database connection:
+1. Initialize a new Edge Application:
 
 ```bash
-azion create secret EDGE_SQL_CONNECTION_STRING
+azion init
 ```
 
-2. When prompted, enter your Edge SQL connection string.
+2. Select the template Hono Boilerplate to use for your browserless application.
+
+3. Follow the prompts to configure your new Edge Application.
 
 ### Step 3: Deploy the Edge Function
 
@@ -240,13 +294,14 @@ azion deploy
 ```
 
 The deployment process will:
+
 - Upload your Edge Function code
 - Configure the edge application
 - Set up routing rules for all API endpoints
 - Configure database connections
 - Provide you with a unique domain
 
-### Step 4: Access your API
+### Step 5: Access your API
 
 After deployment, you'll receive a domain like `https://xxxxxxx.map.azionedge.net`. Your RESTful API will be available at this URL within a few minutes after DNS propagation.
 
@@ -262,43 +317,6 @@ The RESTful API Edge Function includes:
 4. **Error handling**: Managing database and request errors
 5. **Response formatting**: Returning consistent JSON responses
 
-### Database operations example
-
-Here's how database operations are implemented:
-
-```javascript
-// Get all tasks
-async function getAllTasks() {
-    const query = 'SELECT * FROM tasks ORDER BY created_at DESC';
-    const result = await database.query(query);
-    return result.rows;
-}
-
-// Create a new task
-async function createTask(title, completed = false) {
-    const query = `
-        INSERT INTO tasks (title, completed) 
-        VALUES (?, ?) 
-        RETURNING *
-    `;
-    const result = await database.query(query, [title, completed]);
-    return result.rows[0];
-}
-
-// Update a task
-async function updateTask(id, updates) {
-    const { title, completed } = updates;
-    const query = `
-        UPDATE tasks 
-        SET title = ?, completed = ?, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = ? 
-        RETURNING *
-    `;
-    const result = await database.query(query, [title, completed, id]);
-    return result.rows[0];
-}
-```
-
 ### Key benefits
 
 - **Performance**: API processing at the edge reduces latency
@@ -306,150 +324,6 @@ async function updateTask(id, updates) {
 - **Global distribution**: Edge locations provide worldwide coverage
 - **Data consistency**: Edge SQL ensures ACID compliance
 - **Cost efficiency**: Optimized data access and transfer
-
-## Testing your RESTful API
-
-### Step 1: Test CRUD operations
-
-1. **Create tasks**: Test POST /tasks endpoint
-2. **Read tasks**: Test GET /tasks and GET /tasks/:id endpoints
-3. **Update tasks**: Test PUT /tasks/:id endpoint
-4. **Delete tasks**: Test DELETE /tasks/:id endpoint
-
-### Step 2: Test error handling
-
-1. **Invalid data**: Test with malformed request bodies
-2. **Non-existent resources**: Test with invalid task IDs
-3. **Database errors**: Test error handling for connection issues
-4. **Validation errors**: Test input validation logic
-
-### Step 3: Performance testing
-
-1. **Response times**: Measure API response times
-2. **Concurrent requests**: Test multiple simultaneous requests
-3. **Database performance**: Monitor SQL query performance
-4. **Load testing**: Test with high request volumes
-
-## Example API usage
-
-### Using cURL
-
-```bash
-# Get all tasks
-curl -X GET https://your-domain.map.azionedge.net/tasks
-
-# Create a new task
-curl -X POST https://your-domain.map.azionedge.net/tasks \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Learn Azion Edge Functions", "completed": false}'
-
-# Update a task
-curl -X PUT https://your-domain.map.azionedge.net/tasks/1 \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Updated task title", "completed": true}'
-
-# Delete a task
-curl -X DELETE https://your-domain.map.azionedge.net/tasks/1
-```
-
-### Using JavaScript fetch
-
-```javascript
-// Get all tasks
-const tasks = await fetch('/tasks').then(r => r.json());
-
-// Create a new task
-const newTask = await fetch('/tasks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        title: 'New task',
-        completed: false
-    })
-}).then(r => r.json());
-
-// Update a task
-const updatedTask = await fetch('/tasks/1', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        title: 'Updated task',
-        completed: true
-    })
-}).then(r => r.json());
-```
-
-## Advanced features
-
-### Adding authentication
-
-Implement authentication to secure your API:
-
-```javascript
-async function authenticateRequest(request) {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw new Error('Authentication required');
-    }
-    
-    const token = authHeader.substring(7);
-    return await validateToken(token);
-}
-```
-
-### Input validation
-
-Add comprehensive input validation:
-
-```javascript
-function validateTaskData(data) {
-    const errors = [];
-    
-    if (!data.title || typeof data.title !== 'string') {
-        errors.push('Title is required and must be a string');
-    }
-    
-    if (data.title && data.title.length > 255) {
-        errors.push('Title must be less than 255 characters');
-    }
-    
-    if (data.completed !== undefined && typeof data.completed !== 'boolean') {
-        errors.push('Completed must be a boolean');
-    }
-    
-    return errors;
-}
-```
-
-### Pagination
-
-Implement pagination for large datasets:
-
-```javascript
-async function getTasksPaginated(page = 1, limit = 10) {
-    const offset = (page - 1) * limit;
-    const query = `
-        SELECT * FROM tasks 
-        ORDER BY created_at DESC 
-        LIMIT ? OFFSET ?
-    `;
-    const tasks = await database.query(query, [limit, offset]);
-    
-    const countQuery = 'SELECT COUNT(*) as total FROM tasks';
-    const totalResult = await database.query(countQuery);
-    const total = totalResult.rows[0].total;
-    
-    return {
-        tasks: tasks.rows,
-        pagination: {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit)
-        }
-    };
-}
-```
 
 ## Troubleshooting
 
