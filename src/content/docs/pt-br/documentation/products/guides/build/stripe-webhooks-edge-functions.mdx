@@ -23,142 +23,120 @@ Antes de começar, certifique-se de ter:
 - Uma [conta no Stripe](https://stripe.com/) com acesso à API
 - [Azion CLI](https://www.azion.com/en/documentation/products/azion-cli/) instalada e configurada
 - [Node.js](https://nodejs.org/) versão 18 ou superior
-- Gerenciador de pacotes [pnpm](https://pnpm.io/) instalado
-- Conhecimento básico de JavaScript, Edge Functions e webhooks do Stripe
-- Chaves de API do Stripe (tanto chave secreta quanto secret de assinatura do webhook)
 
-## Primeiros passos
+## Code
 
-### Passo 1: Configure seu ambiente de desenvolvimento
+Esse é um exemplo de código de como usar webhooks do Stripe com Azion Edge Functions. O exemplo completo do código você pode encontrar nesse [repositório do GitHub](https://github.com/egermano/edge-functions-examples/tree/main/packages/stripe-webhooks).
 
-1. Clone o repositório de exemplo de webhooks do Stripe:
+```typescript
+import { Context, Hono } from "hono";
+import { fire } from "hono/service-worker";
+import { HTTPException } from "hono/http-exception";
+import Stripe from "stripe";
 
-```bash
-git clone https://github.com/egermano/edge-functions-examples.git
-cd edge-functions-examples/packages/stripe-webhooks
-```
+type Bindings = {
+  STRIPE_SECRET_KEY: string;
+};
 
-2. Instale as dependências do projeto:
+type Variables = {
+  stripeEvent: Stripe.Event;
+};
 
-```bash
-pnpm install
-```
+// Initialize Hono app with proper types
+export const app = new Hono<{
+  Bindings: Bindings;
+  Variables: Variables;
+}>();
 
-3. Revise a estrutura do projeto para entender a implementação:
+// Initialize Stripe with your secret key
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2025-06-30.basil",
+  typescript: true,
+});
 
-```bash
-ls -la
-```
-
-Você deve ver os arquivos principais incluindo a implementação da Edge Function, manipuladores de webhook e arquivos de configuração.
-
-### Passo 2: Configure as variáveis de ambiente
-
-1. Crie um arquivo `.env` baseado no exemplo:
-
-```bash
-cp .env.example .env
-```
-
-2. Edite o arquivo `.env` para incluir suas credenciais do Stripe:
-
-```bash
-# Configuração Stripe
-STRIPE_SECRET_KEY=sk_test_sua_chave_secreta_stripe
-STRIPE_WEBHOOK_SECRET=whsec_seu_secret_de_assinatura_webhook
-```
-
-3. Obtenha suas credenciais do [Dashboard do Stripe](https://dashboard.stripe.com/):
-   - **Chave Secreta**: Disponível na seção API Keys
-   - **Secret do Webhook**: Criado ao configurar endpoints de webhook
-
-### Passo 3: Configure endpoint de webhook do Stripe
-
-1. No seu Dashboard do Stripe, vá para **Developers** > **Webhooks**
-2. Clique em **Add endpoint**
-3. Configure a URL do endpoint para seu futuro domínio Azion (você atualizará isso após o deploy)
-4. Selecione os eventos que você quer escutar:
-   - `payment_intent.succeeded`
-   - `payment_method.attached`
-   - `charge.succeeded`
-   - `invoice.payment_succeeded`
-   - Quaisquer outros eventos relevantes para sua aplicação
-
-### Passo 4: Compile o projeto
-
-Compile sua Edge Function para deployment:
-
-```bash
-pnpm build
-```
-
-Este comando compila sua Edge Function com suporte TypeScript e a prepara para deployment.
-
-### Passo 5: Teste localmente
-
-Antes de fazer o deploy, teste seu manipulador de webhook localmente:
-
-```bash
-pnpm dev
-```
-
-Isso inicia um servidor de desenvolvimento local onde você pode testar o processamento de webhooks.
-
-## Entendendo a verificação de webhook
-
-### Verificação de assinatura
-
-Webhooks do Stripe incluem um cabeçalho de assinatura que você deve verificar para garantir que o webhook veio do Stripe:
-
-```javascript
-import crypto from 'crypto';
-
-function verifyStripeSignature(payload, signature, secret) {
-    const elements = signature.split(',');
-    const signatureHash = elements.find(element => element.startsWith('v1='));
-    
-    if (!signatureHash) {
-        throw new Error('Formato de assinatura inválido');
+// Middleware to verify the webhook signature
+const verifyStripeWebhook = async (c: Context, next: () => Promise<void>) => {
+  try {
+    const signature = c.req.header("stripe-signature");
+    if (!signature) {
+      throw new HTTPException(400, {
+        message: "Missing stripe-signature header",
+      });
     }
-    
-    const expectedHash = crypto
-        .createHmac('sha256', secret)
-        .update(payload)
-        .digest('hex');
-    
-    const actualHash = signatureHash.split('=')[1];
-    
-    if (expectedHash !== actualHash) {
-        throw new Error('Assinatura de webhook inválida');
-    }
-    
-    return true;
-}
-```
 
-### Manipulação de eventos de webhook
+    const payload = await c.req.raw.text();
 
-A Edge Function processa diferentes eventos do Stripe:
+    // Verify the webhook signature
+    const event = stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET || ""
+    );
 
-```javascript
-async function handleWebhookEvent(event) {
+    // Attach the event to the context for use in the route handler
+    c.set("stripeEvent", event);
+    await next();
+  } catch (err) {
+    console.error("Webhook verification failed:", err);
+    return c.json({ error: "Webhook verification failed" }, 400);
+  }
+};
+
+// Webhook endpoint
+app.post("/webhook", verifyStripeWebhook, async (c) => {
+  const event = c.get("stripeEvent");
+
+  try {
+    // Handle the event
     switch (event.type) {
-        case 'payment_intent.succeeded':
-            await handlePaymentSuccess(event.data.object);
-            break;
-        case 'payment_intent.payment_failed':
-            await handlePaymentFailure(event.data.object);
-            break;
-        case 'charge.succeeded':
-            await handleChargeSuccess(event.data.object);
-            break;
-        case 'invoice.payment_succeeded':
-            await handleInvoicePayment(event.data.object);
-            break;
-        default:
-            console.log(`Tipo de evento não manipulado: ${event.type}`);
+      case "payment_intent.succeeded": {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log("PaymentIntent was successful!", paymentIntent.id);
+        // Handle successful payment
+        break;
+      }
+
+      case "payment_method.attached": {
+        const paymentMethod = event.data.object as Stripe.PaymentMethod;
+        console.log("PaymentMethod was attached!", paymentMethod.id);
+        break;
+      }
+
+      case "charge.succeeded": {
+        const charge = event.data.object as Stripe.Charge;
+        console.log("Charge was successful!", charge.id);
+        break;
+      }
+
+      // ... handle other event types
+      default:
+        console.log(`Unhandled event type ${event.type}`);
     }
-}
+
+    // Return a 200 response to acknowledge receipt of the event
+    return c.json({ received: true });
+  } catch (err) {
+    console.error("Error handling webhook:", err);
+    return c.json({ error: "Webhook handler failed" }, 400);
+  }
+});
+
+// Health check endpoint
+app.get("/", (c) => {
+  return c.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    service: "stripe-webhooks",
+  });
+});
+
+// Error handling
+app.onError((err: Error, c) => {
+  console.error("Error:", err);
+  return c.json({ error: "Internal Server Error" }, 500);
+});
+
+fire(app, { env: { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY! } });
 ```
 
 ## Deploy na Azion
@@ -173,7 +151,19 @@ azion login
 
 2. Siga os prompts de autenticação para conectar sua CLI com sua conta Azion.
 
-### Passo 2: Crie secrets para credenciais do Stripe
+### Passo 2: Crie uma nova Edge Application a partir de um template
+
+1. Inicialize uma nova Edge Application:
+
+```bash
+azion init
+```
+
+2. Selecione o template Hono Boilerplate para usar para sua aplicação browserless.
+
+3. Siga os prompts para configurar sua nova Edge Application.
+
+### Passo 3: Crie secrets para credenciais do Stripe
 
 Para segurança, armazene suas credenciais do Stripe como secrets:
 
@@ -184,7 +174,7 @@ azion create secret STRIPE_WEBHOOK_SECRET
 
 Quando solicitado, digite suas respectivas credenciais do Stripe. Isso garante que seus dados sensíveis sejam criptografados e seguros.
 
-### Passo 3: Faça o deploy da Edge Function
+### Passo 4: Faça o deploy da Edge Function
 
 Faça o deploy de seu manipulador de webhook na rede edge da Azion:
 
@@ -193,13 +183,14 @@ azion deploy
 ```
 
 O processo de deploy irá:
+
 - Fazer upload do código da sua Edge Function
 - Configurar a edge application
 - Configurar as regras de roteamento necessárias
 - Configurar variáveis de ambiente e secrets
 - Fornecer um domínio único
 
-### Passo 4: Atualize a configuração de webhook do Stripe
+### Passo 5: Atualize a configuração de webhook do Stripe
 
 1. Após o deploy, você receberá um domínio como `https://xxxxxxx.map.azionedge.net`
 2. Vá para seu Dashboard do Stripe > **Developers** > **Webhooks**
@@ -207,108 +198,11 @@ O processo de deploy irá:
 4. Atualize a URL para `https://xxxxxxx.map.azionedge.net/webhook`
 5. Salve as alterações
 
-### Passo 5: Teste entrega de webhook
+### Passo 6: Teste entrega de webhook
 
 1. Dispare eventos de teste no Dashboard do Stripe
 2. Monitore entrega e respostas de webhook
 3. Verifique logs da Edge Function para confirmação de processamento
-
-## Eventos de webhook suportados
-
-### Eventos de pagamento
-
-- **payment_intent.succeeded**: Pagamento completado com sucesso
-- **payment_intent.payment_failed**: Tentativa de pagamento falhou
-- **payment_intent.canceled**: Pagamento foi cancelado
-
-### Eventos de cobrança
-
-- **charge.succeeded**: Cobrança completada com sucesso
-- **charge.failed**: Tentativa de cobrança falhou
-- **charge.refunded**: Cobrança foi reembolsada
-
-### Eventos de fatura
-
-- **invoice.payment_succeeded**: Pagamento de fatura completado
-- **invoice.payment_failed**: Pagamento de fatura falhou
-- **invoice.created**: Nova fatura criada
-
-### Eventos de cliente
-
-- **customer.created**: Novo cliente registrado
-- **customer.updated**: Informações do cliente atualizadas
-- **customer.deleted**: Conta do cliente excluída
-
-## Exemplos de implementação
-
-### Manipulador de sucesso de pagamento
-
-```javascript
-async function handlePaymentSuccess(paymentIntent) {
-    const { id, amount, currency, customer } = paymentIntent;
-    
-    // Atualizar status do pedido no seu banco de dados
-    await updateOrderStatus(paymentIntent.metadata.order_id, 'paid');
-    
-    // Enviar email de confirmação
-    await sendPaymentConfirmation(customer, amount, currency);
-    
-    // Disparar processo de fulfillment
-    await triggerFulfillment(paymentIntent.metadata.order_id);
-    
-    console.log(`Pagamento bem-sucedido: ${id} por ${amount} ${currency}`);
-}
-```
-
-### Manipulação de assinatura
-
-```javascript
-async function handleSubscriptionEvent(subscription) {
-    const { id, customer, status, current_period_end } = subscription;
-    
-    switch (status) {
-        case 'active':
-            await activateSubscription(customer, id);
-            break;
-        case 'canceled':
-            await cancelSubscription(customer, id);
-            break;
-        case 'past_due':
-            await handlePastDueSubscription(customer, id);
-            break;
-    }
-    
-    // Atualizar registro do cliente
-    await updateCustomerSubscription(customer, {
-        subscription_id: id,
-        status,
-        next_billing_date: current_period_end
-    });
-}
-```
-
-### Processamento de reembolso
-
-```javascript
-async function handleRefund(charge) {
-    const { id, amount, currency, refunded } = charge;
-    
-    if (refunded) {
-        // Processar reembolso no seu sistema
-        await processRefund({
-            charge_id: id,
-            amount,
-            currency,
-            order_id: charge.metadata.order_id
-        });
-        
-        // Notificar cliente
-        await sendRefundNotification(charge.customer, amount, currency);
-        
-        console.log(`Reembolso processado: ${id} por ${amount} ${currency}`);
-    }
-}
-```
 
 ## Testando seu manipulador de webhook
 
@@ -359,31 +253,6 @@ stripe trigger invoice.payment_succeeded
 - **Limite acesso**: Restrinja acesso a secrets às funções necessárias
 - **Monitore uso**: Rastreie acesso e uso de secrets
 
-### Tratamento de erros
-
-```javascript
-async function processWebhook(request) {
-    try {
-        const payload = await request.text();
-        const signature = request.headers.get('stripe-signature');
-        
-        // Verificar assinatura do webhook
-        verifyStripeSignature(payload, signature, STRIPE_WEBHOOK_SECRET);
-        
-        // Analisar evento
-        const event = JSON.parse(payload);
-        
-        // Processar evento
-        await handleWebhookEvent(event);
-        
-        return new Response('OK', { status: 200 });
-    } catch (error) {
-        console.error('Erro de webhook:', error);
-        return new Response('Error', { status: 400 });
-    }
-}
-```
-
 ## Monitoramento e logging
 
 ### Logging de eventos
@@ -422,36 +291,6 @@ function logWebhookEvent(event, status, processingTime) {
 2. **Use Dashboard do Stripe**: Monitore tentativas de entrega de webhook
 3. **Teste localmente**: Use Stripe CLI para debugging local
 4. **Verifique assinaturas**: Verifique cálculo de assinatura de webhook
-
-## Recursos avançados
-
-### Manipulação de idempotência
-
-```javascript
-const processedEvents = new Set();
-
-async function processWebhookWithIdempotency(event) {
-    if (processedEvents.has(event.id)) {
-        console.log(`Evento ${event.id} já processado`);
-        return;
-    }
-    
-    await handleWebhookEvent(event);
-    processedEvents.add(event.id);
-}
-```
-
-### Processamento em lote
-
-```javascript
-async function processBatchEvents(events) {
-    const batchSize = 10;
-    for (let i = 0; i < events.length; i += batchSize) {
-        const batch = events.slice(i, i + batchSize);
-        await Promise.all(batch.map(event => handleWebhookEvent(event)));
-    }
-}
-```
 
 ## Próximos passos
 
