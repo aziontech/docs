@@ -11,8 +11,8 @@ interface Breadcrumbs {
 const getLastSegment = (url: string): string => {
 	let urlLastSegment = url.replace(/\/+$/, '').split('/').pop();
 
-	urlLastSegment = urlLastSegment?.replace(/CLI/gi, 'CLI')
-	urlLastSegment = urlLastSegment?.replace(/API/gi, 'API')
+	urlLastSegment = urlLastSegment?.length === 3 ? urlLastSegment?.replace(/CLI/gi, 'CLI') : urlLastSegment;
+	urlLastSegment = urlLastSegment?.length === 3 ? urlLastSegment?.replace(/API/gi, 'API') : urlLastSegment;
 
 	return `${urlLastSegment?.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}`;
 }
