@@ -71,7 +71,7 @@ export default [
 				key: 'buildWithAzion',
 				items: [
 					{
-						text: '      API',
+						text: 'API',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -79,7 +79,7 @@ export default [
 						slug: '/documentation/products/overview-azion-api/',
 					},
 					{
-						text: '      CLI',
+						text: 'CLI',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -87,7 +87,7 @@ export default [
 						key: 'developCli',
 					},
 					{
-						text: '      API GraphiQL Playground',
+						text: 'API GraphiQL Playground',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -95,7 +95,7 @@ export default [
 						key: 'devtools/graphQLplayground',
 					},
 					{
-						text: '      Azion IDE',
+						text: 'Azion IDE',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -103,7 +103,7 @@ export default [
 						key: 'developIDE',
 					},
 					{
-						text: '      Local Development',
+						text: 'Local Development',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -111,7 +111,7 @@ export default [
 						key: 'developLocalDev',
 					},
 					{
-						text: '      SDK',
+						text: 'SDK',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -119,7 +119,7 @@ export default [
 						key: 'developSDK',
 					},
 					{
-						text: '      Terraform',
+						text: 'Terraform',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -127,7 +127,7 @@ export default [
 						key: 'developTerraform',
 					},
 					{
-						text: '      GitHub',
+						text: 'GitHub',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -135,7 +135,7 @@ export default [
 						key: 'devtools/gitHub',
 					},
 					{
-						text: '      Azion Runtime',
+						text: 'Azion Runtime',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -143,7 +143,7 @@ export default [
 						key: 'developEdgeRuntime',
 					},
 					{
-						text: '      Framework specific guides',
+						text: 'Framework specific guides',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -152,14 +152,14 @@ export default [
 					},
 
 					{
-						text: '      Language specific guides',
+						text: 'Language specific guides',
 						header: true,
 						type: 'learn',
 						key: 'languageSpecifics',
 						addBorder: true,
 						items: [
 							{
-								text: '      JavaScript',
+								text: 'JavaScript',
 								header: true,
 								anchor: true,
 								type: 'learn',
@@ -167,7 +167,7 @@ export default [
 								key: 'devJS',
 							},
 							{
-								text: '      WebAssembly',
+								text: 'WebAssembly',
 								header: true,
 								anchor: true,
 								type: 'learn',
@@ -186,7 +186,7 @@ export default [
 				key: 'editEdgeApp',
 				items: [
 					{
-						text: '      Configure main settings',
+						text: 'Configure main settings',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -194,7 +194,7 @@ export default [
 						key: 'mainSettings',
 					},
 					{
-						text: '      Create device groups',
+						text: 'Create device groups',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -202,7 +202,7 @@ export default [
 						key: 'deviceGroups',
 					},
 					{
-						text: '      Set error pages',
+						text: 'Set error pages',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -210,7 +210,7 @@ export default [
 						key: 'errorPages',
 					},
 					{
-						text: '      Work with origins',
+						text: 'Work with origins',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -218,7 +218,7 @@ export default [
 						key: 'origins',
 					},
 					{
-						text: '      Tune cache settings',
+						text: 'Tune cache settings',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -226,7 +226,7 @@ export default [
 						key: 'cacheSettings',
 					},
 					{
-						text: '      Work with rules engine',
+						text: 'Work with rules engine',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -234,7 +234,7 @@ export default [
 						key: 'rules',
 					},
 					{
-						text: '      Instantiate an edge function',
+						text: 'Instantiate an edge function',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -252,7 +252,7 @@ export default [
 				addBorder: true,
 				items: [
 					{
-						text: '      Process images',
+						text: 'Process images',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -260,7 +260,7 @@ export default [
 						key: 'processImages',
 					},
 					{
-						text: '      Configure multiple origins',
+						text: 'Configure multiple origins',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -286,7 +286,7 @@ export default [
 				key: 'troubleshootBuild',
 				items: [
 					{
-						text: '      Understand metrics',
+						text: 'Understand metrics',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -294,7 +294,7 @@ export default [
 						key: 'understandMetrics',
 					},
 					{
-						text: '      Debug applications',
+						text: 'Debug applications',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -341,7 +341,7 @@ export default [
 				key: 'editEdgeFirewall',
 				items: [
 					{
-						text: '      Configure main settings',
+						text: 'Configure main settings',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -349,7 +349,7 @@ export default [
 						key: 'secureMainSettings',
 					},
 					{
-						text: '      Instantiate an edge function',
+						text: 'Instantiate an edge function',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -357,7 +357,7 @@ export default [
 						key: 'secureFunctions',
 					},
 					{
-						text: '      Work with rules engine',
+						text: 'Work with rules engine',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -365,7 +365,7 @@ export default [
 						key: 'secureRules',
 					},
 					{
-						text: '      Protect your domain',
+						text: 'Protect your domain',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -381,14 +381,14 @@ export default [
 				key: 'secureWAF',
 				items: [
 					{
-						text: '      Create WAF rule set',
+						text: 'Create WAF rule set',
 						header: true,
 						type: 'learn',
 						key: 'createRuleSet',
 						slug: '/documentation/products/guides/secure/create-waf-rule-set/',
 					},
 					{
-						text: '      Check WAF mode',
+						text: 'Check WAF mode',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -396,7 +396,7 @@ export default [
 						key: 'wafMode',
 					},
 					{
-						text: '      Configure Custom Allowed Rule',
+						text: 'Configure Custom Allowed Rule',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -404,7 +404,7 @@ export default [
 						key: 'customAllowedRules',
 					},
 					{
-						text: '      Tune WAF',
+						text: 'Tune WAF',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -412,7 +412,7 @@ export default [
 						key: 'tuneWaf',
 					},
 					{
-						text: '      Find score of blocked requests',
+						text: 'Find score of blocked requests',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -428,7 +428,7 @@ export default [
 				key: 'secureAdvancedConfig',
 				items: [
 					{
-						text: '      Manage bots',
+						text: 'Manage bots',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -436,7 +436,7 @@ export default [
 						key: 'manageBots',
 					},
 					{
-						text: '      Block Tor networks',
+						text: 'Block Tor networks',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -453,7 +453,7 @@ export default [
 				key: 'tls',
 				items: [
 					{
-						text: '      Select TLS ciphers',
+						text: 'Select TLS ciphers',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -461,7 +461,7 @@ export default [
 						key: 'ciphers',
 					},
 					{
-						text: '      Configure mTLS',
+						text: 'Configure mTLS',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -469,7 +469,7 @@ export default [
 						key: 'mtls',
 					},
 					{
-						text: '      Manage Digital Certificates',
+						text: 'Manage Digital Certificates',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -485,7 +485,7 @@ export default [
 				key: 'automateSecure',
 				items: [
 					{
-						text: '      Edge Functions',
+						text: 'Edge Functions',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -493,7 +493,7 @@ export default [
 						key: 'automateEdgeFunctions',
 					},
 					{
-						text: '      SDK',
+						text: 'SDK',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -501,7 +501,7 @@ export default [
 						key: 'automateSdk',
 					},
 					{
-						text: '      Terraform',
+						text: 'Terraform',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -509,7 +509,7 @@ export default [
 						key: 'automateTerraform',
 					},
 					{
-						text: '      Integrate with SIEMs',
+						text: 'Integrate with SIEMs',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -535,7 +535,7 @@ export default [
 				key: 'migrateAzion',
 			},
 			{
-				text: '      Configure a domain',
+				text: 'Configure a domain',
 				header: true,
 				anchor: true,
 				type: 'learn',
@@ -543,7 +543,7 @@ export default [
 				slug: '/documentation/products/guides/configure-a-domain/',
 			},
 			{
-				text: '      Create digital certificate',
+				text: 'Create digital certificate',
 				header: true,
 				anchor: true,
 				type: 'learn',
@@ -551,7 +551,7 @@ export default [
 				key: 'certificateDomain',
 			},
 			{
-				text: '      Point domain to Azion',
+				text: 'Point domain to Azion',
 				header: true,
 				anchor: true,
 				type: 'learn',
@@ -696,15 +696,9 @@ export default [
 				type: 'learn',
 				key: 'reference/edgeFirewall',
 				slug: '/documentation/products/secure/edge-firewall/',
-			},
-			{
-				text: 'Edge Firewall add-ons',
-				header: true,
-				type: 'learn',
-				key: 'reference/edgeApplicationAddons',
 				items: [
 					{
-						text: '      DDoS Protection',
+						text: 'DDoS Protection',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -712,7 +706,7 @@ export default [
 						slug: '/documentation/products/secure/edge-firewall/ddos-protection/',
 					},
 					{
-						text: '      DDoS Mitigation',
+						text: 'DDoS Mitigation',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -720,7 +714,7 @@ export default [
 						slug: '/documentation/products/secure/edge-firewall/ddos-protection/ddos-mitigation/',
 					},
 					{
-						text: '      Web Application Firewall',
+						text: 'Web Application Firewall',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -728,7 +722,7 @@ export default [
 						slug: '/documentation/products/secure/edge-firewall/web-application-firewall/',
 					},
 					{
-						text: '      Network Layer Protection',
+						text: 'Network Layer Protection',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -736,7 +730,7 @@ export default [
 						slug: '/documentation/products/secure/edge-firewall/network-layer-protection/',
 					},
 					{
-						text: '      Bot Manager',
+						text: 'Bot Manager',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -744,7 +738,7 @@ export default [
 						slug: '/documentation/products/secure/edge-firewall/bot-manager/',
 					},
 					{
-						text: '      Bot Manager Lite',
+						text: 'Bot Manager Lite',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -752,7 +746,7 @@ export default [
 						slug: '/documentation/products/secure/edge-firewall/bot-manager-lite/',
 					},
 					{
-						text: '      Origin Shield',
+						text: 'Origin Shield',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -760,7 +754,7 @@ export default [
 						slug: '/documentation/products/secure/secure-infrastructure/',
 					},
 					{
-						text: '      Edge Functions',
+						text: 'Edge Functions',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -910,7 +904,7 @@ export default [
 				key: 'manageAccount',
 				items: [
 					{
-						text: '      Users',
+						text: 'Users',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -918,7 +912,7 @@ export default [
 						slug: '/documentation/products/guides/users-management/',
 					},
 					{
-						text: '      Teams permissions',
+						text: 'Teams permissions',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -926,7 +920,7 @@ export default [
 						key: 'account/teamsPermissions',
 					},
 					{
-						text: '      Activity history',
+						text: 'Activity history',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -934,7 +928,7 @@ export default [
 						key: 'account/activityHistory',
 					},
 					{
-						text: '      Account Lockout Policy',
+						text: 'Account Lockout Policy',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -942,7 +936,7 @@ export default [
 						key: 'account/accountLockoutPolicy',
 					},
 					{
-						text: '      Conditional Access by IP Address',
+						text: 'Conditional Access by IP Address',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -950,7 +944,7 @@ export default [
 						key: 'account/conditionalAccess',
 					},
 					{
-						text: '      SSO',
+						text: 'SSO',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -958,7 +952,7 @@ export default [
 						key: 'account/sso',
 					},
 					{
-						text: '      MFA',
+						text: 'MFA',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -966,7 +960,7 @@ export default [
 						key: 'account/mfa',
 					},
 					{
-						text: '      User Session Timeout',
+						text: 'User Session Timeout',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -974,7 +968,7 @@ export default [
 						key: 'account/user-session-timeout',
 					},
 					{
-						text: '      Billing and subscriptions',
+						text: 'Billing and subscriptions',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -982,24 +976,24 @@ export default [
 						key: 'account/billingAndSubscriptions',
 					},
 					{
-						text: '      Activity History',
+						text: 'Activity History',
 						header: true,
 						type: 'learn',
 						key: 'accounts/ActivityHistory',
 						slug: '/documentation/products/accounts/activity-history/',
 					},
 					{
-						text: '      Clients',
+						text: 'Clients',
 						key: 'accounts/Clients',
 						slug: '/documentation/products/accounts/accounts/',
 					},
 					{
-						text: '      Account settings',
+						text: 'Account settings',
 						key: 'accounts/accountSettings',
 						slug: '/documentation/products/accounts/account-settings/',
 					},
 					{
-						text: '      Billing',
+						text: 'Billing',
 						key: 'accounts/billing',
 						slug: '/documentation/products/accounts/billing-and-subscriptions/',
 					},
@@ -1012,7 +1006,7 @@ export default [
 				key: 'manageProfile',
 				items: [
 					{
-						text: '      Personal tokens',
+						text: 'Personal tokens',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1020,7 +1014,7 @@ export default [
 						slug: '/documentation/products/guides/personal-tokens/',
 					},
 					{
-						text: '      Settings',
+						text: 'Settings',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1028,12 +1022,12 @@ export default [
 						key: 'accountsProfile/settings',
 					},
 					{
-						text: '      Your Settings',
+						text: 'Your Settings',
 						key: 'accounts/yourSettings',
 						slug: '/documentation/products/accounts/your-settings/',
 					},
 					{
-						text: '      Delete account',
+						text: 'Delete account',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1049,42 +1043,42 @@ export default [
 				key: 'accountPolicies',
 				items: [
 					{
-						text: '      Account Lockout Policy',
+						text: 'Account Lockout Policy',
 						key: 'accounts/accountLockoutPolicy',
 						slug: '/documentation/products/accounts/account-lockout-policy/',
 					},
 					{
-						text: '      Multi-Factor Authentication',
+						text: 'Multi-Factor Authentication',
 						key: 'accounts/MFA',
 						slug: '/documentation/products/accounts/multi-factor-authentication/',
 					},
 					{
-						text: '      Personal Tokens',
+						text: 'Personal Tokens',
 						key: 'accounts/personalTokens',
 						slug: '/documentation/products/accounts/personal-tokens/',
 					},
 					{
-						text: '      Social Login',
+						text: 'Social Login',
 						key: 'accounts/socialLogin',
 						slug: '/documentation/products/accounts/social-login/',
 					},
 					{
-						text: '      Single Sign-On',
+						text: 'Single Sign-On',
 						key: 'accounts/SSO',
 						slug: '/documentation/products/accounts/single-sign-on/',
 					},
 					{
-						text: '      Teams Permissions',
+						text: 'Teams Permissions',
 						key: 'accounts/teamsPermissions',
 						slug: '/documentation/products/accounts/teams-permissions/',
 					},
 					{
-						text: '      Users Management',
+						text: 'Users Management',
 						key: 'accounts/usersManagement',
 						slug: '/documentation/products/accounts/users-management/',
 					},
 					{
-						text: '      User Session Timeout',
+						text: 'User Session Timeout',
 						key: 'accounts/userSessionTimeout',
 						slug: '/documentation/products/accounts/user-session-timeout/',
 					},
@@ -1195,7 +1189,7 @@ export default [
 				key: 'professionalServices',
 				items: [
 					{
-						text: '      Integration Services',
+						text: 'Integration Services',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1203,7 +1197,7 @@ export default [
 						key: 'professionalServices/integrationServices',
 					},
 					{
-						text: '      Managed Configurations',
+						text: 'Managed Configurations',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1211,7 +1205,7 @@ export default [
 						key: 'professionalServices/managedConfigurations',
 					},
 					{
-						text: '      Technical Account Manager',
+						text: 'Technical Account Manager',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1219,7 +1213,7 @@ export default [
 						key: 'professionalServices/TAM',
 					},
 					{
-						text: '      Best Practices Review',
+						text: 'Best Practices Review',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1227,7 +1221,7 @@ export default [
 						key: 'professionalServices/bestPracticesReview',
 					},
 					{
-						text: '      Instructor-Led Training',
+						text: 'Instructor-Led Training',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1235,7 +1229,7 @@ export default [
 						key: 'professionalServices/customEducationPrograms',
 					},
 					{
-						text: '      Security Response Team',
+						text: 'Security Response Team',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1243,7 +1237,7 @@ export default [
 						key: 'professionalServices/SRT',
 					},
 					{
-						text: '      Business Events Support',
+						text: 'Business Events Support',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1251,7 +1245,7 @@ export default [
 						key: 'professionalServices/businessEventsSupport',
 					},
 					{
-						text: '      Slack Channel',
+						text: 'Slack Channel',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1283,7 +1277,7 @@ export default [
 				key: 'compliance',
 				items: [
 					{
-						text: '      SOC',
+						text: 'SOC',
 						header: true,
 						anchor: true,
 						type: 'learn',
@@ -1291,7 +1285,7 @@ export default [
 						key: 'compliance/soc',
 					},
 					{
-						text: '      PCI DSS',
+						text: 'PCI DSS',
 						header: true,
 						anchor: true,
 						type: 'learn',
