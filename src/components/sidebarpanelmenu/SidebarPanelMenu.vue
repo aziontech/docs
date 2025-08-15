@@ -100,21 +100,15 @@
 	
 	const dataNoMobile = data.filter((item) => !item.onlyMobile);
 	
-	// Recursive function to process menu items and their nested children
 	function processMenuItems(items, parentKey = null, level = 0) {
 		return items.map((item, index) => {
-			// Modifying original data during buildtime
-			
-			// index is used to decide the margin top
 			item.index = index;
-			item.level = level; // Track nesting level
-			
-			// Set parent key for all nested items
+			item.level = level;
+						
 			if (parentKey) {
 				item.parent = parentKey;
 			}
 			
-			// Recursively process nested items
 			if (item.items && item.items.length) {
 				item.items = processMenuItems(item.items, item.key, level + 1);
 			}
@@ -125,14 +119,12 @@
 	
 	const dataWithIndex = processMenuItems(filterMobile ? dataNoMobile : data);
 	
-	// Handle item click - prevent navigation if current page and expand dropdown instead
 	function handleItemClick(item, event) {
 		const isArrowClick = event.target.closest('span') || event.target.tagName === 'I';
 		const isCurrentPage = isCurrent(item, lang);
 		
 		if (isArrowClick || isCurrentPage) {
 			event.preventDefault();
-			// Toggle the expanded state for this item
 			if (expandedKeys.value[item.key]) {
 				expandedKeys.value[item.key] = false;
 			} else {
@@ -141,11 +133,9 @@
 		}
 	}
 	
-	// Recursive function to expand all parent nodes
 	function expandParentNodes(item) {
 		if (item.parent) {
 			expandedKeys.value[item.parent] = true;
-			// Find the parent item and recursively expand its parents
 			const parentItem = findItemByKey(data, item.parent);
 			if (parentItem) {
 				expandParentNodes(parentItem);
@@ -153,7 +143,6 @@
 		}
 	}
 	
-	// Helper function to find an item by key in the nested structure
 	function findItemByKey(items, key) {
 		for (const item of items) {
 			if (item.key === key) {
@@ -167,18 +156,12 @@
 		return null;
 	}
 
-	// function collapseAll() {
-	// 	expandedKeys.value = {};
-	// }
-
 	function isCurrent(item, lang) {
 		const currentPageMatch = `${lang}${item.slug}` === props.currentPageMatch;
 		if(currentPageMatch) {
-			// If this is the current page and has a parent, expand all parent nodes
 			if(item.parent) {
 				expandParentNodes(item);
 			}
-			// If this is the current page and has subitems, expand this item too
 			if(item.items && item.items.length) {
 				expandedKeys.value[item.key] = true;
 			}
