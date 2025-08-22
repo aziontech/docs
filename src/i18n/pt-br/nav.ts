@@ -249,13 +249,13 @@ export default NavDictionary([
 	},
 
 	{ text: 'Documentos legais', key: 'legal' },
-	{
-		text: 'Contratos', slug: '/documentacao/contratos/', key: 'agreements'
-	},
+	
+		{text: 'Contratos', slug: '/documentacao/contratos/', key: 'agreements'},
 
 	{ text: 'Compliance', key: 'compliance' },
 	{ text: '      SOC', key: 'compliance/soc', slug: '/documentacao/compliance/soc/' },
 	{ text: '      PCI DSS', key: 'compliance/pci-dss', slug: '/documentacao/compliance/pci-dss-certification/' },
+	{text: 'FAQs Privacidade de dados', slug: '/documentacao/contratos/faqs/', key: 'datafaqs'},
 
 	{
 		text: 'Responsabilidade Compartilhada', slug: '/documentacao/responsabilidade-compartilhada/', key: 'sharedResponsibility'
