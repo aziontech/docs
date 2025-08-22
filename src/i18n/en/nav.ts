@@ -264,6 +264,7 @@ export default [
 					{ text: '      PCI DSS', header: true, anchor: true, type: 'learn', slug: '/documentation/compliance/pci-dss-certification/', key: 'compliance/pci-dss' },
 				]
 			},
+			{ text: 'Data Privacy FAQs', header: true, anchor: true, type: 'learn', slug: '/documentation/agreements/faqs/', key: 'datafaqs'},
 			{ text: 'Shared Responsibility Model', header: true, anchor: true, type: 'learn', slug: '/documentation/shared-responsibility/', key: 'sharedResponsibility' },
 			{ text: 'Azion Network Program', header: true, anchor: true, type: 'learn', slug: '/documentation/products/azion-network-program/', key: 'azionNetworkProgram' },
 		]
