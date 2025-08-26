@@ -475,7 +475,7 @@ export default NavDictionary([
 	{
 		text: 'Load Balancer',
 		key: 'reference/loadBalancer',
-		slug: '/documentacao/produtos/build/edge-application/load-balancer/',
+		slug: '/documentacao/produtos/secure/edge-connector/load-balancer/',
 	},
 	{
 		text: 'Tiered Cache',
@@ -522,7 +522,6 @@ export default NavDictionary([
 		key: 'reference/rulesEngineedgeApplication',
 		slug: '/documentacao/produtos/build/edge-application/rules-engine/',
 	},
-
 	{
 		text: 'Store',
 		key: 'storeRef',
@@ -943,7 +942,7 @@ export default NavDictionary([
 		key: 'compliance/pci-dss',
 		slug: '/documentacao/compliance/pci-dss-certification/',
 	},
-
+  {text: 'FAQs Privacidade de dados', slug: '/documentacao/contratos/faqs/', key: 'datafaqs'},
 	{
 		text: 'Responsabilidade Compartilhada',
 		slug: '/documentacao/responsabilidade-compartilhada/',
