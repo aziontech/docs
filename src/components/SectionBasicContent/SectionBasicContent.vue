@@ -90,4 +90,10 @@
         margin-bottom: 0 !important;
         margin-top: 0 !important;
     }
+
+    @media screen and (max-width: 640px) { 
+      :deep(th), :deep(td) {
+        width: 100%;
+      }
+    }
 </style>
