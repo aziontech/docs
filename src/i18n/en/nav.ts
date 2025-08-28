@@ -121,7 +121,7 @@ export default [
 	{ text: 'Get help', header: true, anchor: true, type: 'learn', slug: '/documentation/products/get-help/', key: 'getStarted/getHelp' },
 	{
 		text: 'Build', header: true, type: 'learn', key: 'buildRef', hasLabel: 'menu.reference', items: [
-			{ text: 'Edge AI', header: true, anchor: true, type: 'learn', key: 'reference/edgeAI', slug: '/documentation/products/ai/edge-ai/' },
+			{ text: 'AI Inference', header: true, anchor: true, type: 'learn', key: 'reference/edgeAI', slug: '/documentation/products/ai/ai-inference/' },
 			{ text: 'Edge Application', header: true, anchor: true, type: 'learn', key: 'reference/edgeApplication', slug: '/documentation/products/build/edge-application/' },
 			
 				
