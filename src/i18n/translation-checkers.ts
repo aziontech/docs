@@ -41,32 +41,40 @@ export const NavDictionary = (dict: navMatching) => {
 	const parsingNavMenu = (enMenu: any, dict: navMatching) => {
 		const orderedDictionary: NavDict = [];
 		for (const entry of enMenu) {
-			const matchedObject = dict.find(value => value.key === entry.key)
-			const items = entry.items ? parsingNavMenu(entry.items, dict) : undefined;
+			const matchedObject = dict.find((value) => value.key === entry.key);
+			let items = undefined;
+
+			if (entry.items) {
+				items = parsingNavMenu(entry.items, dict);
+				if (items.length === 0) {
+					items = undefined;
+				}
+			}
 
 			if (matchedObject) {
-				const text = matchedObject.text
+				const text = matchedObject.text;
+				const slug = matchedObject.slug || entry.slug;
 
-				if (matchedObject.slug) {
-					orderedDictionary.push({ ...entry, text, slug: matchedObject.slug});
+				if (slug) {
+					orderedDictionary.push({ ...entry, text, slug, ...(items && { items }) });
 				} else if (items) {
-					orderedDictionary.push({ ...entry, text, items});
+					orderedDictionary.push({ ...entry, text, items });
 				} else {
-					orderedDictionary.push({ ...entry, text, isFallback: true });
+					orderedDictionary.push({ ...entry, text });
 				}
 			} else {
 				if (items) {
-					orderedDictionary.push({ ...entry, items});
+					orderedDictionary.push({ ...entry, items, isFallback: true });
 				} else {
-					orderedDictionary.push({ ...entry, isFallback: true })
+					orderedDictionary.push({ ...entry, isFallback: true });
 				}
 			}
 		}
-	
-		return orderedDictionary
-	}
 
-	const orderedDictionary = parsingNavMenu(enNav, dict)
+		return orderedDictionary;
+	};
+
+	const orderedDictionary = parsingNavMenu(enNav, dict);
 	return orderedDictionary;
 };
 
