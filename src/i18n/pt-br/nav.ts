@@ -169,7 +169,7 @@ export default NavDictionary([
 
 	{ text: 'Inteligência Artificial', key: 'aiRef'},
 	{ text: 'AI Inference', key: 'reference/edgeAI', slug: '/documentacao/produtos/ai/ai-inference/' },
-	{ text: 'Modelos', key: 'reference/models', slug: '/documentacao/produtos/ai/edge-ai/modelos/' },
+	{ text: 'Modelos', key: 'reference/models', slug: '/documentacao/produtos/ai/ai-inference/modelos/' },
 
 	{ text: 'Marketplace', key: 'mktpRef' },
 	{ text: 'Marketplace', key: 'mktp', slug: '/documentacao/produtos/marketplace/' },
