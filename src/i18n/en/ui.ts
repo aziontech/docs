@@ -167,7 +167,8 @@ export default {
 	'menu.runtime': 'Azion Runtime',
 	'menu.store': 'Store',
 	'menu.storage': 'Edge Storage',
-	'menu.edgeSQL': 'Edge SQL'
+	'menu.edgeSQL': 'Edge SQL',
+	'menu.aiinference':'AI Inference'
 
 
 };
