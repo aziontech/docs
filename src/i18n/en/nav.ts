@@ -597,7 +597,7 @@ export default [
 				anchor: true,
 				type: 'learn',
 				key: 'reference/edgeAI',
-				slug: '/documentation/products/ai/ai-inference/',
+				slug: '/documentation/products/ai/ai-inference/overview/',
 			},
 			{
 				text: 'Edge Application',
