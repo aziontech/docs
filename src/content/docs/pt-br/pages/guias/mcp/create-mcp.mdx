@@ -1,0 +1,258 @@
+---
+title: Como executar um servidor MCP na Azion
+description: Aprenda a configurar um servidor MCP na Azion
+meta_tags: >-
+  servidor MCP, Azion, protocolo de contexto de modelo, JSON-RPC, comunicação padronizada, ferramentas de AI, escalabilidade elástica, alta disponibilidade, soberania de dados, implementação rápida e segura
+namespace: documentation_products_guides_mcp
+permalink: /documentacao/produtos/guias/executar-mcp-server/
+---
+
+O Model Context Protocol (MCP) é uma especificação aberta que utiliza JSON-RPC para padronizar a comunicação entre aplicativos e agentes de AI. Ele define operações de alto nível—listar/invocar ferramentas, ler/escrever recursos e buscar prompts—para que qualquer cliente compatível possa usar capacidades de AI de terceiros sem acoplamento rígido. Servidores MCP permitem que LLMs chamem Functions externas e acessem dados. MCP expõe três tipos: ferramentas (ações), recursos (dados/conteúdos como arquivos ou respostas de API) e prompts (modelos de prompts compartilhados).
+
+Executar servidores MCP na Azion oferece:
+
+- Latência mínima
+- Escalabilidade elástica
+- Alta disponibilidade
+- Soberania de dados
+- Implantações rápidas e seguras (blue-green e rollback instantâneo)
+
+:::tip
+Para mais informações sobre o protocolo MCP, visite a [Documentação do MCP](https://modelcontextprotocol.io/introduction).
+:::
+
+---
+
+## Implementando seu servidor MCP
+
+Neste guia, criaremos uma [Function](/pt-br/documentacao/produtos/build/applications/functions/) para executar o servidor MCP.
+
+O transporte usado neste guia é `StreamableHTTPServerTransport`. Para transportes alternativos, [consulte a documentação do MCP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports).
+
+O servidor pode ser implementado com uma das seguintes opções:
+
+`McpServer` (alto nível): simplifica o registro de ferramentas, recursos e prompts.
+`Server` (baixo nível): fornece controle detalhado implementando manipuladores de requisições diretamente.
+
+
+### Criando uma Function
+
+1. [Acesse o Azion Console](https://console.azion.com).
+2. No canto superior esquerdo, selecione **Functions**
+3. Clique em **+ Function**.
+4. Escolha um nome para sua Função.
+5. Selecione o ambiente de execução **Application**.
+6. Na aba **Code**, cole seu código.
+
+### Usando McpServer:
+
+`McpServer` cria um servidor MCP de alto nível, e você só precisa declarar suas propriedades com os métodos de registro:
+
+```javascript
+import { Hono } from 'hono'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { toFetchResponse, toReqRes } from 'fetch-to-node'
+
+const app = new Hono()
+
+const server = new McpServer({
+    name: "azion-mcp-server",
+    version: "1.0.0"
+});
+
+server.registerTool("add",
+    {
+        title: "Ferramenta de Adição",
+        description: "Adiciona dois números",
+        inputSchema: { a: z.number(), b: z.number() }
+    },
+    async ({ a, b }) => ({
+        content: [{ type: "text", text: String(a + b) }]
+    })
+);
+
+server.registerResource(
+    "greeting",
+    new ResourceTemplate("greeting://{name}", { list: undefined }),
+    {
+        title: "Recurso de Saudação",
+        description: "Gerador dinâmico de saudações"
+    },
+    async (uri, { name }) => ({
+        contents: [{
+            uri: uri.href,
+            text: `Olá, ${name}!`
+        }]
+    })
+);
+
+
+app.post('/mcp', async (c: Context) => {
+  try {
+    const { req, res } = toReqRes(c.req.raw);
+
+    const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+
+    await server.connect(transport);
+
+    const body = await c.req.json();
+
+    await transport.handleRequest(req, res, body);
+
+    res.on('close', () => {
+      console.log('Conexão fechada.');
+      transport.close();
+      server.close();
+    });
+
+    return toFetchResponse(res);
+  } catch (error) {
+
+    console.error('Erro ao lidar com a requisição MCP:', error);
+
+    const { req, res } = toReqRes(c.req.raw);
+
+    if (!res.headersSent) {
+      res.writeHead(500).end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32603, message: 'Erro interno do servidor' },
+        id: null,
+      }));
+    }
+  }
+});
+
+export default app
+```
+
+## Usando `Server`
+
+Este exemplo usa a classe `Server` e o Servidor MCP da Hubspot:
+
+```javascript
+
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { CallToolRequestSchema, GetPromptRequestSchema, ListPromptsRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
+import { getPrompts, getPromptMessages } from '@hubspot/mcp-server/dist/prompts/index.js';
+import { getTools, handleToolCall } from '@hubspot/mcp-server/dist/tools/index.js';
+import '@hubspot/mcp-server/dist/prompts/promptsRegistry.js';
+import '@hubspot/mcp-server/dist/tools/toolsRegistry.js';
+import { Hono } from 'hono';
+import { toFetchResponse, toReqRes } from 'fetch-to-node';
+
+// Cria instância do servidor
+const server = new Server({
+    name: 'azion-hubspot-mcp-server',
+    version: '1.0.0',
+}, {
+    capabilities: {
+        tools: {},
+        prompts: {},
+        resources: {},
+    },
+});
+
+// Manipulador para listar ferramentas
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return {
+        tools: getTools(),
+    };
+});
+
+// Manipulador para chamar ferramentas
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    return handleToolCall(name, args);
+});
+
+// Manipulador para listar prompts
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    return {
+        prompts: getPrompts(),
+    };
+});
+
+// Manipulador para obter prompt específico
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    return getPromptMessages(name, args);
+});
+
+// Cria app Hono
+const app = new Hono();
+
+app.post('/mcp', async (c) => {
+    try {
+
+        const { req, res } = toReqRes(c.req.raw);
+
+        const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+        });
+
+        await server.connect(transport);
+
+        await transport.handleRequest(req, res, await c.req.json())
+
+        res.on('close', () => {
+            console.log('Requisição fechada');
+            transport.close();
+            server.close();
+        });
+
+        return toFetchResponse(res);
+    } catch (error) {
+        const { req, res } = toReqRes(c.req.raw);
+        console.error('Erro ao lidar com a requisição MCP:', error);
+        if (!res.headersSent) {
+            res.writeHead(500).end(JSON.stringify({
+                jsonrpc: '2.0',
+                error: {
+                    code: -32603,
+                    message: 'Erro interno do servidor',
+                },
+                id: null,
+            }));
+        }
+    }
+});
+
+export default app
+```
+
+Propriedades:
+
+| Categoria | API de Registro |
+|---|---|
+| ferramentas | `server.registerTools()` |
+| recursos | `server.registerResources()` |
+| prompts | `server.registerPrompts()` |
+
+Com isso, os métodos devem criar os manipuladores. Para isso, use `server.setRequestHandler(Schema, async () => { ... })`, usando como Schema [as opções listadas aqui](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/src/types.ts). Alguns exemplos abaixo:
+
+Schemas para listar propriedades:
+
+| Schema | Descrição |
+|---|---|
+| `ListToolsRequestSchema` | Lista ferramentas |
+| `ListResourcesRequestSchema` | Lista recursos |
+| `ListPromptsRequestSchema` | Lista prompts |
+
+Schemas para invocar propriedades:
+
+| Schema | Descrição |
+|---|---|
+| `CallToolRequestSchema` | Invoca ferramentas |
+| `ReadResourceRequestSchema` | Lê recursos |
+| `GetPromptRequestSchema` | Lê prompts |
+
+Manipuladores de requisição:
+
+| Categoria | Exemplo |
+|---|---|
+| ferramentas | `server.setRequestHandler(ListToolsRequestSchema, async () => { ... })` |
+| recursos | `server.setRequestHandler(ReadResourceRequestSchema, async () => { ... })` |
+| prompts | `server.setRequestHandler(GetPromptRequestSchema, async () => { ... })` |
+
+Para mais detalhes, [consulte o SDK do protocolo para TypeScript](https://github.com/modelcontextprotocol/typescript-sdk/).
