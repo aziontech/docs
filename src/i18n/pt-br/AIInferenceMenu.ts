@@ -15,7 +15,7 @@ export default [
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
 	{ text: 'Visão Geral', header: true, anchor: true, type: 'learn', key: 'overview-aiinference', slug: '/documentacao/produtos/ai/ai-inference/', hasLabel: 'menu.aiinference' },
-	{ text: 'Comece Agora', header: true, anchor: true, type: 'learn', key: 'get-started-aiinference', slug: '/documentacao/produtos/guias/ai-inference-agent/' },
+	//{ text: 'Comece Agora', header: true, anchor: true, type: 'learn', key: 'get-started-aiinference', slug: '/documentacao/produtos/guias/ai-inference-agent/' },
 
     { text: ' Modelos disponiveis', header: true, type: 'learn', key: 'aiinference.models',slug: '/documentacao/produtos/ai/ai-inference/modelos/', items: [
 		{ text: 'BAAI/bge reranker v2 m3', slug: '/documentacao/produtos/ai/ai-inference/modelos/baai-bge-reranker-v2-m3/', key: 'aiinference/BAAI/bge-reranker-v2-m3' },
