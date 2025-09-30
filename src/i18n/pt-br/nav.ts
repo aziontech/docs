@@ -473,16 +473,6 @@ export default NavDictionary([
 		slug: '/documentacao/produtos/build/applications/image-processor/',
 	},
 	{
-		text: 'Load Balancer',
-		key: 'reference/loadBalancer',
-		slug: '/documentacao/produtos/secure/connector/load-balancer/',
-	},
-	{
-		text: 'Tiered Cache',
-		key: 'reference/l2Caching',
-		slug: '/documentacao/produtos/build/applications/cache/tiered-cache/',
-	},
-	{
 		text: 'Main Settings',
 		key: 'reference/mainSettings',
 		slug: '/documentacao/produtos/build/applications/main-settings/',
