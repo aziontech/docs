@@ -10,5 +10,6 @@ export const availableMenus = [
 	{ name: 'observeMenu', langs: ['en', 'pt-br'] },
 	{ name: 'deployMenu', langs: ['en', 'pt-br'] },
 	{ name: 'storeMenu', langs: ['en', 'pt-br'] },
-	{ name: 'libMenu', langs: ['en', 'pt-br'] }
+	{ name: 'libMenu', langs: ['en', 'pt-br'] },
+	{ name: 'AIInferenceMenu', langs: ['en', 'pt-br'] }
 ]
