@@ -18,9 +18,9 @@ export default [
 	{ text: 'First Steps', header: true, anchor: true, type: 'learn', key: 'firstSteps', slug: '/documentation/products/cli/first-steps' },
 
 	{ text: 'Commands', header: true, key: 'commands', type: 'learn', items: [
-		{ text: 'Edge Applications', slug: '/documentation/products/cli/edge-applications', key: 'commands/edgeApp' },
-		{ text: 'Edge Functions', slug: '/documentation/products/cli/edge-functions', key: 'commands/edgeFunctions' },
-		{ text: 'Edge Functions Instances', slug: '/documentation/products/cli/edge-functions-instances', key: 'commands/edgeFunctions/instances' },
+		{ text: 'Applications', slug: '/documentation/products/cli/edge-applications', key: 'commands/edgeApp' },
+		{ text: 'Functions', slug: '/documentation/products/cli/edge-functions', key: 'commands/edgeFunctions' },
+		{ text: 'Functions Instances', slug: '/documentation/products/cli/edge-functions-instances', key: 'commands/edgeFunctions/instances' },
 		{ text: 'Domains', slug: '/documentation/products/cli/domains', key: 'commands/Domains' },
 		{ text: 'Origins', slug: '/documentation/products/cli/origins', key: 'commands/Origins' },
 		{ text: 'Cache Settings', slug: '/documentation/products/cli/cache-settings', key: 'commands/CacheSettings' },

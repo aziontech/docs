@@ -24,7 +24,7 @@ export default [
             { text: 'Work with origins', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/work-with-origins/', key: 'origins' },
             { text: 'Tune cache settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/tune-cache-settings/', key: 'cacheSettings' },
             { text: 'Work with rules engine', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/work-with-rules-engine/', key: 'rules' },
-            { text: 'Instantiate an edge function', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/instantiate-edge-functions/', key: 'functions' },
+            { text: 'Instantiate an function', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/build/instantiate-edge-functions/', key: 'functions' },
         ]
     },
 

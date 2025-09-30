@@ -161,7 +161,7 @@ export default NavDictionary([
 		key: 'rules',
 	},
 	{
-		text: 'Instancie uma edge function',
+		text: 'Instancie uma function',
 		header: true,
 		anchor: true,
 		type: 'learn',
@@ -258,7 +258,7 @@ export default NavDictionary([
 		key: 'secureMainSettings',
 	},
 	{
-		text: 'Instancie uma edge function',
+		text: 'Instancie uma function',
 		header: true,
 		anchor: true,
 		type: 'learn',
@@ -369,11 +369,11 @@ export default NavDictionary([
 
 	{ text: 'Automatize com a Azion', header: true, type: 'learn', key: 'automateSecure' },
 	{
-		text: 'Edge Functions',
+		text: 'Functions',
 		header: true,
 		anchor: true,
 		type: 'learn',
-		slug: '/documentacao/produtos/secure/automarizar/functions/',
+		slug: '/documentacao/produtos/secure/automatizar/functions/',
 		key: 'automateEdgeFunctions',
 		hasLabel: 'menu.secureAutomate',
 	},
@@ -382,7 +382,7 @@ export default NavDictionary([
 		header: true,
 		anchor: true,
 		type: 'learn',
-		slug: '/documentacao/produtos/secure/automarizar/sdk/',
+		slug: '/documentacao/produtos/secure/automatizar/sdk/',
 		key: 'automateSdk',
 	},
 	{
@@ -390,7 +390,7 @@ export default NavDictionary([
 		header: true,
 		anchor: true,
 		type: 'learn',
-		slug: '/documentacao/produtos/secure/automarizar/terraform/',
+		slug: '/documentacao/produtos/secure/automatizar/terraform/',
 		key: 'automateTerraform',
 	},
 	{
@@ -398,7 +398,7 @@ export default NavDictionary([
 		header: true,
 		anchor: true,
 		type: 'learn',
-		slug: '/documentacao/produtos/secure/automarizar/integrar-siems/',
+		slug: '/documentacao/produtos/secure/automatizar/integrar-siems/',
 		key: 'automateIntegrateSiems',
 	},
 
@@ -448,9 +448,9 @@ export default NavDictionary([
 		key: 'buildRef',
 	},
 	{
-		text: 'Edge Application',
+		text: 'Applications',
 		key: 'reference/edgeApplication',
-		slug: '/documentacao/produtos/build/edge-application/',
+		slug: '/documentacao/produtos/build/applications/',
 	},
 	{
 		text: 'Application Accelerator',
@@ -458,54 +458,54 @@ export default NavDictionary([
 		slug: '/documentacao/produtos/build/edge-application/application-accelerator/',
 	},
 	{
-		text: 'Edge Cache',
+		text: 'Cache',
 		key: 'reference/edgeCaching',
-		slug: '/documentacao/produtos/build/edge-application/edge-cache/',
+		slug: '/documentacao/produtos/build/applications/cache/',
 	},
 	{
-		text: 'Edge Functions',
+		text: 'Functions',
 		key: 'reference/edge Functions',
-		slug: '/documentacao/produtos/build/edge-application/edge-functions/',
+		slug: '/documentacao/produtos/build/applications/functions/',
 	},
 	{
 		text: 'Image Processor',
 		key: 'reference/imageProcessor',
-		slug: '/documentacao/produtos/build/edge-application/image-processor/',
+		slug: '/documentacao/produtos/build/applications/image-processor/',
 	},
 	{
 		text: 'Load Balancer',
 		key: 'reference/loadBalancer',
-		slug: '/documentacao/produtos/secure/edge-connector/load-balancer/',
+		slug: '/documentacao/produtos/secure/connector/load-balancer/',
 	},
 	{
 		text: 'Tiered Cache',
 		key: 'reference/l2Caching',
-		slug: '/documentacao/produtos/build/edge-application/tiered-cache/',
+		slug: '/documentacao/produtos/build/applications/cache/tiered-cache/',
 	},
 	{
 		text: 'Main Settings',
 		key: 'reference/mainSettings',
-		slug: '/documentacao/produtos/build/edge-application/main-settings/',
+		slug: '/documentacao/produtos/build/applications/main-settings/',
 	},
 	{
 		text: 'Cache Settings',
 		key: 'reference/cacheSettings',
-		slug: '/documentacao/produtos/build/edge-application/cache-settings/',
+		slug: '/documentacao/produtos/build/applications/cache-settings/',
 	},
 	{
-		text: 'Edge Functions Instances',
+		text: 'Functions Instances',
 		key: 'reference/edgeFunctionsInstancesApplication',
-		slug: '/documentacao/produtos/build/edge-application/edge-functions-instances/',
+		slug: '/documentacao/produtos/build/applications/functions-instances/',
 	},
 	{
 		text: 'Device Groups',
 		key: 'reference/deviceGroups',
-		slug: '/documentacao/produtos/build/edge-application/device-groups/',
+		slug: '/documentacao/produtos/build/applications/device-groups/',
 	},
 	{
 		text: 'Error Responses',
 		key: 'reference/errorResponses',
-		slug: '/documentacao/produtos/build/edge-application/error-responses/',
+		slug: '/documentacao/produtos/build/applications/error-responses/',
 	},
 	{
 		text: 'Origins',
@@ -515,27 +515,27 @@ export default NavDictionary([
 	{
 		text: 'Real-Time Purge',
 		key: 'reference/realTimePurge',
-		slug: '/documentacao/produtos/build/edge-application/real-time-purge/',
+		slug: '/documentacao/produtos/build/applications/real-time-purge/',
 	},
 	{
 		text: 'Rules Engine',
 		key: 'reference/rulesEngineedgeApplication',
-		slug: '/documentacao/produtos/build/edge-application/rules-engine/',
+		slug: '/documentacao/produtos/build/applications/rules-engine/',
 	},
 	{
 		text: 'Store',
 		key: 'storeRef',
 	},
 	{
-		text: 'Edge Storage',
+		text: 'Object Storage',
 		key: 'reference/storage',
-		slug: '/documentacao/produtos/store/edge-storage/',
+		slug: '/documentacao/produtos/store/object-storage/',
 	},
-	{ text: 'Edge SQL', key: 'reference/sql', slug: '/documentacao/produtos/store/edge-sql/' },
+	{ text: 'SQL Database', key: 'reference/sql', slug: '/documentacao/produtos/store/sql-database/' },
 	{
 		text: 'Vector Search',
 		key: 'reference/vector-search',
-		slug: '/documentacao/produtos/store/edge-sql/vector-search/',
+		slug: '/documentacao/produtos/store/sql-database/vector-search/',
 	},
 
 	{
@@ -543,79 +543,74 @@ export default NavDictionary([
 		key: 'secureRef',
 	},
 	{
-		text: 'Edge Firewall',
+		text: 'Firewall',
 		key: 'reference/edgeFirewall',
-		slug: '/documentacao/produtos/secure/edge-firewall/',
+		slug: '/documentacao/produtos/secure/firewall/',
 	},
 	{
 		text: 'DDoS Protection',
 		key: 'reference/ddosProtection',
-		slug: '/documentacao/produtos/secure/edge-firewall/ddos-protection/',
+		slug: '/documentacao/produtos/secure/firewall/ddos-protection/',
 	},
 	{
 		text: 'DDoS Mitigation',
 		key: 'reference/ddosMitigation',
-		slug: '/documentacao/produtos/secure/edge-firewall/ddos-protection/ddos-mitigation/',
+		slug: '/documentacao/produtos/secure/firewall/ddos-protection/ddos-mitigation/',
 	},
 	{
-		text: 'Network Layer Protection',
+		text: 'Network Shield',
 		key: 'reference/networkLayerProtection',
-		slug: '/documentacao/produtos/secure/edge-firewall/network-layer-protection/',
+		slug: '/documentacao/produtos/secure/firewall/network-shield/',
 	},
 	{
 		text: 'Network Lists',
 		key: 'reference/networkLists',
-		slug: '/documentacao/produtos/secure/edge-firewall/network-layer-protection/network-lists/',
+		slug: '/documentacao/produtos/secure/firewall/network-layer-protection/network-lists/',
 	},
 	{
 		text: 'Web Application Firewall',
 		key: 'reference/webApplicationFirewall',
-		slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/',
+		slug: '/documentacao/produtos/secure/firewall/web-application-firewall/',
 	},
 	{
 		text: 'WAF Rule Sets',
 		key: 'reference/wafRuleSets',
-		slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/rule-sets/',
+		slug: '/documentacao/produtos/secure/firewall/web-application-firewall/rule-sets/',
 	},
 	{
 		text: 'WAF Custom Allowed Rules',
 		key: 'reference/wafCustomAllowedRules',
-		slug: '/documentacao/produtos/secure/edge-firewall/web-application-firewall/custom-allowed-rules/',
+		slug: '/documentacao/produtos/secure/firewall/web-application-firewall/custom-allowed-rules/',
 	},
 	{
 		text: 'Bot Manager',
 		key: 'reference/botManager',
-		slug: '/documentacao/produtos/secure/edge-firewall/bot-manager/',
+		slug: '/documentacao/produtos/secure/firewall/bot-manager/',
 	},
 	{
 		text: 'Bot Manager Lite',
 		key: 'reference/botManagerLite',
-		slug: '/documentacao/produtos/secure/edge-firewall/bot-manager-lite/',
+		slug: '/documentacao/produtos/secure/firewall/bot-manager-lite/',
 	},
 	{
-		text: 'Origin Shield',
-		key: 'reference/originShield',
-		slug: '/documentacao/produtos/secure/proteja-infraestrutura/',
-	},
-	{
-		text: 'Edge Functions',
+		text: 'Functions',
 		key: 'reference/edgeFunctionsFirewall',
-		slug: '/documentacao/produtos/secure/edge-firewall/edge-functions/',
+		slug: '/documentacao/produtos/secure/firewall/edge-functions/',
 	},
 	{
-		text: 'Edge Functions Instances',
+		text: 'Functions Instances',
 		key: 'reference/edgeFunctionsInstancesFirewall',
-		slug: '/documentacao/produtos/secure/edge-firewall/edge-functions-instances/',
+		slug: '/documentacao/produtos/secure/firewall/edge-functions-instances/',
 	},
 	{
 		text: 'Rules Engine',
 		key: 'reference/rulesEngineFirewall',
-		slug: '/documentacao/produtos/secure/edge-firewall/rules-engine/',
+		slug: '/documentacao/produtos/secure/firewall/rules-engine/',
 	},
 	{
-		text: 'Digital Certificates',
+		text: 'Certificate Manager',
 		key: 'reference/digitalCertificates',
-		slug: '/documentacao/produtos/build/edge-application/digital-certificates/',
+		slug: '/documentacao/produtos/build/applications/certificate-manager/',
 	},
 	{
 		text: 'Edge DNS',
@@ -630,9 +625,9 @@ export default NavDictionary([
 
 	{ text: 'Deploy', key: 'deployRef' },
 	{
-		text: 'Edge Orchestrator',
+		text: 'Orchestrator',
 		key: 'reference/edgeOrchestrator',
-		slug: '/documentacao/produtos/deploy/edge-orchestrator/',
+		slug: '/documentacao/produtos/deploy/orchestrator/',
 	},
 	{
 		text: 'Edge Services',
