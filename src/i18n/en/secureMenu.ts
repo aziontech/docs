@@ -23,7 +23,7 @@ export default [
 	{
 		text: 'Edit a firewall', header: true, type: 'learn', key: 'editEdgeFirewall', hasLabel: 'menu.edgeFirewall', items: [
 			{ text: 'Configure main settings', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/edge-firewall-configure-main-settings/', key: 'secureMainSettings' },
-			{ text: 'Instantiate an function', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/instantiate-edge-functions/', key: 'secureFunctions' },
+			{ text: 'Instantiate a function', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/instantiate-edge-functions/', key: 'secureFunctions' },
 			{ text: 'Work with rules engine', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/work-with-rules-engine/', key: 'secureRules' },
 			{ text: 'Protect your domain', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/edge-firewall-protect-your-domain/', key: 'secureDomain' },
 		]
