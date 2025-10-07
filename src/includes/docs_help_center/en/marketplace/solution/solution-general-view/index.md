@@ -21,7 +21,7 @@ For instance:
 - Which parameters you can use.
 - Some solutions present details about the partner who created it, their compatibility and integration with other technologies, and any other pertinent information.
 
-> **Note**: a solution can only attend to an Edge Functions functionality, or to an Edge Firewall functionality, never both.
+> **Note**: a solution can only attend to an Functions functionality, or to an Edge Firewall functionality, never both.
 
 ### Usage Information
 

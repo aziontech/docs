@@ -16,7 +16,7 @@ It creates an Edge Application and configures an [Origin](https://www.azion.com/
 
 - **Build an advanced Edge Application**
 
-It enables you to customize Edge Functions and origins servers later.
+It enables you to customize Functions and origins servers later.
 
 > **Still in doubt?**
 >
@@ -26,6 +26,6 @@ It enables you to customize Edge Functions and origins servers later.
 
 An Edge Application is a set of resources and functionalities, such as:
 
-- **Edge Functions**: code and its arguments.
+- **Functions**: code and its arguments.
 - **Edge Cache**: usually fetches content from an origin.
 - **Network**: for creating business rules at the edge, which are advanced rules with criteria and behavior.

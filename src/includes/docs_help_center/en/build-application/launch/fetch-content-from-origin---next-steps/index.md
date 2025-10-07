@@ -11,7 +11,7 @@ Next steps to continue your Azion setup:
 
 [Edge Cache](https://www.azion.com/en/documentation/products/edge-application/edge-caching): a standard module for all of your Edge Applications in Azion. Reduces latency and has a high transfer rate using Azion’s global and highly distributed Edge Network.
 
-[Edge Functions](https://www.azion.com/en/documentation/products/edge-application/edge-functions): a module that allows you to program your own Edge Functions to be run on Azion’s Edge.
+[Functions](https://www.azion.com/en/documentation/products/edge-application/edge-functions): a module that allows you to program your own Functions to be run on Azion’s Edge.
 
 [Image Processor](https://www.azion.com/en/documentation/products/edge-application/image-processor): automates the processing of images in the workflow, allowing you to resize, crop, and apply filters to large quantities of images.
 
