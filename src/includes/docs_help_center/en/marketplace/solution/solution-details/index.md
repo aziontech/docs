@@ -10,4 +10,4 @@ These fields are:
 - **Category**: every solution on Azion's Marketplace is registered under a category. This is helpful for filtering and knowing the core features of the solutions.
 - **Last Updated**: the solutions store older versions. You can run a previous version or update to the latest one. The **Last Updated** field shows the solution's latest updates.
 
-> If your Functions are using previous versions of a solution, they won’t be automatically updated or affected by it. To run the latest version, go to the functions section on your Edge Application and select the new version. Visit the [Updating a version of your solution on Marketplace's documentation](https://www.azion.com/en/documentation/products/marketplace#versioning) page to learn more.
+> If your Functions are using previous versions of a solution, they won’t be automatically updated or affected by it. To run the latest version, go to the functions section on your Applications and select the new version. Visit the [Updating a version of your solution on Marketplace's documentation](https://www.azion.com/en/documentation/products/marketplace#versioning) page to learn more.
