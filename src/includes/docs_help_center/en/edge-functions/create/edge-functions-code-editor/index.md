@@ -1,6 +1,6 @@
 ## Functions Code Editor
 
-The code editor for Functions is the best way to get started developing your edge functions on the Azion platform.
+The code editor for Functions is the best way to get started developing your functions on the Azion platform.
 
 The editor is integrated with ChatGPT and teams up with the Azion Preview Deployment feature, that makes it possible to see the outcome of your functions on the fly, before it goes to production.
 
