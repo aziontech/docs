@@ -7,7 +7,7 @@ Next steps to continue your Azion setup:
 
 [Application Acceleration](https://www.azion.com/en/documentation/products/edge-application/application-acceleration): accelerates the performance of applications and APIs by optimizing protocols and building advanced request and response rules.
 
-[Cache](https://www.azion.com/en/documentation/products/edge-application/edge-caching): a standard module for all of your Edge Applications in Azion. Reduces latency and has a high transfer rate using Azion’s global and highly distributed Edge Network.
+[Cache](https://www.azion.com/en/documentation/products/edge-application/edge-caching): a standard module for all your Applications in Azion. Reduces latency and has a high transfer rate using Azion’s global and highly distributed Edge Network.
 
 [Functions](https://www.azion.com/en/documentation/products/edge-application/edge-functions): a module that allows you to program your own Functions to be run on Azion’s Edge.
 
