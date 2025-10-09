@@ -6,7 +6,7 @@ Next steps to continue your Azion setup:
 
 2. View your Edge Application Logs and lookup your access by searching the Edge Applications data source. [Real-Time Events](https://www.azion.com/en/documentation/products/real-time-events) is located on the **Products Menu** on the top left corner, in the **Observe** section.
 
-3. [Link your DNS with your Edge Application](https://www.azion.com/en/documentation/products/getting-started#creating-domain) or explore more by creating your own Functions with a [step by step guide](https://www.azion.com/en/documentation/products/edge-application/edge-functions#stepbystepcreatinganedgefunction) and using the [Functions JavaScript Examples](https://www.azion.com/en/documentation/products/edge-application/edge-functions/javascript-examples).
+3. [Link your DNS with your Applications](https://www.azion.com/en/documentation/products/getting-started#creating-domain) or explore more by creating your own Functions with a [step by step guide](https://www.azion.com/en/documentation/products/edge-application/edge-functions#stepbystepcreatinganedgefunction) and using the [Functions JavaScript Examples](https://www.azion.com/en/documentation/products/edge-application/edge-functions/javascript-examples).
 
 4. You may also consider migrating your entire DNS zone to our [Intelligent DNS](https://www.azion.com/en/documentation/products/intelligent-dns).
 
