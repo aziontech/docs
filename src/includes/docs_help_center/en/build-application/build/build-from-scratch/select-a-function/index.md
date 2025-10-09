@@ -2,9 +2,9 @@
 
 In the **Configure function** section, you select the **Edge Function** you'll use with your **Edge Application**.
 
-### Getting to know Edge Functions
+### Getting to know Functions
 
-Azion [Edge Functions](https://www.azion.com/en/documentation/products/edge-application/edge-functions) is a module of your Edge Application that enables you to program and execute serverless functions without the need to provision or manage servers. All processing occurs directly at the edge of the network, closer to users.
+Azion [Functions](https://www.azion.com/en/documentation/products/edge-application/edge-functions) is a module of your Applications that enables you to program and execute serverless functions without the need to provision or manage servers. All processing occurs directly at the edge of the network, closer to users.
 
 > **How to select an Edge Function function?**
 >
