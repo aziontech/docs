@@ -4,8 +4,8 @@ The Total Invocations graph shows you the sum of all occasions in which your edg
 
 > The graph is divided into:
 >
-> - **Firewall Invocations**: total amount of executed edge functions associated to a firewall.
-> - **Application Invocations**: total amount of executed edge functions associated to an application.
+> - **Firewall Invocations**: total amount of executed functions associated to a firewall.
+> - **Applications Invocations**: total amount of executed functions associated to an application.
 
 Whenever one of your configured edge functions is executed, one invocation is calculated.
 
