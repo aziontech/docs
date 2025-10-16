@@ -156,7 +156,7 @@ export default UIDictionary({
 
 	// AI Chat dropdown
 	'aiChat.copyPage': 'Copiar Página',
-	'aiChat.viewMarkdown': 'Ver como Markdown',
+	'aiChat.viewMarkdown': 'Ver Markdown',
 	'aiChat.openChatGPT': 'Abrir no ChatGPT',
 	'aiChat.openClaude': 'Abrir no Claude',
 	'aiChat.dropdownLabel': 'Mais Opções'

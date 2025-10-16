@@ -171,7 +171,7 @@ export default {
 
 	// AI Chat dropdown
 	'aiChat.copyPage': 'Copy Page',
-	'aiChat.viewMarkdown': 'View as Markdown',
+	'aiChat.viewMarkdown': 'View Markdown',
 	'aiChat.openChatGPT': 'Open in ChatGPT',
 	'aiChat.openClaude': 'Open in Claude',
 	'aiChat.dropdownLabel': 'More Options'
