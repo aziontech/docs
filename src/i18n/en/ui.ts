@@ -167,7 +167,13 @@ export default {
 	'menu.runtime': 'Azion Runtime',
 	'menu.store': 'Store',
 	'menu.storage': 'Edge Storage',
-	'menu.edgeSQL': 'Edge SQL'
+	'menu.edgeSQL': 'Edge SQL',
 
+	// AI Chat dropdown
+	'aiChat.copyPage': 'Copy Page',
+	'aiChat.viewMarkdown': 'View as Markdown',
+	'aiChat.openChatGPT': 'Open in ChatGPT',
+	'aiChat.openClaude': 'Open in Claude',
+	'aiChat.dropdownLabel': 'More Options'
 
 };
