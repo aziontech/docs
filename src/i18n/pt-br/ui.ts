@@ -153,4 +153,11 @@ export default UIDictionary({
 	'topbar.message': 'Azion ganha o Prêmio Norte-Americano de Inovação de Novos Produtos 2023 da Frost & Sullivan na categoria edge serverless.',
 	'topbar.cta': 'Confira!',
 	'topbar.link': 'https://www.azion.com/pt-br/blog/azion-premio-frost-sullivan/',
+
+	// AI Chat dropdown
+	'aiChat.copyPage': 'Copiar Página',
+	'aiChat.viewMarkdown': 'Ver como Markdown',
+	'aiChat.openChatGPT': 'Abrir no ChatGPT',
+	'aiChat.openClaude': 'Abrir no Claude',
+	'aiChat.dropdownLabel': 'Mais Opções'
 });
