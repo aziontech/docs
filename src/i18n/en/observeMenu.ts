@@ -65,7 +65,7 @@ export default [
     },
 
     { text: 'AWS Kinesis Data Firehose', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-amazon-kinesis/', key: 'observeIntegrationsAws', hasLabel: 'menu.observeIntegrations' },
-    { text: 'Azion Edge Storage', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/connector-azion-edge-storage/', key: 'observeIntegrationsEdgeStorage' },
+    { text: 'Azion Object Storage', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/connector-azion-edge-storage/', key: 'observeIntegrationsEdgeStorage' },
     { text: 'Azure Blob Storage', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-azure-blob/', key: 'observeIntegrationsBlob' },
     { text: 'Azure Monitor', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-azure-monitor/', key: 'observeIntegrationsMonitor' },
     { text: 'Datadog', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/endpoint-datadog/', key: 'observeIntegrationsDatadog' },

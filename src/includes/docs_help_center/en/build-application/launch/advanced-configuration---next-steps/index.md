@@ -1,8 +1,8 @@
-## Advanced Edge Application – Next Steps
+## Advanced Applications – Next Steps
 
 Next steps to continue your Azion setup:
 
-1. Follow the [Getting Started guide](https://www.azion.com/en/documentation/products/getting-started) to get help on exploring your Edge Application settings.
+1. Follow the [Getting Started guide](https://www.azion.com/en/documentation/products/getting-started) to get help on exploring your Applications settings.
 2. Configure the business rules required using the available modules:
 
 [Application Acceleration](https://www.azion.com/en/documentation/products/edge-application/application-acceleration): accelerates the performance of applications and APIs by optimizing protocols and building advanced request and response rules.

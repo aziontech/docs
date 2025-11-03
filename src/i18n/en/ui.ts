@@ -166,7 +166,7 @@ export default {
 	'topbar.cta': 'Check it out!',
 	'menu.runtime': 'Azion Runtime',
 	'menu.store': 'Store',
-	'menu.storage': 'Edge Storage',
+	'menu.storage': 'Object Storage',
 	'menu.edgeSQL': 'Edge SQL'
 
 

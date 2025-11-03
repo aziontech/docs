@@ -2,7 +2,7 @@
 
 docs: [
 'Adding filters',
-'Edge Cache',
+'Cache',
 'Edge Offload',
 'Saved Data',
 'Missed Data',
