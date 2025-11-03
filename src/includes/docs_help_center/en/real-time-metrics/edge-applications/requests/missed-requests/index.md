@@ -1,6 +1,6 @@
 ## Missed Requests
 
-The Missed Requests graph shows the total sum of your edge application's requests when Azion's edge had to look for the content on the origin and deliver it to the end user.
+The Missed Requests graph shows the total sum of your application's requests when Azion's edge had to look for the content on the origin and deliver it to the end user.
 
 Whenever the content of your application is accessed, one request is processed. The graph then shows all requests that were missed during the period you've selected in the time range.
 

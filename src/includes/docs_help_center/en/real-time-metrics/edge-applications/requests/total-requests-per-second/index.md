@@ -1,6 +1,6 @@
 ## Total Requests per Second
 
-The Total Requests per Second graph shows you the average of requests per seconds that were processed on the edge application's domain configured in your account.
+The Total Requests per Second graph shows you the average of requests per seconds that were processed on the application's domain configured in your account.
 
 Whenever the content of your application is accessed, one request is processed. The graph then shows the average of all requests that occurred per second during the period you've selected in the time range.
 

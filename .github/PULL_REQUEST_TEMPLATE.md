@@ -8,7 +8,7 @@ Use the conventional commits standard to categorize the type of change in the PR
 Don't forget to add the Jira issue code to the PR title or the GitHub issue hash.
 For example: 
 - [EDU-3000] refactor: modify origins page to include load balancer
-- [#34] feat: add new edge application CLI commands
+- [#34] feat: add new application CLI commands
 - [NO-ISSUE] fix: fix broken link in Orch doc
 -->
 

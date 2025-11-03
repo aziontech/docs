@@ -10,9 +10,9 @@ You can also set the **value field** that'll be used. Depending on the variable 
 
 ### Practical example
 
-You want to filter your data by the amount of edge applications invocations, but, in the request, you only want results that are smaller than a certain value.
+You want to filter your data by the amount of applications invocations, but, in the request, you only want results that are smaller than a certain value.
 
-In this situation, you should use **Applications Invocations** and **Less than**. In the value field, you should add the value that you want as a cutoff, such as "50". Then, your response will contain all edge applications that had a smaller number of invocations than 50.
+In this situation, you should use **Applications Invocations** and **Less than**. In the value field, you should add the value that you want as a cutoff, such as "50". Then, your response will contain all applications that had a smaller number of invocations than 50.
 
 > **How can I edit or delete a filter?**
 >

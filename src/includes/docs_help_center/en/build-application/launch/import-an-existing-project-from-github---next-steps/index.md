@@ -1,14 +1,14 @@
 ## Import an existing project from GitHub – Next Steps
 
-The *deployment* page confirms when your edge application has been created successfully. It also contains basic information related to your edge application, as well as buttons to be redirected to visit and manage it.
+The *deployment* page confirms when your application has been created successfully. It also contains basic information related to your application, as well as buttons to be redirected to visit and manage it.
 
-Now that you've built a new edge application, you can explore more Azion modules and configure advanced settings for it.
+Now that you've built a new application, you can explore more Azion modules and configure advanced settings for it.
 
-**Important**: deploying an edge application isn’t an instantaneous process. It may be necessary to wait a few minutes while the edge application is propagated and configured in Azion’s edge locations. 
+**Important**: deploying an application isn’t an instantaneous process. It may be necessary to wait a few minutes while the application is propagated and configured in Azion’s edge locations. 
 
-On the right side of the page, the **Next Steps** cards offer you three advanced options to enhance your edge application:
+On the right side of the page, the **Next Steps** cards offer you three advanced options to enhance your application:
 
-- [Customize your Domain](https://www.azion.com/en/documentation/products/getting-started/add-domains/): add a custom domain to your edge application. This process is very important as you'll need to have *Domains* configured to connect your edge application to other Azion's products.
+- [Customize your Domain](https://www.azion.com/en/documentation/products/getting-started/add-domains/): add a custom domain to your application. This process is very important as you'll need to have *Domains* configured to connect your application to other Azion's products.
 - [Point your traffic to Azion](https://www.azion.com/en/documentation/products/getting-started/point-traffic/): configure your DNS preferences to handle your requests through Azion Global Infrastructure.
 - [View Analytics](https://www.azion.com/en/documentation/products/real-time-metrics/): gain powerful insights into your performance, availability, and security through **Real-Time Metrics**.
 

@@ -1,6 +1,6 @@
-## Set up your edge application
+## Set up your application
 
-This section allows you to configure the main settings for your edge application. It includes three fields you should fill in: Framework, Applications Name, and Root Directory.
+This section allows you to configure the main settings for your application. It includes three fields you should fill in: Framework, Applications Name, and Root Directory.
 
 
 > **Which parameters should be included in each field?**
@@ -11,6 +11,6 @@ This section allows you to configure the main settings for your edge application
 
 After completing this step, go to the **Build and Output Settings** section to continue the configuration. 
 
-For more information on building methods, read the [Building and setting up an edge application](https://www.azion.com/en/documentation/products/getting-started/build-edge-applications/) page.
+For more information on building methods, read the [Building and setting up an application](https://www.azion.com/en/documentation/products/getting-started/build-edge-applications/) page.
 
 You can also see the guide on [structuring an existing Next.js project to import it to the edge](https://www.azion.com/en/documentation/products/guides/how-to-structure-nextjs-project/).
