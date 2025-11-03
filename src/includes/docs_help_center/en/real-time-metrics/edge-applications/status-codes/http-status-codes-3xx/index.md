@@ -1,6 +1,6 @@
 ## HTTP Status Codes 3XX
 
-Whenever a domain that's associated with an Azion edge application receives a request, it also receives a specific status code according to the server's response. The graph then shows the sum of total requests that received a status 3XX.
+Whenever a domain that's associated with an Azion application receives a request, it also receives a specific status code according to the server's response. The graph then shows the sum of total requests that received a status 3XX.
 
 The 3XX status codes indicate redirection on the server's side. This means the request wasn't fully completed because the content was in another location, and it had to perform one more action to deliver your domain's content.
 

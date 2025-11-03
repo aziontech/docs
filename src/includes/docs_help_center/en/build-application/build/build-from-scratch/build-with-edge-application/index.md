@@ -18,7 +18,7 @@ A relevant Applications name makes your management easier. In case your applicat
 
 > **Just starting?**
 >
-> To get familiar with the platform and create your first edge application, you can:
+> To get familiar with the platform and create your first application, you can:
 >
 > - Enter a test name.
 > - Proceed to "Run a function".

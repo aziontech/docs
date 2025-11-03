@@ -1,6 +1,6 @@
 ## Saved Requests per Second
 
-The Saved Requests per Second graph shows the average of your edge application's requests per second that were delivered directly by Azion's edge, without having to take the extra step of looking for the content on the origin.
+The Saved Requests per Second graph shows the average of your application's requests per second that were delivered directly by Azion's edge, without having to take the extra step of looking for the content on the origin.
 
 Whenever the content of your application is accessed, one request is processed. The graph then shows the average of all requests that were saved per second during the period you've selected in the time range.
 

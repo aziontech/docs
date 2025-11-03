@@ -1,6 +1,6 @@
 ## Saved Data
 
-The Saved Data graph shows the total sum of your edge application's data that was delivered directly by Azion's edge, without having to take the extra step of looking for the content on the origin.
+The Saved Data graph shows the total sum of your application's data that was delivered directly by Azion's edge, without having to take the extra step of looking for the content on the origin.
 
 > Saved Data: content is delivered directly by the edge to the origin.
 >
