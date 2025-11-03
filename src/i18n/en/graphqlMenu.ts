@@ -46,7 +46,7 @@
 		{ text: 'How to query HTTP request events blocked', slug: '/documentation/products/guides/query-httpbreakdownmetrics-data-with-graphql/', key: 'guides/httpbreakdownmetrics-data' },
 		{ text: 'How to query usage data from Edge Functions', slug: '/documentation/products/guides/query-edge-functions-usage-data-with-graphql/', key: 'guides/edge-functions-usage-data' },
 		{ text: 'How to query usage data from Image Processor', slug: '/documentation/products/guides/query-image-processor-usage-data-with-graphql/', key: 'guides/image-processor-usage-data' },
-		{ text: 'How to query usage data from Edge Application', slug: '/documentation/products/guides/query-edge-application-usage-data-with-graphql/', key: 'guides/edge-application-usage-data' },
+		{ text: 'How to query usage data from Applications', slug: '/documentation/products/guides/query-edge-application-usage-data-with-graphql/', key: 'guides/edge-application-usage-data' },
 		{ text: 'How to query usage data from Data Stream', slug: '/documentation/products/guides/query-data-stream-usage-data-with-graphql/', key: 'guides/data-stream-usage-data' },
 		{ text: 'How to query usage data from Tiered Cache', slug: '/documentation/products/guides/query-tiered-cache-usage-data-with-graphql/', key: 'guides/tiered-cache-usage-data' }
 

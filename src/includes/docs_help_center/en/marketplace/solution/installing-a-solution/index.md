@@ -5,7 +5,7 @@ To get a solution listed as **Functions** on your Real-Time Manager (RTM), you m
 ### Installing a solution
 
 - Click the **Get It Now** button.
-- If successful, you’ll receive the following message on your screen: **Your solution installation was successful, you can find it in Edge Function List**.
+- If successful, you’ll receive the following message on your screen: **Your solution installation was successful, you can find it in Functions List**.
 - Then, the solution will appear at the Functions list on your RTM.
 
 ### Updating a solution

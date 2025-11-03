@@ -1,24 +1,24 @@
 ## Code and Arguments
 
-In the **Code** and **Args** section, you view your **Edge Function's** code and edit its arguments.
+In the **Code** and **Args** section, you view your **Functions's** code and edit its arguments.
 
 ### Viewing code
 
-The Code tab depicts the Edge Function. The **Event.args.<ARG_CREATED>** command is used to instantiate arguments in **JavaScript Runtime**, which connects the Args tab to the code.
+The Code tab depicts the Functions. The **Event.args.<ARG_CREATED>** command is used to instantiate arguments in **JavaScript Runtime**, which connects the Args tab to the code.
 
-**Note**: You can't edit the Edge Function's code here. To modify its code, go to your Edge Function library.
+**Note**: You can't edit the Functions's code here. To modify its code, go to your Functions library.
 
 ### Editing arguments
 
-The **Args** tab presents **JavaScript Object Notation (JSON)** parameters of the Edge Function to control its behavior without changing the code.
+The **Args** tab presents **JavaScript Object Notation (JSON)** parameters of the Functions to control its behavior without changing the code.
 
 > **Editing arguments**
 >
-> To view the code and edit the arguments of an Edge Function:
+> To view the code and edit the arguments of an Functions:
 >
-> 1. Click the **Args** tab. The Edge Function's arguments appear in the tab's text area.
-> 2. If necessary, edit the Edge Function's arguments.
-> 3. On the bottom of the page, click the **Save and continue** button to save your Edge Function.
+> 1. Click the **Args** tab. The Functions's arguments appear in the tab's text area.
+> 2. If necessary, edit the Functions's arguments.
+> 3. On the bottom of the page, click the **Save and continue** button to save your Functions.
 
 ### Getting to know Runtime Environment
 

@@ -1,20 +1,20 @@
-## Build with Edge Application
+## Build with Applications
 
-Azion **Edge Application** allows you to build your applications to run on Azion Web Platform.
+Azion **Applications** allows you to build your applications to run on Azion Web Platform.
 
-### Naming your Edge Application
+### Naming your Applications
 
-To name your Edge Application you have to fill the text box with a unique new name. This name doesn't affect how end-users access your application and you can change it at any time.
+To name your Applications you have to fill the text box with a unique new name. This name doesn't affect how end-users access your application and you can change it at any time.
 
 The platform returns an error message if the name already exists in your library. If it happens, try again with a different name.
 
-A relevant Edge Application name makes your management easier. In case your application relates to:
+A relevant Applications name makes your management easier. In case your application relates to:
 
-- **Specific domain** (www.yourapp.com), use an Edge Application name related to the domain name (”www.yourapp.com” or "yourapp www").
-- **Specific origin system**, use an Edge Application name related to the origin ("Cloud Bucket for Statics") as you may associate it with more domain names.
-- **Specific application usage**, use an Edge Application name related to the function (”Checkout application”) as you may associate it with more domain names.
+- **Specific domain** (www.yourapp.com), use an Applications name related to the domain name (”www.yourapp.com” or "yourapp www").
+- **Specific origin system**, use an Applications name related to the origin ("Cloud Bucket for Statics") as you may associate it with more domain names.
+- **Specific application usage**, use an Applications name related to the function (”Checkout application”) as you may associate it with more domain names.
 
-**Note**: Your Edge Application name exists for administrative purposes. End-user and device access occur on an [associated domain name](https://www.azion.com/en/documentation/products/edge-application/domains).
+**Note**: Your Applications name exists for administrative purposes. End-user and device access occur on an [associated domain name](https://www.azion.com/en/documentation/products/edge-application/domains).
 
 > **Just starting?**
 >
@@ -22,18 +22,18 @@ A relevant Edge Application name makes your management easier. In case your appl
 >
 > - Enter a test name.
 > - Proceed to "Run a function".
-> - Select "Azion - Hello World" in the **Choose Edge Function** field.
+> - Select "Azion - Hello World" in the **Choose Functions** field.
 > - Click **Save** to continue.
 >
 > Or, feel free to explore the options and look around.
 
-### About Edge Application
+### About Applications
 
-Your Edge Application runs serverless in response to events on Edge Nodes of the global [Edge Network](https://www.azion.com/en/products/edge-network). DNS resolution is used to dynamic route requests to the best end-to-end connection.
+Your Applications runs serverless in response to events on Edge Nodes of the global [Edge Network](https://www.azion.com/en/products/edge-network). DNS resolution is used to dynamic route requests to the best end-to-end connection.
 
 [ User and devices <-> EDGE <-> your application or origin ]
 
-At the Edge Node, an Edge Application associated with the domain name processes each request by executing a [Rules Engine](https://www.azion.com/en/documentation/products/edge-application/rules-engine).
+At the Edge Node, an Applications associated with the domain name processes each request by executing a [Rules Engine](https://www.azion.com/en/documentation/products/edge-application/rules-engine).
 
 - Each rule can use powerful criteria on nested "If-then" statements to trigger behaviors from [enabled modules](https://www.azion.com/en/documentation/products/edge-application#edge-application-modules), such as run a function or set origin.
 - Each rule is executed until all the rules are processed or a rule with a finalizing behavior is found in the path.

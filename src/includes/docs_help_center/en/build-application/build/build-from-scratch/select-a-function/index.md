@@ -1,14 +1,14 @@
 ## Select a function
 
-In the **Configure function** section, you select the **Edge Function** you'll use with your **Edge Application**.
+In the **Configure function** section, you select the **Functions** you'll use with your **Applications**.
 
 ### Getting to know Functions
 
 Azion [Functions](https://www.azion.com/en/documentation/products/edge-application/edge-functions) is a module of your Applications that enables you to program and execute serverless functions without the need to provision or manage servers. All processing occurs directly at the edge of the network, closer to users.
 
-> **How to select an Edge Function function?**
+> **How to select an Functions function?**
 >
-> 1. Click on the **Choose Edge Function** dropdown list.
+> 1. Click on the **Choose Functions** dropdown list.
 > 2. Select a function from your library in the list. The section with the tabs Code and Args appears.
 >
 > **Note**: Functions listed for selection reflect your own function library. If you have no functions in your library, you can only select the *Azion — Hello World* function.
