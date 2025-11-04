@@ -34,7 +34,7 @@ export default [
 		{ text: 'Configuring Output', slug: '/documentation/products/guides/cli-output-configuration', key: 'guides/configuringOutput' },
 		{ text: 'Running the CLI on macOS', slug: '/documentation/products/guides/cli-running-macos', key: 'guides/cliMacOS' },
 		{ text: 'Creating an application', slug: '/documentation/products/guides/cli-creating-edge-application', key: 'guides/createEdgeApp' },
-		{ text: 'Managing your edge functions', slug: '/documentation/products/guides/cli-managing-edge-functions', key: 'guides/manageEdgeFunc' },
+		{ text: 'Managing your functions', slug: '/documentation/products/guides/cli-managing-edge-functions', key: 'guides/manageEdgeFunc' },
 		{ text: 'Creating a function on Azion using the Next.js framework', slug: '/documentation/products/guides/nextjs-ssr-on-azion-platform', key: 'guides/createFunc' },
 	] },
 ] as const;
