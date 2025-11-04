@@ -469,7 +469,7 @@ export default [
 						key: 'mtls',
 					},
 					{
-						text: 'Manage Digital Certificates',
+						text: 'Certificate Manager',
 						header: true,
 						anchor: true,
 						type: 'learn',
