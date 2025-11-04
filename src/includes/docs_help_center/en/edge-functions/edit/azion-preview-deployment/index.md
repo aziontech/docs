@@ -1,6 +1,6 @@
 ## Azion Preview Deployment
 
-**Azion Preview Deployment** makes it possible for you to preview the behavior of your edge functions before they go to production. New possibilities are unlocked when using the Preview, such as:
+**Azion Preview Deployment** makes it possible for you to preview the behavior of your functions before they go to production. New possibilities are unlocked when using the Preview, such as:
 
 - Testing different flows based on the http method provided.
 - Seeing the outcome of an HTML page.
