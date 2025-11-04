@@ -134,7 +134,7 @@ export default UIDictionary({
 	'menu.cli': 'Azion CLI',
 	'menu.devTools': 'Dev Tools',
 	'menu.secure': 'Secure',
-	'menu.edgeFirewall': 'Edge Firewall',
+	'menu.edgeFirewall': 'Firewall',
 	'menu.intelligentDns': 'Edge DNS',
 	'menu.secureAdvanced': 'Configurações avançadas',
 	'menu.secureTransportLayerSecurity': 'Transport Layer Security',

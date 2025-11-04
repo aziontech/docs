@@ -144,7 +144,7 @@ export default {
 	'menu.cli': 'Azion CLI',
 	'menu.devTools': 'Dev Tools',
 	'menu.secure': 'Secure',
-	'menu.edgeFirewall': 'Edge Firewall',
+	'menu.edgeFirewall': 'Firewall',
 	'menu.intelligentDns': 'Edge DNS',
 	'menu.secureAdvanced': 'Advanced configuration',
 	'menu.secureTransportLayerSecurity': 'Transport Layer Security',
@@ -167,7 +167,7 @@ export default {
 	'menu.runtime': 'Azion Runtime',
 	'menu.store': 'Store',
 	'menu.storage': 'Object Storage',
-	'menu.edgeSQL': 'Edge SQL'
+	'menu.edgeSQL': 'SQL Database'
 
 
 };
