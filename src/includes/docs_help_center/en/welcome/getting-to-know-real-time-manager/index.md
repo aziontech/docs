@@ -14,7 +14,7 @@ On RTM's header, you'll find:
 In the *Getting Started* section, you'll find three shortcuts:
 
 - **Build an Applications**: this block will guide you to [build your first Applications from scratch](https://www.azion.com/en/documentation/products/getting-started#build-edge-app){: target="blank"}.
-- **Manage your Domains**: use this block to visit the [Domains](https://www.azion.com/en/documentation/products/edge-application/domains){: target="blank"} page to manage and add domains to your applications.
+- **Manage your Worloads**: use this block to visit the [Domains](https://www.azion.com/en/documentation/products/edge-application/domains){: target="blank"} page to manage and add domains to your applications.
 - **View Applications Metrics**: it'll take you to [Real-Time Metrics](https://www.azion.com/en/documentation/products/real-time-metrics){: target="blank"} to find insights based on your applications' performance, availability, and security. 
 
 Right after you find the shortcut to **Invite Your Team**. This is an optional step, but you can invite your team to work together on Azion. Find out more about [Teams Permissions](https://www.azion.com/en/documentation/products/accounts/users-and-teams){: target="blank"}.
