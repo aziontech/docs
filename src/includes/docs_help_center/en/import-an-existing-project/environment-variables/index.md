@@ -18,6 +18,6 @@ Examples:
 
 You can add as many variables as you need for your application. But you're also able to create a new application without adding any environment variable.
 
-> Azion's platform includes built-in support for environment variables for edge applications developed in the [supported frameworks](https://www.azion.com/en/documentation/runtime/overview/#supported-frameworks).
+> Azion's platform includes built-in support for environment variables for applications developed in the [supported frameworks](https://www.azion.com/en/documentation/runtime/overview/#supported-frameworks).
 
-**Important**: currently, when you build an edge applications on Azion's platform, it's directly deployed and runs in a production environment.
+**Important**: currently, when you build an application on Azion's platform, it's directly deployed and runs in a production environment.
