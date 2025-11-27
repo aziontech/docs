@@ -14,9 +14,14 @@
           v-for="(button, index) in buttons"
           :key="index"
         >
-          <LinkButton
+          <Button
             v-if="button.link"
-            v-bind="button"
+            :href="button.link"
+            :label="button.label"
+            type="primary"
+            theme="light"
+            :target="button.target"
+            :icon="button.icon"
           />
         </template>
       </template>
@@ -34,7 +39,7 @@
   
   <script setup>
     import ContentSection from 'azion-webkit/contentsection'
-    import LinkButton from 'azion-webkit/linkbutton'
+    import Button from 'azion-webkit/components/Button';
   
     defineProps({
       id: {

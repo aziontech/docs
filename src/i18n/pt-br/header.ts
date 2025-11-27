@@ -1,42 +1,40 @@
-const menuData = {
-  items: [
+const menu = {
+	menu: [
 		{
-      label: 'Documentação',
-      href: '/pt-br/documentacao/',
-      items: []
-    },
+			label: 'Documentação',
+			href: '/pt-br/documentacao/',
+		},
 		{
-      label: 'Guias',
-      href: '/pt-br/documentacao/produtos/guias/',
-      items: []
-    },
+			label: 'Guias',
+			href: '/pt-br/documentacao/produtos/guias/',
+		},
 		{
-      label: 'DevTools',
-      href: '/pt-br/documentacao/produtos/devtools/',
-      items: []
-    }
-  ]
+			label: 'DevTools',
+			href: '/pt-br/documentacao/produtos/devtools/',
+		},
+	],
 };
 
 const menuSecondary = [
-  {
-    text: "Contato",
-    title: "Contact Sales",
-    link: "/pt-br/contate-vendas/",
-    destak: false,
-  },
-  {
-    text: "Sign in",
-    title: "Azion SSO Login",
-    link: "https://console.azion.com/login",
-    destak: false,
-  },
-  {
-    text: "Conta Gratuita",
-    title: "Crie sua Conta Gratuita",
-    link: "https://console.azion.com/signup",
-    destak: true,
-  }
+	{
+		text: 'Contato',
+		title: 'Contato',
+		link: '/pt-br/contate-vendas/',
+		target: '_self',
+	},
+	{
+		text: 'Entrar',
+		title: 'Entrar',
+		link: 'https://console.azion.com/login',
+		target: '_blank',
+	},
+	{
+		text: 'Comece Grátis',
+		title: 'Comece Grátis',
+		backgroundColor: 'dark',
+		link: 'https://console.azion.com/signup',
+		target: '_blank',
+	},
 ];
 
 const menuSecondaryMobile = [
@@ -122,7 +120,7 @@ const algoliaModel = [
 const algoliaInputPlaceholder = "Digite sua busca"
 
 export default {
-  menuData,
+  menu,
   menuSecondary,
   menuSecondaryMobile,
   bottomButtonsMobile,
