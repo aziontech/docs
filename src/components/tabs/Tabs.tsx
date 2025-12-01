@@ -4,6 +4,7 @@ import '../TabGroup/TabGroup.css';
 import { genTabId } from './store';
 import styles from './Tabs.module.css';
 import { useTabState } from './useTabState';
+import { primitiveColors } from 'azion-theme/src/tokens/colors-primitive';
 
 const tabSlotKey = 'tab.' as const;
 const panelSlotKey = 'panel.' as const;
@@ -73,8 +74,9 @@ export default function Tabs({ sharedStore, ...slots }: Props) {
 			const containerBoundingRect = tabButtonContainerRef.current.getBoundingClientRect();
 			if (!activeTabIndicatorRef.current.style.width)
 				activeTabIndicatorRef.current.style.width = '1px';
-			activeTabIndicatorRef.current.style.transform = `translateX(${tabBoundingRect.left - containerBoundingRect.left
-				}px) scaleX(${tabBoundingRect.width})`;
+			activeTabIndicatorRef.current.style.transform = `translateX(${
+				tabBoundingRect.left - containerBoundingRect.left
+			}px) scaleX(${tabBoundingRect.width})`;
 		}
 	}, [curr]);
 
@@ -97,8 +99,14 @@ export default function Tabs({ sharedStore, ...slots }: Props) {
 		}
 	}
 
+	const cssVariables = {
+		'--tabgroup-white': primitiveColors.base.white,
+		'--tabgroup-neutral-800': primitiveColors.neutral[800],
+		'--tabgroup-orange-500': primitiveColors.orange[500],
+	};
+
 	return (
-		<div className={styles.container}>
+		<div className={styles.container} style={cssVariables}>
 			<div className={styles['tab-scroll-overflow']}>
 				<div
 					ref={tabButtonContainerRef}
@@ -126,7 +134,6 @@ export default function Tabs({ sharedStore, ...slots }: Props) {
 						className={styles.selectedIndicator}
 						aria-hidden="true"
 					/>
-
 				</div>
 				<div className="border" />
 			</div>

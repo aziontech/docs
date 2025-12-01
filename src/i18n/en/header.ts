@@ -1,132 +1,121 @@
-const menuData = {
-  items: [
+const menu = {
+	menu: [
 		{
-      label: 'Documentation',
-      href: '/en/documentation/',
-      items: []
-    },
+			label: 'Documentation',
+			href: '/en/documentation/',
+		},
 		{
-      label: 'Guides',
-      href: '/en/documentation/products/guides/',
-      items: []
-    },
+			label: 'Guides',
+			href: '/en/documentation/products/guides/',
+		},
 		{
-      label: 'DevTools',
-      href: '/en/documentation/devtools/',
-      items: []
-    }
-  ]
+			label: 'DevTools',
+			href: '/en/documentation/devtools/',
+		},
+	],
 };
 
 const menuSecondary = [
-  {
-    text: "Contact",
-    title: "Contact Sales",
-    link: "/en/contact-sales/",
-    destak: false,
-  },
-  {
-    text: "Sign in",
-    title: "Azion SSO Login",
-    link: "https://console.azion.com/login",
-    destak: false,
-  },
-  {
-    text: "Free account",
-    title: "Azion Free Account",
-    link: "https://console.azion.com/signup",
-    destak: true,
-  }
+	{
+		text: 'Contact',
+		title: 'Contact',
+		link: '/en/contact-sales/',
+		target: '_self',
+	},
+	{
+		text: 'Sign In',
+		title: 'Sign In',
+		link: 'https://console.azion.com/login',
+		target: '_blank',
+	},
+	{
+		text: 'Start Free',
+		title: 'Start Free',
+		backgroundColor: 'dark',
+		link: 'https://console.azion.com/signup',
+		target: '_blank',
+	},
 ];
 
 const menuSecondaryMobile = [
-  {
-    // label: 'Documents',
-    items: [
-      {
-        label: 'Careers',
-        // icon: 'pi pi-briefcase',
-        tags: ['we\'re hiring!'],
-        url: '/en/careers/jobs/'
-      },
-      {
-        label: 'Success Stories',
-        // icon: 'pi pi-dollar'
-        url: '/en/resource-hub/'
-      },
-      {
-        label: 'Support',
-        // icon: 'pi pi-question-circle'
-        url: '/en/pricing/'
-      },
-      {
-        label: 'Privacy policy',
-        // icon: 'pi pi-exclamation-triangle'
-        url: '/en/documentation/agreements/privacy-policy/'
-      }
-    ]
-  }
+	{
+		items: [
+			{
+				label: 'Carreers',
+				tags: ["we're hiring!"],
+				url: '/en/careers/jobs/',
+			},
+			{
+				label: 'Support',
+				url: '/en/pricing/',
+			},
+			{
+				label: 'Privacy policy',
+				url: '/en/documentation/agreements/privacy-policy/',
+			},
+		],
+	},
 ];
 
 const bottomButtonsMobile = [
-  {
-    label: 'Free Account',
-    urlTitle: 'Azion Console Free Account',
-    url: 'https://console.azion.com/singup',
-    destak: true
-  },
-  {
-    label: 'Sign In',
-    urlTitle: 'Azion Console Sign In',
-    url: 'https://console.azion.com/login'
-  },
-  {
-    label: 'Contact',
-    url: '/en/contact-sales/',
-    urlTitle: 'Contact Page',
-    icon: 'pi pi-chevron-right text-xs'
-  }
+	{
+		label: 'Start Free',
+		urlTitle: 'Start Free',
+		url: 'https://console.azion.com/singup',
+		destak: true,
+	},
+	{
+		label: 'Sign In',
+		urlTitle: 'Azion Console Sign In',
+		url: 'https://console.azion.com/login',
+	},
+	{
+		label: 'Contact',
+		url: '/en/contact-sales/',
+		urlTitle: 'Contact Page',
+		icon: 'pi pi-chevron-right text-xs',
+	},
 ];
 
 const algoliaIndex = [
 	{
-    name: `azion-doc-en`,
-    label: 'docs',
-    activeIndex: 1
-  },
-  {
-    name: `azion-site-en`,
-    label: 'site',
-    activeIndex: 2
-  },
-  {
-    name: `azion-blog-en`,
-    label: 'blog',
-    activeIndex: 3
-  },
-  {
-    name: `azion-cases-en`,
-    label: 'cases',
-    activeIndex: 4
-  }
+		name: `azion-site-en`,
+		label: 'site',
+		activeIndex: 1,
+	},
+	{
+		name: `azion-doc-en`,
+		label: 'docs',
+		activeIndex: 2,
+	},
+	{
+		name: `azion-blog-en`,
+		label: 'blog',
+		activeIndex: 3,
+	},
+	{
+		name: `azion-cases-en`,
+		label: 'cases',
+		activeIndex: 4,
+	},
 ];
 
-const algoliaModel = [
-  { label: 'All' },
-	{ label: 'Docs' },
-  { label: 'Site' },
-  { label: 'Blog' },
-  { label: 'Cases' }
-];
+const algoliaModel = [{ label: 'All' }, { label: 'Docs' }, { label: 'Blog' }];
 
-const algoliaInputPlaceholder = "Type to search"
+const algoliaInputPlaceholder = 'Type to search';
+
+export const communityData = {
+	label: 'Join our community',
+	href: 'https://discord.com/invite/pM8ANzztuB',
+};
 
 export default {
-  menuData,
-  menuSecondary,
-  menuSecondaryMobile,
-  bottomButtonsMobile,
-  algoliaIndex,
-  algoliaModel,
-  algoliaInputPlaceholder
-}
+	menu,
+	menuSecondary,
+	menuSecondaryMobile,
+	bottomButtonsMobile,
+	algoliaIndex,
+	algoliaModel,
+	algoliaInputPlaceholder,
+	communityData,
+};
