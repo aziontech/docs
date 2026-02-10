@@ -1,6 +1,6 @@
 ## Saved Requests
 
-The Saved Requests graph shows the total sum of your edge application's requests that were delivered directly by Azion's edge, without having to take the extra step of looking for the content on the origin.
+The Saved Requests graph shows the total sum of your application's requests that were delivered directly by Azion's edge, without having to take the extra step of looking for the content on the origin.
 
 Whenever the content of your application is accessed, one request is processed. The graph then shows all requests that were saved during the period you've selected in the time range.
 

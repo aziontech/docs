@@ -2,7 +2,7 @@
 
 The Tiered Cache graph represents how all information regarding your Tiered Cache data is being accessed on Azion's edge.
 
-Tiered Cache is a feature for Edge Application that adds an extra layer of cache between the edge and the client origin. The graph is divided into:
+Tiered Cache is a feature for Applications that adds an extra layer of cache between the edge and the client origin. The graph is divided into:
 
 > - **Data Transferred Total**: all data that was transferred in the process; value of Data Transferred In + Data Transferred Out.
 >

@@ -1,6 +1,6 @@
 ## Missed Requests per Second
 
-The Missed Requests per Second graph shows the average of your edge application's requests per second when Azion's edge had to look for the content on the origin and deliver it to the end user.
+The Missed Requests per Second graph shows the average of your application's requests per second when Azion's edge had to look for the content on the origin and deliver it to the end user.
 
 Whenever the content of your application is accessed, one request is processed. The graph then shows the average of all requests that were missed per second during the period you've selected in the time range.
 

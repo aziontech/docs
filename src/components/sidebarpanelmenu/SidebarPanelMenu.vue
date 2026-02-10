@@ -5,7 +5,6 @@
 		:unstyled="true"
 		:pt="{
 			headerContent: { class: ['cursor-text'] },
-			content: { class: ['indent-4'] }
 		}"
 	>
 		<template #item="{ item }">
@@ -23,6 +22,7 @@
 				<div
 					v-if="!item.slug && item.text"
 					class="flex hover:surface-hover py-2 px-4 border-none cursor-pointer rounded h-9"
+					:style="{ paddingLeft: `${(item.level * 16) + 16}px !important` }"
 				>
 					<p v-if="item.text" class="text-sm">
 						{{ item.text }}
@@ -33,12 +33,34 @@
 						class="pi pi-angle-right text-primary ml-auto pr-1">
 					</i>
 				</div>
+				<a  v-else-if="item.slug && item.text && item.items"
+					:title="item.text"
+					:href="isCurrent(item, lang) ? '#' : modelSlug(item.slug, item.isFallback, lang)"
+					:target="(isURL(item.slug) ? '_blank' : '_self')"
+					:class="isCurrent(item, lang) ? 'surface-200': ''"
+					class="text-sm h-9 flex justify-between items-center hover:surface-hover py-2 px-4 border-none cursor-pointer rounded"
+					:style="{ paddingLeft: `${(item.level * 16) + 16}px !important` }"
+					@click="handleItemClick(item, $event)"
+				>	
+					{{ item.text }}
+					<i
+						v-if="(isURL(item.slug) ? true : false)"
+						class="text-base pi pi-external-link text-primary mr-1">
+					</i>
+
+					<span @click="handleItemClick(item, $event)">
+						<i
+						class="pi pi-angle-right text-primary ml-auto pr-1">
+					</i>
+					</span>
+				</a>
 				<a v-else-if="item.slug"
 					:title="item.text"
 					:href="modelSlug(item.slug, item.isFallback, lang)"
 					:target="(isURL(item.slug) ? '_blank' : '_self')"
 					:class="isCurrent(item, lang) ? 'surface-200': ''"
 					class="text-sm h-9 flex justify-between items-center hover:surface-hover py-2 px-4 border-none cursor-pointer rounded"
+					:style="{ paddingLeft: `${(item.level * 16) + 16}px !important` }"
 				>	
 					{{ item.text }}
 					<i
@@ -77,33 +99,73 @@
 	} = props;
 	
 	const dataNoMobile = data.filter((item) => !item.onlyMobile);
-	const dataWithIndex = ( filterMobile ? dataNoMobile : data).map((item, index) => {
-		// Modifying original data during buildtime
+	
+	function processMenuItems(items, parentKey = null, level = 0) {
+		return items.map((item, index) => {
+			item.index = index;
+			item.level = level;
+						
+			if (parentKey) {
+				item.parent = parentKey;
+			}
+			
+			if (item.items && item.items.length) {
+				item.items = processMenuItems(item.items, item.key, level + 1);
+			}
+
+			return item;
+		});
+	}
+	
+	const dataWithIndex = processMenuItems(filterMobile ? dataNoMobile : data);
+	
+	function handleItemClick(item, event) {
+		const isArrowClick = event.target.closest('span') || event.target.tagName === 'I';
+		const isCurrentPage = isCurrent(item, lang);
 		
-		// index is used to decide the margin top
-		item.index = index;
-		
-		if(item.items && item.items.length) {
-			item.items.map(subItem => {
-				// subItemParent used to know the parent umbrella to be opened
-				subItem.parent = item.key;
-			});
+		if (isArrowClick || isCurrentPage) {
+			event.preventDefault();
+			if (expandedKeys.value[item.key]) {
+				expandedKeys.value[item.key] = false;
+			} else {
+				expandedKeys.value[item.key] = true;
+			}
 		}
-
-		return item;
-	});
-
-	function expandNode(key) {
-		expandedKeys.value[key] = true;
-	};
-
-	// function collapseAll() {
-	// 	expandedKeys.value = {};
-	// }
+	}
+	
+	function expandParentNodes(item) {
+		if (item.parent) {
+			expandedKeys.value[item.parent] = true;
+			const parentItem = findItemByKey(data, item.parent);
+			if (parentItem) {
+				expandParentNodes(parentItem);
+			}
+		}
+	}
+	
+	function findItemByKey(items, key) {
+		for (const item of items) {
+			if (item.key === key) {
+				return item;
+			}
+			if (item.items && item.items.length) {
+				const found = findItemByKey(item.items, key);
+				if (found) return found;
+			}
+		}
+		return null;
+	}
 
 	function isCurrent(item, lang) {
 		const currentPageMatch = `${lang}${item.slug}` === props.currentPageMatch;
-		if(currentPageMatch && item.parent) expandNode(item.parent);
+		if(currentPageMatch) {
+			if(item.parent) {
+				expandParentNodes(item);
+			}
+			if(item.items && item.items.length) {
+				expandedKeys.value[item.key] = true;
+			}
+		}
 		return currentPageMatch;
 	}
 </script>
