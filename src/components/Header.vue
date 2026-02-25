@@ -1,6 +1,6 @@
 <template>
   <header
-    class="w-full h-[56px] surface-ground border-b surface-border bg-header text-white py-3 sticky top-0 z-50"
+    class="w-full h-[56px] dark:bg-neutral-950 surface-ground border-b surface-border bg-header text-white py-3 sticky top-0 z-50"
   >
     <div class="px-shell h-8 flex justify-between items-center">
       <div class="flex gap-4 items-center">
