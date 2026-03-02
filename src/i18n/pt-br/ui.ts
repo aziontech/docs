@@ -128,7 +128,7 @@ export default UIDictionary({
 	'menu.getStarted': 'Ponto de partida',
 	'menu.account': 'Gerencie contas',
 	'menu.addResources': 'Recursos adicionais',
-	'menu.domains': 'Trabalhe com domínios',
+	'menu.domains': 'Trabalhe com workloads',
 	'menu.reference': 'Referência',
 	'menu.runtime': 'Azion Runtime',
 	'menu.cli': 'Azion CLI',

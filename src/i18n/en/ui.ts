@@ -139,7 +139,7 @@ export default {
 	'menu.getStarted': 'Get started',
 	'menu.account': 'Manage account',
 	'menu.addResources': 'Additional resources',
-	'menu.domains': 'Work with Domains',
+	'menu.domains': 'Work with Workloads',
 	'menu.reference': 'Reference',
 	'menu.cli': 'Azion CLI',
 	'menu.devTools': 'Dev Tools',
