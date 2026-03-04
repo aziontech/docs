@@ -1,0 +1,447 @@
+---
+title: MCP Cache Testing Guide
+description: >-
+  Comprehensive guide for testing, debugging, and optimizing cache behavior
+  on Azion Platform using MCP tools and cURL commands.
+meta_tags: 'mcp, cache, testing, debugging, optimization, performance'
+namespace: documentation_devtools_mcp_cache_testing
+menu_namespace: devtoolsMenu
+permalink: /documentation/devtools/mcp/cache-testing/
+---
+
+import Code from '~/components/Code/Code.astro'
+
+This guide provides methods for testing, debugging, and optimizing cache behavior on the Azion Edge Platform using MCP tools and direct cURL commands.
+
+---
+
+## Cache debug headers
+
+Enable cache debug headers by including `Pragma: azion-debug-cache` in your requests. This returns detailed cache information.
+
+### Debug headers reference
+
+| Header | Description | Example Values |
+|--------|-------------|----------------|
+| `X-Cache` | Cache status of the request | `HIT`, `MISS`, `EXPIRED`, `UPDATING`, `STALE` |
+| `X-Cache-Key` | The cache key used to store/retrieve the object | `/index.html@@cookie_name=value` |
+| `X-Cache-File` | MD5 hash of the cache key | `a1b2c3d4e5f6789...` |
+| `X-Cache-Since` | Unix timestamp when object was cached | `1640995200` |
+| `X-Cache-Expire` | Unix timestamp when cache expires | `1640995800` |
+| `X-Cache-Expire-In` | Seconds remaining until cache expires | `600` |
+| `X-Cache-Valid` | Configured TTL in seconds | `3600` |
+| `X-Cache-Config` | Azion configuration ID | `1595368520` |
+| `X-Cache-ID` | Unique identifier for this request | `#AECFE66100000000C947B9B3...` |
+
+---
+
+## Basic cache testing with cURL
+
+### Test Azion edge domain
+
+Always start by testing the `.map.azionedge.net` domain directly:
+
+<Code lang="bash" code={`
+# Basic cache status check (headers only)
+curl -H "Pragma: azion-debug-cache" -I "https://xxxxxx.map.azionedge.net/"
+
+# Full response with cache headers
+curl -H "Pragma: azion-debug-cache" -v "https://xxxxxx.map.azionedge.net/"
+`} />
+
+### Test static assets
+
+<Code lang="bash" code={`
+# Test different asset types
+curl -H "Pragma: azion-debug-cache" -I "https://yourdomain.com/style.css"
+curl -H "Pragma: azion-debug-cache" -I "https://yourdomain.com/script.js"
+curl -H "Pragma: azion-debug-cache" -I "https://yourdomain.com/image.jpg"
+
+# Test with query parameters
+curl -H "Pragma: azion-debug-cache" -I "https://yourdomain.com/image.jpg?version=123"
+
+# Test with cookies
+curl -H "Pragma: azion-debug-cache" -H "Cookie: session_id=abc123" -I "https://yourdomain.com/"
+`} />
+
+### Test production domain via Azion edge
+
+<Code lang="bash" code={`
+# Get the Azion edge IP from your edge domain
+AZION_IP=$(dig +short @8.8.8.8 xxxxxx.map.azionedge.net | head -1)
+
+# Test using production hostname via Host header override
+curl -H "Host: yourproductiondomain.com" -H "Pragma: azion-debug-cache" -I "http://$AZION_IP/"
+
+# Or use curl's resolve feature (cleaner)
+curl --resolve "yourproductiondomain.com:443:$AZION_IP" -H "Pragma: azion-debug-cache" -I "https://yourproductiondomain.com/"
+`} />
+
+---
+
+## Cache key testing
+
+### Query parameter variations
+
+<Code lang="bash" code={`
+# Test cache key variations with query parameters
+curl -H "Pragma: azion-debug-cache" -I "https://yourdomain.com/api/data?city=SP&user=john"
+curl -H "Pragma: azion-debug-cache" -I "https://yourdomain.com/api/data?user=john&city=SP"  # Different order
+curl -H "Pragma: azion-debug-cache" -I "https://yourdomain.com/api/data?city=SP&user=john&utm_source=google"  # Extra param
+
+# Compare X-Cache-Key headers to understand:
+# - If query string sorting is enabled
+# - Which parameters affect the cache key
+# - If tracking parameters are ignored
+`} />
+
+### Cookie-based variations
+
+<Code lang="bash" code={`
+# Test cookie-based cache variations
+curl -H "Pragma: azion-debug-cache" -H "Cookie: language=en" -I "https://yourdomain.com/"
+curl -H "Pragma: azion-debug-cache" -H "Cookie: language=pt" -I "https://yourdomain.com/"
+curl -H "Pragma: azion-debug-cache" -H "Cookie: language=en;session_id=123" -I "https://yourdomain.com/"
+
+# Extract and compare cache keys
+curl -H "Pragma: azion-debug-cache" -I "https://yourdomain.com/" 2>/dev/null | grep "X-Cache-Key"
+`} />
+
+---
+
+## Cache performance testing
+
+### Consistent edge location testing
+
+Fix the IP to ensure both requests go to the same edge server:
+
+<Code lang="bash" code={`
+# Get Azion edge IP
+AZION_IP=$(dig +short @8.8.8.8 xxxxxx.map.azionedge.net | head -1)
+echo "Testing with Azion IP: $AZION_IP"
+
+# First request (should be MISS) - with TTFB measurement
+echo "=== FIRST REQUEST (MISS) ==="
+curl --resolve "xxxxxx.map.azionedge.net:443:$AZION_IP" \\
+     -H "Pragma: azion-debug-cache" \\
+     -w "TTFB: %{time_starttransfer}s | Total: %{time_total}s\\n" \\
+     -I "https://xxxxxx.map.azionedge.net/style.css"
+
+# Second request (should be HIT) - with TTFB measurement
+echo "=== SECOND REQUEST (HIT) ==="
+curl --resolve "xxxxxx.map.azionedge.net:443:$AZION_IP" \\
+     -H "Pragma: azion-debug-cache" \\
+     -w "TTFB: %{time_starttransfer}s | Total: %{time_total}s\\n" \\
+     -I "https://xxxxxx.map.azionedge.net/style.css"
+`} />
+
+:::note
+  The TTFB should be significantly lower on the second request when content is served from cache.
+:::
+
+### Provider comparison
+
+<Code lang="bash" code={`
+# Get edge IP for testing
+AZION_IP=$(dig +short @8.8.8.8 xxxxxx.map.azionedge.net | head -1)
+
+# Test Azion edge performance
+echo "=== AZION EDGE PERFORMANCE ==="
+curl --resolve "yourproductiondomain.com:443:$AZION_IP" \\
+     -H "Pragma: azion-debug-cache" \\
+     -w "DNS: %{time_namelookup}s | Connect: %{time_connect}s | TTFB: %{time_starttransfer}s | Total: %{time_total}s\\n" \\
+     -s -o /dev/null "https://yourproductiondomain.com/"
+
+# Test current provider (for comparison)
+echo "=== CURRENT PROVIDER PERFORMANCE ==="
+curl -w "DNS: %{time_namelookup}s | Connect: %{time_connect}s | TTFB: %{time_starttransfer}s | Total: %{time_total}s\\n" \\
+     -s -o /dev/null "https://yourproductiondomain.com/"
+`} />
+
+---
+
+## Network information
+
+Get network information including your IP, resolver, and edge location:
+
+<Code lang="bash" code={`
+curl -L http://netinfo.azion.com/json
+`} />
+
+This provides:
+- Your public IP (useful for searching in Azion logs)
+- DNS resolver being used
+- Azion edge location serving the request
+- Network health status
+
+---
+
+## Real-Time Events monitoring
+
+### Using Azion CLI
+
+<Code lang="bash" code={`
+# View HTTP logs with cache information
+azion logs http --tail --pretty
+
+# View specific application logs
+azion logs http --application-id YOUR_APP_ID --limit 100
+`} />
+
+### Key log variables for cache analysis
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `Cache Key` | Cache key used | `/index.html@@cookie_name=value` |
+| `Cache TTL` | Cache duration in seconds | `31536000` |
+| `Upstream Cache Status` | Cache status | `HIT`, `MISS`, `BYPASS`, `EXPIRED`, `STALE` |
+| `Upstream Response Time` | Origin response time | `-` for cached content |
+| `Bytes Sent` | Total bytes delivered | `1024` |
+| `Request Time` | Total processing time | `0.001` |
+
+---
+
+## GraphQL queries for cache analysis
+
+Use MCP's `create_graphql_query` tool or run directly:
+
+<Code lang="graphql" code={`
+query CacheAnalysis {
+  httpMetrics(
+    limit: 1000,
+    filter: {
+      tsRange: { begin: "2024-01-01T00:00:00", end: "2024-01-01T23:59:59" }
+      domain: "yourdomain.com"
+    }
+  ) {
+    cacheStatus
+    bytesSent
+    requestTime
+    status
+    requestMethod
+    uri
+  }
+}
+`} />
+
+### Key performance indicators
+
+- **Cache Hit Ratio**: Should be >80% for static content
+- **Edge Offload**: Percentage of requests served from cache vs origin
+- **Origin Response Time**: Compare cached vs non-cached requests
+- **Bandwidth Savings**: Bytes served from cache vs origin
+
+---
+
+## Cache configuration via CLI
+
+### Create cache settings
+
+<Code lang="bash" code={`
+# Static assets cache
+azion create cache-setting \\
+  --application-id YOUR_APP_ID \\
+  --name "Static Assets" \\
+  --browser-cache-settings "honor" \\
+  --cdn-cache-settings "override" \\
+  --cdn-cache-settings-maximum-ttl 2592000 \\
+  --cache-by-query-string "ignore" \\
+  --cache-by-cookies "ignore" \\
+  --enable-caching-for-post "false"
+
+# Dynamic content cache
+azion create cache-setting \\
+  --application-id YOUR_APP_ID \\
+  --name "API Cache" \\
+  --browser-cache-settings "honor" \\
+  --cdn-cache-settings "override" \\
+  --cdn-cache-settings-maximum-ttl 300 \\
+  --cache-by-query-string "all" \\
+  --cache-by-cookies "whitelist" \\
+  --cookie-names "session_id,language"
+`} />
+
+### Apply via Rules Engine
+
+<Code lang="bash" code={`
+# Cache static assets
+azion create rule \\
+  --application-id YOUR_APP_ID \\
+  --name "Cache Static Assets" \\
+  --criteria "uri matches \\.(jpg|jpeg|png|gif|svg|css|js|woff|woff2|ttf|ico)$" \\
+  --behavior "set_cache_policy" \\
+  --value "Static Assets"
+
+# Bypass cache for authenticated users
+azion create rule \\
+  --application-id YOUR_APP_ID \\
+  --name "Bypass Auth Users" \\
+  --criteria "cookie exists session_id" \\
+  --behavior "bypass_cache" \\
+  --value "true"
+`} />
+
+---
+
+## Cache optimization strategies
+
+### Query string strategy
+
+| Strategy | Use case | Configuration |
+|----------|----------|---------------|
+| **Ignore all** | Static assets | `--cache-by-query-string "ignore"` |
+| **Whitelist** | APIs with functional params | `--cache-by-query-string "whitelist"` with specific params |
+| **Blacklist** | Ignore tracking params | `--cache-by-query-string "blacklist"` with utm_*, fbclid, gclid |
+
+### Cookie strategy
+
+| Strategy | Use case | Configuration |
+|----------|----------|---------------|
+| **Ignore all** | Static content | `--cache-by-cookies "ignore"` |
+| **Whitelist** | Personalized content | `--cache-by-cookies "whitelist"` with language, currency |
+
+### TTL strategy by content type
+
+| Content Type | Recommended TTL | Example |
+|--------------|-----------------|---------|
+| Static assets | 30 days | `2592000` seconds |
+| Semi-static | 1 hour | `3600` seconds |
+| Dynamic | 5 minutes | `300` seconds |
+| Real-time | 30 seconds | `30` seconds |
+
+---
+
+## Automated cache health check script
+
+<Code lang="bash" code={`
+#!/bin/bash
+# cache-health-check.sh
+
+EDGE_DOMAIN="xxxxxx.map.azionedge.net"  # Replace with your edge domain
+ENDPOINTS=("/style.css" "/script.js" "/api/data" "/image.jpg")
+
+echo "Cache Health Check for $EDGE_DOMAIN"
+echo "================================"
+echo "$(date)"
+
+# Get and fix Azion IP for consistent testing
+AZION_IP=$(dig +short @8.8.8.8 "$EDGE_DOMAIN" | head -1)
+echo "Using Azion IP: $AZION_IP"
+echo
+
+for endpoint in "\${ENDPOINTS[@]}"; do
+    echo "Testing: $endpoint"
+    
+    # First request - expect MISS
+    echo -n "  Request 1 (MISS): "
+    RESPONSE1=$(curl --resolve "$EDGE_DOMAIN:443:$AZION_IP" \\
+                    -H "Pragma: azion-debug-cache" \\
+                    -w "TTFB:%{time_starttransfer}s|Total:%{time_total}s" \\
+                    -s -I "https://$EDGE_DOMAIN$endpoint")
+    
+    CACHE1=$(echo "$RESPONSE1" | grep "X-Cache:" | cut -d' ' -f2)
+    TIMING1=$(echo "$RESPONSE1" | tail -1)
+    echo "$CACHE1 ($TIMING1)"
+    
+    sleep 1
+    
+    # Second request - expect HIT
+    echo -n "  Request 2 (HIT):  "
+    RESPONSE2=$(curl --resolve "$EDGE_DOMAIN:443:$AZION_IP" \\
+                    -H "Pragma: azion-debug-cache" \\
+                    -w "TTFB:%{time_starttransfer}s|Total:%{time_total}s" \\
+                    -s -I "https://$EDGE_DOMAIN$endpoint")
+    
+    CACHE2=$(echo "$RESPONSE2" | grep "X-Cache:" | cut -d' ' -f2)
+    TIMING2=$(echo "$RESPONSE2" | tail -1)
+    echo "$CACHE2 ($TIMING2)"
+    
+    # Show cache key
+    CACHE_KEY=$(echo "$RESPONSE2" | grep "X-Cache-Key:" | cut -d' ' -f2-)
+    echo "  Cache Key: $CACHE_KEY"
+    echo
+done
+
+echo "Cache Health Check Complete"
+echo "Summary: Static assets should show MISS -> HIT pattern"
+`} />
+
+---
+
+## Troubleshooting cache issues
+
+### Low cache hit ratio (< 60%)
+
+**Diagnosis:**
+
+<Code lang="bash" code={`
+# Check cache keys being generated
+azion logs http --tail | grep "Cache Key"
+`} />
+
+**Solutions:**
+- Configure `cache-by-query-string` to `ignore` for static content
+- Use `whitelist` for cookies instead of caching by all cookies
+- Implement bypass rules for authenticated users
+
+### Stale content not updating
+
+**Diagnosis:**
+
+<Code lang="bash" code={`
+# Check TTL configuration
+curl -H "Pragma: azion-debug-cache" -I "https://yourdomain.com/content"
+# Look at X-Cache-Valid and X-Cache-Expire headers
+`} />
+
+**Solutions:**
+
+<Code lang="bash" code={`
+# Purge specific content
+azion purge --urls "https://yourdomain.com/content"
+
+# Purge with wildcard
+azion purge --wildcard "https://yourdomain.com/api/*"
+
+# Purge by cache key
+azion purge --cache-key "yourdomain.com/api/data@@lang=en,region=US"
+`} />
+
+### Dynamic content being cached
+
+**Diagnosis:**
+
+<Code lang="bash" code={`
+# Test with different user scenarios
+curl -H "Cookie: user_id=123" "https://yourdomain.com/profile"
+curl -H "Cookie: user_id=456" "https://yourdomain.com/profile"
+# If both return same content, it's incorrectly cached
+`} />
+
+**Solutions:**
+- Add bypass rule for personalized content paths
+- Configure proper `cacheByCookie` settings
+- Use shorter TTLs for user-specific content
+
+---
+
+## Best practices
+
+1. **Use `Pragma: azion-debug-cache`** for immediate cache debugging
+2. **Monitor Real-Time Events** for cache behavior analysis
+3. **Test cache key variations** with different parameters/cookies
+4. **Implement tiered TTL strategy** based on content type
+5. **Use stale-while-revalidate** for better availability
+6. **Monitor cache hit ratios** and optimize configurations
+7. **Purge strategically** using wildcards and cache keys
+8. **Test from multiple edge locations** using direct IP connections
+9. **Automate cache health checks** with shell scripts
+10. **Measure performance differences** between cached and non-cached requests
+
+---
+
+## Next steps
+
+- [MCP Configuration Guide](/en/documentation/devtools/mcp/configuration/)
+- [MCP Examples](/en/documentation/devtools/mcp/examples/)
+- [MCP Troubleshooting](/en/documentation/devtools/mcp/troubleshooting/)
