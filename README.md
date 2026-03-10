@@ -21,7 +21,7 @@ Welcome to our open documentation repository! We're thrilled that you're interes
 
 ## About Us ℹ️
 
-We are an edge computing platform that allows you to build and run applications anywhere. Our documentation is a crucial part of ensuring our users have the best experience with our products and services. 🌐🚀
+We are a web platform that allows you to build and run applications anywhere. Our documentation is a crucial part of ensuring our users have the best experience with our products and services. 🌐🚀
 
 Our documentation includes:
 
@@ -51,5 +51,3 @@ You can find us on:
 - [YouTube](https://www.youtube.com/aziontech)
 
 Thank you for considering contributing to our documentation. Together, we can empower our community with valuable resources. 🧡🙏
-
-Move to the Edge! 🌎➡️🧡
