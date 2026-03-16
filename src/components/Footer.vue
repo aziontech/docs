@@ -8,7 +8,7 @@
               :href="`/${lang}/`"
               hrefTitle="Azion Technologies"
               class="mb-4 block"
-              version="full"
+              version="default"
               aria-label="Azion logo"
             />
 
