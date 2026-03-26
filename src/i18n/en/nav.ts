@@ -894,14 +894,6 @@ export default [
 						key: 'account/teamsPermissions',
 					},
 					{
-						text: 'Activity history',
-						header: true,
-						anchor: true,
-						type: 'learn',
-						slug: '/documentation/products/guides/activity-history/',
-						key: 'account/activityHistory',
-					},
-					{
 						text: 'Account Lockout Policy',
 						header: true,
 						anchor: true,
