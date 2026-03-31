@@ -85,6 +85,36 @@ If you want to propose a new page:
 
 You can branch out from main or commit the changes directly once you're pleased with them. We use the basics of the **Conventional Commits** standard to title commits and PRs.
 
+### :test_tube: Local testing (optional)
+
+> **Optional helper:** A `Makefile` is available to simplify running common development commands. It's a convenience tool — you can also use npm commands directly as shown in `package.json`.
+
+Before submitting your PR, you can test your changes locally to ensure everything works correctly. Run `make help` to see all available commands:
+
+| Command | Description |
+|---------|-------------|
+| `make install` | Install dependencies |
+| `make dev` | Start dev server with hot reload at http://localhost:4321 |
+| `make build-local` | Build locally and run frontmatter tests |
+| `make preview` | Preview the production build locally |
+| `make check` | Run Astro type checking |
+| `make lint` | Run ESLint |
+| `make format` | Format code with Prettier |
+| `make validate` | Run all validations (check + lint + build) |
+| `make clean` | Remove build artifacts |
+
+**Language routing:** The site uses URL-based language routing. Access the desired language by navigating to:
+- **English:** `http://localhost:4321/en/`
+- **Portuguese:** `http://localhost:4321/pt-br/`
+
+**Recommended workflow before submitting a PR:**
+
+1. Run `make dev` to start the development server and preview your changes.
+2. Navigate to the correct language URL (e.g., `/en/` or `/pt-br/`).
+3. Make your changes and verify they look correct in the browser (hot reload enabled).
+4. Run `make validate` to ensure your changes pass all checks.
+5. Commit and push your changes.
+
 ### :speech_balloon: Create a Pull Request
 
 When you're finished with the changes, create a pull request (PR).
