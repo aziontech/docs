@@ -762,11 +762,6 @@ export default NavDictionary([
 		key: 'account/teamsPermissions',
 	},
 	{
-		text: 'Activity history',
-		slug: '/documentacao/produtos/guias/activity-history/',
-		key: 'account/activityHistory',
-	},
-	{
 		text: 'Account Lockout Policy',
 		slug: '/documentacao/produtos/guias/configurar-account-lockout-policy/',
 		key: 'account/accountLockoutPolicy',
