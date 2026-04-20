@@ -100,12 +100,12 @@
 	} = props;
 
 	/**
-	 * Track sidebar navigation clicks using Segment
+	 * Track sidebar navigation clicks
 	 */
 	function trackSidebarClick(item, href) {
-		if (typeof window !== 'undefined' && window.SegmentTracker?.trackClick) {
+		if (typeof window !== 'undefined' && window.AzAnalytics?.trackClick) {
 			const isExternal = isURL(item.slug);
-			window.SegmentTracker.trackClick('sidebar', {
+			window.AzAnalytics.trackClick('sidebar', {
 				text: item.text,
 				href: href,
 				isExternal: isExternal,
@@ -146,9 +146,6 @@
 			} else {
 				expandedKeys.value[item.key] = true;
 			}
-		} else {
-			// Track navigation click when not expanding/collapsing
-			trackSidebarClick(item, modelSlug(item.slug, item.isFallback, lang));
 		}
 	}
 	

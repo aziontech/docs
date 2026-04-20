@@ -7,6 +7,6 @@ export const FONTS_URL = 'https://fonts.azion.com';
 export const ALGOLIA_ID = 'PYJUZH6VNQ';
 export const ALGOLIA_APIKEY = '7c1795c333053265edd2aeb199745797';
 
-// Segment Analytics Configuration
-export const SEGMENT_WRITE_KEY = 'YUr3hmFXyFN1n2dXL7pp1DXilTzgUAIT';
-export const SEGMENT_PROXY_URL = 'http://localhost:4321/api/segment-proxy';
+// Analytics Configuration
+export const ANALYTICS_WRITE_KEY = '';
+export const ANALYTICS_PROXY_URL = '';
