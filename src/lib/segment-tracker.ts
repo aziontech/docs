@@ -43,11 +43,22 @@ export function isValidUserId(userId: string | undefined | null): userId is stri
 }
 
 /**
- * Generates a unique ID with optional prefix
+ * Generates a cryptographically secure random string
+ */
+function secureRandomString(length: number = 13): string {
+    const array = new Uint8Array(length);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(36))
+        .join('')
+        .substring(0, length);
+}
+
+/**
+ * Generates a unique ID with optional prefix using cryptographically secure random
  */
 function generateId(prefix: string = ''): string {
     const timestamp = Date.now().toString(36);
-    const randomPart = Math.random().toString(36).substring(2, 15);
+    const randomPart = secureRandomString(13);
     return prefix ? `${prefix}_${timestamp}${randomPart}` : `${timestamp}${randomPart}`;
 }
 
