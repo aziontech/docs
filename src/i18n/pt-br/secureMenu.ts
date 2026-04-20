@@ -50,6 +50,7 @@ export default [
 	{ text: 'Selecione cifras TLS', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/cifras/', key: 'ciphers', hasLabel: 'menu.secureTransportLayerSecurity' },
 	{ text: 'Configure mTLS', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/mtls/', key: 'mtls' },
 	{ text: 'Gerencie certificados digitais', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/certificado-digital', key: 'digitalCertificates' },
+	{ text: 'Criptografia pós-quântica', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/criptografia-pos-quantica/', key: 'postQuantumCryptography' },
 
 
 	{ text: 'Functions', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/automarizar/functions/', key: 'automateEdgeFunctions', hasLabel: 'menu.secureAutomate' },
@@ -80,3 +81,4 @@ export default [
 	{ text: 'Monitore metricas', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/secure/troubleshoot/edge-dns-monitorar-metricas/', key: 'intelligentDnsUnderstandMetrics', hasLabel: 'menu.secureTroubleshoot' },
 	{ text: 'Teste uma zona', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/secure/testar-zona/', key: 'testZone' },
 ] as const;
+

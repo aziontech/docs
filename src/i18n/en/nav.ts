@@ -476,6 +476,14 @@ export default [
 						slug: '/documentation/products/guides/secure/digital-certificates/',
 						key: 'digitalCertificates',
 					},
+					{
+						text: 'Post-quantum cryptography',
+						header: true,
+						anchor: true,
+						type: 'learn',
+						slug: '/documentation/products/guides/secure/post-quantum-cryptography/',
+						key: 'postQuantumCryptography',
+					},
 				],
 			},
 			{
