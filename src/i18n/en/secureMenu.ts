@@ -49,6 +49,7 @@ export default [
 	{ text: 'Select TLS ciphers', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/ciphers/', key: 'ciphers', hasLabel: 'menu.secureTransportLayerSecurity' },
 	{ text: 'Configure mTLS', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/mtls/', key: 'mtls' },
 	{ text: 'Certificate Manager', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/digital-certificates/', key: 'digitalCertificates' },
+	{ text: 'Post-quantum cryptography', header: true, anchor: true, type: 'learn', slug: '/documentation/products/guides/secure/post-quantum-cryptography/', key: 'postQuantumCryptography' },
 
 
 	{ text: 'Functions', header: true, anchor: true, type: 'learn', slug: '/documentation/products/secure/automate/functions/', key: 'automateEdgeFunctions', hasLabel: 'menu.secureAutomate' },

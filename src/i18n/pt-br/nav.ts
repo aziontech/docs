@@ -366,6 +366,14 @@ export default NavDictionary([
 		slug: '/documentacao/produtos/guias/secure/certificado-digital',
 		key: 'digitalCertificates',
 	},
+	{
+		text: 'Criptografia pós-quântica',
+		header: true,
+		anchor: true,
+		type: 'learn',
+		slug: '/documentacao/produtos/guias/secure/criptografia-pos-quantica/',
+		key: 'postQuantumCryptography',
+	},
 
 	{ text: 'Automatize com a Azion', header: true, type: 'learn', key: 'automateSecure' },
 	{
