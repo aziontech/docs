@@ -1,0 +1,359 @@
+---
+/**
+ * Segment Analytics Tracker Component
+ * 
+ * Handles automatic page view tracking on initial load and client-side navigation.
+ * This component should be included in the base layout to track all page views.
+ */
+---
+
+<script define:vars={{ SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY }}>
+    /**
+     * Segment Analytics Client-Side Tracker
+     * 
+     * This script handles:
+     * - Anonymous ID management (cookie shared with Console on .azion.com domain)
+     * - Session ID and first_session_url tracking
+     * - Automatic page view tracking
+     * - Click tracking for header, footer, and CTA elements
+     */
+
+    // Cookie configuration for cross-domain sharing with Console
+    const COOKIE_DOMAIN = '.azion.com';
+    const ANONYMOUS_ID_COOKIE_NAME = 'ajs_anonymous_id';
+    const SESSION_ID_COOKIE_NAME = 'ajs_session_id';
+    const FIRST_SESSION_URL_COOKIE_NAME = 'ajs_first_session_url';
+    const USER_ID_COOKIE_NAME = 'ajs_user_id';
+    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+    /**
+     * Generates a unique ID with optional prefix
+     */
+    function generateId(prefix = '') {
+        const timestamp = Date.now().toString(36);
+        const randomPart = Math.random().toString(36).substring(2, 15);
+        return prefix ? `${prefix}_${timestamp}${randomPart}` : `${timestamp}${randomPart}`;
+    }
+
+    /**
+     * Gets a cookie value by name
+     */
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) {
+            return parts.pop().split(';').shift();
+        }
+        return undefined;
+    }
+
+    /**
+     * Sets a cookie with domain and path for cross-subdomain sharing
+     */
+    function setCookie(name, value, expiresDays = 365, domain = COOKIE_DOMAIN) {
+        const date = new Date();
+        date.setTime(date.getTime() + expiresDays * 24 * 60 * 60 * 1000);
+        const expires = `expires=${date.toUTCString()}`;
+        const domainAttr = domain ? `domain=${domain}` : '';
+        document.cookie = `${name}=${value}; ${expires}; path=/; SameSite=Lax; ${domainAttr}`;
+    }
+
+    /**
+     * Validates if a userId is valid according to Segment best practices
+     */
+    function isValidUserId(userId) {
+        if (!userId) return false;
+        if (typeof userId !== 'string') return false;
+        if (userId.trim() === '') return false;
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailPattern.test(userId)) return false;
+        if (userId.startsWith('anon_')) return false;
+        return true;
+    }
+
+    /**
+     * Gets or creates anonymous ID
+     */
+    function getAnonymousId() {
+        let anonymousId = getCookie(ANONYMOUS_ID_COOKIE_NAME);
+        if (!anonymousId) {
+            anonymousId = `anon_${generateId()}`;
+            setCookie(ANONYMOUS_ID_COOKIE_NAME, anonymousId, 365);
+        }
+        // Remove quotes if present
+        if (anonymousId.startsWith('"') && anonymousId.endsWith('"')) {
+            anonymousId = anonymousId.slice(1, -1);
+        }
+        return anonymousId;
+    }
+
+    /**
+     * Gets or creates session ID
+     */
+    function getSessionId() {
+        const existingSessionId = getCookie(SESSION_ID_COOKIE_NAME);
+        const lastActivityStr = getCookie('ajs_session_last_activity');
+        const now = Date.now();
+
+        if (existingSessionId && lastActivityStr) {
+            const lastActivity = parseInt(lastActivityStr, 10);
+            if (!isNaN(lastActivity) && (now - lastActivity) < SESSION_TIMEOUT_MS) {
+                setCookie('ajs_session_last_activity', now.toString(), 1);
+                return existingSessionId;
+            }
+        }
+
+        const newSessionId = generateId('sess');
+        setCookie(SESSION_ID_COOKIE_NAME, newSessionId, 1);
+        setCookie('ajs_session_last_activity', now.toString(), 1);
+        // Clear first session URL on new session
+        document.cookie = `${FIRST_SESSION_URL_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        return newSessionId;
+    }
+
+    /**
+     * Gets or sets the first session URL
+     */
+    function getFirstSessionUrl() {
+        let firstSessionUrl = getCookie(FIRST_SESSION_URL_COOKIE_NAME);
+        if (!firstSessionUrl) {
+            firstSessionUrl = window.location.href;
+            setCookie(FIRST_SESSION_URL_COOKIE_NAME, firstSessionUrl, 1);
+        }
+        return firstSessionUrl || '';
+    }
+
+    /**
+     * Gets the user ID from cookie if authenticated
+     */
+    function getUserId() {
+        const userId = getCookie(USER_ID_COOKIE_NAME);
+        if (isValidUserId(userId)) {
+            if (userId.startsWith('"') && userId.endsWith('"')) {
+                return userId.slice(1, -1);
+            }
+            return userId;
+        }
+        return undefined;
+    }
+
+    /**
+     * Gets page context information
+     */
+    function getPageContext() {
+        return {
+            url: window.location.href,
+            title: document.title,
+            path: window.location.pathname,
+            referrer: document.referrer || ''
+        };
+    }
+
+    /**
+     * Sends events to the Segment proxy
+     */
+    async function sendToSegmentProxy(events) {
+        try {
+            await fetch(SEGMENT_PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    writeKey: SEGMENT_WRITE_KEY,
+                    events
+                })
+            });
+        } catch (error) {
+            console.error('Failed to send Segment event:', error);
+        }
+    }
+
+    /**
+     * Tracks a page view
+     */
+    function trackPageView() {
+        const anonymousId = getAnonymousId();
+        const userId = getUserId();
+        const pageContext = getPageContext();
+        const firstSessionUrl = getFirstSessionUrl();
+        
+        // Initialize session on page load
+        getSessionId();
+
+        sendToSegmentProxy([{
+            type: 'page',
+            data: {
+                anonymousId,
+                userId,
+                context: {},
+                properties: {
+                    title: pageContext.title,
+                    url: pageContext.url,
+                    first_session_url: firstSessionUrl
+                }
+            }
+        }]);
+    }
+
+    /**
+     * Tracks a click event
+     */
+    function trackClick(location, target) {
+        const anonymousId = getAnonymousId();
+        const userId = getUserId();
+        const pageContext = getPageContext();
+        const firstSessionUrl = getFirstSessionUrl();
+
+        sendToSegmentProxy([{
+            type: 'track',
+            data: {
+                event: 'click',
+                anonymousId,
+                userId,
+                context: {
+                    page: {
+                        url: pageContext.url,
+                        title: pageContext.title,
+                        path: pageContext.path,
+                        referrer: pageContext.referrer
+                    }
+                },
+                properties: {
+                    location,
+                    target,
+                    first_session_url: firstSessionUrl
+                }
+            }
+        }]);
+    }
+
+    /**
+     * Tracks form submit with identify
+     */
+    function trackFormSubmitWithIdentify(action, formData) {
+        const anonymousId = getAnonymousId();
+        const userId = getUserId();
+        const pageContext = getPageContext();
+        const firstSessionUrl = getFirstSessionUrl();
+
+        sendToSegmentProxy([
+            {
+                type: 'track',
+                data: {
+                    event: 'form_submit',
+                    anonymousId,
+                    userId,
+                    context: {
+                        page: {
+                            url: pageContext.url,
+                            title: pageContext.title,
+                            path: pageContext.path,
+                            referrer: pageContext.referrer
+                        }
+                    },
+                    properties: {
+                        action,
+                        first_session_url: firstSessionUrl,
+                        ...formData
+                    }
+                }
+            },
+            {
+                type: 'identify',
+                data: {
+                    anonymousId,
+                    userId,
+                    context: {},
+                    traits: formData
+                }
+            }
+        ]);
+    }
+
+    // Expose tracking functions globally
+    window.SegmentTracker = {
+        trackPageView,
+        trackClick,
+        trackFormSubmitWithIdentify,
+        getAnonymousId,
+        getUserId,
+        getFirstSessionUrl,
+        getSessionId
+    };
+
+    // Track initial page view
+    trackPageView();
+
+    // Track page views on client-side navigation (for SPA)
+    // Using History API
+    const originalPushState = history.pushState;
+    history.pushState = function(...args) {
+        originalPushState.apply(this, args);
+        setTimeout(trackPageView, 0);
+    };
+
+    const originalReplaceState = history.replaceState;
+    history.replaceState = function(...args) {
+        originalReplaceState.apply(this, args);
+        setTimeout(trackPageView, 0);
+    };
+
+    window.addEventListener('popstate', () => {
+        setTimeout(trackPageView, 0);
+    });
+
+    // Set up click tracking for header, footer, CTA, and docs navigation elements
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('a[href]');
+        if (!target) return;
+
+        const href = target.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+        // Determine location based on parent elements
+        let location = 'unknown';
+        
+        if (target.closest('header')) {
+            location = 'header';
+        } else if (target.closest('footer')) {
+            location = 'footer';
+        } else if (target.closest('.cta') || target.closest('[data-tracking="cta"]') || target.classList.contains('cta')) {
+            location = 'cta';
+        } else if (
+            // Detect docs navigation: sidebar links, nav links, or links to /docs/ or /documentation/
+            target.closest('.sidebar') ||
+            target.closest('.left-sidebar') ||
+            target.closest('nav') ||
+            href.includes('/docs/') ||
+            href.includes('/documentation/')
+        ) {
+            location = 'docs_navigation';
+        }
+
+        // Only track if it's a known location
+        if (location !== 'unknown') {
+            trackClick(location, href.startsWith('http') ? href : window.location.origin + href);
+        }
+    });
+
+    // Track form submits
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (form.tagName !== 'FORM') return;
+
+        const action = form.action || window.location.href;
+        const formData = new FormData(form);
+        const formDataObj = {};
+
+        formData.forEach((value, key) => {
+            // Don't include sensitive fields like passwords
+            if (key.toLowerCase().includes('password') || 
+                key.toLowerCase().includes('token') ||
+                key.toLowerCase().includes('secret')) {
+                return;
+            }
+            formDataObj[key] = value;
+        });
+
+        trackFormSubmitWithIdentify(action, formDataObj);
+    }, true); // Use capture phase to ensure we catch the event before it's handled
+</script>
