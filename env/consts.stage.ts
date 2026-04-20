@@ -8,5 +8,5 @@ export const ALGOLIA_ID = 'PYJUZH6VNQ';
 export const ALGOLIA_APIKEY = '7c1795c333053265edd2aeb199745797';
 
 // Segment Analytics Configuration
-export const SEGMENT_WRITE_KEY = 'REPLACE_WITH_SEGMENT_DOCS_WRITE_KEY';
+export const SEGMENT_WRITE_KEY = 'YUr3hmFXyFN1n2dXL7pp1DXilTzgUAIT';
 export const SEGMENT_PROXY_URL = 'https://52082s.ha.azioncdn.net/api/segment-proxy';
