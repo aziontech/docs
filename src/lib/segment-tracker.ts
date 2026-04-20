@@ -310,16 +310,21 @@ export async function trackPageView(): Promise<boolean> {
 }
 
 /**
- * Sends a track call for click events (CTA, header, footer)
+ * Sends a track call for click events (CTA, header, footer, sidebar)
  */
 export async function trackClick(
-    location: 'cta' | 'header' | 'footer',
-    target: string
+    location: 'cta' | 'header' | 'footer' | 'sidebar' | 'docs_navigation',
+    targetOrProperties: string | { href?: string; target?: string; [key: string]: unknown }
 ): Promise<boolean> {
     const anonymousId = getAnonymousId();
     const userId = getUserId();
     const pageContext = getPageContext();
     const firstSessionUrl = getFirstSessionUrl();
+
+    // Support both string target and object with additional properties
+    const isObject = typeof targetOrProperties === 'object' && targetOrProperties !== null;
+    const target = isObject ? (targetOrProperties.href || targetOrProperties.target || '') : targetOrProperties;
+    const extraProperties = isObject ? targetOrProperties : {};
 
     const payload: SegmentTrackPayload = {
         event: 'click',
@@ -336,7 +341,8 @@ export async function trackClick(
         properties: {
             location,
             target,
-            first_session_url: firstSessionUrl
+            first_session_url: firstSessionUrl,
+            ...extraProperties
         }
     };
 

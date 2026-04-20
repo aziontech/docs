@@ -14,16 +14,28 @@ interface Props {
 const { SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY } = Astro.props;
 ---
 
-<script define:vars={{ SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY }}>
+<script is:inline>
+    // Configuration passed from server
+    window.__SEGMENT_CONFIG__ = {
+        proxyUrl: SEGMENT_PROXY_URL,
+        writeKey: SEGMENT_WRITE_KEY
+    };
+</script>
+
+<script>
     /**
      * Segment Analytics Client-Side Tracker
-     * 
+     *
      * This script handles:
      * - Anonymous ID management (cookie shared with Console on .azion.com domain)
      * - Session ID and first_session_url tracking
      * - Automatic page view tracking
      * - Click tracking for header, footer, and CTA elements
      */
+
+    // Get configuration from window
+    const SEGMENT_PROXY_URL = window.__SEGMENT_CONFIG__?.proxyUrl || '';
+    const SEGMENT_WRITE_KEY = window.__SEGMENT_CONFIG__?.writeKey || '';
 
     // Cookie configuration for cross-domain sharing with Console
     const COOKIE_DOMAIN = '.azion.com';
@@ -157,18 +169,133 @@ const { SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY } = Astro.props;
     }
 
     /**
-     * Sends events to the Segment proxy
+     * Gets the app/site context for all events
+     */
+    function getAppContext() {
+        return {
+            app: {
+                name: 'Azion Docs',
+                version: '1.0.0',
+                namespace: 'docs'
+            },
+            site: 'docs',
+            product: 'documentation'
+        };
+    }
+
+    /**
+     * Gets page category from URL path
+     */
+    function getPageCategory() {
+        const path = window.location.pathname;
+        const parts = path.split('/').filter(Boolean);
+
+        // Extract language and category
+        const lang = parts[0] || 'en';
+        const category = parts[1] || 'home';
+
+        return {
+            language: lang,
+            category: category,
+            section: parts[2] || null,
+            page_slug: parts[parts.length - 1] || null
+        };
+    }
+
+    /**
+     * Sends events to the Segment proxy (or directly to Segment in development)
      */
     async function sendToSegmentProxy(events) {
         try {
-            await fetch(SEGMENT_PROXY_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    writeKey: SEGMENT_WRITE_KEY,
-                    events
-                })
-            });
+            // In development, send directly to Segment API
+            const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const appContext = getAppContext();
+            const pageCategory = getPageCategory();
+
+            if (isDev) {
+                // Send directly to Segment in development
+                const timestamp = new Date().toISOString();
+                const batchPayload = {
+                    batch: events.map(event => {
+                        // Merge app context into event context
+                        const mergedContext = {
+                            ...event.data.context,
+                            ...appContext,
+                            page: {
+                                ...event.data.context.page,
+                                ...pageCategory
+                            }
+                        };
+
+                        switch (event.type) {
+                            case 'page':
+                                return {
+                                    type: 'page',
+                                    name: event.data.properties.title || document.title,
+                                    anonymousId: event.data.anonymousId,
+                                    userId: event.data.userId,
+                                    context: mergedContext,
+                                    properties: {
+                                        ...event.data.properties,
+                                        ...pageCategory,
+                                        site: 'docs'
+                                    },
+                                    timestamp
+                                };
+                            case 'track':
+                                return {
+                                    type: 'track',
+                                    event: event.data.event,
+                                    anonymousId: event.data.anonymousId,
+                                    userId: event.data.userId,
+                                    context: mergedContext,
+                                    properties: {
+                                        ...event.data.properties,
+                                        ...pageCategory,
+                                        site: 'docs'
+                                    },
+                                    timestamp
+                                };
+                            case 'identify':
+                                return {
+                                    type: 'identify',
+                                    anonymousId: event.data.anonymousId,
+                                    userId: event.data.userId,
+                                    context: mergedContext,
+                                    traits: event.data.traits,
+                                    timestamp
+                                };
+                            default:
+                                return null;
+                        }
+                    }).filter(Boolean)
+                };
+
+                const response = await fetch('https://api.segment.io/v1/batch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${btoa(SEGMENT_WRITE_KEY + ':')}`
+                    },
+                    body: JSON.stringify(batchPayload)
+                });
+
+                if (response.ok) {
+                    // Event sent successfully in dev mode
+                } else {
+                    console.error('Segment API error:', response.status, await response.text());
+                }
+            } else {
+                // In production, use the proxy
+                await fetch(SEGMENT_PROXY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        writeKey: SEGMENT_WRITE_KEY,
+                        events
+                    })
+                });
+            }
         } catch (error) {
             console.error('Failed to send Segment event:', error);
         }
@@ -182,7 +309,8 @@ const { SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY } = Astro.props;
         const userId = getUserId();
         const pageContext = getPageContext();
         const firstSessionUrl = getFirstSessionUrl();
-        
+        const pageCategory = getPageCategory();
+
         // Initialize session on page load
         getSessionId();
 
@@ -191,11 +319,20 @@ const { SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY } = Astro.props;
             data: {
                 anonymousId,
                 userId,
-                context: {},
+                context: {
+                    page: {
+                        url: pageContext.url,
+                        title: pageContext.title,
+                        path: pageContext.path,
+                        referrer: pageContext.referrer
+                    }
+                },
                 properties: {
                     title: pageContext.title,
                     url: pageContext.url,
-                    first_session_url: firstSessionUrl
+                    path: pageContext.path,
+                    first_session_url: firstSessionUrl,
+                    ...pageCategory
                 }
             }
         }]);
@@ -203,12 +340,20 @@ const { SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY } = Astro.props;
 
     /**
      * Tracks a click event
+     * @param {string} location - Where the click occurred (header, footer, sidebar, cta, docs_navigation)
+     * @param {string|object} targetOrProperties - Either a target URL string or an object with properties
      */
-    function trackClick(location, target) {
+    function trackClick(location, targetOrProperties) {
         const anonymousId = getAnonymousId();
         const userId = getUserId();
         const pageContext = getPageContext();
         const firstSessionUrl = getFirstSessionUrl();
+        const pageCategory = getPageCategory();
+
+        // Support both string target and object with additional properties
+        const isObject = typeof targetOrProperties === 'object' && targetOrProperties !== null;
+        const target = isObject ? targetOrProperties.href || targetOrProperties.target : targetOrProperties;
+        const extraProperties = isObject ? targetOrProperties : {};
 
         sendToSegmentProxy([{
             type: 'track',
@@ -227,7 +372,9 @@ const { SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY } = Astro.props;
                 properties: {
                     location,
                     target,
-                    first_session_url: firstSessionUrl
+                    first_session_url: firstSessionUrl,
+                    ...extraProperties,
+                    ...pageCategory
                 }
             }
         }]);
@@ -316,15 +463,28 @@ const { SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY } = Astro.props;
         const href = target.getAttribute('href');
         if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
 
-        // Determine location based on parent elements
+        // Determine location based on parent elements and data-tracking attribute
         let location = 'unknown';
-        
+        let trackingData = {};
+
+        // Check for data-tracking attribute first
+        const dataTracking = target.getAttribute('data-tracking');
+        if (dataTracking) {
+            trackingData.tracking_id = dataTracking;
+        }
+
+        // Get link text for better context
+        const linkText = target.textContent?.trim() || '';
+
         if (target.closest('header')) {
             location = 'header';
         } else if (target.closest('footer')) {
             location = 'footer';
         } else if (target.closest('.cta') || target.closest('[data-tracking="cta"]') || target.classList.contains('cta')) {
             location = 'cta';
+        } else if (target.closest('#right-sidebar') || target.closest('.right-sidebar')) {
+            location = 'right_sidebar';
+            trackingData.link_text = linkText;
         } else if (
             // Detect docs navigation: sidebar links, nav links, or links to /docs/ or /documentation/
             target.closest('.sidebar') ||
@@ -338,7 +498,11 @@ const { SEGMENT_PROXY_URL, SEGMENT_WRITE_KEY } = Astro.props;
 
         // Only track if it's a known location
         if (location !== 'unknown') {
-            trackClick(location, href.startsWith('http') ? href : window.location.origin + href);
+            trackClick(location, {
+                href: href.startsWith('http') ? href : window.location.origin + href,
+                text: linkText,
+                ...trackingData
+            });
         }
     });
 

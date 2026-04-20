@@ -1,16 +1,28 @@
 /**
  * Segment Proxy Edge Function
- * 
+ *
  * This Edge Function receives events from the client-side tracker
  * and forwards them to Segment's API server-side, adding:
  * - IP address (from Azion headers)
  * - User Agent (from request headers)
- * 
+ * - App context (Azion Docs site identification)
+ *
  * This avoids ad-blockers by using a proxy approach.
  */
 
 // Segment API endpoint for batch events
 const SEGMENT_API_URL = 'https://api.segment.io/v1/batch';
+
+// App context for all events
+const APP_CONTEXT = {
+    app: {
+        name: 'Azion Docs',
+        version: '1.0.0',
+        namespace: 'docs'
+    },
+    site: 'docs',
+    product: 'documentation'
+};
 
 /**
  * Handles incoming requests to the Segment proxy
@@ -56,17 +68,26 @@ async function handleRequest(request) {
 
         const userAgent = request.headers.get('user-agent') || 'unknown';
 
-        // Enrich events with IP and User-Agent
+        // Enrich events with IP, User-Agent and App context
         const enrichedEvents = events.map(event => {
             const enriched = { ...event };
 
-            // Add context with IP and userAgent
+            // Add context with IP, userAgent, and app context
             if (enriched.data) {
                 enriched.data.context = {
                     ...enriched.data.context,
+                    ...APP_CONTEXT,
                     ip: clientIP,
                     userAgent: userAgent
                 };
+
+                // Add site to properties if present
+                if (enriched.data.properties) {
+                    enriched.data.properties = {
+                        ...enriched.data.properties,
+                        site: 'docs'
+                    };
+                }
             }
 
             return enriched;
@@ -81,6 +102,7 @@ async function handleRequest(request) {
                     case 'page':
                         return {
                             type: 'page',
+                            name: event.data.properties?.title || event.data.name,
                             anonymousId: event.data.anonymousId,
                             userId: event.data.userId,
                             context: event.data.context,

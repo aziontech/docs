@@ -61,7 +61,8 @@
 					:class="isCurrent(item, lang) ? 'surface-200': ''"
 					class="text-sm h-9 flex justify-between items-center hover:surface-hover py-2 px-4 border-none cursor-pointer rounded"
 					:style="{ paddingLeft: `${(item.level * 16) + 16}px !important` }"
-				>	
+					@click="trackSidebarClick(item, modelSlug(item.slug, item.isFallback, lang))"
+				>
 					{{ item.text }}
 					<i
 						v-if="(isURL(item.slug) ? true : false)"
@@ -74,10 +75,10 @@
 </template>
 <script setup>
 	/**
-	 * 
+	 *
 	 * https://v3.primevue.org/panelmenu/#controlled
-	 * 
-	 */ 
+	 *
+	 */
 	import { ref } from 'vue';
 	import PanelMenu from 'primevue/panelmenu';
 	import { modelSlug, isURL } from '~/util';
@@ -97,6 +98,21 @@
 		data,
 		filterMobile
 	} = props;
+
+	/**
+	 * Track sidebar navigation clicks using Segment
+	 */
+	function trackSidebarClick(item, href) {
+		if (typeof window !== 'undefined' && window.SegmentTracker?.trackClick) {
+			const isExternal = isURL(item.slug);
+			window.SegmentTracker.trackClick('sidebar', {
+				text: item.text,
+				href: href,
+				isExternal: isExternal,
+				level: item.level
+			});
+		}
+	}
 	
 	const dataNoMobile = data.filter((item) => !item.onlyMobile);
 	
@@ -122,7 +138,7 @@
 	function handleItemClick(item, event) {
 		const isArrowClick = event.target.closest('span') || event.target.tagName === 'I';
 		const isCurrentPage = isCurrent(item, lang);
-		
+
 		if (isArrowClick || isCurrentPage) {
 			event.preventDefault();
 			if (expandedKeys.value[item.key]) {
@@ -130,6 +146,9 @@
 			} else {
 				expandedKeys.value[item.key] = true;
 			}
+		} else {
+			// Track navigation click when not expanding/collapsing
+			trackSidebarClick(item, modelSlug(item.slug, item.isFallback, lang));
 		}
 	}
 	
