@@ -371,7 +371,7 @@ export default NavDictionary([
 		header: true,
 		anchor: true,
 		type: 'learn',
-		slug: '/documentacao/produtos/guias/secure/criptografia-pos-quantica/',
+		slug: '/documentacao/produtos/guias/secure/post-quantum-cryptography/',
 		key: 'postQuantumCryptography',
 	},
 
