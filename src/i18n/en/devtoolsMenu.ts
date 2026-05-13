@@ -34,5 +34,9 @@ export default [
 		{ text: 'Best Practices', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/best-practices/', key: 'devtools/terraform/best-practices' },
 		{ text: 'Migration V3 to V4', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/migration-v3-to-v4/', key: 'devtools/terraform/migration' },
 	]},
+	{ text: 'MCP', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/mcp/', key: 'devtools/mcp' },
+	{ text: 'SDK',header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
+	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
+
 
 ] as const;

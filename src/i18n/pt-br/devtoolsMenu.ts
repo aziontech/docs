@@ -18,6 +18,7 @@ export default [
 	{ text: 'Azion Lib', header: true, anchor: true, type: 'learn', key: 'devtools/azionlib', slug: '/documentacao/produtos/azion-lib/visao-geral/' },
 	{ text: 'CLI', header: true, anchor: true, type: 'learn', key: 'devtools/cli', slug: 'documentacao/produtos/azion-cli/visao-geral' },
 	{ text: 'Console Kit', header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/console-kit/', key: 'devtools/consoleKit' },
+	{ text: 'MCP', header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/mcp/', key: 'devtools/mcp' },
 	{ text: 'SDK',header: true, anchor: true, type: 'learn', slug: '/documentacao/devtools/sdk/go/', key: 'devtools/sdk' },
 	{ text: 'Terraform', header: true, anchor: true, type: 'learn', key: 'devtools/terraform', items: [
 		{ text: 'Visão geral', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/terraform-provider/', key: 'devtools/terraform/overview' },

@@ -46,7 +46,7 @@ To maintain the quality and integrity of our documentation, contributors are req
 You can find us on:
 
 - [Discord](https://discord.com/invite/Yp9N7RMVZy)
-- [X](https://twitter.com/aziontech) 
+- [X](https://x.com/aziontech) 
 - [LinkedIn](https://www.linkedin.com/company/aziontech)
 - [YouTube](https://www.youtube.com/aziontech)
 

@@ -1,0 +1,496 @@
+---
+/**
+ * Analytics Tracker Component
+ *
+ * Handles automatic page view tracking on initial load and client-side navigation.
+ * This component should be included in the base layout to track all page views.
+ */
+
+interface Props {
+    ANALYTICS_PROXY_URL: string;
+    ANALYTICS_WRITE_KEY: string;
+}
+
+const { ANALYTICS_PROXY_URL, ANALYTICS_WRITE_KEY } = Astro.props;
+---
+
+<script define:vars={{ ANALYTICS_PROXY_URL, ANALYTICS_WRITE_KEY }}>
+    // Configuration passed from server
+    window.__AZ_CONFIG__ = {
+        p: ANALYTICS_PROXY_URL,
+        k: ANALYTICS_WRITE_KEY
+    };
+</script>
+
+<script>
+    /**
+     * Analytics Client-Side Tracker
+     *
+     * This script handles:
+     * - Anonymous ID management (cookie shared with Console on .azion.com domain)
+     * - Session ID and first_session_url tracking
+     * - Automatic page view tracking
+     * - Click tracking for header, footer, and CTA elements
+     */
+
+    // Get configuration from window
+    const PROXY_URL = window.__AZ_CONFIG__?.p || '';
+    const WRITE_KEY = window.__AZ_CONFIG__?.k || '';
+
+    // Cookie configuration for cross-domain sharing with Console
+    const COOKIE_DOMAIN = '.azion.com';
+    const ANONYMOUS_ID_COOKIE_NAME = 'ajs_anonymous_id';
+    const SESSION_ID_COOKIE_NAME = 'ajs_session_id';
+    const FIRST_SESSION_URL_COOKIE_NAME = 'ajs_first_session_url';
+    const USER_ID_COOKIE_NAME = 'ajs_user_id';
+    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+    /**
+     * Generates a cryptographically secure random string
+     */
+    function secureRandomString(length = 13) {
+        const array = new Uint8Array(length);
+        crypto.getRandomValues(array);
+        return Array.from(array, function(byte) { return byte.toString(36); })
+            .join('')
+            .substring(0, length);
+    }
+
+    /**
+     * Generates a unique ID with optional prefix using cryptographically secure random
+     */
+    function generateId(prefix = '') {
+        const timestamp = Date.now().toString(36);
+        const randomPart = secureRandomString(13);
+        return prefix ? `${prefix}_${timestamp}${randomPart}` : `${timestamp}${randomPart}`;
+    }
+
+    /**
+     * Gets a cookie value by name
+     */
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) {
+            return parts.pop().split(';').shift();
+        }
+        return undefined;
+    }
+
+    /**
+     * Sets a cookie with domain and path for cross-subdomain sharing
+     */
+    function setCookie(name, value, expiresDays = 365, domain = COOKIE_DOMAIN) {
+        const date = new Date();
+        date.setTime(date.getTime() + expiresDays * 24 * 60 * 60 * 1000);
+        const expires = `expires=${date.toUTCString()}`;
+        const domainAttr = domain ? `domain=${domain}` : '';
+        document.cookie = `${name}=${value}; ${expires}; path=/; SameSite=Lax; ${domainAttr}`;
+    }
+
+    /**
+     * Validates if a userId is valid
+     */
+    function isValidUserId(userId) {
+        if (!userId) return false;
+        if (typeof userId !== 'string') return false;
+        if (userId.trim() === '') return false;
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailPattern.test(userId)) return false;
+        if (userId.startsWith('anon_')) return false;
+        return true;
+    }
+
+    /**
+     * Gets or creates anonymous ID
+     */
+    function getAnonymousId() {
+        let anonymousId = getCookie(ANONYMOUS_ID_COOKIE_NAME);
+        if (!anonymousId) {
+            anonymousId = `anon_${generateId()}`;
+            setCookie(ANONYMOUS_ID_COOKIE_NAME, anonymousId, 365);
+        }
+        // Remove quotes if present
+        if (anonymousId.startsWith('"') && anonymousId.endsWith('"')) {
+            anonymousId = anonymousId.slice(1, -1);
+        }
+        return anonymousId;
+    }
+
+    /**
+     * Gets or creates session ID
+     */
+    function getSessionId() {
+        const existingSessionId = getCookie(SESSION_ID_COOKIE_NAME);
+        const lastActivityStr = getCookie('ajs_session_last_activity');
+        const now = Date.now();
+
+        if (existingSessionId && lastActivityStr) {
+            const lastActivity = parseInt(lastActivityStr, 10);
+            if (!isNaN(lastActivity) && (now - lastActivity) < SESSION_TIMEOUT_MS) {
+                setCookie('ajs_session_last_activity', now.toString(), 1);
+                return existingSessionId;
+            }
+        }
+
+        const newSessionId = generateId('sess');
+        setCookie(SESSION_ID_COOKIE_NAME, newSessionId, 1);
+        setCookie('ajs_session_last_activity', now.toString(), 1);
+        // Clear first session URL on new session
+        document.cookie = `${FIRST_SESSION_URL_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        return newSessionId;
+    }
+
+    /**
+     * Gets or sets the first session URL
+     */
+    function getFirstSessionUrl() {
+        let firstSessionUrl = getCookie(FIRST_SESSION_URL_COOKIE_NAME);
+        if (!firstSessionUrl) {
+            firstSessionUrl = window.location.href;
+            setCookie(FIRST_SESSION_URL_COOKIE_NAME, firstSessionUrl, 1);
+        }
+        return firstSessionUrl || '';
+    }
+
+    /**
+     * Gets the user ID from cookie if authenticated
+     */
+    function getUserId() {
+        const userId = getCookie(USER_ID_COOKIE_NAME);
+        if (isValidUserId(userId)) {
+            if (userId.startsWith('"') && userId.endsWith('"')) {
+                return userId.slice(1, -1);
+            }
+            return userId;
+        }
+        return undefined;
+    }
+
+    /**
+     * Gets page context information
+     */
+    function getPageContext() {
+        return {
+            url: window.location.href,
+            title: document.title,
+            path: window.location.pathname,
+            referrer: document.referrer || ''
+        };
+    }
+
+    /**
+     * Gets the app/site context for all events
+     */
+    function getAppContext() {
+        return {
+            app: {
+                name: 'Azion Docs',
+                version: '1.0.0',
+                namespace: 'docs'
+            },
+            site: 'docs',
+            product: 'documentation'
+        };
+    }
+
+    /**
+     * Gets page category from URL path
+     */
+    function getPageCategory() {
+        const path = window.location.pathname;
+        const parts = path.split('/').filter(Boolean);
+
+        // Extract language and category
+        const lang = parts[0] || 'en';
+        const category = parts[1] || 'home';
+
+        return {
+            language: lang,
+            category: category,
+            section: parts[2] || null,
+            page_slug: parts[parts.length - 1] || null
+        };
+    }
+
+    /**
+     * Sends events to the analytics proxy (production only)
+     */
+    async function sendEvents(events) {
+        try {
+            const appContext = getAppContext();
+            const pageCategory = getPageCategory();
+
+            // Build the payload with context
+            const enrichedEvents = events.map(event => {
+                const mergedContext = {
+                    ...event.data.context,
+                    ...appContext,
+                    page: {
+                        ...event.data.context.page,
+                        ...pageCategory
+                    }
+                };
+
+                return {
+                    ...event,
+                    data: {
+                        ...event.data,
+                        context: mergedContext,
+                        properties: {
+                            ...event.data.properties,
+                            ...pageCategory,
+                            site: 'docs'
+                        }
+                    }
+                };
+            });
+
+            // In development, skip tracking
+            const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+            if (isDev) {
+                return;
+            }
+
+            // In production, send to proxy
+            await fetch(PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    writeKey: WRITE_KEY,
+                    events: enrichedEvents
+                })
+            });
+        } catch (error) {
+            // Silently fail
+        }
+    }
+
+    /**
+     * Tracks a page view
+     */
+    function trackPageView() {
+        const anonymousId = getAnonymousId();
+        const userId = getUserId();
+        const pageContext = getPageContext();
+        const firstSessionUrl = getFirstSessionUrl();
+        const pageCategory = getPageCategory();
+
+        // Initialize session on page load
+        getSessionId();
+
+        sendEvents([{
+            type: 'page',
+            data: {
+                anonymousId,
+                userId,
+                context: {
+                    page: {
+                        url: pageContext.url,
+                        title: pageContext.title,
+                        path: pageContext.path,
+                        referrer: pageContext.referrer
+                    }
+                },
+                properties: {
+                    title: pageContext.title,
+                    url: pageContext.url,
+                    path: pageContext.path,
+                    first_session_url: firstSessionUrl,
+                    ...pageCategory
+                }
+            }
+        }]);
+    }
+
+    /**
+     * Tracks a click event
+     * @param {string} location - Where the click occurred (header, footer, sidebar, cta, docs_navigation)
+     * @param {string|object} targetOrProperties - Either a target URL string or an object with properties
+     */
+    function trackClick(location, targetOrProperties) {
+        const anonymousId = getAnonymousId();
+        const userId = getUserId();
+        const pageContext = getPageContext();
+        const firstSessionUrl = getFirstSessionUrl();
+        const pageCategory = getPageCategory();
+
+        // Support both string target and object with additional properties
+        const isObject = typeof targetOrProperties === 'object' && targetOrProperties !== null;
+        const target = isObject ? targetOrProperties.href || targetOrProperties.target : targetOrProperties;
+        const extraProperties = isObject ? targetOrProperties : {};
+
+        sendEvents([{
+            type: 'track',
+            data: {
+                event: 'click',
+                anonymousId,
+                userId,
+                context: {
+                    page: {
+                        url: pageContext.url,
+                        title: pageContext.title,
+                        path: pageContext.path,
+                        referrer: pageContext.referrer
+                    }
+                },
+                properties: {
+                    location,
+                    target,
+                    first_session_url: firstSessionUrl,
+                    ...extraProperties,
+                    ...pageCategory
+                }
+            }
+        }]);
+    }
+
+    /**
+     * Tracks form submit with identify
+     */
+    function trackFormSubmitWithIdentify(action, formData) {
+        const anonymousId = getAnonymousId();
+        const userId = getUserId();
+        const pageContext = getPageContext();
+        const firstSessionUrl = getFirstSessionUrl();
+
+        sendEvents([
+            {
+                type: 'track',
+                data: {
+                    event: 'form_submit',
+                    anonymousId,
+                    userId,
+                    context: {
+                        page: {
+                            url: pageContext.url,
+                            title: pageContext.title,
+                            path: pageContext.path,
+                            referrer: pageContext.referrer
+                        }
+                    },
+                    properties: {
+                        action,
+                        first_session_url: firstSessionUrl,
+                        ...formData
+                    }
+                }
+            },
+            {
+                type: 'identify',
+                data: {
+                    anonymousId,
+                    userId,
+                    context: {},
+                    traits: formData
+                }
+            }
+        ]);
+    }
+
+    // Expose tracking functions globally
+    window.AzAnalytics = {
+        trackPageView,
+        trackClick,
+        trackFormSubmitWithIdentify,
+        getAnonymousId,
+        getUserId,
+        getFirstSessionUrl,
+        getSessionId
+    };
+
+    // Track initial page view
+    trackPageView();
+
+    // Track page views on client-side navigation (for SPA)
+    // Using History API
+    const originalPushState = history.pushState;
+    history.pushState = function(...args) {
+        originalPushState.apply(this, args);
+        setTimeout(trackPageView, 0);
+    };
+
+    const originalReplaceState = history.replaceState;
+    history.replaceState = function(...args) {
+        originalReplaceState.apply(this, args);
+        setTimeout(trackPageView, 0);
+    };
+
+    window.addEventListener('popstate', () => {
+        setTimeout(trackPageView, 0);
+    });
+
+    // Set up click tracking for header, footer, CTA, and docs navigation elements
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('a[href]');
+        if (!target) return;
+
+        const href = target.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+        // Determine location based on parent elements and data-tracking attribute
+        let location = 'unknown';
+        let trackingData = {};
+
+        // Check for data-tracking attribute first
+        const dataTracking = target.getAttribute('data-tracking');
+        if (dataTracking) {
+            trackingData.tracking_id = dataTracking;
+        }
+
+        // Get link text for better context
+        const linkText = target.textContent?.trim() || '';
+
+        if (target.closest('header')) {
+            location = 'header';
+        } else if (target.closest('footer')) {
+            location = 'footer';
+        } else if (target.closest('.cta') || target.closest('[data-tracking="cta"]') || target.classList.contains('cta')) {
+            location = 'cta';
+        } else if (target.closest('#right-sidebar') || target.closest('.right-sidebar')) {
+            location = 'right_sidebar';
+            trackingData.link_text = linkText;
+        } else if (
+            // Detect docs navigation: sidebar links, nav links, or links to /docs/ or /documentation/
+            target.closest('.sidebar') ||
+            target.closest('.left-sidebar') ||
+            target.closest('nav') ||
+            href.includes('/docs/') ||
+            href.includes('/documentation/')
+        ) {
+            location = 'docs_navigation';
+        }
+
+        // Only track if it's a known location
+        if (location !== 'unknown') {
+            trackClick(location, {
+                href: href.startsWith('http') ? href : window.location.origin + href,
+                text: linkText,
+                ...trackingData
+            });
+        }
+    });
+
+    // Track form submits
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (form.tagName !== 'FORM') return;
+
+        const action = form.action || window.location.href;
+        const formData = new FormData(form);
+        const formDataObj = {};
+
+        formData.forEach((value, key) => {
+            // Don't include sensitive fields like passwords
+            if (key.toLowerCase().includes('password') ||
+                key.toLowerCase().includes('token') ||
+                key.toLowerCase().includes('secret')) {
+                return;
+            }
+            formDataObj[key] = value;
+        });
+
+        trackFormSubmitWithIdentify(action, formDataObj);
+    }, true); // Use capture phase to ensure we catch the event before it's handled
+</script>
