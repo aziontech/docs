@@ -476,6 +476,14 @@ export default [
 						slug: '/documentation/products/guides/secure/digital-certificates/',
 						key: 'digitalCertificates',
 					},
+					{
+						text: 'Post-quantum cryptography',
+						header: true,
+						anchor: true,
+						type: 'learn',
+						slug: '/documentation/products/guides/secure/post-quantum-cryptography/',
+						key: 'postQuantumCryptography',
+					},
 				],
 			},
 			{
@@ -900,14 +908,6 @@ export default [
 						type: 'learn',
 						slug: '/documentation/products/guides/teams-permissions/',
 						key: 'account/teamsPermissions',
-					},
-					{
-						text: 'Activity history',
-						header: true,
-						anchor: true,
-						type: 'learn',
-						slug: '/documentation/products/guides/activity-history/',
-						key: 'account/activityHistory',
 					},
 					{
 						text: 'Account Lockout Policy',
