@@ -523,6 +523,11 @@ export default NavDictionary([
 	},
 	{ text: 'SQL Database', key: 'reference/sql', slug: '/documentacao/produtos/store/sql-database/' },
 	{
+		text: 'KV Store',
+		key: 'reference/kv-store',
+		slug: '/documentacao/produtos/store/kv-store/',
+	},
+	{
 		text: 'Vector Search',
 		key: 'reference/vector-search',
 		slug: '/documentacao/produtos/store/sql-database/vector-search/',
