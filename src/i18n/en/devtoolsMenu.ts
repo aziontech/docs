@@ -36,7 +36,7 @@ export default [
 	]},
 	{ text: 'MCP', header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/mcp/', key: 'devtools/mcp' },
 	{ text: 'SDK',header: true, anchor: true, type: 'learn', slug: '/documentation/devtools/sdk/go/', key: 'devtools/sdk' },
-	{ text: 'Terraform', header: true, anchor: true, type: 'learn', slug: '/documentation/products/terraform-provider/', key: 'devtools/terraform' },
+
 
 
 ] as const;
