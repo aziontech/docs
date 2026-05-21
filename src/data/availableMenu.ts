@@ -12,4 +12,5 @@ export const availableMenus = [
 	{ name: 'storeMenu', langs: ['en', 'pt-br'] },
 	{ name: 'libMenu', langs: ['en', 'pt-br'] },
 	{ name: 'AIInferenceMenu', langs: ['en', 'pt-br'] }
+	{ name: 'mcpMenu', langs: ['en', 'pt-br'] }
 ]

@@ -72,7 +72,7 @@ export default [
     { text: 'Azure Blob Storage', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/azure-blob-endpoint/', key: 'observeIntegrationsBlob' },
     { text: 'Azure Monitor', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/azure-monitor-endpoint/', key: 'observeIntegrationsMonitor' },
     { text: 'Datadog', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/datadog-endpoint/', key: 'observeIntegrationsDatadog' },
-    { text: 'Edge Storage da Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/conector-azion-edge-storage/', key: 'observeIntegrationsEdgeStorage' },
+    { text: 'Object Storage da Azion', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/conector-azion-edge-storage/', key: 'observeIntegrationsEdgeStorage' },
     { text: 'Elasticsearch', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/elasticsearch-endpoint/', key: 'observeIntegrationsElasticsearch' },
     { text: 'Google BigQuery', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/google-bigquery-endpoint/', key: 'observeIntegrationsBigQuery' },
     { text: 'S3 - Simple Storage Service', header: true, anchor: true, type: 'learn', slug: '/documentacao/produtos/guias/amazon-s3-endpoint/', key: 'observeIntegrationsS3' },

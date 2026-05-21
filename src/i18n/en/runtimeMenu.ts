@@ -21,8 +21,14 @@
 		{ text: 'Metadata', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/metadata', key: 'runtime/metadata' },
 		{ text: 'Cache', slug: '/documentation/runtime/api-reference/cache/', key: 'runtime/cache-api' },
 		{ text: 'Network List interface', slug: '/documentation/products/edge-application/edge-functions/runtime/api-reference/network-list', key: 'runtime/network-list' },
-		{ text: 'Edge Storage', slug: '/documentation/runtime/api-reference/storage/', key: 'runtime/storage-api' },
-		{ text: 'Edge SQL', slug: '/documentation/runtime/api-reference/edge-sql/', key: 'runtime/storage-api' },
+		{ text: 'Object Storage', slug: '/documentation/runtime/api-reference/storage/', key: 'runtime/storage-api' },
+		{ text: 'SQL Database', slug: '/documentation/runtime/api-reference/edge-sql/', key: 'runtime/storage-api' },
+		{ text: 'KV Store', header: true, anchor: true, type: 'learn', key: 'runtime/kv-store', slug: '/documentation/runtime/api-reference/kv-store/', items: [
+			{ text: 'Overview', slug: '/documentation/runtime/api-reference/kv-store/', key: 'runtime/kv-store-overview' },
+			{ text: 'Write', slug: '/documentation/runtime/api-reference/kv-store/write/', key: 'runtime/kv-store-write' },
+			{ text: 'Read', slug: '/documentation/runtime/api-reference/kv-store/read/', key: 'runtime/kv-store-read' },
+			{ text: 'Delete', slug: '/documentation/runtime/api-reference/kv-store/delete/', key: 'runtime/kv-store-delete' },
+		]},
 		{ text: 'WebSocket', slug: '/documentation/runtime/api-reference/websocket/', key: 'runtime/websocket' },
 	]},
 

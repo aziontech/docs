@@ -1,6 +1,6 @@
-## Edge Cache
+## Cache
 
-The Edge Cache graph represents how all information regarding your Edge Cache data is being accessed on Azion's edge.
+The Cache graph represents how all information regarding your Cache data is being accessed on Azion's edge.
 
 It provides a first layer of caching to the client content on Azion edges. The graph is divided into:
 
@@ -16,7 +16,7 @@ It provides a first layer of caching to the client content on Azion edges. The g
 >
 > ORIGIN -> EDGE -> END USER
 
-To use Edge Cache and analyze data on it, you must activate it in your account. See the [Edge Cache documentation](https://www.azion.com/en/documentation/products/edge-application/edge-caching/) for more information.
+To use Cache and analyze data on it, you must activate it in your account. See the [Cache documentation](https://www.azion.com/en/documentation/products/edge-application/edge-caching/) for more information.
 
 > **In what unit does data appear on graphs?**
 >
