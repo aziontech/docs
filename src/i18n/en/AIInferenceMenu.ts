@@ -15,7 +15,10 @@ export default [
 	/// START HERE :::: DO NOT REMOVE the strings above, it's a work around for header on mobile /// 
 
 	{ text: 'Overview', header: true, anchor: true, type: 'learn', key: 'overview-aiinference', slug: '/documentation/products/ai/ai-inference/', hasLabel: 'menu.aiinference' },
-	//{ text: 'Get Started', header: true, anchor: true, type: 'learn', key: 'get-started-aiinference', slug: '/documentation/products/guides/ai-inference-agent/' },
+
+	{ text: 'Get Started', header: true, type: 'learn', key: 'aiinference/get-started', items: [
+		{ text: 'Build a simple AI agent', slug: '/documentation/products/guides/ai-inference-agent/', key: 'aiinference/build-agent' },
+	]},
 
     { text: ' Available Models', header: true, type: 'learn', key: 'aiinference.models',slug: '/documentation/products/ai/ai-inference/models/', items: [
 		{ text: 'BAAI/bge reranker v2 m3', slug: '/documentation/products/ai/ai-inference/models/baai-bge-reranker-v2-m3', key: 'aiinference/BAAI/bge-reranker-v2-m3' },
@@ -29,8 +32,8 @@ export default [
 	]},
 
 	{ text: 'Guides', header: true, type: 'learn', key: 'aiinference/guides', items: [
-		{ text: 'Deploy AI Inference Starter kit', header: true, anchor: true, type: 'learn', key: 'aiinference/starter-kit', slug: '/documentation/products/guides/ai-inference-starter-kit' },
-		{ text: 'Deploy LangGraph AI Agent Boilerplate', header: true, anchor: true, type: 'learn', key: 'aiinference/langgraph-boilerplate', slug: '/documentation/products/guides/langgraph-ai-agent-boilerplate' },
+		{ text: 'Deploy AI Inference Starter kit', slug: '/documentation/products/guides/ai-inference-starter-kit/', key: 'aiinference/starter-kit' },
+		{ text: 'Deploy LangGraph AI Agent Boilerplate', slug: '/documentation/products/guides/langgraph-ai-agent-boilerplate/', key: 'aiinference/langgraph-boilerplate' },
 	]},
 
 
