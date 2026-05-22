@@ -46,35 +46,98 @@ Isso cria um projeto com:
 Após a implantação, navegue até sua função e substitua o código por este agente simples:
 
 ```javascript
-async function handler(event) {
-  const body = JSON.parse(event.request.body || '{}');
-  const userMessage = body.message || 'Olá!';
+async function handleRequest(request) {
+  // Verifica se a requisição é POST e tem corpo JSON
+  if (request.method !== "POST" || request.headers.get("content-type") !== "application/json") {
+    return new Response(JSON.stringify({
+      error: "A requisição deve ser POST com corpo JSON",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-  const modelResponse = await Azion.AI.run("Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", {
-    "stream": false,
-    "messages": [
-      {
-        "role": "system",
-        "content": "Você é um assistente de AI útil. Seja conciso e amigável."
-      },
-      {
-        "role": "user",
-        "content": userMessage
-      }
-    ],
-    "max_tokens": 500
-  });
+  let input;
+  try {
+    input = await request.json();
+  } catch (err) {
+    return new Response(JSON.stringify({
+      error: "JSON inválido no corpo da requisição",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-  return new Response(JSON.stringify({
-    response: modelResponse.choices[0].message.content,
-    model: modelResponse.model,
-    usage: modelResponse.usage
-  }), {
-    headers: { "Content-Type": "application/json" }
-  });
+  // Verifica se o campo "model" está presente
+  if (!input.hasOwnProperty("model")) {
+    return new Response(JSON.stringify({
+      error: "Campo 'model' obrigatório não encontrado",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const model = input["model"];
+
+  try {
+    const response = await Azion.AI.run(model, input);
+
+    if (input.stream) {
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+      
+      (async () => {
+        for await (const chunk of response) {
+          await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}n`));
+        }
+        await writer.write(encoder.encode("data: [DONE]n"));
+        await writer.close();
+      })();
+
+      return new Response(readable, {
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    } else {
+      return new Response(JSON.stringify(response), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  } catch (e) {
+    console.error(`${e.name}: ${e.message}`);
+
+    if (e.message.includes("validation error")) {
+      return new Response(JSON.stringify({
+        error: `Entrada inválida para ${model}`,
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (e.message.includes("model not found")) {
+      return new Response(JSON.stringify({
+        error: `${model} não encontrado ou não permitido`,
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      error: "Erro interno de AI",
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
 
-addEventListener("fetch", handler);
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
 ```
 
 ---
@@ -84,17 +147,25 @@ addEventListener("fetch", handler);
 Envie uma requisição POST para o endpoint da sua função:
 
 ```bash
-curl -X POST https://url-da-sua-funcao.azion.net/v1/chat/completions
-  -H "Content-Type: application/json"
-  -d '{"message": "O que é computação de borda?"}'
+curl -X POST https://url-da-sua-funcao.azion.net -H "Content-Type: application/json" -d '{"model":"casperhansen/mistral-small-24b-instruct-2501-awq","messages":[{"role":"user","content":"O que é computação de borda?"}]}'
 ```
 
 Resposta esperada:
 
 ```json
 {
-  "response": "Computação de borda processa dados mais próximo de sua origem, reduzindo latência e uso de banda ao trazer computação perto dos usuários finais ou dispositivos.",
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1677652288,
   "model": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "Computação de borda processa dados mais próximo de sua origem, reduzindo latência e uso de banda ao trazer computação perto dos usuários finais ou dispositivos."
+    },
+    "finish_reason": "stop"
+  }],
   "usage": {
     "prompt_tokens": 22,
     "completion_tokens": 24,

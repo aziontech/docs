@@ -47,35 +47,98 @@ This creates a project with:
 After deployment, navigate to your function and replace the code with this simple agent:
 
 ```javascript
-async function handler(event) {
-  const body = JSON.parse(event.request.body || '{}');
-  const userMessage = body.message || 'Hello!';
+async function handleRequest(request) {
+  // Check if the request is a POST request and has a JSON body
+  if (request.method !== "POST" || request.headers.get("content-type") !== "application/json") {
+    return new Response(JSON.stringify({
+      error: "Request must be a POST request with JSON body",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-  const modelResponse = await Azion.AI.run("Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", {
-    "stream": false,
-    "messages": [
-      {
-        "role": "system",
-        "content": "You are a helpful AI assistant. Be concise and friendly."
-      },
-      {
-        "role": "user",
-        "content": userMessage
-      }
-    ],
-    "max_tokens": 500
-  });
+  let input;
+  try {
+    input = await request.json();
+  } catch (err) {
+    return new Response(JSON.stringify({
+      error: "Invalid JSON in request body",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-  return new Response(JSON.stringify({
-    response: modelResponse.choices[0].message.content,
-    model: modelResponse.model,
-    usage: modelResponse.usage
-  }), {
-    headers: { "Content-Type": "application/json" }
-  });
+  // Check if the required "model" field is present in the input
+  if (!input.hasOwnProperty("model")) {
+    return new Response(JSON.stringify({
+      error: "Missing 'model' field in request body",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const model = input["model"];
+
+  try {
+    const response = await Azion.AI.run(model, input);
+
+    if (input.stream) {
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+      
+      (async () => {
+        for await (const chunk of response) {
+          await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}n`));
+        }
+        await writer.write(encoder.encode("data: [DONE]n"));
+        await writer.close();
+      })();
+
+      return new Response(readable, {
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    } else {
+      return new Response(JSON.stringify(response), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  } catch (e) {
+    console.error(`${e.name}: ${e.message}`);
+
+    if (e.message.includes("validation error")) {
+      return new Response(JSON.stringify({
+        error: `Invalid input for ${model}`,
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (e.message.includes("model not found")) {
+      return new Response(JSON.stringify({
+        error: `${model} not found or not allowed`,
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      error: "AI internal error",
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
 
-addEventListener("fetch", handler);
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
 ```
 
 ---
@@ -85,17 +148,25 @@ addEventListener("fetch", handler);
 Send a POST request to your function's endpoint:
 
 ```bash
-curl -X POST https://your-function-url.azion.net \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What is edge computing?"}'
+curl -X POST https://your-function-url.azion.net -H "Content-Type: application/json" -d '{"model":"casperhansen/mistral-small-24b-instruct-2501-awq","messages":[{"role":"user","content":"What is edge computing?"}]}'
 ```
 
 Expected response:
 
 ```json
 {
-  "response": "Edge computing processes data closer to its source, reducing latency and bandwidth by bringing computation near end users or devices.",
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1677652288,
   "model": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "Edge computing processes data closer to its source, reducing latency and bandwidth by bringing computation near end users or devices."
+    },
+    "finish_reason": "stop"
+  }],
   "usage": {
     "prompt_tokens": 22,
     "completion_tokens": 24,
