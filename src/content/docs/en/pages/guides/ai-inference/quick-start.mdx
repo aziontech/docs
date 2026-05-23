@@ -1,0 +1,383 @@
+---
+title: Build your first AI agent
+description: Build a simple AI agent in 5 minutes — a conversational assistant that runs on Azion's edge infrastructure.
+meta_tags: >-
+  ai inference, ai agent, artificial intelligence, edge computing, quick start, tutorial
+namespace: docs_guides_ai_inference_build_agent
+permalink: /documentation/products/guides/ai-inference-agent/
+menu_namespace: AIInferenceMenu
+
+---
+
+import LinkButton from 'azion-webkit/linkbutton';
+
+Build AI agents that think, respond, and act. Agents run on Azion's global edge network, providing low-latency responses and seamless scalability.
+
+**What you will build:** A conversational AI agent that answers questions and maintains context.
+
+**Time:** ~5 minutes
+
+---
+
+## Create a new project
+
+Click the button below to create a new project with a pre-configured AI agent:
+<LinkButton
+    label="Deploy Starter Kit"
+    link="https://console.azion.com/create/azion/ai-inference-starter-kit"
+    icon="ai ai-azion"  
+    icon-pos="left"
+/>
+
+Or follow these steps manually:
+
+1. Access the [Azion Console](https://console.azion.com/).
+2. Click **+ Create** and select **AI Inference Starter Kit**.
+3. Enter a name for your application, such as `my-first-agent`.
+4. Click **Deploy**.
+
+This creates a project with:
+
+- An **Edge Application** configured for AI workloads
+- A **Function** with pre-configured AI Inference integration
+- Example code to get you started
+
+---
+
+## Your first agent
+
+After deployment, navigate to your function and replace the code with this simple agent:
+
+```javascript
+async function handleRequest(request) {
+  // Check if the request is a POST request and has a JSON body
+  if (request.method !== "POST" || request.headers.get("content-type") !== "application/json") {
+    return new Response(JSON.stringify({
+      error: "Request must be a POST request with JSON body",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  let input;
+  try {
+    input = await request.json();
+  } catch (err) {
+    return new Response(JSON.stringify({
+      error: "Invalid JSON in request body",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Check if the required "model" field is present in the input
+  if (!input.hasOwnProperty("model")) {
+    return new Response(JSON.stringify({
+      error: "Missing 'model' field in request body",
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const model = input["model"];
+
+  try {
+    const response = await Azion.AI.run(model, input);
+
+    if (input.stream) {
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+      
+      (async () => {
+        for await (const chunk of response) {
+          await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}n`));
+        }
+        await writer.write(encoder.encode("data: [DONE]n"));
+        await writer.close();
+      })();
+
+      return new Response(readable, {
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    } else {
+      return new Response(JSON.stringify(response), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  } catch (e) {
+    console.error(`${e.name}: ${e.message}`);
+
+    if (e.message.includes("validation error")) {
+      return new Response(JSON.stringify({
+        error: `Invalid input for ${model}`,
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (e.message.includes("model not found")) {
+      return new Response(JSON.stringify({
+        error: `${model} not found or not allowed`,
+      }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      error: "AI internal error",
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+```
+
+---
+
+## Test your agent
+
+Send a POST request to your function's endpoint replacing `https://your-function-url.azion.net` with your function's actual URL:
+
+```bash
+curl -X POST https://your-function-url.azion.net -H "Content-Type: application/json" -d '{"model":"casperhansen/mistral-small-24b-instruct-2501-awq","messages":[{"role":"user","content":"What is edge computing?"}]}'
+```
+
+Expected response:
+
+```json
+{
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1677652288,
+  "model": "casperhansen/mistral-small-24b-instruct-2501-awq",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "Edge computing processes data closer to its source, reducing latency and bandwidth by bringing computation near end users or devices."
+    },
+    "finish_reason": "stop"
+  }],
+  "usage": {
+    "prompt_tokens": 22,
+    "completion_tokens": 24,
+    "total_tokens": 46
+  }
+}
+```
+
+---
+
+## Add conversation memory
+
+To maintain context across messages, you need to manage conversation history. Since edge functions are stateless, you have two options:
+
+### Option 1: Pass history in the request body
+
+```javascript
+async function handler(event) {
+  const body = JSON.parse(event.request.body || '{}');
+  const userMessage = body.message || 'Hello!';
+  const conversationHistory = body.history || [];
+
+  // Add user message to history
+  conversationHistory.push({
+    role: "user",
+    content: userMessage
+  });
+
+  const modelResponse = await Azion.AI.run("casperhansen/mistral-small-24b-instruct-2501-awq", {
+    "stream": false,
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful AI assistant. Be concise and friendly."
+      },
+      ...conversationHistory
+    ],
+    "max_tokens": 500
+  });
+
+  const assistantMessage = modelResponse.choices[0].message.content;
+
+  // Add assistant response to history
+  conversationHistory.push({
+    role: "assistant",
+    content: assistantMessage
+  });
+
+  return new Response(JSON.stringify({
+    response: assistantMessage,
+    history: conversationHistory
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+addEventListener("fetch", handler);
+```
+
+### Option 2: Use KV Store for persistent sessions
+
+For persistent conversation history across requests, use [KV Store](/en/documentation/products/store/kv-database/) to store session data with a unique session ID.
+
+---
+
+## What just happened?
+
+When you sent a message:
+
+1. **Request** arrived at your edge function
+2. **Function** called `Azion.AI.run()` with your message
+3. **Model** processed the request at the edge
+4. **Response** returned to the client with minimal latency
+
+```mermaid
+flowchart LR
+    A[Client] -->|POST request| B[Edge Function]
+    B -->|Azion.AI.run| C[AI Model]
+    C -->|Response| B
+    B -->|JSON response| A
+```
+
+### Key concepts
+
+| Concept | What it means |
+|---------|---------------|
+| **Edge execution** | Code runs on Azion's distributed network, close to users |
+| **Azion.AI.run()** | SDK method to invoke AI models |
+| **Model selection** | Choose from available models based on your use case |
+| **Streaming** | Enable real-time responses with `stream: true` |
+
+---
+
+## Add tool calling
+
+Enable your agent to call external functions:
+
+```javascript
+async function handler(event) {
+  const body = JSON.parse(event.request.body || '{}');
+  const userMessage = body.message;
+
+  const tools = [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a location",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string",
+              "description": "City name"
+            }
+          },
+          "required": ["location"]
+        }
+      }
+    }
+  ];
+
+  const modelResponse = await Azion.AI.run("casperhansen/mistral-small-24b-instruct-2501-awq", {
+    "stream": false,
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant with access to tools."
+      },
+      {
+        "role": "user",
+        "content": userMessage
+      }
+    ],
+    "tools": tools
+  });
+
+  // Check if the model wants to call a tool
+  if (modelResponse.choices[0].message.tool_calls) {
+    const toolCall = modelResponse.choices[0].message.tool_calls[0];
+    const args = JSON.parse(toolCall.function.arguments);
+    
+    // Execute the tool (you would implement this)
+    const weatherData = await getWeather(args.location);
+    
+    return new Response(JSON.stringify({
+      tool: toolCall.function.name,
+      location: args.location,
+      weather: weatherData
+    }), {
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  return new Response(JSON.stringify({
+    response: modelResponse.choices[0].message.content
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+async function getWeather(location) {
+  // Implement your weather API call here
+  return { location, temperature: "22°C", condition: "Sunny" };
+}
+
+addEventListener("fetch", handler);
+```
+
+---
+
+## Troubleshooting
+
+### "Model not found" error
+
+Make sure:
+1. The model name matches exactly (case-sensitive)
+2. Check [available models](/en/documentation/products/ai/ai-inference/models/) for correct names
+
+### High latency
+
+Try these solutions:
+1. Enable streaming: `"stream": true`
+2. Reduce `max_tokens` for shorter responses
+3. Choose a smaller model for faster inference
+
+### Rate limit errors
+
+Check the default limits:
+- **300 requests per minute**
+
+Contact support to increase limits for production workloads.
+
+### Function timeout
+
+If your function times out:
+1. Reduce `max_tokens`
+2. Simplify your prompt
+3. Consider breaking complex tasks into smaller steps
+
+---
+
+## Next steps
+
+Now that you have a working agent, explore:
+
+| Learn how to | Refer to |
+|-------------|----------|
+| Use different models | [Available models](/en/documentation/products/ai/ai-inference/models/) |
+| Implement tool calling | [Tool calling example](/en/documentation/products/ai/ai-inference/models/mistral-3-small/#tool-calling-example) |
+| Build RAG applications | [Vector Search](/en/documentation/products/store/sql-database/vector-search/) |
+| Deploy with templates | [AI Inference Starter Kit](/en/documentation/products/guides/ai-inference-starter-kit/) |
