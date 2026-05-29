@@ -17,6 +17,12 @@ export function removeTrailingSlash(path: string | undefined) {
 	return `${path}`
 }
 
+/** Collapse repeated forward slashes in URL path segments. */
+export function normalizePathSlashes(path: string | undefined) {
+	if (typeof path === 'string') return path.replace(/\/{2,}/g, '/');
+	return `${path}`
+}
+
 /** Get a page’s slug, without the language prefix (e.g. `'en/migrate'` => `'migrate'`). */
 export const stripLangFromSlug = (slug: CollectionEntry<'docs'>['slug']) => slug.split('/').slice(1).join('/');
 
