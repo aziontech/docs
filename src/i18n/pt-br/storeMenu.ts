@@ -119,7 +119,7 @@ export default [
 				header: true,
 				anchor: true,
 				type: 'learn',
-				slug: '/documentacao/produtos/store/storage/usar-bucket-como-origin/',
+				slug: '/documentacao/produtos/store/storage/bucket-como-connector/',
 				key: 'useBucketAsOrigin',
 			},
 		],
