@@ -673,6 +673,14 @@ export default [
 				key: 'reference/sql',
 				slug: '/documentation/products/store/sql-database/',
 			},
+			{
+				text: 'KV Store',
+				header: true,
+				anchor: true,
+				type: 'learn',
+				key: 'reference/kv-store',
+				slug: '/documentation/products/store/kv-store/',
+			},
 		],
 	},
 	{

@@ -371,7 +371,7 @@ export default NavDictionary([
 		header: true,
 		anchor: true,
 		type: 'learn',
-		slug: '/documentacao/produtos/guias/secure/criptografia-pos-quantica/',
+		slug: '/documentacao/produtos/guias/secure/post-quantum-cryptography/',
 		key: 'postQuantumCryptography',
 	},
 
@@ -530,6 +530,11 @@ export default NavDictionary([
 		slug: '/documentacao/produtos/store/object-storage/',
 	},
 	{ text: 'SQL Database', key: 'reference/sql', slug: '/documentacao/produtos/store/sql-database/' },
+	{
+		text: 'KV Store',
+		key: 'reference/kv-store',
+		slug: '/documentacao/produtos/store/kv-store/',
+	},
 	{
 		text: 'Vector Search',
 		key: 'reference/vector-search',
