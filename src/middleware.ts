@@ -1,9 +1,11 @@
 import { defineMiddleware } from 'astro/middleware';
 
-import { normalizePathSlashes } from '~/util';
+import { normalizeCanonicalPath, normalizePathSlashes } from '~/util';
 
 export const onRequest = defineMiddleware((context, next) => {
-	const normalizedPathname = normalizePathSlashes(context.url.pathname);
+	const normalizedPathname = context.url.pathname.endsWith('//')
+		? normalizeCanonicalPath(context.url.pathname)
+		: normalizePathSlashes(context.url.pathname);
 
 	if (normalizedPathname !== context.url.pathname) {
 		const redirectURL = new URL(context.url);
