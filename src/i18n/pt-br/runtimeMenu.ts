@@ -23,6 +23,12 @@
 		{ text: 'Network List', slug: '/documentacao/produtos/edge-application/edge-functions/runtime/api-reference/network-list/', key: 'runtime/network-list' },
 		{ text: 'Object Storage', slug: '/documentacao/runtime/api-reference/storage/', key: 'runtime/storage-api' },
 		{ text: 'SQL Database', slug: '/documentacao/runtime/api-reference/edge-sql/', key: 'runtime/storage-api' },
+		{ text: 'KV Store', header: true, anchor: true, type: 'learn', key: 'runtime/kv-store', slug: '/documentacao/runtime/api-reference/kv-store/', items: [
+			{ text: 'Visão geral', slug: '/documentacao/runtime/api-reference/kv-store/', key: 'runtime/kv-store-overview' },
+			{ text: 'Escrita', slug: '/documentacao/runtime/api-reference/kv-store/write/', key: 'runtime/kv-store-write' },
+			{ text: 'Leitura', slug: '/documentacao/runtime/api-reference/kv-store/read/', key: 'runtime/kv-store-read' },
+			{ text: 'Exclusão', slug: '/documentacao/runtime/api-reference/kv-store/delete/', key: 'runtime/kv-store-delete' },
+		]},
 		{ text: 'Web APIs', slug: '/documentacao/runtime-apis/javascript/', key: 'runtime/web-standards' },
 		{ text: 'WebSocket', slug: '/documentacao/runtime/api-reference/websocket/', key: 'runtime/websocket' },
 	] },
