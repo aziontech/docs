@@ -1,5 +1,6 @@
 import { SITE_URL } from './src/consts';
 import { defineConfig } from 'astro/config';
+import { unified } from '@astrojs/markdown-remark';
 
 import mdx from '@astrojs/mdx';
 import tailwind from '@astrojs/tailwind';
@@ -42,6 +43,7 @@ export default defineConfig({
 		vue({ appEntrypoint: '/src/vue.config.js' })
 	],
 	markdown: {
+		processor: unified(), // Keep using remark/rehype pipeline for custom plugins
 		// Override with our own config
 		smartypants: false,
 		remarkPlugins: [
