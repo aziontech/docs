@@ -1,6 +1,7 @@
 import type { CollectionEntry } from 'astro:content';
 import { defineCollection } from 'astro:content';
 import { z } from 'astro/zod';
+import { glob } from 'astro/loaders';
 
 export const baseSchema = z.object({
 	type: z.literal('base').optional().default('base'),
@@ -138,13 +139,14 @@ export function isRecipeEntry(entry: CollectionEntry<'docs'>): entry is RecipeEn
 
 export function createIsLangEntry(lang: string) {
 	return function isLangEntry(entry: CollectionEntry<'docs'>): boolean {
-		return entry.slug.startsWith(lang + '/');
+		return entry.id.startsWith(lang + '/');
 	};
 }
 
 export const isEnglishEntry = createIsLangEntry('en');
 
 const docs = defineCollection({
+	loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/docs' }),
 	schema: z.union([
 		baseSchema,
 		backendSchema,

@@ -24,8 +24,8 @@ const getLastSegment = (url: string): string => {
 export async function getPageBreadcrumb(Astro: Readonly<AstroGlobal>, lang: string): Promise<Breadcrumbs[]> {
 	const urlSegments = removeTrailingSlash(removeLeadingSlash(Astro.url.pathname)).split('/').splice(1);
 
-	const matchedPages = await getCollection('docs', ({ data, slug }) => {
-		if (slug.startsWith(lang)) {
+	const matchedPages = await getCollection('docs', ({ data, id }) => {
+		if (id.startsWith(lang)) {
 			let prevSegment: string;
 
 

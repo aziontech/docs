@@ -4,7 +4,7 @@ import {
 	isEnglishEntry,
 	isRecipeEntry,
 	isTutorialEntry,
-} from './content/config';
+} from './content.config';
 
 const isKoreanEntry = createIsLangEntry('ko');
 

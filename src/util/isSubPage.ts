@@ -47,7 +47,7 @@ export function isSubPage(currentPage: string, parentSlug: string | undefined, l
 		return true;
 	}
 	// Test 3: is there a known parent page for this page type?
-	const type = englishPages.find(({ slug }) => slug === currentPage)?.data.type;
+	const type = englishPages.find(({ id }) => id === currentPage)?.data.type;
 	if (type && typeIndexes[type] === parentSlug) {
 		return true;
 	}
