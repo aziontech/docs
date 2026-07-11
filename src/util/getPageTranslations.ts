@@ -1,4 +1,4 @@
-import { getLangFromSlug, removeLeadingSlash, removeTrailingSlash } from '~/util'
+import { getLangFromSlug, normalizePathSlashes, removeLeadingSlash, removeTrailingSlash } from '~/util'
 import { getCollection } from 'astro:content';
 
 interface LanguageSelector {
@@ -11,7 +11,7 @@ export const getTranslatedPagesByNamespace = async (namespace: string): Promise<
 
 	const mappedPageData =  translatePageData
 		.filter(page => page.data.permalink)
-		.map(page => ({ slug: removeTrailingSlash(removeLeadingSlash(page.data.permalink)), lang: getLangFromSlug(page.slug) }));
+		.map(page => ({ slug: removeTrailingSlash(removeLeadingSlash(normalizePathSlashes(page.data.permalink))), lang: getLangFromSlug(page.slug) }));
 
 	return mappedPageData.length > 0 ? mappedPageData : undefined
 }

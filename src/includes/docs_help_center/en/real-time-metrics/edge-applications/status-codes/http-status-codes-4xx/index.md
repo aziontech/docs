@@ -1,6 +1,6 @@
 ## HTTP Status Codes 4XX
 
-Whenever a domain that's associated with an Azion edge application receives a request, it also receives a specific status code according to the server's response. The graph then shows the sum of total requests that received a status 4XX.
+Whenever a domain that's associated with an Azion application receives a request, it also receives a specific status code according to the server's response. The graph then shows the sum of total requests that received a status 4XX.
 
 The 4XX status codes indicate there was an error on the client's side. This means the request couldn't be completed by the server because it identified an error, likely due to the page being unavailable or the request containing bad syntax. Therefore, the server couldn't deliver your domain's content.
 

@@ -1,6 +1,6 @@
 ## HTTP Status Codes 2XX
 
-Whenever a domain that's associated with an Azion edge application receives a request, it also receives a specific status code according to the server's response. The graph then shows the sum of total requests that received a status 2XX.
+Whenever a domain that's associated with an Azion application receives a request, it also receives a specific status code according to the server's response. The graph then shows the sum of total requests that received a status 2XX.
 
 The 2XX status codes indicate successful requests on the server's side. This means the request passed the stages of: received, understood, accepted, and processed by the server, and the end user is able to see your domain's content.
 

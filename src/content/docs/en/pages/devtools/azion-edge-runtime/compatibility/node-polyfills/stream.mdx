@@ -12,9 +12,15 @@ menu_namespace: runtimeMenu
 
 The `stream` module in Node.js is a core component that facilitates the handling of streaming data. It allows developers to read and write data in a continuous flow, making it efficient for processing large volumes of data without consuming excessive memory.
 
+---
+
+## Example: Basic readable and writable streams
+
+The example below shows how to use the `stream` module in a function:
+
 ```javascript
 /**
- * An example of using Node.js Stream API in an Azion Edge Function.
+ * An example of using Node.js Stream API in an Azion Function.
  * Support:
  * - Partially supported (Extended by library `stream-browserify`)
  * @module runtime-apis/nodejs/stream/main
@@ -26,7 +32,7 @@ The `stream` module in Node.js is a core component that facilitates the handling
 import stream from "node:stream";
 
 /**
- * An example of using the Node.js Stream API in an Azion Edge Function.
+ * An example of using the Node.js Stream API in an Azion Function.
  * @param {*} event
  * @returns {Promise<Response>}
  */
@@ -65,6 +71,261 @@ const main = async (event) => {
 export default main;
 ```
 
+---
+
+## Example: Transform stream for data processing
+
+Use Transform streams to modify data as it passes through:
+
+```javascript
+import { Transform, pipeline } from "node:stream";
+
+const main = async (event) => {
+  // Create a transform stream that uppercases text
+  const upperCaseTransform = new Transform({
+    transform(chunk, encoding, callback) {
+      const uppercased = chunk.toString().toUpperCase();
+      this.push(uppercased);
+      callback();
+    }
+  });
+
+  // Create a transform stream that adds line numbers
+  let lineNumber = 0;
+  const addLineNumbers = new Transform({
+    transform(chunk, encoding, callback) {
+      lineNumber++;
+      const numbered = `${lineNumber}: ${chunk.toString()}`;
+      this.push(numbered);
+      callback();
+    }
+  });
+
+  // Collect output
+  const output = [];
+  const collector = new Transform({
+    transform(chunk, encoding, callback) {
+      output.push(chunk.toString());
+      callback();
+    }
+  });
+
+  // Simulate input data
+  const inputData = ["hello\n", "world\n", "azion\n", "runtime\n"];
+
+  // Process each chunk through the pipeline
+  for (const data of inputData) {
+    upperCaseTransform.write(data);
+  }
+  upperCaseTransform.end();
+
+  return new Promise((resolve) => {
+    pipeline(
+      upperCaseTransform,
+      addLineNumbers,
+      collector,
+      (err) => {
+        if (err) {
+          console.error("Pipeline error:", err);
+        }
+        console.log("Output:", output.join(""));
+        resolve(new Response(output.join("")));
+      }
+    );
+  });
+};
+
+export default main;
+```
+
+---
+
+## Example: PassThrough stream for data forwarding
+
+Use PassThrough streams to forward data without modification:
+
+```javascript
+import { PassThrough, pipeline } from "node:stream";
+
+const main = async (event) => {
+  // Create a PassThrough stream
+  const passThrough = new PassThrough();
+
+  // Collect data that passes through
+  const collected = [];
+  passThrough.on("data", (chunk) => {
+    collected.push(chunk.toString());
+    console.log("Data passed through:", chunk.toString());
+  });
+
+  // Write data to the stream
+  const data = ["First chunk\n", "Second chunk\n", "Third chunk\n"];
+  data.forEach(chunk => passThrough.write(chunk));
+  passThrough.end();
+
+  // Wait for all data to be processed
+  await new Promise(resolve => passThrough.on("finish", resolve));
+
+  return new Response(JSON.stringify({
+    message: "Data passed through successfully",
+    chunks: collected,
+    totalChunks: collected.length
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+---
+
+## Example: Duplex stream for bidirectional communication
+
+Create streams that can both read and write:
+
+```javascript
+import { Duplex } from "node:stream";
+
+const main = async (event) => {
+  // Create a duplex stream
+  const duplex = new Duplex({
+    read(size) {
+      // Simulate reading data
+      if (this._readCounter === undefined) this._readCounter = 0;
+      this._readCounter++;
+      
+      if (this._readCounter <= 3) {
+        this.push(`Read chunk ${this._readCounter}\n`);
+      } else {
+        this.push(null); // End the stream
+      }
+    },
+    write(chunk, encoding, callback) {
+      console.log("Written:", chunk.toString().trim());
+      callback();
+    }
+  });
+
+  // Write to the duplex stream
+  duplex.write("Data to write\n");
+  duplex.write("More data\n");
+
+  // Read from the duplex stream
+  const output = [];
+  duplex.on("data", (chunk) => {
+    output.push(chunk.toString());
+  });
+
+  // Wait for stream to end
+  await new Promise(resolve => duplex.on("end", resolve));
+
+  return new Response(JSON.stringify({
+    readOutput: output.join(""),
+    message: "Duplex stream processed"
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+---
+
+## Example: Processing request body with streams
+
+Stream request body data for efficient processing:
+
+```javascript
+import { Transform } from "node:stream";
+import { Buffer } from "node:buffer";
+
+const main = async (event) => {
+  const request = event.request;
+
+  // Create a transform stream to process chunks
+  let totalBytes = 0;
+  const byteCounter = new Transform({
+    transform(chunk, encoding, callback) {
+      totalBytes += chunk.length;
+      this.push(chunk);
+      callback();
+    }
+  });
+
+  // Create a transform to collect data
+  const chunks = [];
+  const collector = new Transform({
+    transform(chunk, encoding, callback) {
+      chunks.push(chunk);
+      this.push(chunk);
+      callback();
+    }
+  });
+
+  // Get request body as stream (if available)
+  if (request.body) {
+    const reader = request.body.getReader();
+    
+    // Process the stream
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      byteCounter.write(Buffer.from(value));
+      collector.write(Buffer.from(value));
+    }
+    
+    byteCounter.end();
+    collector.end();
+  }
+
+  // Combine collected chunks
+  const bodyContent = chunks.length > 0 
+    ? Buffer.concat(chunks).toString("utf8") 
+    : "No body content";
+
+  return new Response(JSON.stringify({
+    totalBytes,
+    chunkCount: chunks.length,
+    bodyPreview: bodyContent.substring(0, 200)
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+---
+
+## Supported APIs
+
+| API | Status |
+|-----|--------|
+| `stream.Readable` | 🟢 Supported |
+| `stream.Writable` | 🟢 Supported |
+| `stream.Duplex` | 🟢 Supported |
+| `stream.Transform` | 🟢 Supported |
+| `stream.PassThrough` | 🟢 Supported |
+| `stream.pipeline()` | 🟢 Supported |
+| `stream.compose()` | 🟡 Partially supported |
+| `stream.finished()` | 🟡 Partially supported |
+| `readable.pipe()` | 🟢 Supported |
+| `readable.on('data')` | 🟢 Supported |
+| `readable.on('end')` | 🟢 Supported |
+| `readable.on('error')` | 🟢 Supported |
+| `writable.write()` | 🟢 Supported |
+| `writable.end()` | 🟢 Supported |
+| `transform.push()` | 🟢 Supported |
+
 :::note
 Only the APIs `Duplex`, `PassThrough`, `Readable`, `Stream`, `Transform`, and `Writable` are supported.
 :::
+
+---
+
+## Related resources
+
+- [Node.js `stream` documentation](https://nodejs.org/api/stream.html)
