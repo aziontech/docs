@@ -16,4 +16,4 @@ Build and Output Settings could be automatically filled by Azion's platform, bas
 
 Your project must be developed in one of the frameworks supported by Azion. In case of importing projects based on other frameworks, Real-Time Manager won't complete the building and deployment processes. For more details, see the [Supported Frameworks and Azion Runtime](https://www.azion.com/en/documentation/runtime/overview/) documentation.
 
-For more information on building methods on Azion, read the [Building and setting up an edge application](https://www.azion.com/en/documentation/products/getting-started/build-edge-applications/) documentation.
+For more information on building methods on Azion, read the [Building and setting up an application](https://www.azion.com/en/documentation/products/getting-started/build-edge-applications/) documentation.

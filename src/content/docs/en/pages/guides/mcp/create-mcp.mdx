@@ -1,0 +1,262 @@
+---
+title: How to run an MCP server on Azion
+description: Learn how to configure an MCP server on azion
+meta_tags: >-
+  MCP server, Azion, model context protocol, JSON-RPC, standardized communication, AI tools, elastic scalability, high availability, data sovereignty, fast and secure deployment
+namespace: documentation_products_guides_mcp
+permalink: /documentation/products/guides/run-mcp-server/
+---
+
+The Model Context Protocol (MCP) is an open spec that uses JSON-RPC to standardize communication between apps and AI agents . It defines high-level operations—listing/invoking tools, reading/writing resources, and fetching prompts—so any compatible client can use third-party AI capabilities without tight coupling. MCP servers let LLMs call external functions and access data. 
+
+MCP exposes three types: tools (actions), resources (data/content like files or API responses), and prompts (shared prompt templates).
+
+Running MCP servers at Azion offers:
+
+- Minimal latency
+- Elastic scalability
+- High availability
+- Data sovereignty
+- Fast, safe deploys (blue-green and instant rollback)
+
+:::tip
+For more information about the MCP protocol, visit the [MCP Documentation](https://modelcontextprotocol.io/introduction).
+:::
+
+--- 
+
+## Deploying your MCP server
+
+In this guide we will create an [Function](/en/documentation/products/build/applications/functions/) to run a MCP server.
+
+The transport used in this guide is `StreamableHTTPServerTransport`. For alternative transports,[see the MCP documentation](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports).
+
+The server can be implemented with either of the following:
+
+`McpServer` (high-level): simplifies registration of tools, resources, and prompts.
+`Server` (low-level): provides fine-grained control by implementing request handlers directly.
+
+### Creating a Function
+
+1. [Access Azion Console](https://console.azion.com).
+2. On the upper-left corner, select **Functions**
+3. Click **+ Function**.
+4. Choose a name for your Function.
+5. Select the **Application** execution environment.
+6. In the **Code** tab, paste your code.
+
+
+### Using McpServer:
+
+`McpServer` creates a high-level MCP server, and you only need to declare its properties with the register methods:
+
+```javascript
+import { Hono } from 'hono'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { toFetchResponse, toReqRes } from 'fetch-to-node'
+
+const app = new Hono()
+
+const server = new McpServer({
+    name: "azion-mcp-server",
+    version: "1.0.0"
+});
+
+server.registerTool("add",
+    {
+        title: "Addition Tool",
+        description: "Add two numbers",
+        inputSchema: { a: z.number(), b: z.number() }
+    },
+    async ({ a, b }) => ({
+        content: [{ type: "text", text: String(a + b) }]
+    })
+);
+
+server.registerResource(
+    "greeting",
+    new ResourceTemplate("greeting://{name}", { list: undefined }),
+    {
+        title: "Greeting Resource",
+        description: "Dynamic greeting generator"
+    },
+    async (uri, { name }) => ({
+        contents: [{
+            uri: uri.href,
+            text: `Hello, ${name}!`
+        }]
+    })
+);
+
+
+app.post('/mcp', async (c: Context) => {
+  try {
+    const { req, res } = toReqRes(c.req.raw);
+
+    const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+
+    await server.connect(transport);
+
+    const body = await c.req.json();
+
+    await transport.handleRequest(req, res, body);
+
+    res.on('close', () => {
+      console.log('Connection closed.');
+      transport.close();
+      server.close();
+    });
+
+    return toFetchResponse(res);
+  } catch (error) {
+
+    console.error('Error handling MCP request:', error);
+
+    const { req, res } = toReqRes(c.req.raw);
+
+    if (!res.headersSent) {
+      res.writeHead(500).end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32603, message: 'Internal server error' },
+        id: null,
+      }));
+    }
+  }
+});
+
+export default app
+```
+
+
+## Using `Server`
+
+This example uses the `Server` class and the Hubspot MCP Server:
+
+```javascript
+
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { CallToolRequestSchema, GetPromptRequestSchema, ListPromptsRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
+import { getPrompts, getPromptMessages } from '@hubspot/mcp-server/dist/prompts/index.js';
+import { getTools, handleToolCall } from '@hubspot/mcp-server/dist/tools/index.js';
+import '@hubspot/mcp-server/dist/prompts/promptsRegistry.js';
+import '@hubspot/mcp-server/dist/tools/toolsRegistry.js';
+import { Hono } from 'hono';
+import { toFetchResponse, toReqRes } from 'fetch-to-node';
+
+// Create server instance
+const server = new Server({
+    name: 'azion-hubspot-mcp-server',
+    version: '1.0.0',
+}, {
+    capabilities: {
+        tools: {},
+        prompts: {},
+        resources: {},
+    },
+});
+
+// Handler for listing tools
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return {
+        tools: getTools(),
+    };
+});
+
+// Handler for calling tools
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    return handleToolCall(name, args);
+});
+
+// Handler for listing prompts
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    return {
+        prompts: getPrompts(),
+    };
+});
+
+// Handler for getting specific prompt
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    return getPromptMessages(name, args);
+});
+
+// Create Hono app
+const app = new Hono();
+
+app.post('/mcp', async (c) => {
+    try {
+
+        const { req, res } = toReqRes(c.req.raw);
+
+        const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+        });
+
+        await server.connect(transport);
+
+        await transport.handleRequest(req, res, await c.req.json())
+
+        res.on('close', () => {
+            console.log('Request closed');
+            transport.close();
+            server.close();
+        });
+
+        return toFetchResponse(res);
+    } catch (error) {
+        const { req, res } = toReqRes(c.req.raw);
+        console.error('Error handling MCP request:', error);
+        if (!res.headersSent) {
+            res.writeHead(500).end(JSON.stringify({
+                jsonrpc: '2.0',
+                error: {
+                    code: -32603,
+                    message: 'Internal server error',
+                },
+                id: null,
+            }));
+        }
+    }
+});
+
+export default app
+```
+
+
+Properties:
+
+| Category | Registration API |
+|---|---|
+| tools | `server.registerTools()` |
+| resources | `server.registerResources()` |
+| prompts | `server.registerPrompts()` |
+
+ This way, the methods must create the handlers. To do this, use `server.setRequestHandler(Schema, async () => { ... })`, using as Schema the options listed [here](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/src/types.ts). Some examples below:
+
+Schemas for listing properties:
+
+| Schema | Description |
+|---|---|
+| `ListToolsRequestSchema` | Lists tools |
+| `ListResourcesRequestSchema` | Lists resources |
+| `ListPromptsRequestSchema` | Lists prompts |
+
+Schemas for invoking properties:
+
+| Schema | Description |
+|---|---|
+| `CallToolRequestSchema` | Invokes tools |
+| `ReadResourceRequestSchema` | Reads resources |
+| `GetPromptRequestSchema` | Reads prompts |
+
+Request handlers:
+
+| Category | Example |
+|---|---|
+| tools | `server.setRequestHandler(ListToolsRequestSchema, async () => { ... })` |
+| resources | `server.setRequestHandler(ReadResourceRequestSchema, async () => { ... })` |
+| prompts | `server.setRequestHandler(GetPromptRequestSchema, async () => { ... })` |
+
+For more details, consult the [protocol SDK for TypeScript](https://github.com/modelcontextprotocol/typescript-sdk/).
