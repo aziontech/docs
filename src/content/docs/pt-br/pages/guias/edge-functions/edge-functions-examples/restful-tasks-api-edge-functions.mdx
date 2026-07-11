@@ -1,0 +1,536 @@
+---
+title: "Crie uma API RESTful com Functions e SQL"
+description: >-
+  Aprenda como criar uma API RESTful completa para gerenciamento de tarefas usando Azion Functions e SQL Database, implementando operações CRUD no edge para performance otimizada.
+meta_tags: 'functions, sql database, api restful, operações crud, gerenciamento de tarefas'
+namespace: docs_guides_restful_tasks_api
+permalink: /documentacao/produtos/guias/build/api-restful-edge-functions-edge-sql/
+---
+
+import LinkButton from 'azion-webkit/linkbutton'
+
+Este guia demonstra como construir uma API RESTful completa para gerenciamento de tarefas usando Azion Functions e SQL Database. Você aprenderá a implementar operações CRUD (Create, Read, Update, Delete) completas no edge, fornecendo endpoints de API rápidos e escaláveis globalmente.
+
+:::tip
+Esta demonstração mostra como aproveitar Functions com SQL Database para criar APIs RESTful de alta performance que executam próximo aos seus usuários em todo o mundo.
+:::
+
+## Requisitos
+
+Antes de começar, certifique-se de ter:
+
+- Uma [conta na Azion](https://console.azion.com/)
+- [Azion CLI](/pt-br/documentacao/produtos/azion-cli/visao-geral/) instalada e configurada
+- [Node.js](https://nodejs.org/) versão 18 ou superior
+
+## Primeiros passos
+
+### Passo 1: Criar um novo banco de dados SQL Database
+
+1. Crie um banco de dados SQL Database usando a API da Azion
+
+```bash
+curl --location 'https://api.azion.com/v4/edge_sql/databases' \
+--header 'Authorization: Token [TOKEN VALUE]' \
+--header 'Content-Type: application/json' \
+--data '{
+   "name": "my-database"
+}'
+```
+
+Você deve receber a seguinte resposta:
+
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": 118,
+    "name": "my-database",
+    "client_id": "6832h",
+    "status": "creating",
+    "created_at": "2024-04-18T11:22:59.468536Z",
+    "updated_at": "2024-04-18T11:22:59.468586Z",
+    "deleted_at": null
+  }
+}
+```
+
+Para mais detalhes, veja a [documentação do SQL Database](https://www.azion.com/pt-br/documentacao/produtos/store/visao-geral/#edge-sql).
+
+### Passo 2: Configurar o schema do banco de dados
+
+Você pode usar os seguintes comandos SQL para configurar o schema do banco de dados.
+
+1. Conecte-se à sua instância SQL Database e crie a tabela de tarefas:
+
+```sql
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    completed BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+2. Opcionalmente, insira alguns dados de exemplo para teste:
+
+```sql
+INSERT INTO tasks (title, completed) VALUES 
+    ('Complete API documentation', FALSE),
+    ('Test function deployment', FALSE),
+    ('Review security configurations', TRUE);
+```
+
+## Código
+
+Este é um exemplo de código de como criar uma API RESTful com Azion Functions e SQL Database. O exemplo completo do código você pode encontrar nesse [repositório do GitHub](https://github.com/egermano/edge-functions-examples/tree/main/packages/restful-tasks).
+
+### Integração com banco de dados
+
+```typescript db.ts
+import { useExecute, useQuery } from "azion/sql";
+
+const DATABASE_NAME = process.env.DATABASE_NAME || "tasks";
+
+export interface Task {
+  id: number;
+  title: string;
+  completed: boolean;
+}
+
+export const getTasks = async (): Promise<Task[]> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    "SELECT * FROM tasks",
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    data?.results?.[0]?.rows?.map(
+      (row) =>
+        ({
+          id: row[0],
+          title: row[1],
+          completed: row[2] === 1,
+        } as Task)
+    ) || []
+  );
+};
+
+export const getTask = async (id: number): Promise<Task | null> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    `SELECT * FROM tasks WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    (data?.results?.[0]?.rows?.[0] &&
+      ({
+        id: data?.results?.[0]?.rows?.[0][0],
+        title: data?.results?.[0]?.rows?.[0][1],
+        completed: data?.results?.[0]?.rows?.[0][2] === 1,
+      } as Task)) ||
+    null
+  );
+};
+
+export const createTask = async (task: Omit<Task, "id">): Promise<Task> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `INSERT INTO tasks (title, completed) VALUES ('${task.title}', ${task.completed}) RETURNING id`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  const newId = data?.results?.[0]?.rows?.[0]?.[0] || "";
+  return { ...task, id: Number(newId) };
+};
+
+export const updateTask = async (
+  id: number,
+  task: Partial<Omit<Task, "id">>
+): Promise<Task | null> => {
+  const existingTask = await getTask(id);
+  if (!existingTask) {
+    return null;
+  }
+
+  const updatedTitle =
+    task.title !== undefined ? task.title : existingTask.title;
+  const updatedCompleted =
+    task.completed !== undefined ? task.completed : existingTask.completed;
+
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `UPDATE tasks SET title = '${updatedTitle}', completed = ${updatedCompleted} WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return { ...existingTask, title: updatedTitle, completed: updatedCompleted };
+};
+
+export const deleteTask = async (id: number): Promise<boolean> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `DELETE FROM tasks WHERE id = ${id}`,
+  ]);
+  
+  if (error) {
+    throw error;
+  }
+
+  return data?.state === "executed" || data?.state === "pending";
+};
+```
+
+### Aplicação
+
+```typescript app.ts
+import { Hono } from 'hono';
+import { fire } from 'hono/service-worker';
+import {
+  createTask,
+  deleteTask,
+  getTask,
+  getTasks,
+  updateTask,
+} from './db';
+
+const app = new Hono();
+
+app.get('/tasks', async (c) => {
+  try {
+    const tasks = await getTasks();
+    return c.json(tasks);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch tasks' }, 500);
+  }
+});
+
+app.get('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const task = await getTask(Number(id));
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    return c.json(task);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch task' }, 500);
+  }
+});
+
+app.post('/tasks', async (c) => {
+  try {
+    const { title, completed } = await c.req.json();
+    const newTask = await createTask({ title, completed: completed || false });
+    return c.json(newTask, 201);
+  } catch (error) {
+    console.log(error);
+    return c.json({ error: 'Failed to create task' }, 500);
+  }
+});
+
+app.put('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const { title, completed } = await c.req.json();
+    const updatedTask = await updateTask(Number(id), { title, completed });
+    if (!updatedTask) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    return c.json(updatedTask);
+  } catch (error) {
+    return c.json({ error: 'Failed to update task' }, 500);
+  }
+});
+
+app.delete('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const success = await deleteTask(Number(id));
+    if (!success) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    return c.json({ message: 'Task deleted' });
+  } catch (error) {
+    return c.json({ error: 'Failed to delete task' }, 500);
+  }
+});
+
+fire(app);
+```
+
+## Deploy na Azion
+
+### Passo 1: Autenticação na Azion
+
+1. Faça login na sua conta Azion via CLI:
+
+```bash
+azion login
+```
+
+2. Siga os prompts de autenticação para conectar sua CLI com sua conta Azion.
+
+### Passo 2: Criar uma nova Applications
+
+1. Inicialize uma nova Applications:
+
+```bash
+azion init
+```
+
+2. Selecione o template Hono Boilerplate para usar para sua aplicação browserless.
+
+3. Siga os prompts para configurar sua nova Applications.
+
+### Passo 3: Deploy da Function
+
+Deploy da sua RESTful API para a rede da Azion:
+
+```bash
+azion deploy
+```
+
+O processo de deploy irá:
+
+- Fazer upload do código da sua Function
+- Configurar a application
+- Configurar regras de roteamento para todos os endpoints da API
+- Configurar conexões com o banco de dados
+- Fornecer um domínio único
+
+### Passo 4: Acesse sua API
+
+Após o deploy, você receberá um domínio como `https://xxxxxxx.map.azionedge.net`. Sua API RESTful estará disponível nesta URL em alguns minutos após a propagação do DNS.
+
+## Entendendo a implementação
+
+### Estrutura da Function
+
+A Function da API RESTful inclui:
+
+1. **Configuração do router**: Manipulação de diferentes métodos HTTP e rotas
+2. **Conexão com banco de dados**: Conectando ao SQL Database
+3. **Operações CRUD**: Implementação de operações create, read, update, delete
+4. **Tratamento de erros**: Gerenciamento de erros de banco de dados e requisição
+5. **Formatação de resposta**: Retorno de respostas JSON consistentes
+
+### Exemplo de operações de banco de dados
+
+Veja como as operações de banco de dados são implementadas:
+
+```javascript
+// Obter todas as tarefas
+async function getAllTasks() {
+    const query = 'SELECT * FROM tasks ORDER BY created_at DESC';
+    const result = await database.query(query);
+    return result.rows;
+}
+
+// Criar uma nova tarefa
+async function createTask(title, completed = false) {
+    const query = `
+        INSERT INTO tasks (title, completed) 
+        VALUES (?, ?) 
+        RETURNING *
+    `;
+    const result = await database.query(query, [title, completed]);
+    return result.rows[0];
+}
+
+// Atualizar uma tarefa
+async function updateTask(id, updates) {
+    const { title, completed } = updates;
+    const query = `
+        UPDATE tasks 
+        SET title = ?, completed = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ? 
+        RETURNING *
+    `;
+    const result = await database.query(query, [title, completed, id]);
+    return result.rows[0];
+}
+```
+
+### Principais benefícios
+
+- **Performance**: Processamento de API no edge reduz latência
+- **Escalabilidade**: Escala automaticamente com a demanda
+- **Distribuição global**: Edge locations oferecem cobertura mundial
+- **Consistência de dados**: SQL Database garante conformidade ACID
+- **Eficiência de custo**: Acesso e transferência de dados otimizados
+
+## Testando sua API RESTful
+
+### Passo 1: Teste operações CRUD
+
+1. **Criar tarefas**: Teste endpoint POST/tasks
+2. **Ler tarefas**: Teste endpoints GET/tasks e GET/tasks/:id
+3. **Atualizar tarefas**: Teste endpoint PUT/tasks/:id
+4. **Excluir tarefas**: Teste endpoint DELETE/tasks/:id
+
+### Passo 2: Teste tratamento de erros
+
+1. **Dados inválidos**: Teste com corpos de requisição malformados
+2. **Recursos inexistentes**: Teste com IDs de tarefa inválidos
+3. **Erros de banco de dados**: Teste tratamento de erros para problemas de conexão
+4. **Erros de validação**: Teste lógica de validação de entrada
+
+### Passo 3: Testes de performance
+
+1. **Tempos de resposta**: Meça tempos de resposta da API
+2. **Requisições simultâneas**: Teste múltiplas requisições simultâneas
+3. **Performance do banco de dados**: Monitore performance de consultas SQL
+4. **Teste de carga**: Teste com altos volumes de requisições
+
+## Exemplo de uso da API
+
+### Usando cURL
+
+```bash
+# Obter todas as tarefas
+curl -X GET https://seu-dominio.map.azionedge.net/tasks
+
+# Criar uma nova tarefa
+curl -X POST https://seu-dominio.map.azionedge.net/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Aprender Azion Functions", "completed": false}'
+
+# Atualizar uma tarefa
+curl -X PUT https://seu-dominio.map.azionedge.net/tasks/1 \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Título da tarefa atualizada", "completed": true}'
+
+# Excluir uma tarefa
+curl -X DELETE https://seu-dominio.map.azionedge.net/tasks/1
+```
+
+### Usando JavaScript fetch
+
+```javascript
+// Obter todas as tarefas
+const tasks = await fetch('/tasks').then(r => r.json());
+
+// Criar uma nova tarefa
+const newTask = await fetch('/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        title: 'Nova tarefa',
+        completed: false
+    })
+}).then(r => r.json());
+
+// Atualizar uma tarefa
+const updatedTask = await fetch('/tasks/1', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        title: 'Tarefa atualizada',
+        completed: true
+    })
+}).then(r => r.json());
+```
+
+## Recursos avançados
+
+### Adicionando autenticação
+
+Implemente autenticação para proteger sua API:
+
+```javascript
+async function authenticateRequest(request) {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new Error('Autenticação necessária');
+    }
+    
+    const token = authHeader.substring(7);
+    return await validateToken(token);
+}
+```
+
+### Validação de entrada
+
+Adicione validação abrangente de entrada:
+
+```javascript
+function validateTaskData(data) {
+    const errors = [];
+    
+    if (!data.title || typeof data.title !== 'string') {
+        errors.push('Título é obrigatório e deve ser uma string');
+    }
+    
+    if (data.title && data.title.length > 255) {
+        errors.push('Título deve ter menos de 255 caracteres');
+    }
+    
+    if (data.completed !== undefined && typeof data.completed !== 'boolean') {
+        errors.push('Completed deve ser um boolean');
+    }
+    
+    return errors;
+}
+```
+
+### Paginação
+
+Implemente paginação para grandes conjuntos de dados:
+
+```javascript
+async function getTasksPaginated(page = 1, limit = 10) {
+    const offset = (page - 1) * limit;
+    const query = `
+        SELECT * FROM tasks 
+        ORDER BY created_at DESC 
+        LIMIT ? OFFSET ?
+    `;
+    const tasks = await database.query(query, [limit, offset]);
+    
+    const countQuery = 'SELECT COUNT(*) as total FROM tasks';
+    const totalResult = await database.query(countQuery);
+    const total = totalResult.rows[0].total;
+    
+    return {
+        tasks: tasks.rows,
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit)
+        }
+    };
+}
+```
+
+## Solução de problemas
+
+### Problemas comuns e soluções
+
+- **Erros de conexão com banco de dados**: Verifique credenciais SQL Database e string de conexão
+- **Endpoint da API não encontrado**: Verifique configuração de roteamento e deployment
+- **Erros SQL**: Valide schema do banco de dados e sintaxe de consulta
+- **Problemas de performance**: Otimize consultas SQL e indexação do banco de dados
+
+### Dicas de debugging
+
+1. **Habilite registros**: Adicione registros abrangentes para debugging
+2. **Teste localmente**: Use servidor de desenvolvimento local para isolar problemas
+3. **Monitore performance**: Rastreie tempos de resposta da API e consultas de banco de dados
+4. **Tratamento de erros**: Implemente respostas de erro adequadas e códigos de status
+
+## Próximos passos
+
+- Implemente filtragem e ordenação avançadas
+- Adicione atualizações em tempo real com WebSockets
+- Integre com provedores de autenticação
+- Implemente rate limiting e cache da API
+- Adicione documentação abrangente da API com OpenAPI/Swagger
+
+---
+
+<LinkButton link="/pt-br/documentacao/produtos/store/sql-database/" text="Saiba mais sobre SQL Database" />
+<LinkButton link="/pt-br/documentacao/produtos/build/applications/functions/" text="Saiba mais sobre Functions" />

@@ -1,6 +1,6 @@
 ## Missed Data
 
-The Missed Data graph shows the total sum of your edge application's data when Azion's edge had to look for the content on the origin and deliver it to the end user.
+The Missed Data graph shows the total sum of your application's data when Azion's edge had to look for the content on the origin and deliver it to the end user.
 
 > Missed Data: the edge looks for the content on the origin and then delivers it to the end user.
 >

@@ -1,6 +1,6 @@
 ## Requests by Method
 
-The Requests by Method graph shows the sum of HTTP methods that were used in the requests made to your domain. At Azion, it indicates how the client interacted with the content on the domain associated with an edge application.
+The Requests by Method graph shows the sum of HTTP methods that were used in the requests made to your domain. At Azion, it indicates how the client interacted with the content on the domain associated with an application.
 
 > The graph is divided into:
 > 

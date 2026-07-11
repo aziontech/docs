@@ -1,6 +1,6 @@
 ## Total Requests
 
-The Total Requests graph shows you the sum, the total amount of all types of requests that were processed on the edge application's domain configured in your account.
+The Total Requests graph shows you the sum, the total amount of all types of requests that were processed on the application's domain configured in your account.
 
 Whenever the content of your application is accessed, one request is processed. The graph then shows all requests that occurred during the period you've selected in the time range.
 

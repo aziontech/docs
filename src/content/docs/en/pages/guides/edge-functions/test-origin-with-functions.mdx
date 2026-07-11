@@ -1,0 +1,318 @@
+---
+title: How to test an origin with Functions
+description: >-
+  Use Functions in Firewall to mirror production traffic to a test origin. 
+  Validate new software with real user requests before deploying to production.
+meta_tags: 'functions, firewall, testing, origin, traffic mirroring'
+namespace: docs_guides_test_origin_functions
+permalink: /documentation/products/guides/test-origin-with-functions/
+---
+
+import LinkButton from 'azion-webkit/linkbutton'
+
+Testing new software with synthetic data often misses real-world usage patterns. Functions running on Firewall can mirror production traffic to a test origin, allowing you to validate new software behavior with actual user requests—without affecting the user experience.
+
+## How it works
+
+Functions in the Firewall listener can execute tasks without impacting user requests. When a request reaches Firewall, the function creates a duplicate request and sends it to your test origin, while the original request continues to your production origin. This happens asynchronously, without adding latency to user requests.
+
+Key benefits:
+
+- **Real traffic validation**: Test with actual user data, including edge cases synthetic tests miss
+- **Zero user impact**: Requests complete normally while test data is collected
+- **Production-scale testing**: Verify your new origin handles production load
+- **Configurable monitoring**: Log responses, errors, and latency metrics
+
+---
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- An [application](/en/documentation/products/guides/build/build-an-application/) with production traffic
+- A [domain](/en/documentation/products/guides/configure-a-domain/) associated with your application
+- A test origin (your new software) accessible via HTTPS
+- A [Firewall](/en/documentation/products/guides/secure/firewall-configure-main-settings/) associated with your domain
+
+---
+
+## Creating the traffic mirroring function
+
+### Step 1: Create a new function
+
+1. Access [Azion Console](/en/documentation/products/guides/how-to-access-azion-console/) > **Functions**.
+2. Click **+ Function**.
+3. Name your function (e.g., `Traffic Mirroring`).
+4. In the **Code** tab, add the following code:
+
+```javascript
+const TEST_DOMAIN = "www.your-test-origin.com";
+
+async function firewallHandler(event) {
+  const originalUrl = new URL(event.request.url);
+  const testUrl = `${originalUrl.protocol}//${TEST_DOMAIN}${originalUrl.pathname}${originalUrl.search}`;
+
+  let fetchOptions = {
+    method: event.request.method,
+    headers: Object.fromEntries(event.request.headers)
+  };
+
+  if (event.request.body) {
+    fetchOptions["body"] = await event.request.text();
+  }
+
+  event.waitUntil(fetch(testUrl, fetchOptions));
+  event.continue();
+}
+
+addEventListener("firewall", (event) => event.waitUntil(firewallHandler(event)));
+```
+
+5. Replace `www.your-test-origin.com` with your test origin's domain.
+6. Click **Save**.
+
+:::note
+This code uses `event.waitUntil()` at two levels, each with a distinct responsibility:
+
+- **Outer level** (`addEventListener`): The `event.waitUntil()` wrapping `firewallHandler(event)` ensures the runtime waits for the async handler to complete before considering the event finished.
+- **Inner level** (inside handler): The `event.waitUntil(fetch(...))` guarantees the fetch to your test origin executes without blocking the user request. Combined with the immediate `event.continue()`, this makes the function "transparent" to the user—zero added latency.
+
+The `event.continue()` method is called immediately after `event.waitUntil(fetch(...))`, allowing the original request to proceed to your production origin while the test origin fetch happens asynchronously in the background.
+:::
+
+### Step 2: Configure the function in Firewall
+
+:::note
+The following steps describe configuration in Azion Console. For detailed information about these interfaces, see the [Functions reference](/en/documentation/products/build/applications/functions/) and [Firewall documentation](/en/documentation/products/secure/firewall/).
+:::
+
+1. Access [Azion Console](/en/documentation/products/guides/how-to-access-azion-console/) > **Firewall**.
+2. Select the firewall associated with your domain.
+3. Enable the **Functions** module if not already enabled.
+4. Go to the **Functions Instances** tab.
+5. Click **+ Function Instance**.
+6. Name your instance (e.g., `Traffic Mirroring Instance`).
+7. Select the `Traffic Mirroring` function.
+8. Click **Save**.
+
+### Step 3: Create a rule to trigger the function
+
+1. In the same firewall, go to the **Rules Engine** tab.
+2. Click **+ Rule**.
+3. Name your rule (e.g., `Mirror Traffic to Test Origin`).
+4. In **Criteria**, configure when to mirror traffic:
+   - **If** `${uri}` **matches regex** `.*` (mirrors all requests)
+   - Or specify paths: **If** `${uri}` **starts with** `/api` (mirrors only API requests)
+5. In **Behaviors**, select **Run Function**.
+6. Choose the `Traffic Mirroring Instance`.
+7. Click **Save**.
+
+Wait a few minutes for propagation. Your function now mirrors production traffic to your test origin.
+
+---
+
+## Adding monitoring with Real-Time Events
+
+:::note
+The features described in this section—`event.console.log()`, `event.console.warn()`, and Real-Time Events integration—are Azion platform capabilities documented separately. For more information, see [Real-Time Events](/en/documentation/products/observe/real-time-events/).
+:::
+
+To understand how your test origin responds, add logging that appears in Real-Time Events.
+
+### Step 4: Update the function with logging
+
+Replace your function code with:
+
+```javascript
+const TEST_DOMAIN = "www.your-test-origin.com";
+
+async function firewallHandler(event) {
+  try {
+    const originalUrl = new URL(event.request.url);
+    const testUrl = `${originalUrl.protocol}//${TEST_DOMAIN}${originalUrl.pathname}${originalUrl.search}`;
+
+    let fetchOptions = {
+      method: event.request.method,
+      headers: Object.fromEntries(event.request.headers),
+      signal: AbortSignal.timeout(5000) // Shorter timeout for diagnostic phases; increase if your test origin is slow. The reusable version in Step 6 defaults to 10000 ms.
+    };
+
+    if (event.request.body) {
+      fetchOptions["body"] = await event.request.text();
+    }
+
+    const startTime = Date.now();
+    const testOriginResponse = await fetch(testUrl, fetchOptions);
+    const responseTime = (Date.now() - startTime) / 1000;
+
+    event.console.log(`[${testOriginResponse.status}, ${responseTime}s]`);
+
+    if (testOriginResponse.status > 399) {
+      // Note: this log structure extends the canonical fields from
+      // the source reference with request_path and response_time
+      // for additional observability context.
+      event.console.warn(JSON.stringify({
+        request_method: event.request.method,
+        request_body: fetchOptions["body"],
+        request_headers: fetchOptions["headers"],
+        response_body: await testOriginResponse.text(),
+        response_status: testOriginResponse.status,
+        request_path: originalUrl.pathname,   // extended field
+        response_time: responseTime           // extended field
+      }));
+    }
+  } catch (err) {
+    if (err.name === "TimeoutError") {
+      event.console.warn("Test origin timeout");
+    } else {
+      event.console.warn(`Error: ${err.message}`);
+    }
+  }
+
+  // event.continue() is placed OUTSIDE the try/catch intentionally.
+  // This ensures the user's request always proceeds to the production origin,
+  // regardless of any errors during communication with the test origin.
+  event.continue();
+}
+
+addEventListener("firewall", (event) => event.waitUntil(firewallHandler(event)));
+```
+
+:::note
+`AbortSignal.timeout()` is a standard Web API for setting request timeouts. For more information, see the [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static).
+:::
+
+This updated version:
+
+- Logs response status and time for every request
+- Logs detailed information for error responses (4xx and 5xx)
+- Implements a 5-second timeout to prevent long-running requests
+- Handles timeout and other errors gracefully
+
+:::caution
+**This version breaks the zero-latency principle.**
+
+Adding `await` to the fetch fundamentally changes the function's behavior:
+
+- **Before (Step 1)**: The function was "transparent"—`event.continue()` was called immediately, and the fetch happened asynchronously. Zero added latency for users.
+- **Now (Step 4)**: The function becomes "blocking"—it waits for the test origin response before calling `event.continue()`. User requests are delayed by the test origin's response time.
+
+This approach **abandons the core principle** of traffic mirroring described in this guide. Use it only during short diagnostic phases, never as an operational standard. For extended monitoring without user impact, consider using [Data Stream](/en/documentation/products/observe/data-stream/) instead.
+:::
+
+### Step 5: View logs in Real-Time Events
+
+1. Access [Azion Console](/en/documentation/products/guides/how-to-access-azion-console/) > **Real-Time Events**.
+2. Select **Functions** in the filter options.
+3. Filter by your function name or firewall.
+4. Observe the logs appearing as requests are processed.
+
+You'll see entries like:
+
+- `[200, 0.142s]` — Successful responses with latency
+- Warning logs with request details for error responses
+- Timeout warnings if your test origin is slow
+
+---
+
+## Making the function reusable
+
+For multiple test scenarios, use environment variables and JSON Args instead of hardcoding values.
+
+### Step 6: Create a reusable function
+
+Update your function code:
+
+```javascript
+async function firewallHandler(event) {
+  try {
+    const testDomain = event.args.url || Azion.env.get("TEST_URL") || "www.default-test.com";
+    const testTimeout = event.args.timeout || Azion.env.get("TEST_TIMEOUT") || 10000;
+
+    const originalUrl = new URL(event.request.url);
+    const testUrl = `${originalUrl.protocol}//${testDomain}${originalUrl.pathname}${originalUrl.search}`;
+
+    let fetchOptions = {
+      method: event.request.method,
+      headers: Object.fromEntries(event.request.headers),
+      signal: AbortSignal.timeout(testTimeout)
+    };
+
+    if (event.request.body) {
+      fetchOptions["body"] = await event.request.text();
+    }
+
+    const startTime = Date.now();
+    const testOriginResponse = await fetch(testUrl, fetchOptions);
+    const responseTime = (Date.now() - startTime) / 1000;
+
+    event.console.log(`[${testOriginResponse.status}, ${responseTime}s]`);
+
+    if (testOriginResponse.status > 399) {
+      // Note: this log structure extends the canonical fields from
+      // the source reference with request_path and response_time
+      // for additional observability context.
+      event.console.warn(JSON.stringify({
+        request_method: event.request.method,
+        request_body: fetchOptions["body"],
+        request_headers: fetchOptions["headers"],
+        response_body: await testOriginResponse.text(),
+        response_status: testOriginResponse.status,
+        request_path: originalUrl.pathname,   // extended field
+        response_time: responseTime           // extended field
+      }));
+    }
+  } catch (err) {
+    if (err.name === "TimeoutError") {
+      event.console.warn("Test origin timeout");
+    } else {
+      event.console.warn(`Error: ${err.message}`);
+    }
+  }
+
+  // event.continue() is placed OUTSIDE the try/catch intentionally.
+  // This ensures the user's request always proceeds to the production origin,
+  // regardless of any errors during communication with the test origin.
+  event.continue();
+}
+
+addEventListener("firewall", (event) => event.waitUntil(firewallHandler(event)));
+```
+
+:::caution
+Like the version in Step 4, this function uses `await` on the fetch call and is therefore blocking. User requests will be delayed by the test origin's response time. According to benchmarks, this approach can make the function up to 14x slower than the zero-latency version in Step 1, depending on your test origin's response time.
+
+Use this configuration only during active testing phases.
+:::
+
+Now you can configure the function through:
+
+- **JSON Args**: Add `{"url": "www.test-origin.com", "timeout": 3000}` in the function instance
+- **Environment variables**: Set `TEST_URL` and `TEST_TIMEOUT` in your function's environment
+
+This allows you to create multiple function instances with different test origins without modifying the code.
+
+:::note
+The default timeout value is 10000 ms (10 seconds). Adjust this value based on your test origin's expected response time. Shorter timeouts fail faster but may miss valid responses from slower origins.
+:::
+
+---
+
+## Analyzing test results
+
+After running traffic mirroring, analyze your test origin's behavior:
+
+1. **Response times**: Compare latency between production and test origins
+2. **Error rates**: Check for 4xx and 5xx responses in Real-Time Events logs
+3. **Timeout frequency**: Monitor how often requests exceed your timeout threshold
+4. **Request patterns**: Verify your test origin handles all request types (GET, POST, PUT, DELETE)
+
+When your test origin handles production traffic successfully with acceptable latency and error rates, it's ready for production deployment.
+
+---
+
+## Related resources
+
+- [Functions reference](/en/documentation/products/build/applications/functions/)
+- [Rules Engine for Firewall](/en/documentation/products/secure/firewall/rules-engine/)
+- [Real-Time Events](/en/documentation/products/observe/real-time-events/)
