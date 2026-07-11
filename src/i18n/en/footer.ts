@@ -11,10 +11,6 @@ const listData = [
         link: "/en/products/our-network/"
       },
       {
-        title: "Roadmap",
-        link: "/en/roadmap/"
-      },
-      {
         title: "Careers",
         link: "/en/careers/",
       },
@@ -104,7 +100,7 @@ const socialButtons = [
     title: "X",
     link: "https://x.com/aziontech",
     target: "_blank",
-    icon: "ai ai-twitter"
+    icon: "pi pi-twitter"
   },
   {
     title: "Instagram",
