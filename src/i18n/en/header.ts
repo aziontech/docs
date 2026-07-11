@@ -14,12 +14,7 @@ const menuData = {
       label: 'DevTools',
       href: '/en/documentation/devtools/',
       items: []
-    },
-		{
-			label: 'Architectures',
-			href: '/en/documentation/architectures/',
-			items: []
-		}
+    }
   ]
 };
 
@@ -49,7 +44,7 @@ const menuSecondaryMobile = [
     // label: 'Documents',
     items: [
       {
-        label: 'Carreers',
+        label: 'Careers',
         // icon: 'pi pi-briefcase',
         tags: ['we\'re hiring!'],
         url: '/en/careers/jobs/'

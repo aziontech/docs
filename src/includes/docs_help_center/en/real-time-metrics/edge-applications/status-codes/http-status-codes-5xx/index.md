@@ -1,6 +1,6 @@
 ## HTTP Status Codes 5XX
 
-Whenever a domain that's associated with an Azion edge application receives a request, it also receives a specific status code according to the server's response. The graph then shows the sum of total requests that received a status 5XX.
+Whenever a domain that's associated with an Azion application receives a request, it also receives a specific status code according to the server's response. The graph then shows the sum of total requests that received a status 5XX.
 
 The 5XX status codes indicate there was an error on the server's side. This means that the request by the end user seemed to be valid, but for some reason the server couldn't perform the request or encountered an error in the process. Your domain's content still exists, it just couldn't be delivered.
 

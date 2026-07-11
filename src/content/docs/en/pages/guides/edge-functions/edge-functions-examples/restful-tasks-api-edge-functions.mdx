@@ -1,0 +1,355 @@
+---
+title: "Build a RESTful API with Functions & SQL"
+description: >-
+  Learn how to create a complete RESTful API for task management using Azion Functions and SQL Database, implementing CRUD operations at the edge for optimal performance.
+meta_tags: 'functions, sql database, restful api, crud operations, task management'
+namespace: docs_guides_restful_tasks_api
+permalink: /documentation/products/guides/build/restful-tasks-api-functions/
+---
+
+import LinkButton from 'azion-webkit/linkbutton'
+
+This guide demonstrates how to build a complete RESTful API for task management using Azion Functions and SQL Database. You'll learn to implement full CRUD (Create, Read, Update, Delete) operations at the edge, providing fast, scalable API endpoints globally.
+
+:::tip
+This demonstration shows how to leverage Functions with SQL Database to create high-performance RESTful APIs that run close to your users worldwide.
+:::
+
+## Requirements
+
+Before you begin, ensure you have:
+
+- An [Azion account](https://console.azion.com/)
+- [Azion CLI](/en/documentation/products/azion-cli/overview/) installed and configured
+- [Node.js](https://nodejs.org/) version 18 or higher
+
+## Getting started
+
+### Step 1: Create a new SQL Database
+
+1. Create a database using Azion API
+
+```bash
+curl --location 'https://api.azion.com/v4/edge_sql/databases' \
+--header 'Authorization: Token [TOKEN VALUE]' \
+--header 'Content-Type: application/json' \
+--data '{
+   "name": "my-database"
+}'
+```
+
+You should receive the following response:
+
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": 118,
+    "name": "my-database",
+    "client_id": "6832h",
+    "status": "creating",
+    "created_at": "2024-04-18T11:22:59.468536Z",
+    "updated_at": "2024-04-18T11:22:59.468586Z",
+    "deleted_at": null
+  }
+}
+```
+
+For more details, see [SQL Database documentation](https://www.azion.com/en/documentation/products/store/overview/#edge-sql).
+
+### Step 2: Set up the database schema
+
+You can use the following SQL commands to set up the database schema.
+
+1. Connect to your SQL Database instance and create the tasks table:
+
+```sql
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    completed BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+2. Optionally, insert some sample data for testing:
+
+```sql
+INSERT INTO tasks (title, completed) VALUES 
+    ('Complete API documentation', FALSE),
+    ('Test function deployment', FALSE),
+    ('Review security configurations', TRUE);
+```
+
+## Code
+
+This is a code example of how to create a RESTful API with Azion Functions and SQL Database. The complete code example you can find in this [GitHub repository](https://github.com/egermano/edge-functions-examples/tree/main/packages/restful-tasks).
+
+### Database integration
+
+```typescript db.ts
+import { useExecute, useQuery } from "azion/sql";
+
+const DATABASE_NAME = process.env.DATABASE_NAME || "tasks";
+
+export interface Task {
+  id: number;
+  title: string;
+  completed: boolean;
+}
+
+export const getTasks = async (): Promise<Task[]> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    "SELECT * FROM tasks",
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    data?.results?.[0]?.rows?.map(
+      (row) =>
+        ({
+          id: row[0],
+          title: row[1],
+          completed: row[2] === 1,
+        } as Task)
+    ) || []
+  );
+};
+
+export const getTask = async (id: number): Promise<Task | null> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    `SELECT * FROM tasks WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    (data?.results?.[0]?.rows?.[0] &&
+      ({
+        id: data?.results?.[0]?.rows?.[0][0],
+        title: data?.results?.[0]?.rows?.[0][1],
+        completed: data?.results?.[0]?.rows?.[0][2] === 1,
+      } as Task)) ||
+    null
+  );
+};
+
+export const createTask = async (task: Omit<Task, "id">): Promise<Task> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `INSERT INTO tasks (title, completed) VALUES ('${task.title}', ${task.completed}) RETURNING id`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  const newId = data?.results?.[0]?.rows?.[0]?.[0] || "";
+  return { ...task, id: Number(newId) };
+};
+
+export const updateTask = async (
+  id: number,
+  task: Partial<Omit<Task, "id">>
+): Promise<Task | null> => {
+  const existingTask = await getTask(id);
+  if (!existingTask) {
+    return null;
+  }
+
+  const updatedTitle =
+    task.title !== undefined ? task.title : existingTask.title;
+  const updatedCompleted =
+    task.completed !== undefined ? task.completed : existingTask.completed;
+
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `UPDATE tasks SET title = '${updatedTitle}', completed = ${updatedCompleted} WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return { ...existingTask, title: updatedTitle, completed: updatedCompleted };
+};
+
+export const deleteTask = async (id: number): Promise<boolean> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `DELETE FROM tasks WHERE id = ${id}`,
+  ]);
+  
+  if (error) {
+    throw error;
+  }
+
+  return data?.state === "executed" || data?.state === "pending";
+};
+```
+
+### Application
+
+```typescript app.ts
+import { Hono } from 'hono';
+import { fire } from 'hono/service-worker';
+import {
+  createTask,
+  deleteTask,
+  getTask,
+  getTasks,
+  updateTask,
+} from './db';
+
+const app = new Hono();
+
+app.get('/tasks', async (c) => {
+  try {
+    const tasks = await getTasks();
+    return c.json(tasks);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch tasks' }, 500);
+  }
+});
+
+app.get('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const task = await getTask(Number(id));
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    return c.json(task);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch task' }, 500);
+  }
+});
+
+app.post('/tasks', async (c) => {
+  try {
+    const { title, completed } = await c.req.json();
+    const newTask = await createTask({ title, completed: completed || false });
+    return c.json(newTask, 201);
+  } catch (error) {
+    console.log(error);
+    return c.json({ error: 'Failed to create task' }, 500);
+  }
+});
+
+app.put('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const { title, completed } = await c.req.json();
+    const updatedTask = await updateTask(Number(id), { title, completed });
+    if (!updatedTask) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    return c.json(updatedTask);
+  } catch (error) {
+    return c.json({ error: 'Failed to update task' }, 500);
+  }
+});
+
+app.delete('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const success = await deleteTask(Number(id));
+    if (!success) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    return c.json({ message: 'Task deleted' });
+  } catch (error) {
+    return c.json({ error: 'Failed to delete task' }, 500);
+  }
+});
+
+fire(app);
+```
+
+## Deploying to Azion
+
+### Step 1: Authenticate with Azion
+
+1. Log in to your Azion account via CLI:
+
+```bash
+azion login
+```
+
+2. Follow the authentication prompts to connect your CLI with your Azion account.
+
+### Step 2: Create a new Applications from a template
+
+1. Initialize a new Applications:
+
+```bash
+azion init
+```
+
+2. Select the template Hono Boilerplate to use for your browserless application.
+
+3. Follow the prompts to configure your new Applications.
+
+### Step 3: Deploy the Function
+
+Deploy your RESTful API to Azion's edge network:
+
+```bash
+azion deploy
+```
+
+The deployment process will:
+
+- Upload your Function code
+- Configure the applications
+- Set up routing rules for all API endpoints
+- Configure database connections
+- Provide you with a unique domain
+
+### Step 5: Access your API
+
+After deployment, you'll receive a domain like `https://xxxxxxx.map.azionedge.net`. Your RESTful API will be available at this URL within a few minutes after DNS propagation.
+
+## Understanding the implementation
+
+### Function structure
+
+The RESTful API Function includes:
+
+1. **Router setup**: Handling different HTTP methods and routes
+2. **Database connection**: Connecting to SQL Database
+3. **CRUD operations**: Implementing create, read, update, delete operations
+4. **Error handling**: Managing database and request errors
+5. **Response formatting**: Returning consistent JSON responses
+
+### Key benefits
+
+- **Performance**: API processing at the edge reduces latency
+- **Scalability**: Automatically scales with demand
+- **Global distribution**: Edge locations provide worldwide coverage
+- **Data consistency**: SQL Database ensures ACID compliance
+- **Cost efficiency**: Optimized data access and transfer
+
+## Troubleshooting
+
+### Common issues and solutions
+
+- **Database connection errors**: Verify SQL Database credentials and connection string
+- **API endpoint not found**: Check routing configuration and deployment
+- **SQL errors**: Validate database schema and query syntax
+- **Performance issues**: Optimize SQL queries and database indexing
+
+### Debugging tips
+
+1. **Enable logging**: Add comprehensive logging for debugging
+2. **Test locally**: Use local development server to isolate issues
+3. **Monitor performance**: Track API response times and database queries
+4. **Error handling**: Implement proper error responses and status codes
+
+## Next steps
+
+- Implement advanced filtering and sorting
+- Add real-time updates with WebSockets
+- Integrate with authentication providers
+- Implement API rate limiting and caching
+- Add comprehensive API documentation with OpenAPI/Swagger
+
+---
+
+<LinkButton link="/en/documentation/products/store/sql-database/" text="Learn more about SQL Database" />
+<LinkButton link="/en/documentation/products/build/applications/functions/" text="Learn more about Functions" />
