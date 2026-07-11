@@ -1,0 +1,306 @@
+---
+title: How to handle Stripe webhooks with Functions
+description: >-
+  Learn how to securely handle Stripe webhooks using Azion Functions to process payment events in real-time with optimal performance and reliability.
+meta_tags: 'functions, stripe webhooks, payments, webhook verification, stripe integration'
+namespace: docs_guides_stripe_webhooks
+permalink: /documentation/products/guides/build/stripe-webhooks-functions/
+---
+
+import LinkButton from 'azion-webkit/linkbutton'
+
+This guide demonstrates how to securely handle Stripe webhooks using Azion Functions. You'll learn to process payment events in real-time, verify webhook signatures, and build a robust payment processing system at the edge.
+
+:::tip
+This demonstration shows how to leverage Functions for secure webhook processing while maintaining PCI compliance and optimal performance at the edge.
+:::
+
+## Requirements
+
+Before you begin, ensure you have:
+
+- An [Azion account](https://console.azion.com/)
+- A [Stripe account](https://stripe.com/) with API access
+- [Azion CLI](/en/documentation/products/azion-cli/overview/) installed and configured
+- [Node.js](https://nodejs.org/) version 18 or higher
+
+## Code
+
+This is a code example of how to use Stripe webhooks with Azion Functions. The complete code example you can find in this [GitHub repository](https://github.com/egermano/edge-functions-examples/tree/main/packages/stripe-webhooks).
+
+```typescript
+import { Context, Hono } from "hono";
+import { fire } from "hono/service-worker";
+import { HTTPException } from "hono/http-exception";
+import Stripe from "stripe";
+
+type Bindings = {
+  STRIPE_SECRET_KEY: string;
+};
+
+type Variables = {
+  stripeEvent: Stripe.Event;
+};
+
+// Initialize Hono app with proper types
+export const app = new Hono<{
+  Bindings: Bindings;
+  Variables: Variables;
+}>();
+
+// Initialize Stripe with your secret key
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2025-06-30.basil",
+  typescript: true,
+});
+
+// Middleware to verify the webhook signature
+const verifyStripeWebhook = async (c: Context, next: () => Promise<void>) => {
+  try {
+    const signature = c.req.header("stripe-signature");
+    if (!signature) {
+      throw new HTTPException(400, {
+        message: "Missing stripe-signature header",
+      });
+    }
+
+    const payload = await c.req.raw.text();
+
+    // Verify the webhook signature
+    const event = stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET || ""
+    );
+
+    // Attach the event to the context for use in the route handler
+    c.set("stripeEvent", event);
+    await next();
+  } catch (err) {
+    console.error("Webhook verification failed:", err);
+    return c.json({ error: "Webhook verification failed" }, 400);
+  }
+};
+
+// Webhook endpoint
+app.post("/webhook", verifyStripeWebhook, async (c) => {
+  const event = c.get("stripeEvent");
+
+  try {
+    // Handle the event
+    switch (event.type) {
+      case "payment_intent.succeeded": {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        console.log("PaymentIntent was successful!", paymentIntent.id);
+        // Handle successful payment
+        break;
+      }
+
+      case "payment_method.attached": {
+        const paymentMethod = event.data.object as Stripe.PaymentMethod;
+        console.log("PaymentMethod was attached!", paymentMethod.id);
+        break;
+      }
+
+      case "charge.succeeded": {
+        const charge = event.data.object as Stripe.Charge;
+        console.log("Charge was successful!", charge.id);
+        break;
+      }
+
+      // ... handle other event types
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+
+    // Return a 200 response to acknowledge receipt of the event
+    return c.json({ received: true });
+  } catch (err) {
+    console.error("Error handling webhook:", err);
+    return c.json({ error: "Webhook handler failed" }, 400);
+  }
+});
+
+// Health check endpoint
+app.get("/", (c) => {
+  return c.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    service: "stripe-webhooks",
+  });
+});
+
+// Error handling
+app.onError((err: Error, c) => {
+  console.error("Error:", err);
+  return c.json({ error: "Internal Server Error" }, 500);
+});
+
+fire(app, { env: { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY! } });
+```
+
+## Deploying to Azion
+
+### Step 1: Authenticate with Azion
+
+1. Log in to your Azion account via CLI:
+
+```bash
+azion login
+```
+
+2. Follow the authentication prompts to connect your CLI with your Azion account.
+
+### Step 2: Create a new Application from a template
+
+1. Initialize a new Application:
+
+```bash
+azion init
+```
+
+2. Select the template Hono Boilerplate to use for your browserless application.
+
+3. Follow the prompts to configure your new Applications.
+
+### Step 3: Create secrets for Stripe credentials
+
+For security, store your Stripe credentials as secrets:
+
+```bash
+azion create secret STRIPE_SECRET_KEY
+azion create secret STRIPE_WEBHOOK_SECRET
+```
+
+When prompted, enter your respective Stripe credentials. This ensures your sensitive data is encrypted and secure.
+
+### Step 4: Deploy the Function
+
+Deploy your webhook handler to Azion's edge network:
+
+```bash
+azion deploy
+```
+
+The deployment process will:
+
+- Upload your Function code
+- Configure the application
+- Set up the necessary routing rules
+- Configure environment variables and secrets
+- Provide you with a unique domain
+
+### Step 5: Update Stripe webhook configuration
+
+1. After deployment, you'll receive a domain like `https://xxxxxxx.map.azionedge.net`
+2. Go to your Stripe Dashboard > **Developers** > **Webhooks**
+3. Edit your webhook endpoint
+4. Update the URL to `https://xxxxxxx.map.azionedge.net/webhook`
+5. Save the changes
+
+### Step 6: Test webhook delivery
+
+1. Trigger test events in Stripe Dashboard
+2. Monitor webhook delivery and responses
+3. Check Function logs for processing confirmation
+
+## Testing your webhook handler
+
+### Step 1: Use Stripe CLI for local testing
+
+1. Install [Stripe CLI](https://stripe.com/docs/stripe-cli)
+2. Forward webhooks to your local development server:
+
+```bash
+stripe listen --forward-to localhost:3000/webhook
+```
+
+3. Trigger test events:
+
+```bash
+stripe trigger payment_intent.succeeded
+stripe trigger charge.succeeded
+stripe trigger invoice.payment_succeeded
+```
+
+### Step 2: Test in production
+
+1. Use Stripe Dashboard to send test webhooks
+2. Monitor webhook delivery and retry attempts
+3. Check response codes and processing times
+4. Verify event handling accuracy
+
+### Step 3: Error handling testing
+
+1. Test with invalid signatures
+2. Test with malformed payloads
+3. Test timeout scenarios
+4. Verify retry mechanisms
+
+## Security best practices
+
+### Webhook verification
+
+- **Always verify signatures**: Never process unverified webhooks
+- **Use HTTPS**: Ensure all webhook endpoints use HTTPS
+- **Validate payload**: Check event structure and required fields
+- **Implement replay protection**: Track processed event IDs
+
+### Secret management
+
+- **Use Azion secrets**: Store credentials securely
+- **Rotate secrets regularly**: Update webhook secrets periodically
+- **Limit access**: Restrict secret access to necessary functions
+- **Monitor usage**: Track secret access and usage patterns
+
+## Monitoring and logging
+
+### Event logging
+
+```javascript
+function logWebhookEvent(event, status, processingTime) {
+    console.log({
+        event_id: event.id,
+        event_type: event.type,
+        status,
+        processing_time: processingTime,
+        timestamp: new Date().toISOString()
+    });
+}
+```
+
+### Performance monitoring
+
+- **Response times**: Monitor webhook processing speed
+- **Success rates**: Track successful vs failed processing
+- **Error patterns**: Identify common failure scenarios
+- **Retry frequency**: Monitor webhook retry attempts
+
+## Troubleshooting
+
+### Common issues and solutions
+
+- **Signature verification failures**: Check webhook secret configuration
+- **Timeout errors**: Optimize processing logic for speed
+- **Duplicate processing**: Implement idempotency checks
+- **Missing events**: Verify webhook endpoint configuration
+
+### Debugging tips
+
+1. **Enable detailed logging**: Log all webhook events and processing steps
+2. **Use Stripe Dashboard**: Monitor webhook delivery attempts
+3. **Test locally**: Use Stripe CLI for local debugging
+4. **Check signatures**: Verify webhook signature calculation
+
+## Next steps
+
+- Implement comprehensive event logging and monitoring
+- Add webhook replay functionality for failed events
+- Integrate with your existing payment processing system
+- Implement advanced fraud detection mechanisms
+- Scale webhook processing for high-volume scenarios
+
+---
+
+<LinkButton link="https://stripe.com/docs/webhooks" text="Stripe Webhooks Documentation" />
+<LinkButton link="/en/documentation/products/build/applications/functions/" text="Learn more about Functions" />

@@ -1,7 +1,7 @@
 ---
 
 docs: [
-'Build with Edge Application',
+'Build with Applications',
 'Select the setup option',
 'Select a function',
 'Code and Arguments',
