@@ -23,6 +23,11 @@ export function normalizePathSlashes(path: string | undefined) {
 	return `${path}`
 }
 
+/** Collapse repeated slashes and ensure documentation URLs keep one trailing slash. */
+export function normalizeCanonicalPath(path: string | undefined) {
+	return normalizePathSlashes(path).replace(/([^/])$/, '$1/')
+}
+
 /** Get a page’s slug, without the language prefix (e.g. `'en/migrate'` => `'migrate'`). */
 export const stripLangFromSlug = (slug: CollectionEntry<'docs'>['slug']) => slug.split('/').slice(1).join('/');
 

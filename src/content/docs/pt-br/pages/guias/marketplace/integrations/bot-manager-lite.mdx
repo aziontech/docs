@@ -47,7 +47,8 @@ Para instanciar a integração Azion **Bot Manager Lite**, siga estes passos:
 2. Clique no botão **+ Firewall**.
 3. Dê um nome fácil de lembrar ao seu novo firewall.
 4. Habilite o switch **Functions** na seção **Modules**.
-5. Clique no botão **Next**.
+5. Opcionalmente, habilite o switch **Debug Rules** para registrar quais regras do Rules Engine são executadas para cada requisição. Isso é útil durante o ajuste da integração. Consulte [Uso do Debug Rules](#uso-do-debug-rules-para-rastrear-a-execucao-de-regras-do-firewall) para mais detalhes.
+6. Clique no botão **Save**.
 
 Pronto. Você criou uma instância no Firewall para sua função e habilitou o uso de Functions nele.
 
@@ -171,25 +172,139 @@ Para acessar o **Real-Time Events**, proceda da seguinte forma:
 Consulte a documentação para dar seus [Primeiros passos do Real⁠-⁠Time Events](/pt-br/documentacao/produtos/observe/real-time-events/primeiros-passos/) e [entender os logs do Real⁠-⁠Time Events](/pt-br/documentacao/produtos/guias/observe/entender-logs/).
 :::
 
+### Leitura dos campos de log
+
+Cada entrada de log gerada pelo Bot Manager Lite contém campos que revelam como uma requisição foi avaliada. Compreender esses campos permite identificar padrões, validar o `threshold` configurado e decidir se é necessário ajustar as regras.
+
+A estrutura de saída do log segue este formato:
+
+```json
+{
+  "score": 8,
+  "action": "allow",
+  "log_tag": "my_custom_tag",
+  "matched_rules": [1, 4, 7],
+  "request_id": "abc123xyz",
+  "http_user_agent": "curl/7.68.0",
+  "remote_addr": "203.0.113.42"
+}
+```
+
+| Campo | Descrição |
+|---|---|
+| `score` | A pontuação acumulada atribuída à requisição. Cada regra correspondida incrementa esse valor. Se a pontuação atingir ou superar o `threshold`, a `action` configurada é acionada. |
+| `action` | A ação executada para esta requisição: `allow`, `deny`, `drop`, `redirect`, `custom_html`, `random_delay` ou `hold_connection`. |
+| `log_tag` | O identificador definido no argumento `log_tag`. Use-o para filtrar logs quando houver múltiplas instâncias do Bot Manager Lite em diferentes regras do firewall. |
+| `matched_rules` | Um array com os IDs das regras acionadas por esta requisição. Use esses IDs para identificar quais comportamentos estão incrementando a pontuação — e para desabilitar regras específicas que gerem falsos positivos. |
+| `request_id` | Um identificador único para a requisição, útil para correlacionar logs entre diferentes ferramentas de observabilidade da Azion. |
+| `http_user_agent` | A string user-agent enviada na requisição. Útil para identificar clientes automatizados ou assinaturas de bots conhecidos. |
+| `remote_addr` | O endereço IP do cliente. Cruze com suas listas de rede para validar a pontuação baseada em reputação. |
+
+:::tip
+Para habilitar o log de todas as requisições — incluindo aquelas com pontuação `0` — defina `"internal_logs": "2"` nos argumentos da função. Isso é recomendado durante a fase inicial de observação, antes de aplicar uma ação de bloqueio.
+:::
+
 ---
 
-## Gestão do Bot Manager Lite
+## Ajuste do Bot Manager Lite
 
-A Azion fornecerá configurações básicas e fáceis de usar, que devem ser suficientes para a maioria dos casos. Se você precisar de uma configuração mais detalhada, como regras personalizadas, você pode editar o arquivo `JSON` da integração.
+Após revisar seus logs, você pode ajustar os argumentos da função para reduzir falsos positivos, aumentar a precisão da detecção ou adaptar a integração ao perfil de tráfego da sua aplicação.
 
-Para encontrar esse arquivo:
+Para editar a configuração:
 
 1. No canto superior esquerdo, selecione **Products menu** > **Firewall**, dentro da seção **Secure**.
-2. Selecione o firewall relacionado com o **Bot Manager Lite**. 
-3. Abra a aba **Functions Instances** para carregar o formulário contendo o código-fonte da integração.
+2. Selecione o firewall relacionado com o **Bot Manager Lite**.
+3. Abra a aba **Functions Instances**.
 4. Selecione a instância da função que quiser editar.
 5. Edite as variáveis na caixa de código **Arguments**.
 6. Clique no botão **Save**.
 
-Você poderá ajustar os parâmetros do **Bot Manager Lite** de acordo com as necessidades do seu negócio.
+### Ajuste do threshold
+
+O `threshold` define a pontuação a partir da qual o Bot Manager Lite aciona a `action` configurada. Um valor menor aumenta a sensibilidade; um valor maior reduz os falsos positivos.
+
+Comece com o modo de observação (`"action": "allow"` e `"internal_logs": "2"`) para coletar dados de linha de base antes de aplicar uma ação de bloqueio:
+
+```json
+{
+  "threshold": 10,
+  "action": "allow",
+  "internal_logs": "2",
+  "log_tag": "observation_phase"
+}
+```
+
+Após revisar a distribuição de pontuações nos logs, reduza o `threshold` para o intervalo onde o tráfego malicioso se concentra — sem afetar usuários legítimos.
+
+### Desabilitação de regras que geram falsos positivos
+
+Se IDs de regras específicos aparecerem consistentemente em `matched_rules` para tráfego legítimo, você pode desabilitá-los usando o argumento `disabled_rules`:
+
+```json
+{
+  "threshold": 10,
+  "action": "deny",
+  "disabled_rules": [4, 7],
+  "log_tag": "production"
+}
+```
+
+:::caution[Atenção]
+Desabilitar regras reduz a cobertura de detecção. Só desabilite regras após confirmar — por meio da análise de logs — que elas correspondem consistentemente a padrões de tráfego legítimo.
+:::
+
+### Rastreamento de múltiplas instâncias com log tags
+
+Se você executar o Bot Manager Lite em múltiplas regras do firewall ou domínios, use valores distintos de `log_tag` para filtrar os logs por instância no Real-Time Events ou no Data Stream:
+
+```json
+{
+  "threshold": 10,
+  "action": "deny",
+  "log_tag": "checkout_flow"
+}
+```
+
+Pesquise por `log_tag:checkout_flow` no Real-Time Events para isolar a atividade daquela regra específica.
+
+### Controle da verbosidade dos logs
+
+Use `internal_logs` para controlar quais requisições são registradas:
+
+| Valor | Comportamento |
+|---|---|
+| `"0"` | Registra requisições com pontuação maior que `0` (padrão). |
+| `"1"` | Registra requisições com pontuação maior que `0` ou classificadas como Good Bot. |
+| `"2"` | Registra todas as requisições, independentemente da pontuação. Recomendado para observação e ajuste. |
+| `"3"` | Desabilita o registro de logs. |
+
+### Uso do Debug Rules para rastrear a execução de regras do firewall
+
+**Debug Rules** é um recurso do Firewall que registra quais regras do Rules Engine foram executadas para cada requisição. Ao ajustar o Bot Manager Lite, ele ajuda a confirmar se a regra que chama a função está sendo acionada — e em qual ordem em relação às demais regras do firewall.
+
+Para habilitar o Debug Rules no seu firewall:
+
+1. No canto superior esquerdo, selecione **Products menu** > **Firewall**, dentro da seção **Secure**.
+2. Selecione o firewall associado ao Bot Manager Lite.
+3. Na aba **Main Settings**, habilite o switch **Debug Rules**.
+4. Clique no botão **Save**.
+
+Após habilitado, as regras executadas são registradas no campo `$traceback` (Data Stream e Real-Time Events) ou na variável `stacktrace` (GraphQL API). Um exemplo de entrada:
+
+```json
+{
+  "stacktrace": "{\"edge_firewall\":[\"Bot Manager Lite Rule\",\"Set WAF\"]}"
+}
+```
+
+Isso confirma que a `Bot Manager Lite Rule` foi executada antes do conjunto de regras WAF para aquela requisição. Se o nome da regra não aparecer no `stacktrace`, os critérios configurados no Rules Engine não corresponderam — revise a configuração de critérios na aba **Rules Engine**.
+
+:::tip
+Consulte o guia [Como fazer debug de regras criadas com o Rules Engine](/pt-br/documentacao/produtos/guias/debug-rules/) para instruções detalhadas sobre como consultar o `traceback` via Data Stream, Real-Time Events e GraphQL API.
+:::
 
 import LinkButton from 'azion-webkit/linkbutton';
 
-<LinkButton link="/pt-br/documentacao/produtos/guias/secure/gerenciar-bots/" label="consulte o guia sobre gerenciar bots" outlined /> 
+<LinkButton link="/pt-br/documentacao/produtos/guias/secure/gerenciar-bots/" label="consulte o guia sobre gerenciar bots" outlined />
 
 ---
