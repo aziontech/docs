@@ -366,6 +366,14 @@ export default NavDictionary([
 		slug: '/documentacao/produtos/guias/secure/certificado-digital',
 		key: 'digitalCertificates',
 	},
+	{
+		text: 'Criptografia pós-quântica',
+		header: true,
+		anchor: true,
+		type: 'learn',
+		slug: '/documentacao/produtos/guias/secure/post-quantum-cryptography/',
+		key: 'postQuantumCryptography',
+	},
 
 	{ text: 'Automatize com a Azion', header: true, type: 'learn', key: 'automateSecure' },
 	{
@@ -522,6 +530,11 @@ export default NavDictionary([
 		slug: '/documentacao/produtos/store/object-storage/',
 	},
 	{ text: 'SQL Database', key: 'reference/sql', slug: '/documentacao/produtos/store/sql-database/' },
+	{
+		text: 'KV Store',
+		key: 'reference/kv-store',
+		slug: '/documentacao/produtos/store/kv-store/',
+	},
 	{
 		text: 'Vector Search',
 		key: 'reference/vector-search',
@@ -760,11 +773,6 @@ export default NavDictionary([
 		text: 'Times',
 		slug: '/documentacao/produtos/guias/teams-permissions/',
 		key: 'account/teamsPermissions',
-	},
-	{
-		text: 'Activity history',
-		slug: '/documentacao/produtos/guias/activity-history/',
-		key: 'account/activityHistory',
 	},
 	{
 		text: 'Account Lockout Policy',

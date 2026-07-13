@@ -4,8 +4,8 @@ This option enables you to import an existing project from GitHub and deploy it 
 
 You need to complete all the three steps to do so:
 
-1. **Import an existing project**: connect your Azion account to GitHub to use your own repositories and deploy edge applications on Azion's edge.
-2. **Set up your edge applications**: define the basic information and building settings for your application. 
+1. **Import an existing project**: connect your Azion account to GitHub to use your own repositories and deploy  applications on Azion's edge.
+2. **Set up your application**: define the basic information and building settings for your application. 
 3. **Deploy to the edge**: when you finish the previous steps, just click the button to start the deployment process. 
 
 On the top of the page, the tabs indicate the stage of the building process you're in. If you want to return to the homepage, just click the **Back to home** button on the upper-left corner.
