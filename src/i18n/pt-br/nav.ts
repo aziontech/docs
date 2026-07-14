@@ -949,12 +949,6 @@ export default NavDictionary([
 	},
 
 	{
-		text: 'Glossário',
-		slug: '/documentacao/produtos/glossario-azion/',
-		key: 'glossary',
-	},
-
-	{
 		text: 'System Status',
 		slug: 'https://status.azion.com/',
 		key: 'systemStatus',
