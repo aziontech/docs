@@ -48,6 +48,7 @@ export default [
 			{ text: 'Hono', slug: '/documentacao/produtos/cli/frameworks/hono/', key: 'cli/hono' },
 			{ text: 'Hugo', slug: '/documentacao/produtos/cli/frameworks/hugo/', key: 'cli/hugo' },
 			{ text: 'Next', slug: '/documentacao/produtos/cli/frameworks/next/', key: 'cli/next' },
+			{ text: 'Nextal', slug: '/documentacao/produtos/cli/frameworks/nextal/', key: 'cli/nextal' },
 			{ text: 'React', slug: '/documentacao/produtos/cli/frameworks/react/', key: 'cli/react' },
 			{ text: 'Svelte', slug: '/documentacao/produtos/cli/frameworks/svelte/', key: 'cli/svelte' },
 			{ text: 'Vite', slug: '/documentacao/produtos/cli/frameworks/vite/', key: 'cli/vite' },
