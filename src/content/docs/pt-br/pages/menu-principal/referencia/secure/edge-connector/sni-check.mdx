@@ -1,0 +1,109 @@
+---
+title: SNI Check
+description: >-
+  Entenda como a Azion valida o Server Name Indication (SNI) em relação aos certificados TLS nas requisições HTTPS recebidas e como a aplicação dessa verificação protege seus workloads contra ataques de SNI Spoofing.
+meta_tags: 'SNI, TLS, HTTPS, certificado, misdirected request, 421, SNI spoofing, segurança, Connectors, Firewall'
+namespace: documentation_products_secure_edge_connector_sni_check
+permalink: /documentacao/produtos/secure/connectors/sni-check/
+---
+
+O **SNI Check** é um mecanismo de segurança integrado à Azion Web Platform que valida o campo Server Name Indication (SNI) das requisições HTTPS recebidas em relação ao certificado TLS configurado para o workload correspondente. Quando uma incompatibilidade é detectada e o certificado não cobre o hostname solicitado, a plataforma retorna uma resposta HTTP `421 Misdirected Request`, impedindo que a requisição seja servida em um contexto de segurança incorreto.
+
+---
+
+## O que é SNI e por que é importante
+
+O **Server Name Indication (SNI)** é uma extensão do TLS que permite ao cliente especificar o hostname que deseja acessar durante o handshake TLS, antes que o servidor envie seu certificado. Isso permite que um único servidor hospede múltiplos workloads com TLS habilitado no mesmo endereço IP, cada um com seu próprio certificado.
+
+Na Azion Web Platform, cada workload está associado a uma entrada no [Certificate Manager](/pt-br/documentacao/produtos/secure/firewall/certificate-manager/). Quando um cliente estabelece uma conexão TLS, a plataforma usa o valor do SNI para selecionar o certificado apropriado. Se o cabeçalho HTTP `Host` utilizado na requisição subsequente não corresponder aos nomes cobertos pelo certificado (Common Name ou Subject Alternative Names), a requisição é considerada misdirected.
+
+---
+
+## Algoritmo de decisão de roteamento de requisições
+
+Para cada requisição recebida, a plataforma aplica a seguinte lógica de decisão para determinar se a requisição deve ser servida normalmente ou se deve retornar `421`:
+
+```
+SE (NÃO é HTTPS) ENTÃO:
+    → Fluxo de Requisição Normal
+
+SENÃO SE (lowercase(Host) == lowercase(ssl_server_name)) ENTÃO:
+    → Fluxo de Requisição Normal
+
+SENÃO SE (ssl_server_name == "") ENTÃO:
+    → Fluxo de Requisição Normal
+
+SENÃO SE (Certificado emitido pela Azion) ENTÃO:
+    → Fluxo de Requisição Normal
+
+SENÃO SE (X509_check_host: Host é válido para o certificado atual?) ENTÃO:
+    → Fluxo de Requisição Normal
+
+SENÃO:
+    → 421 Misdirected Request
+```
+
+### Explicação das etapas de decisão
+
+| Etapa | Condição | Resultado |
+|-------|----------|-----------|
+| 1 | A requisição não é HTTPS | Prossegue normalmente — o SNI Check não se aplica a HTTP simples |
+| 2 | O cabeçalho `Host` corresponde ao `ssl_server_name` (sem distinção de maiúsculas/minúsculas) | Prossegue normalmente — SNI e Host são consistentes |
+| 3 | `ssl_server_name` está vazio | Prossegue normalmente — nenhum SNI foi enviado pelo cliente |
+| 4 | O certificado é gerenciado pela Azion | Prossegue normalmente — certificados da Azion são confiáveis pela plataforma |
+| 5 | `X509_check_host` confirma que o Host é válido para o certificado | Prossegue normalmente — o certificado cobre o hostname solicitado |
+| 6 | Nenhuma das condições acima é atendida | Retorna `421 Misdirected Request` |
+
+### A aplicação do X509_check_host
+
+A etapa final de validação utiliza a função [`X509_check_host`](https://www.openssl.org/docs/man3.0/man3/X509_check_host.html) do OpenSSL para verificar se o valor do cabeçalho `Host` está coberto pelo CN (Common Name) ou pelos SANs (Subject Alternative Names) do certificado. Essa verificação agora é aplicada para todos os workloads na Azion Web Platform.
+
+Se o hostname não estiver dentro do escopo do certificado — por exemplo, o certificado cobre `example.com`, mas a requisição tem como alvo `api.outro-dominio.com` — a plataforma retorna `421 Misdirected Request`.
+
+:::note
+A comparação entre `Host` e `ssl_server_name` é realizada sem distinção de maiúsculas e minúsculas. Diferenças apenas na capitalização das letras não acionam uma resposta `421`.
+:::
+
+---
+
+## Como identificar se sua aplicação será afetada
+
+Monitore os logs da sua aplicação em busca de respostas HTTP `421 Misdirected Request`. Esse status indica que uma requisição chegou por uma conexão TLS estabelecida para um hostname diferente do especificado no cabeçalho `Host`, e o certificado em uso não cobre esse hostname.
+
+**Cenários comuns que produzem uma resposta `421`:**
+
+- Aplicações web, APIs ou clientes HTTP que reutilizam uma conexão TLS existente (connection pooling ou multiplexação HTTP/2) para enviar requisições direcionadas a um hostname diferente do utilizado durante o handshake TLS.
+- Clientes que enviam um cabeçalho `Host` apontando para um hostname não coberto pelo certificado associado à sessão TLS.
+
+**Como investigar:**
+
+Use o [Real-Time Events](/pt-br/documentacao/produtos/observe/real-time-events/) para filtrar requisições com status code `421`. Os dados do evento exibirão os campos `host` e `ssl_server_name`, ajudando a identificar qual parte da sua aplicação está enviando requisições com um hostname fora do escopo do certificado em uso.
+
+---
+
+## Como corrigir incompatibilidades de SNI
+
+**Garanta que seus certificados cubram todos os hostnames necessários.**
+
+Cada hostname que sua aplicação serve via HTTPS deve estar coberto pelo certificado associado ao workload correspondente na Azion Web Platform. Um certificado cobre um hostname se esse hostname aparecer no CN do certificado ou na sua lista de SANs.
+
+Ações recomendadas:
+
+- Revise os certificados configurados no [Certificate Manager](/pt-br/documentacao/produtos/secure/firewall/certificate-manager/) para cada um dos seus workloads.
+- Se um workload serve múltiplos hostnames, utilize um certificado wildcard (ex.: `*.example.com`) ou um certificado multi-SAN que liste explicitamente todos os hostnames necessários.
+- Investigue as respostas `421` no Real-Time Events para identificar qual hostname está sendo solicitado fora do escopo do certificado e, em seguida, atualize o certificado ou a lógica de conexão da aplicação.
+
+---
+
+## Por que essa aplicação é importante
+
+A aplicação rigorosa da validação de SNI reduz significativamente o risco de ataques de **SNI Spoofing**, nos quais um agente malicioso manipula o campo SNI para rotear uma conexão TLS por um certificado que não cobre legitimamente o hostname de destino. Ao retornar `421 Misdirected Request` nesses casos, a Azion Web Platform garante que cada requisição HTTPS seja servida apenas em um contexto de segurança válido e apropriado.
+
+---
+
+## Recursos relacionados
+
+- [Certificate Manager](/pt-br/documentacao/produtos/secure/firewall/certificate-manager/)
+- [Connectors](/pt-br/documentacao/produtos/secure/connectors/)
+- [Real-Time Events](/pt-br/documentacao/produtos/observe/real-time-events/)
+- [HTTP 421 Misdirected Request — MDN Web Docs](https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/421)
