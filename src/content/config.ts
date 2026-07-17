@@ -13,6 +13,17 @@ export const baseSchema = z.object({
 	i18nReady: z.boolean().default(false),
 	githubURL: z.string().url().optional(),
 	hasREADME: z.boolean().optional(),
+	// Emits a schema.org VideoObject JSON-LD when the page embeds a video.
+	// Provide the YouTube embed URL explicitly instead of parsing the page body.
+	video: z
+		.object({
+			embedUrl: z.string().url(),
+			title: z.string().optional(),
+			description: z.string().optional(),
+			uploadDate: z.string().optional(),
+			thumbnailUrl: z.string().optional(),
+		})
+		.optional(),
 })
 
 export const homeSchema = baseSchema.extend({
