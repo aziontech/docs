@@ -399,6 +399,160 @@ The engine versioning system aims to allow the user to dynamically change the me
 
 ---
 
+## Static rules
+
+Static rules are individual validations performed on attributes of a single request, such as headers or metadata, without considering the historical behavior of the same user or device.
+
+Bot Manager runs **17 static rules** on every request. Each matched rule increases the request score. If the accumulated score reaches or exceeds the configured `threshold`, Bot Manager executes the defined action.
+
+| Rule ID | Condition | Score | Bot characteristic |
+|---------|-----------|-------|--------------------|
+| 1 | User-Agent header is empty | 8 | Bad bot signatures |
+| 2 | Content-Type header is empty and request body is not empty | 8 | Bad bot signatures |
+| 3 | Referer header is empty and request method is POST, PUT, PATCH, or DELETE | 6 | Malicious intent detected |
+| 4 | User-Agent contains the string `Dalvik` | 4 | Bad bot signatures |
+| 5 | User-Agent contains the string `Trident` | 6 | Bad bot signatures |
+| 6 | User-Agent contains the string `Headless` | 6 | Bad bot signatures |
+| 7 | User-Agent is longer than 200 characters or shorter than 10 characters | 4 | Bad bot signatures |
+| 8 | User-Agent matches an entry from the bad user agents list | 8 | Scripted bots |
+| 9 | Accept header is empty | 8 | Bad bot signatures |
+| 10 | Accept-Language header is empty | 8 | Bad bot signatures |
+| 11 | Range header is present | 6 | Malicious intent detected |
+| 12 | Request method is TRACE | 8 | Malicious intent detected |
+| 13 | Content-Length header is empty and request method is POST, PUT, or PATCH | 8 | Bad bot signatures |
+| 14 | Client IP is found in any configured reputation network list | 6 | Reputation intelligence |
+| 15 | Cookie `az_botm` is absent | 8 | Malicious browser behavior |
+| 16 | Cookie `az_asm` is absent | 8 | Malicious browser behavior |
+| 17 | Session cookie validation fails | 16 | Malicious browser behavior |
+
+:::note
+Rules 15 and 16 are skipped when `mode` is set to `api`, since no cookies are set in API mode.
+:::
+
+Rules 15, 16, and 17 relate to Bot Manager's built-in signed cookie validation. On the first request, Bot Manager creates two session cookies:
+
+- `az_botm`: contains a unique request identifier.
+- `az_asm`: an AES-GCM signed hash of the same identifier, signed with the `session_signature_key`.
+
+On subsequent requests, Bot Manager verifies that the two cookies are still consistent with each other. Tampering with either cookie triggers rule 17.
+
+You can disable individual rules using the `disabled_static_rules` JSON arg. Disabled rules still execute and appear in the `disabled_matched_rules` log field, but their score contribution is removed.
+
+---
+
+## Dynamic score
+
+In addition to static rules, Bot Manager uses a dynamic scoring engine that analyzes the behavioral history of a device fingerprint relative to the overall traffic pattern of a host.
+
+Every execution writes a report log. A data structure reads these logs, summarizes the score data per fingerprint and per hostname, and stores the result on the edge node's disk. On future requests, the function reads this data to determine whether the fingerprint is exhibiting attack behavior compared to the host baseline.
+
+The strictness of this engine is controlled by the `dynamic_rules_tolerance` argument (`soft`, `medium`, or `hard`). You can disable it entirely with `disable_dynamic_rules: true`.
+
+:::note
+The dynamic score engine has an inherent delay of up to 15 minutes to consolidate fingerprint data. During this window, new fingerprints are classified as **under evaluation**.
+:::
+
+---
+
+## Threshold and calibration
+
+The `threshold` value is the maximum score a request can reach before Bot Manager executes the configured `action`. Understanding how static rules contribute to the score helps you set an effective threshold.
+
+**Score reference by characteristic:**
+
+| Bot characteristic | Score range per rule |
+|--------------------|----------------------|
+| Bad bot signatures | 4–8 per rule |
+| Scripted bots | 8 per rule |
+| Malicious browser behavior | 8–16 per rule |
+| Malicious intent detected | 6–8 per rule |
+| Reputation intelligence | 6 per IP match |
+
+The recommended starting threshold is `18`. At this value, a single rule violation with a score of 8 (for example, an empty User-Agent) combined with one or two supporting signals typically triggers the action, while individual lower-scoring matches do not.
+
+**Calibration guidance:**
+
+- **Lower threshold** (for example, `10–15`): more aggressive. Recommended for high-security APIs or login pages, where false negatives are costly.
+- **Default threshold** (`18`): balanced. Suited for most web applications.
+- **Higher threshold** (for example, `25+`): more permissive. May be appropriate for applications with a diverse, international user base.
+- **Threshold `0`**: every request triggers the action immediately (except users who have solved the ALTCHA challenge). Useful only for testing.
+
+When monitoring your implementation, use `Real-Time Events` and `Real-Time Metrics` to inspect the `score` and `matched_rules` fields. If you see a high rate of false positives, consider raising the threshold or disabling specific rules via `disabled_static_rules`.
+
+---
+
+## Bad bot user agents
+
+The following user-agent strings are checked by rule 8. A request whose `User-Agent` header contains any of these strings will have its score increased by 8 points.
+
+```
+360Spider, 80bot, 80legs, acapbot, acoonbot, adbeat_bot, ahrefs, AhrefsBot,
+alexibot, asterias, attackbot, backdorbot, BDCbot, becomebot, binlar, blackwidow,
+blekkobot, blexbot, blowfish, BountiiBot, bullseye, bunnys, butterfly, careerbot,
+casper, centurybot9, checkpriv, cheesebot, cherrypick, chinaclaw, choppy,
+CirrusExplorer, Cliqzbot, CloudServerMarketSpider, clshttp, cmsworld, copernic,
+copyrightcheck, cosmos, Crawlera, crescent, cy_cho, Dart, datacha, Datanyze, demon,
+diavol, discobot, dittospyder, DotBot, dotnetdotcom, dumbot, emailcollector,
+emailsiphon, emailwolf, exabot, extract, eyenetie, Ezooms, feedfinder, flaming,
+flashget, flicky, foobot, g00g1e, Genieo, getright, gigabot, go-ahead-got, gozilla,
+grabnet, grafula, harvest, heritrix, httrack, icarus6j, iRider, jetbot, jetcar,
+jikespider, JOC, kmccrew, leechftp, libweb, linkextractor, linkscan, linkwalker,
+loader, Lorentz, Lynx, majestic, masscan, MAZBot, mechanize, MegaIndex, miner,
+mj12bot, morfeus, moveoverbot, MSIECrawler, NativeAIBot, netmechanic, netspider,
+nicerspro, nikto, Nimbostratus-Bot, ninja, nutch, octopus, pagegrabber, planetwork,
+poopleBot, postrank, proximic, purebot, pycurl, python, Python-urllib, queryn,
+queryseeker, radian6, radiation, realdownload, rogerbot, scooter, Scrapy,
+seekerspider, semalt, SEOkicks, serpstatbot, siclab, sindice, sistrix, SiteAnalyzerbot,
+sitebot, siteexplorer, sitesnagger, skygrid, smartdownload, snoopy, sosospider,
+spankbot, spbot, sqlmap, stackrambler, stripper, sucker, surftbot, sux0r, suzukacz,
+suzuran, takeout, teleport, telesoft, true_robots, turingos, turnit, vampire, VeBot,
+vikspider, voideye, webleacher, webreaper, webstripper, webvac, webviewer, webwhacker,
+winhttp, woxbot, wwwoffle, xaldon, Xaldon, xxxyy, yamanalab, yioopbot, YisouSpider,
+youda, zeus, zmeu, ZoominfoBot, zune, zyborg
+```
+
+---
+
+## Good user agents
+
+The following user-agent substrings are associated with known trusted bots. Requests whose `User-Agent` contains any of these strings are classified as **good bot** and are not blocked by Bot Manager.
+
+```
+adsbot-google, alexabot, amazon-route53-health-check, appengine-google, applebot,
+bingbot, bingpreview, bitlybot, check-host, chrome-lighthouse,
+com.google.android.apps.youtube.music, com.google.android.youtube, discordbot,
+facebookexternalhit, feedfetcher-google, freshpingbot, google sketchup,
+google-apps-script, google-read-aloud, googlebot, googledocs, googleimageproxy,
+googleweblight, hubspotcrawler, linkdexbot, linkedinbot, mediapartners-google,
+msnbot, outlook, pingdom.com, pingdomtms, pinterest, semrushbot, skypeuripreview,
+slack-imgproxy, slackbot, twitterbot, uptimerobot, whatsApp, yahoo!, yahoomobilemail,
+yahooseeker, yandex
+```
+
+---
+
+## Client IP extraction
+
+For reputation network list checks (rule 14), Bot Manager extracts the client IP by inspecting the following sources in order. Each unique IP found is checked against all configured network lists, and every match increases the score by 6 points.
+
+| Source | Type |
+|--------|------|
+| `remote_addr` | Metadata variable |
+| `client_ip` | Header |
+| `x-forwarded-for` | Header |
+| `x-real-ip` | Header |
+| `x-forwarded` | Header |
+| `proxy-client-ip` | Header |
+| `wl-proxy-client-ip` | Header |
+| `x-cluster-client-ip` | Header |
+| `forwarded-for` | Header |
+| `forwarded` | Header |
+| `via` | Header |
+| `x-true-client-ip` | Header |
+| `real-ip` | Header |
+
+---
+
 ## Additional resources
 
 ### SDKs
