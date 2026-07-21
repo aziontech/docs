@@ -1,0 +1,353 @@
+---
+title: "Implement an Authentication Layer for Object Storage with Functions"
+description: >-
+  Learn how to create a secure authentication layer to control access to your
+  Object Storage buckets using Azion Functions and JWT validation.
+meta_tags: 'object storage, functions, authentication, jwt, security, access control'
+namespace: docs_guides_auth_layer_object_storage
+permalink: /documentation/products/guides/storage/auth-layer-object-storage-functions/
+---
+
+import LinkButton from 'azion-webkit/linkbutton'
+import Tabs from '~/components/tabs/Tabs'
+
+By default, Object Storage buckets can be accessed through the S3 endpoint or used as origins for applications. However, when you need granular access control—such as requiring authentication before retrieving objects—you can implement an authentication layer using Functions.
+
+This guide demonstrates how to create a Function that validates JWT tokens before allowing access to objects stored in Object Storage, providing a secure way to serve protected content through your domain.
+
+## How it works
+
+The authentication layer works as a gatekeeper between users and your Object Storage content:
+
+1. A user requests an object from your domain
+2. The Function intercepts the request
+3. The Function validates the JWT token from the request headers or cookies
+4. If valid, the Function retrieves the object from Object Storage and returns it
+5. If invalid or missing, the Function returns a 401 Unauthorized response
+
+This approach ensures that only authenticated users can access your protected content, while leveraging Azion's global network for optimal performance.
+
+---
+
+## Requirements
+
+Before you begin, ensure you have:
+
+- An [Azion account](https://console.azion.com/)
+- [Azion CLI](/en/documentation/products/azion-cli/overview/) installed and configured
+- [Node.js](https://nodejs.org/) version 18 or higher
+- An **Object Storage** bucket with content to protect
+- A JWT signing key (secret) for token validation
+
+---
+
+## Implementation
+
+### Step 1: Create a new Function project
+
+Initialize a new Functions project using the Azion CLI:
+
+```bash
+azion init my-auth-storage
+```
+
+Select the following options:
+- **Template**: JavaScript
+- **Runtime**: Azion Runtime
+
+### Step 2: Install dependencies
+
+Navigate to your project directory and install the required packages:
+
+```bash
+cd my-auth-storage
+npm install jose
+```
+
+The `jose` library provides JWT verification capabilities for JavaScript runtimes.
+
+### Step 3: Implement the authentication Function
+
+Replace the content of your main JavaScript file with the following code:
+
+```javascript
+import Storage from "azion:storage";
+import { jwtVerify } from "jose";
+
+// JWT configuration - store these securely in environment variables
+const JWT_SECRET = process.env.JWT_SECRET;
+const BUCKET_NAME = process.env.BUCKET_NAME;
+
+async function verifyToken(token) {
+  try {
+    const secretKey = new TextEncoder().encode(JWT_SECRET);
+    const { payload } = await jwtVerify(token, secretKey);
+    return { valid: true, payload };
+  } catch (error) {
+    console.error("JWT verification failed:", error.message);
+    return { valid: false, error: error.message };
+  }
+}
+
+function extractToken(request) {
+  // Try Authorization header first
+  const authHeader = request.headers.get("Authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.substring(7);
+  }
+  
+  // Try cookie as fallback
+  const cookieHeader = request.headers.get("Cookie");
+  if (cookieHeader) {
+    const cookies = cookieHeader.split(";").map(c => c.trim());
+    const authCookie = cookies.find(c => c.startsWith("auth_token="));
+    if (authCookie) {
+      return authCookie.substring(11);
+    }
+  }
+  
+  return null;
+}
+
+async function handleRequest(event) {
+  const request = event.request;
+  const url = new URL(request.url);
+  
+  // Extract object key from URL path
+  // Example: /files/image.png -> key is "image.png"
+  const objectKey = url.pathname.replace(/^\/files\//, "");
+  
+  if (!objectKey) {
+    return new Response(JSON.stringify({ error: "Object key required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  // Extract and verify JWT token
+  const token = extractToken(request);
+  
+  if (!token) {
+    return new Response(JSON.stringify({ 
+      error: "Authentication required",
+      message: "Provide a valid JWT token in Authorization header or auth_token cookie"
+    }), {
+      status: 401,
+      headers: { 
+        "Content-Type": "application/json",
+        "WWW-Authenticate": "Bearer"
+      }
+    });
+  }
+
+  const verification = await verifyToken(token);
+  
+  if (!verification.valid) {
+    return new Response(JSON.stringify({ 
+      error: "Invalid token",
+      message: verification.error
+    }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  // Token is valid - retrieve object from storage
+  try {
+    const storage = new Storage(BUCKET_NAME);
+    const storageObject = await storage.get(objectKey);
+    
+    // Return the object content with appropriate headers
+    return new Response(storageObject.content, {
+      status: 200,
+      headers: {
+        "Content-Type": storageObject.contentType || "application/octet-stream",
+        "Content-Length": storageObject.contentLength?.toString(),
+        "Cache-Control": "private, max-age=3600"
+      }
+    });
+  } catch (error) {
+    console.error("Storage error:", error);
+    
+    if (error.message && error.message.includes("not found")) {
+      return new Response(JSON.stringify({ 
+        error: "Object not found" 
+      }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    
+    return new Response(JSON.stringify({ 
+      error: "Internal server error" 
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}
+
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event));
+});
+```
+
+### Step 4: Configure environment variables
+
+Create a `.env` file in the root of your project with the following content:
+
+```env
+BUCKET_NAME=your-bucket-name
+JWT_SECRET=your-secret
+```
+
+:::caution[Security]
+Never commit the `.env` file or secrets like `JWT_SECRET` to your code repository. Add `.env` to your `.gitignore`.
+:::
+
+### Step 5: Configure local development storage
+
+To run the project locally, add a `storage` configuration to your `azion.config` file so the Azion runtime can resolve Object Storage requests in the development environment:
+
+```javascript
+storage: [
+  {
+    name: 'your-bucket-name',
+    prefix: 'your-bucket-prefix',
+    dir: './path/to/storage/files',
+    workloadsAccess: 'read_only',
+  },
+],
+```
+
+Replace `your-bucket-name`, `your-bucket-prefix`, and `./path/to/storage/files` with the values that match your project structure.
+
+### Step 6: Deploy the Function
+
+Deploy your Function to Azion:
+
+```bash
+azion deploy
+```
+
+After the deploy completes, run `azion sync` to push your local environment variables to Azion's edge nodes:
+
+```bash
+azion sync
+```
+
+This step is required because the Function uses environment variables (`BUCKET_NAME` and `JWT_SECRET`). Without syncing, those variables won't be available at the edge.
+
+---
+
+## Generating JWT tokens for testing
+
+To test your authentication layer, you need valid JWT tokens. Here's an example using Node.js:
+
+```javascript
+import { SignJWT } from 'jose';
+
+const secret = new TextEncoder().encode('your-secret-key');
+
+const token = await new SignJWT({ 
+  sub: 'user123',
+  permissions: ['read:files']
+})
+  .setProtectedHeader({ alg: 'HS256' })
+  .setIssuedAt()
+  .setExpirationTime('2h')
+  .sign(secret);
+
+console.log(token);
+```
+
+### Testing with curl
+
+```bash
+# With Authorization header
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  https://your-domain.com/files/document.pdf
+
+# With cookie
+curl -b "auth_token=YOUR_JWT_TOKEN" \
+  https://your-domain.com/files/document.pdf
+```
+
+---
+
+## Advanced configurations
+
+### Role-based access control
+
+You can extend the Function to check user permissions stored in the JWT payload:
+
+```javascript
+// Add to the verification logic
+const { payload } = verification;
+
+// Check if user has permission for this resource
+if (payload.permissions && !payload.permissions.includes('read:files')) {
+  return new Response(JSON.stringify({ 
+    error: "Insufficient permissions" 
+  }), {
+    status: 403,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+```
+
+### Rate limiting per user
+
+Implement rate limiting based on the user ID from the JWT:
+
+```javascript
+// Use KV Store to track request counts per user
+import KV from "azion:kv";
+
+const kv = new KV("rate-limits");
+const userId = verification.payload.sub;
+const key = `ratelimit:${userId}:${Math.floor(Date.now() / 60000)}`;
+
+const count = await kv.get(key) || 0;
+if (count > 100) {
+  return new Response(JSON.stringify({ 
+    error: "Rate limit exceeded" 
+  }), {
+    status: 429,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+await kv.put(key, count + 1, { expirationTtl: 120 });
+```
+
+### Object metadata for access control
+
+Store access control information in object metadata:
+
+```javascript
+// Check object metadata for additional restrictions
+const allowedRoles = storageObject.metadata?.get("allowed_roles");
+if (allowedRoles) {
+  const roles = allowedRoles.split(",");
+  const userRole = verification.payload.role;
+  if (!roles.includes(userRole)) {
+    return new Response(JSON.stringify({ 
+      error: "Access denied for this resource" 
+    }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}
+```
+
+---
+
+## Related resources
+
+- [Object Storage API Reference](/en/documentation/runtime/api-reference/storage/)
+- [Functions Overview](/en/documentation/products/build/applications/functions/)
+- [JWT Integration](/en/documentation/products/guides/jwt/)
+- [How to create and modify an Object Storage bucket](/en/documentation/products/guides/create-and-modify-bucket/)
+
+<LinkButton link="/en/documentation/runtime/api-reference/storage/" label="Object Storage API Reference" severity="secondary" />

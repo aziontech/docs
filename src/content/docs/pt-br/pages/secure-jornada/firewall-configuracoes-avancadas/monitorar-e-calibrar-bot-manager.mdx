@@ -1,0 +1,449 @@
+---
+title: Como monitorar e calibrar o Bot Manager
+description: >-
+  Aprenda a ler os logs do Bot Manager, interpretar as classificações de tráfego
+  e ajustar thresholds e regras para reduzir falsos positivos e bloquear ameaças reais.
+meta_tags: 'bot manager, proteção contra bots, logs, calibração, tuning, real-time events, graphql, firewall'
+namespace: docs_guides_secure_monitor_calibrate_bot_manager
+permalink: /documentacao/produtos/guias/secure/monitorar-e-calibrar-bot-manager/
+---
+
+import LinkButton from 'azion-webkit/linkbutton'
+import Tag from 'primevue/tag'
+
+Após implantar o [Bot Manager](/pt-br/documentacao/produtos/secure/firewall/bot-manager/), o próximo passo é entender o que os dados indicam e ajustar a configuração para corresponder aos padrões de tráfego da sua aplicação. Este guia mostra como ler logs, interpretar classificações e calibrar thresholds e regras para reduzir falsos positivos enquanto bloqueia ameaças reais.
+
+:::note
+O Bot Manager é um add-on do Firewall. Entre em contato com o [time de Vendas](https://www.azion.com/pt-br/contato-vendas/) para detalhes de assinatura. Se você estiver usando o [Bot Manager Lite](/pt-br/documentacao/produtos/guias/bot-manager-lite/), as mesmas ferramentas de observabilidade se aplicam, embora algumas opções avançadas de configuração sejam diferentes.
+:::
+
+---
+
+## Pré-requisitos
+
+- <Tag severity="info" client:only="vue">[Bot Manager configurado em um Firewall](/pt-br/documentacao/produtos/secure/firewall/bot-manager/)</Tag>
+
+---
+
+## Passo 1: Habilitar logging completo
+
+Antes de calibrar o Bot Manager, você precisa de visibilidade completa sobre cada requisição que ele avalia. Por padrão, o Bot Manager só grava logs para requisições que excedem o threshold. Para observar todo o tráfego—incluindo requisições legítimas—defina a ação como `allow` e habilite os logs internos durante a fase de observação.
+
+No seu Firewall, acesse **Functions Instances**, selecione sua instância do Bot Manager e atualize os **JSON Args**:
+
+```json
+{
+  "action": "allow",
+  "internal_logs": 2,
+  "log_tag": "bot_manager_calibracao",
+  "log_headers": [
+    "accept",
+    "accept-encoding",
+    "accept-language",
+    "content-type",
+    "host",
+    "referer",
+    "user-agent",
+    "x-forwarded-for",
+    "x-request-id"
+  ]
+}
+```
+
+| Campo | Finalidade |
+|-------|-----------|
+| `action: allow` | Permite que todas as requisições passem enquanto você observa os padrões de tráfego |
+| `internal_logs: 2` | Grava um log de relatório para cada requisição, independentemente da pontuação |
+| `log_tag` | Rotula os logs para que você possa filtrá-los no Real-Time Events |
+| `log_headers` | Captura os headers da requisição para análise mais profunda |
+
+:::tip
+Execute no modo de observação por pelo menos 24–72 horas para capturar padrões de tráfego representativos, incluindo horários de pico, crawlers e jobs agendados.
+:::
+
+---
+
+## Passo 2: Ler logs no Real-Time Events
+
+O [Real-Time Events](/pt-br/documentacao/produtos/observe/real-time-events/) é a forma mais rápida de inspecionar decisões individuais do Bot Manager.
+
+1. Acesse o [Azion Console](https://console.azion.com) > **Real-Time Events**.
+2. Selecione o data source **Functions**.
+3. Defina o **Filtro de Tempo** para o período que deseja analisar.
+4. Na barra de pesquisa, filtre pela sua log tag:
+
+```
+log_tag = "bot_manager_calibracao"
+```
+
+Cada entrada de log é um objeto JSON. Os campos-chave para focar durante a calibração são:
+
+| Campo | O que indica |
+|-------|-------------|
+| `classified` | Veredicto final: `legitimate`, `good bot`, `bad bot` ou `under evaluation` |
+| `bot_category` | O tipo específico de ameaça ou bot detectado |
+| `score` | Pontuação numérica atribuída à requisição |
+| `action` | Ação que o Bot Manager tomou (ou tomaria se o threshold estivesse ativo) |
+| `matched_rules` | IDs das regras estáticas que dispararam e contribuíram para a pontuação |
+| `disabled_matched_rules` | IDs das regras desabilitadas que corresponderam (não afetam a pontuação) |
+| `azion_fingerprint` | Hash do fingerprint do dispositivo—útil para rastrear reincidentes |
+| `remote_addr` | Endereço IP de origem |
+| `http_user_agent` | String User-Agent enviada na requisição |
+| `request_uri` | O caminho que foi requisitado |
+
+### Exemplo de entrada de log
+
+```json
+{
+  "action": "allow",
+  "classified": "bad bot",
+  "bot_category": "Bad Bot Signatures",
+  "score": 14,
+  "matched_rules": [10, 22],
+  "azion_fingerprint": "5f852499202f7fa889157ce8b39a613b",
+  "remote_addr": "203.0.113.42",
+  "http_user_agent": "python-requests/2.28.0",
+  "request_uri": "/api/v1/products",
+  "geoip_country": "Brazil",
+  "log_tag": "bot_manager_calibracao"
+}
+```
+
+**Lendo este log**: Uma requisição do IP `203.0.113.42` usando uma biblioteca HTTP Python recebeu pontuação `14` e foi classificada como `bad bot` com categoria `Bad Bot Signatures`. As regras `10` e `22` dispararam. A ação foi `allow` porque você está no modo de observação—uma vez que você defina um threshold abaixo de `14`, esta requisição seria bloqueada.
+
+---
+
+## Passo 3: Interpretar as classificações de tráfego
+
+O Bot Manager atribui a cada requisição uma das quatro classificações:
+
+| Classificação | Significado | Ação recomendada |
+|--------------|------------|-----------------|
+| `legitimate` | Tráfego regular de usuários sem sinais de bot | Nenhuma ação necessária |
+| `good bot` | Bots conhecidos e confiáveis (mecanismos de busca, monitores) | Verifique a categoria do bot; considere permitir explicitamente |
+| `bad bot` | Automação maliciosa ou suspeita confirmada | Bloquear ou desafiar após definir o threshold |
+| `under evaluation` | Dados de fingerprint insuficientes para classificar | Monitorar; a classificação se resolve em até 15 minutos |
+
+### Entendendo "under evaluation"
+
+Quando um novo fingerprint aparece, o Bot Manager precisa de até 15 minutos para consolidar dados suficientes para classificá-lo com confiança. Durante essa janela, as requisições são marcadas como `under evaluation`. Esse é o comportamento esperado—evita o bloqueio prematuro de novos visitantes legítimos. Se você observar um alto volume de tráfego `under evaluation`, pode indicar:
+
+- Um grande influxo de novos usuários (esperado após uma campanha ou lançamento).
+- IPs ou User-Agents rotativos (uma técnica de evasão de bots que vale investigar).
+
+### Categorias de bots bons para reconhecer
+
+| Categoria de bot | Exemplos |
+|-----------------|---------|
+| `Search Engine Bot` | Googlebot, Bingbot, DuckDuckBot |
+| `Monitoring Bot` | UptimeRobot, Pingdom, StatusCake |
+| `Social Network Bot` | Facebookbot, Twitterbot |
+| `Aggregator Bot` | Feedly, agregadores de notícias |
+| `Enterprise Bot` | Crawlers internos, integrações de parceiros |
+
+Se você observar bots bons legítimos recebendo pontuação alta, verifique se seus User-Agents estão sendo reconhecidos corretamente. Pode ser necessário adicioná-los a uma regra de exclusão.
+
+---
+
+## Passo 4: Analisar padrões com GraphQL
+
+Para análise agregada em grandes volumes de tráfego, use a [API GraphQL](/pt-br/documentacao/devtools/graphql-api/visao-geral/) para consultar o dataset `botManagerMetrics`.
+
+### Query: breakdown de tráfego por classificação e categoria
+
+Acesse o GraphiQL Playground em `https://api.azion.com/v4/metrics/graphql` e execute:
+
+```graphql
+query {
+  botManagerMetrics(
+    filter: {
+      tsRange: {
+        begin: "2024-10-01T00:00:00"
+        end: "2024-10-03T23:59:59"
+      }
+    }
+    aggregate: {
+      sum: requests
+    }
+    orderBy: [sum_DESC]
+    groupBy: [classified, botCategory, action]
+    limit: 10000
+  ) {
+    classified
+    botCategory
+    action
+    sum
+  }
+}
+```
+
+Esta query retorna a contagem total de requisições agrupadas por classificação, categoria e ação—fornecendo uma visão clara da composição do seu tráfego.
+
+### Query: top URLs impactadas por bots maliciosos
+
+Use o dataset `botManagerBreakdownMetrics` para identificar quais endpoints são mais visados:
+
+```graphql
+query {
+  botManagerBreakdownMetrics(
+    filter: {
+      tsRange: {
+        begin: "2024-10-01T00:00:00"
+        end: "2024-10-03T23:59:59"
+      }
+    }
+    aggregate: {
+      sum: botRequests
+    }
+    groupBy: [requestUrl]
+    orderBy: [sum_DESC]
+    limit: 10
+  ) {
+    requestUrl
+    sum
+  }
+}
+```
+
+Se o seu endpoint de login (`/api/auth/login`) ou caminho de checkout (`/checkout`) aparecer no topo, esses são alvos de alta prioridade para regras mais rígidas.
+
+<LinkButton link="/pt-br/documentacao/produtos/guias/consultar-dados-bot-manager-com-graphql/" label="Consultar dados do Bot Manager com GraphQL" severity="secondary" />
+<br />
+<LinkButton link="/pt-br/documentacao/produtos/guias/consultar-top-urls-impactadas-por-bots-com-graphql/" label="Consultar top URLs impactadas com GraphQL" severity="secondary" />
+
+---
+
+## Passo 5: Monitorar com os dashboards do Real-Time Metrics
+
+O [Real-Time Metrics](/pt-br/documentacao/produtos/observe/real-time-metrics/#bot-manager) fornece dashboards pré-construídos para o Bot Manager com duas seções:
+
+### Seção Overview
+
+| Gráfico | O que observar |
+|---------|---------------|
+| **Bad Bot Hits** | Pico indica uma campanha de ataque ativa |
+| **Good Bot Hits** | Queda repentina pode significar que crawlers legítimos estão sendo bloqueados |
+| **Bot Traffic** | Proporção de tráfego legítimo vs. bad bot vs. under evaluation |
+| **Top Bot Action** | Distribuição das ações tomadas (allow, deny, redirect, etc.) |
+| **Bot CAPTCHA** | Taxa de resolução do desafio—taxas baixas podem indicar bots reais |
+
+### Seção Breakdown
+
+| Gráfico | O que observar |
+|---------|---------------|
+| **Top Bot Classifications** | Quais tipos de ataque são mais prevalentes |
+| **Bot Activity Map** | Origem geográfica dos ataques |
+| **Top Impacted URLs** | Endpoints recebendo mais tráfego de bots |
+| **Top Bad Bot IPs** | Reincidentes para adicionar às network lists |
+
+<LinkButton link="/pt-br/documentacao/produtos/observe/real-time-metrics/#bot-manager" label="Ir para os dashboards do Bot Manager" severity="secondary" />
+
+---
+
+## Passo 6: Definir e calibrar o threshold
+
+O parâmetro `threshold` é a alavanca de calibração mais crítica. Ele define a pontuação máxima que uma requisição pode atingir antes que o Bot Manager execute a ação configurada.
+
+### Como funciona a pontuação
+
+Cada regra estática que dispara adiciona pontos à pontuação da requisição. A pontuação total determina se a requisição é bloqueada. Uma pontuação de `0` significa que nenhuma regra correspondeu; pontuações mais altas indicam mais sinais suspeitos.
+
+### Escolhendo um threshold inicial
+
+Comece com um threshold conservador (alto) e reduza-o gradualmente à medida que ganha confiança nos dados:
+
+| Threshold | Comportamento |
+|-----------|-------------|
+| `Infinity` (padrão) | Todas as requisições passam; nenhum bloqueio ocorre |
+| `18` | Ponto de partida recomendado para a maioria das aplicações |
+| `10–15` | Mais rígido; adequado para endpoints de alto valor como login ou pagamento |
+| `5–9` | Muito rígido; pode produzir falsos positivos em tráfego incomum-mas-legítimo |
+| `0` | Bloqueia todas as requisições (use apenas para testes) |
+
+### Fluxo de calibração
+
+1. **Observar** (dias 1–3): Execute com `action: allow` e `internal_logs: 2`. Colete distribuições de pontuação.
+2. **Identificar a lacuna de pontuação**: Encontre o intervalo de pontuação onde os bots maliciosos se concentram vs. onde o tráfego legítimo está. O threshold deve ficar entre esses dois clusters.
+3. **Definir o threshold**: Atualize os JSON Args com o threshold escolhido e uma ação de bloqueio.
+4. **Monitorar falsos positivos**: Observe o tráfego legítimo sendo bloqueado. Verifique entradas `classified: legitimate` com pontuações próximas ao seu threshold.
+5. **Ajustar**: Reduza o threshold se muitos bots maliciosos passarem; aumente-o se usuários legítimos estiverem sendo bloqueados.
+
+### Exemplo: definindo o threshold após observação
+
+Após 48 horas de observação, seus dados do GraphQL mostram:
+
+- Tráfego legítimo: pontuações entre `0–8`
+- Bots maliciosos: pontuações entre `15–30`
+- Um pequeno cluster de tráfego ambíguo: pontuações `9–14`
+
+Defina o threshold como `15` para bloquear bots maliciosos confirmados enquanto permite que o cluster ambíguo passe para observação adicional:
+
+```json
+{
+  "threshold": 15,
+  "action": "deny",
+  "log_tag": "bot_manager_producao",
+  "mode": "web",
+  "dynamic_rules_tolerance": "soft",
+  "reputation_network_lists": [],
+  "disabled_static_rules": [],
+  "log_headers": [
+    "accept",
+    "accept-encoding",
+    "accept-language",
+    "content-type",
+    "host",
+    "referer",
+    "user-agent",
+    "x-forwarded-for",
+    "x-request-id"
+  ]
+}
+```
+
+---
+
+## Passo 7: Ajustar regras estáticas
+
+As regras estáticas são padrões de detecção predefinidos. Cada regra tem um ID e contribui com um número fixo de pontos para a pontuação da requisição quando correspondida. Você pode desabilitar regras específicas que geram falsos positivos sem removê-las do mecanismo de detecção.
+
+### Identificando regras problemáticas
+
+No Real-Time Events, filtre por entradas `classified: legitimate` que tenham pontuação alta. Verifique o array `matched_rules` para identificar quais IDs de regras estão disparando em tráfego legítimo.
+
+Por exemplo, se a regra `22` dispara consistentemente nas requisições da sua ferramenta de monitoramento interno:
+
+```json
+{
+  "disabled_static_rules": [22]
+}
+```
+
+As regras desabilitadas ainda aparecem em `disabled_matched_rules` nos logs, para que você possa rastrear suas correspondências sem afetar a pontuação.
+
+:::tip
+Desabilite regras de forma conservadora. Cada regra desabilitada reduz a cobertura de detecção. Se uma regra dispara tanto em tráfego legítimo quanto malicioso, considere usar uma exclusão no Rules Engine em vez de desabilitar a regra globalmente.
+:::
+
+---
+
+## Passo 8: Configurar regras dinâmicas
+
+As regras dinâmicas usam análise comportamental para detectar anomalias que as regras estáticas podem não capturar. Elas se adaptam à linha de base de tráfego da sua aplicação ao longo do tempo.
+
+### Parâmetros das regras dinâmicas
+
+| Parâmetro | Padrão | Descrição |
+|-----------|--------|-----------|
+| `disable_dynamic_rules` | `false` | Defina como `true` para desabilitar as regras dinâmicas completamente |
+| `dynamic_rules_tolerance` | `soft` | Rigor da detecção: `soft`, `medium` ou `hard` |
+| `dynamic_rules_baseline` | `0` | Ajuste fino da linha de base. Valores negativos = mais rígido; positivos = mais permissivo |
+
+### Escolhendo a tolerância
+
+| Tolerância | Quando usar |
+|-----------|------------|
+| `soft` | Ponto de partida; menos provável de produzir falsos positivos |
+| `medium` | Após validar que `soft` não produz falsos positivos |
+| `hard` | Ambientes de alta segurança com padrões de tráfego bem compreendidos |
+
+### Habilitando logs de debug das regras dinâmicas
+
+Durante a calibração, habilite os logs de debug para entender as decisões das regras dinâmicas:
+
+```json
+{
+  "dynamic_rules_logs_enabled": true
+}
+```
+
+:::note
+Desabilite `dynamic_rules_logs_enabled` em produção. Os logs de debug aumentam significativamente o volume de logs e são destinados apenas para calibração.
+:::
+
+---
+
+## Passo 9: Excluir assets estáticos da análise do bot
+
+O Bot Manager não deve analisar requisições de arquivos estáticos (imagens, CSS, JavaScript). Essas requisições nunca são bots e adicionam sobrecarga de processamento desnecessária. Configure uma regra no Rules Engine para ignorar o Bot Manager em assets estáticos.
+
+No **Rules Engine** do seu Firewall, crie uma regra com os seguintes critérios:
+
+- **Critério**: `Request URI` **não corresponde** à regex:
+
+```
+\.(png|jpg|jpeg|gif|ico|css|js|svg|woff|woff2|ttf|eot|otf|webp|avif|mp4|webm|pdf)(\?.*)?$
+```
+
+- **Comportamento**: `Run Function` > selecione sua instância do Bot Manager.
+
+Isso garante que o Bot Manager só seja executado em requisições dinâmicas, reduzindo o ruído nos seus logs e melhorando a precisão.
+
+---
+
+## Passo 10: Proteger endpoints de alto valor com regras mais rígidas
+
+Diferentes endpoints têm diferentes perfis de risco. Use múltiplas instâncias do Bot Manager com diferentes thresholds para aplicar proteção mais rígida onde é mais importante.
+
+| Tipo de endpoint | Threshold recomendado | Ação recomendada |
+|-----------------|----------------------|-----------------|
+| Login / autenticação | `10` | `redirect` (para CAPTCHA) |
+| Pagamento / checkout | `10` | `deny` |
+| Criação de conta | `12` | `redirect` |
+| Endpoints de API | `15` | `deny` |
+| Conteúdo público | `18` | `deny` |
+
+Para implementar regras por endpoint, crie regras separadas no Rules Engine que executam diferentes instâncias do Bot Manager com base em critérios de `Request URI`.
+
+---
+
+## Passo 11: Transmitir logs para sistemas externos
+
+Para análise de longo prazo e integração com SIEM, use o [Data Stream](/pt-br/documentacao/produtos/observe/data-stream/) para encaminhar os logs do Bot Manager para sua stack de observabilidade.
+
+1. Acesse o [Azion Console](https://console.azion.com) > **Data Stream**.
+2. Clique em **+ Stream**.
+3. Configure o stream:
+   - **Source**: `Functions`
+   - **Template**: `Functions Event Collector`
+4. Configure o **Destino** (Splunk, Datadog, Elastic, S3 ou qualquer endpoint HTTP).
+5. Clique em **Save**.
+
+Os logs do Bot Manager serão encaminhados em tempo real, permitindo que você construa dashboards personalizados, configure alertas para detecção de picos e correlacione a atividade de bots com métricas de desempenho da aplicação.
+
+<LinkButton link="/pt-br/documentacao/produtos/observe/data-stream/" label="Ir para a referência do Data Stream" severity="secondary" />
+
+---
+
+## Checklist de calibração
+
+Use este checklist após cada ciclo de calibração:
+
+- [ ] Modo de observação executado por pelo menos 24 horas com `internal_logs: 2`
+- [ ] Distribuição de pontuação analisada via GraphQL `botManagerMetrics`
+- [ ] Top URLs impactadas identificadas via `botManagerBreakdownMetrics`
+- [ ] Threshold definido entre os clusters de pontuação de tráfego legítimo e bots maliciosos
+- [ ] Regras estáticas produzindo falsos positivos adicionadas a `disabled_static_rules`
+- [ ] Tolerância das regras dinâmicas validada para o perfil de tráfego
+- [ ] Assets estáticos excluídos do Bot Manager via Rules Engine
+- [ ] Endpoints de alto valor configurados com thresholds mais rígidos
+- [ ] Logs de produção transmitindo para SIEM ou plataforma de observabilidade externa
+- [ ] Dashboards do Real-Time Metrics revisados semanalmente
+
+---
+
+## Recursos relacionados
+
+<LinkButton link="/pt-br/documentacao/produtos/secure/firewall/bot-manager/" label="Referência do Bot Manager" severity="secondary" />
+<br />
+<LinkButton link="/pt-br/documentacao/produtos/guias/bot-manager-lite/" label="Guia do Bot Manager Lite" severity="secondary" />
+<br />
+<LinkButton link="/pt-br/documentacao/produtos/observe/real-time-events/" label="Referência do Real-Time Events" severity="secondary" />
+<br />
+<LinkButton link="/pt-br/documentacao/produtos/observe/real-time-metrics/" label="Referência do Real-Time Metrics" severity="secondary" />
+<br />
+<LinkButton link="/pt-br/documentacao/produtos/guias/consultar-dados-bot-manager-com-graphql/" label="Consultar dados do Bot Manager com GraphQL" severity="secondary" />
+<br />
+<LinkButton link="/pt-br/documentacao/produtos/guias/consultar-top-urls-impactadas-por-bots-com-graphql/" label="Consultar top URLs impactadas com GraphQL" severity="secondary" />
+<br />
+<LinkButton link="/pt-br/documentacao/produtos/observe/data-stream/" label="Referência do Data Stream" severity="secondary" />
