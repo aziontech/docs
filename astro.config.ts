@@ -32,7 +32,9 @@ export default defineConfig({
 		assets: '_astro_docs'
 	},
 	integrations: [
-		AutoImport({ imports: [asideAutoImport] }),
+		AutoImport({
+			imports: [asideAutoImport, { '~/components/Video.astro': [['default', 'Video']] }],
+		}),
 		preact({ compat: true }),
 		sitemap(),
 		astroAsides(),
