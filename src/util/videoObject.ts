@@ -1,56 +1,64 @@
 /**
- * Builds a schema.org `VideoObject` JSON-LD node for a documentation page that
- * embeds a YouTube video.
+ * Builds a schema.org `VideoObject` JSON-LD node for a video embedded on a
+ * documentation page.
+ *
+ * Single source of truth: the same props that render the embed also feed this
+ * builder (see `~/components/Video.astro`), so the embed and its structured
+ * data can never diverge.
  *
  * Mirrors the decisions made in the `azion/site` repository:
  * - uses `embedUrl` (never `contentUrl`);
  * - derives `thumbnailUrl` from the YouTube video ID
- *   (`https://i.ytimg.com/vi/{ID}/hqdefault.jpg`);
- * - uses the page date as `uploadDate`;
- * - omits `duration`.
+ *   (`https://i.ytimg.com/vi/{ID}/hqdefault.jpg`) when not provided;
+ * - emits a stable `@id` derived from the page URL;
+ * - `duration` is optional and omitted when absent.
  *
  * See: https://developers.google.com/search/docs/appearance/structured-data/video
  */
 
-export interface VideoFrontmatter {
+export interface VideoObjectInput {
 	/** YouTube embed URL, e.g. `https://www.youtube.com/embed/KB4f4bSyHgI`. */
-	embedUrl: string;
-	/** Overrides the video `name`. Falls back to the page title. */
-	title?: string;
-	/** Overrides the video `description`. Falls back to the page description. */
+	src: string;
+	/** Video title (`name`). */
+	title: string;
+	/** Optional video description. */
 	description?: string;
-	/** ISO 8601 date used as `uploadDate` (typically the page date). */
-	uploadDate?: string;
 	/** Overrides the derived YouTube thumbnail. */
 	thumbnailUrl?: string;
-}
-
-interface PageContent {
-	title?: string;
-	description?: string;
+	/** ISO 8601 date used as `uploadDate`. */
+	uploadDate?: string;
+	/** ISO 8601 duration, e.g. `PT1M30S`. Omitted when absent. */
+	duration?: string;
+	/** Stable, page-scoped `@id` for the node. */
+	id?: string;
 }
 
 /** Extracts the YouTube video ID from a `/embed/{ID}` URL. */
-function getYouTubeId(embedUrl: string): string | null {
+export function getYouTubeId(embedUrl: string): string | null {
 	const match = embedUrl.match(/\/embed\/([^?/&#]+)/);
 	return match ? match[1] : null;
 }
 
-export function getVideoObjectSchema(video: VideoFrontmatter, content: PageContent) {
-	const id = getYouTubeId(video.embedUrl);
+export function getVideoObjectSchema(input: VideoObjectInput) {
+	const { src, title, description, uploadDate, duration, id } = input;
+
+	const youtubeId = getYouTubeId(src);
 	const thumbnailUrl =
-		video.thumbnailUrl ?? (id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : undefined);
+		input.thumbnailUrl ??
+		(youtubeId ? `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg` : undefined);
 
 	const schema: Record<string, unknown> = {
 		'@context': 'https://schema.org',
 		'@type': 'VideoObject',
-		name: video.title ?? content.title,
-		description: video.description ?? content.description ?? content.title,
-		embedUrl: video.embedUrl,
 	};
 
+	if (id) schema['@id'] = id;
+	schema.name = title;
+	if (description) schema.description = description;
 	if (thumbnailUrl) schema.thumbnailUrl = thumbnailUrl;
-	if (video.uploadDate) schema.uploadDate = video.uploadDate;
+	if (uploadDate) schema.uploadDate = uploadDate;
+	schema.embedUrl = src;
+	if (duration) schema.duration = duration;
 
 	return schema;
 }
