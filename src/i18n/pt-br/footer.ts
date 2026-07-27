@@ -64,7 +64,7 @@ const listData = [
       },
       {
         "title": "Contate Vendas",
-        "link": "/pt-br/contate-vendas/"
+        "link": "/pt-br/contato/"
       },
       {
         "title": "Serviços Profissionais",

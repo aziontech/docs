@@ -22,7 +22,7 @@ const menuSecondary = [
   {
     text: "Contato",
     title: "Contact Sales",
-    link: "/pt-br/contate-vendas/",
+    link: "/pt-br/contato/",
     destak: false,
   },
   {
@@ -82,7 +82,7 @@ const bottomButtonsMobile = [
   },
   {
     label: 'Contato',
-    url: '/pt-br/contate-vendas/',
+    url: '/pt-br/contato/',
     urlTitle: 'Contact Page',
     icon: 'pi pi-chevron-right text-xs'
   }
