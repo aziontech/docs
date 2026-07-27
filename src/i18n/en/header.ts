@@ -22,7 +22,7 @@ const menuSecondary = [
   {
     text: "Contact",
     title: "Contact Sales",
-    link: "/en/contact-sales/",
+    link: "/en/contact/",
     destak: false,
   },
   {
@@ -82,7 +82,7 @@ const bottomButtonsMobile = [
   },
   {
     label: 'Contact',
-    url: '/en/contact-sales/',
+    url: '/en/contact/',
     urlTitle: 'Contact Page',
     icon: 'pi pi-chevron-right text-xs'
   }

@@ -62,7 +62,7 @@ const listData = [
       },
       {
         title: "Contact Sales",
-        link: "/en/contact-sales/"
+        link: "/en/contact/"
       },
       {
         title: "Professional Services",
