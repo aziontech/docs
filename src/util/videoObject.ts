@@ -39,13 +39,33 @@ export function getYouTubeId(embedUrl: string): string | null {
 	return match ? match[1] : null;
 }
 
+/**
+ * Normalizes `uploadDate` to a full ISO 8601 datetime WITH a timezone, which is
+ * what Google's VideoObject requires. Fixes the Search Console warnings
+ * "Datetime property 'uploadDate' is missing a timezone" and
+ * "Invalid datetime value for 'uploadDate'".
+ *
+ * - date-only `YYYY-MM-DD`            → `YYYY-MM-DDT00:00:00+00:00`
+ * - datetime without offset `…T18:00` → append `Z` (UTC)
+ * - already has `Z`/offset            → kept as-is
+ */
+export function normalizeUploadDate(value?: string): string | undefined {
+	if (!value) return undefined;
+	const trimmed = value.trim();
+	if (!trimmed) return undefined;
+	if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return `${trimmed}T00:00:00+00:00`;
+	if (/T\d{2}:\d{2}/.test(trimmed) && !/(Z|[+-]\d{2}:?\d{2})$/.test(trimmed)) return `${trimmed}Z`;
+	return trimmed;
+}
+
 export function getVideoObjectSchema(input: VideoObjectInput) {
-	const { src, title, description, uploadDate, duration, id } = input;
+	const { src, title, description, duration, id } = input;
 
 	const youtubeId = getYouTubeId(src);
 	const thumbnailUrl =
 		input.thumbnailUrl ??
 		(youtubeId ? `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg` : undefined);
+	const uploadDate = normalizeUploadDate(input.uploadDate);
 
 	const schema: Record<string, unknown> = {
 		'@context': 'https://schema.org',
@@ -54,7 +74,9 @@ export function getVideoObjectSchema(input: VideoObjectInput) {
 
 	if (id) schema['@id'] = id;
 	schema.name = title;
-	if (description) schema.description = description;
+	// `description` is required by Google — always emit a non-empty value,
+	// falling back to the title when no description is provided.
+	schema.description = description || title;
 	if (thumbnailUrl) schema.thumbnailUrl = thumbnailUrl;
 	if (uploadDate) schema.uploadDate = uploadDate;
 	schema.embedUrl = src;
