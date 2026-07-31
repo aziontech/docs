@@ -8,6 +8,7 @@ export const baseSchema = z.object({
 	permalink: z.string().optional(),
 	namespace: z.string().optional(),
 	menu_namespace: z.string().optional().default('nav'),
+	hide_title: z.boolean().optional(),
 	meta_tags: z.string().optional(),
 	og_image: z.string().optional(),
 	i18nReady: z.boolean().default(false),
