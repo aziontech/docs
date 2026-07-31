@@ -167,7 +167,11 @@ export default {
 	'menu.runtime': 'Azion Runtime',
 	'menu.store': 'Store',
 	'menu.storage': 'Object Storage',
-	'menu.edgeSQL': 'SQL Database'
+	'menu.edgeSQL': 'SQL Database',
+	'menu.resources': 'Resources',
+	'menu.manage': 'Manage',
+	'menu.start': 'Start',
+	'menu.updatesPolicies': 'Updates & Policies'
 
 
 };

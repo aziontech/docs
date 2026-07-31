@@ -1,4 +1,3 @@
-import enNav from './en/nav';
 import type enUI from './en/ui';
 import type languages from './languages';
 
@@ -17,66 +16,16 @@ export type NavDict = Array<
 		anchor?: boolean;
 		type?: string;
 		slug?: string;
+		icon?: string;
 		key: string;
 		isFallback?: boolean;
 		items?: NavDict;
 		addBorder?: boolean;
 		hasLabel?: UIDictionaryKeys;
+		labelIcon?: string;
 		isProduct?: boolean
 	}
 >;
-
-/**
- * Helper to type check and process a dictionary of navigation menu translations.
- * Converts it to an array matching the English menu’s sorting with English items used as fallback entries.
- */
-
-type navMatching = Array<{
-	key: string;
-	text: string
-	slug?: string;
-}>
-
-export const NavDictionary = (dict: navMatching) => {
-	const parsingNavMenu = (enMenu: any, dict: navMatching) => {
-		const orderedDictionary: NavDict = [];
-		for (const entry of enMenu) {
-			const matchedObject = dict.find((value) => value.key === entry.key);
-			let items = undefined;
-
-			if (entry.items) {
-				items = parsingNavMenu(entry.items, dict);
-				if (items.length === 0) {
-					items = undefined;
-				}
-			}
-
-			if (matchedObject) {
-				const text = matchedObject.text;
-				const slug = matchedObject.slug || entry.slug;
-
-				if (slug) {
-					orderedDictionary.push({ ...entry, text, slug, ...(items && { items }) });
-				} else if (items) {
-					orderedDictionary.push({ ...entry, text, items });
-				} else {
-					orderedDictionary.push({ ...entry, text });
-				}
-			} else {
-				if (items) {
-					orderedDictionary.push({ ...entry, items, isFallback: true });
-				} else {
-					orderedDictionary.push({ ...entry, isFallback: true });
-				}
-			}
-		}
-
-		return orderedDictionary;
-	};
-
-	const orderedDictionary = parsingNavMenu(enNav, dict);
-	return orderedDictionary;
-};
 
 export interface HeaderMenuTranslation {
 	nav: Array<{
