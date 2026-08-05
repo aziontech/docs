@@ -1,0 +1,216 @@
+name: PR preview
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+    # Don't spend a build on PRs that can't change what the site renders. This
+    # workflow file is in the list so that changes to the preview itself can be
+    # tested by the PR that makes them.
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'astro.config.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/pr-preview.yml'
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    name: Deploy preview
+    # Fork PRs receive no secrets, so there is no token to deploy with. They skip
+    # rather than fail.
+    #
+    # Drafts DO get a preview, on purpose. Marking a PR ready for review requests
+    # review from the whole DevRel team via CODEOWNERS, so gating the preview on
+    # that would mean nobody can see a preview without notifying everyone, and a
+    # failing preview would reach them too. Running on drafts keeps failures with
+    # the author. Revisit if preview builds start crowding out other CI.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PREVIEW_NAME: docs-preview-pr-${{ github.event.pull_request.number }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      # Node 22, not the 20.13.1 in .nvmrc. The Azion CLI installs its own
+      # bundler chain during link, and rolldown and oxc-minify need
+      # ^20.19 || >=22.12 while @napi-rs/lzma needs ^22.20 or newer. package.json
+      # allows this: engines.node is ">=20.13.1". Only the preview builds on 22;
+      # the deploy pipelines still use 20.13.1.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Azion CLI
+        run: |
+          curl -fsSL https://cli.azion.app/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          command -v azion || echo "azion not on PATH yet; the next step will report where it landed"
+
+      - name: Show CLI version
+        run: azion --version
+
+      # The preset is lowercase. The CLI's interactive picker displays "Astro",
+      # but that is a label: the bundler rejects it with "Invalid build preset
+      # name". Run `npx @aziontech/bundler presets ls` for the real values.
+      #
+      # --debug because a failing link otherwise prints only npm's warnings and
+      # then a bare "Error: exit status 1". Note that link also rewrites
+      # .gitignore and drops its own workflow at
+      # .github/workflows/azion-deploy.yml; both are discarded with the runner
+      # and neither is committed.
+      - name: Link a per-PR application
+        run: |
+          azion link \
+            --auto \
+            --name "$PREVIEW_NAME" \
+            --preset astro \
+            --package-manager pnpm \
+            --token "${{ secrets.AZION_TOKEN }}" \
+            --debug \
+            --no-color
+
+      # deploy fails in about two seconds with "Failed to open the azion.json
+      # file" when link has not produced one, so this shows what link actually
+      # left behind before we get there.
+      - name: Show what link produced
+        if: always()
+        run: |
+          echo "--- cwd ---"; ls -la
+          echo "--- azion/ ---"; ls -la azion/ 2>&1 || true
+          echo "--- azion/azion.json ---"; cat azion/azion.json 2>&1 || true
+          echo "--- azion.config.* ---"; cat azion.config.* 2>&1 || true
+          echo "--- .edge/ ---"; ls -la .edge/ 2>&1 || true
+
+      # --local builds on the runner and uploads the result. The remote builder
+      # runs out of memory above a 4 GB heap, and this site needs more than that.
+      # Deliberately no --format json and no --out here. Both swallow the error:
+      # a failing deploy writes `{"error": {}}` and nothing else, while plain
+      # output prints the real message. Reproduced against CLI 4.22.2.
+      # Workaround for a schema disagreement inside Azion CLI 4.22.2. `azion link`
+      # writes "function": [] into azion/azion.json, but `azion deploy` unmarshals
+      # that field as a struct and fails:
+      #
+      #   json: cannot unmarshal array into Go struct field
+      #   AzionApplicationOptionsV3.function of type contracts.AzionJsonDataFunction
+      #
+      # which surfaces as the misleading "Azion configuration not found", even
+      # though the file is present and otherwise correct. Drop this step once the
+      # two commands agree on the schema.
+      - name: Reconcile azion.json for deploy
+        run: |
+          before=$(jq -r '.function | type' azion/azion.json)
+          if [ "$before" = "array" ]; then
+            jq '.function = {}' azion/azion.json > azion/azion.json.tmp
+            mv azion/azion.json.tmp azion/azion.json
+            echo "patched .function: array -> object"
+          else
+            echo "no patch needed; .function is $before"
+          fi
+          echo "--- azion/azion.json ---"
+          cat azion/azion.json
+
+      # Build the site ourselves, with the same command the deploy pipelines use.
+      # This is what satisfies the heap requirement: the runner has the memory,
+      # Azion's remote builder falls over above 4 GB. It also runs the frontmatter
+      # validator, and it produces ./dist, which azion.config.mjs points its
+      # storage connector at. Link does not build the site.
+      - name: Build the site
+        env:
+          NODE_OPTIONS: --max-old-space-size=8120
+        run: |
+          pnpm build:local
+          echo "--- dist ---"
+          du -sh dist && find dist -name '*.html' | wc -l | xargs echo "html files:"
+
+      # --skip-build because deploy's build step is unusable in CLI 4.22.2: it
+      # shells out to edge-functions@5.3.1, which validates azion.config.mjs
+      # against the old schema and rejects the config that `azion link` just
+      # generated:
+      #
+      #   Config can only contain the following properties: build, functions,
+      #   rules, origin, cache, networkList, domain, purge, firewall
+      #
+      # while link wrote build, storage, connectors, applications, workloads.
+      # The two commands are on opposite sides of a schema migration. We built
+      # ./dist in the previous step, so there is nothing for deploy to build.
+      - name: Deploy
+        run: |
+          azion deploy \
+            --local \
+            --skip-build \
+            --auto \
+            --no-prompt \
+            --config-dir azion \
+            --token "${{ secrets.AZION_TOKEN }}" \
+            --debug \
+            --no-color
+
+      # The URL comes from a workload lookup rather than the deploy output,
+      # because --format json is unusable on the deploy command (see above).
+      # `list` is a read, so its JSON is fine. The shape is undocumented, so this
+      # dumps the whole payload the first time.
+      - name: Resolve the preview URL
+        id: url
+        if: always()
+        run: |
+          azion list workload --format json --token "${{ secrets.AZION_TOKEN }}" --no-color > workloads.json || true
+          echo "--- workloads.json ---"
+          cat workloads.json || echo "(none)"
+
+          url=$(jq -r --arg n "$PREVIEW_NAME" \
+            '.. | objects | select(.name? == $n) | .. | strings | select(test("azionedge|azion\\.app"))' \
+            workloads.json 2>/dev/null | head -1)
+          [ -n "$url" ] && url="https://$url"
+
+          echo "resolved: ${url:-none}"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Comment the preview URL
+        if: steps.url.outputs.url != ''
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.url.outputs.url }}
+        with:
+          script: |
+            const marker = '<!-- azion-preview -->';
+            const body = [
+              marker,
+              `### Preview`,
+              '',
+              `${process.env.PREVIEW_URL}`,
+              '',
+              `Workload \`${process.env.PREVIEW_NAME}\`, built from ${context.sha.slice(0, 7)}. Torn down when this PR closes.`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.data.find((c) => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
