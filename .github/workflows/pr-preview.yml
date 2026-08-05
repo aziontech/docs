@@ -1,0 +1,162 @@
+name: PR preview
+on:
+  pull_request:
+    branches:
+      - main
+    # ready_for_review is here so flipping a draft to ready triggers the preview,
+    # since drafts are skipped below.
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Don't spend a build on PRs that can't change what the site renders. This
+    # workflow file is in the list so that changes to the preview itself can be
+    # tested by the PR that makes them.
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'astro.config.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/pr-preview.yml'
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    name: Deploy preview
+    # Fork PRs receive no secrets, so there is no token to deploy with. They skip
+    # rather than fail. Drafts skip too: no point spending a build on work in
+    # progress. Both are deliberate v1 limits.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PREVIEW_NAME: docs-preview-pr-${{ github.event.pull_request.number }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      # Node 22, not the 20.13.1 in .nvmrc. The Azion CLI installs its own
+      # bundler chain during link, and rolldown and oxc-minify need
+      # ^20.19 || >=22.12 while @napi-rs/lzma needs ^22.20 or newer. package.json
+      # allows this: engines.node is ">=20.13.1". Only the preview builds on 22;
+      # the deploy pipelines still use 20.13.1.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Azion CLI
+        run: |
+          curl -fsSL https://cli.azion.app/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          command -v azion || echo "azion not on PATH yet; the next step will report where it landed"
+
+      - name: Show CLI version
+        run: azion --version
+
+      # --debug because a failing link prints only npm's warnings and then a bare
+      # "Error: exit status 1". Note that link also rewrites .gitignore and drops
+      # its own workflow at .github/workflows/azion-deploy.yml; both are
+      # discarded with the runner and neither is committed.
+      - name: Link a per-PR application
+        run: |
+          azion link \
+            --auto \
+            --name "$PREVIEW_NAME" \
+            --preset Astro \
+            --package-manager pnpm \
+            --token "${{ secrets.AZION_TOKEN }}" \
+            --debug \
+            --no-color
+
+      # deploy fails in about two seconds with "Failed to open the azion.json
+      # file" when link has not produced one, so this shows what link actually
+      # left behind before we get there.
+      - name: Show what link produced
+        if: always()
+        run: |
+          echo "--- cwd ---"; ls -la
+          echo "--- azion/ ---"; ls -la azion/ 2>&1 || true
+          echo "--- azion/azion.json ---"; cat azion/azion.json 2>&1 || true
+          echo "--- azion.config.* ---"; cat azion.config.* 2>&1 || true
+          echo "--- .edge/ ---"; ls -la .edge/ 2>&1 || true
+
+      # --local builds on the runner and uploads the result. The remote builder
+      # runs out of memory above a 4 GB heap, and this site needs more than that.
+      # Deliberately no --format json and no --out here. Both swallow the error:
+      # a failing deploy writes `{"error": {}}` and nothing else, while plain
+      # output prints the real message. Reproduced against CLI 4.22.2.
+      - name: Build and deploy
+        env:
+          NODE_OPTIONS: --max-old-space-size=8120
+        run: |
+          azion deploy \
+            --local \
+            --auto \
+            --no-prompt \
+            --token "${{ secrets.AZION_TOKEN }}" \
+            --no-color
+
+      # The URL comes from a workload lookup rather than the deploy output,
+      # because --format json is unusable on the deploy command (see above).
+      # `list` is a read, so its JSON is fine. The shape is undocumented, so this
+      # dumps the whole payload the first time.
+      - name: Resolve the preview URL
+        id: url
+        if: always()
+        run: |
+          azion list workload --format json --token "${{ secrets.AZION_TOKEN }}" --no-color > workloads.json || true
+          echo "--- workloads.json ---"
+          cat workloads.json || echo "(none)"
+
+          url=$(jq -r --arg n "$PREVIEW_NAME" \
+            '.. | objects | select(.name? == $n) | .. | strings | select(test("azionedge|azion\\.app"))' \
+            workloads.json 2>/dev/null | head -1)
+          [ -n "$url" ] && url="https://$url"
+
+          echo "resolved: ${url:-none}"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Comment the preview URL
+        if: steps.url.outputs.url != ''
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.url.outputs.url }}
+        with:
+          script: |
+            const marker = '<!-- azion-preview -->';
+            const body = [
+              marker,
+              `### Preview`,
+              '',
+              `${process.env.PREVIEW_URL}`,
+              '',
+              `Workload \`${process.env.PREVIEW_NAME}\`, built from ${context.sha.slice(0, 7)}. Torn down when this PR closes.`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.data.find((c) => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
