@@ -91,6 +91,13 @@ These paths need the user driving a browser:
 
 **Plain markdown only.** No MDX components, no `:::note`, no `<Tabs>`, no `<LinkButton>`. Bare URLs rather than markdown links, because the agent needs the URL, not the label.
 
+**Strict Simplified Technical English.** The twin is the one artifact here read entirely by machines, with no author to ask and no page around it for context. That is the reader ASD-STE100 was written for. Apply `.agents/references/simplified-technical-english.md` without the relaxations the human page gets:
+
+- One instruction per step, no exceptions. An agent given `Open the file and change the TTL` may do one and report both.
+- 20 words per sentence, imperative, active voice.
+- No pronoun whose referent is in another section. The twin gets read in fragments.
+- Same verb for the same action throughout. An agent has no way to infer that "verify" and "confirm" meant one check.
+
 **Commands must be copy-runnable.** Placeholders are obvious: `<your-azion-domain>`, `[TOKEN VALUE]`. Never a plausible fake value.
 
 ## Checklist
@@ -104,3 +111,4 @@ These paths need the user driving a browser:
 - [ ] Propagation or timing caveats stated
 - [ ] Plain markdown, no MDX components
 - [ ] Every command runnable as written
+- [ ] One instruction per step, 20 words per sentence, one verb per action

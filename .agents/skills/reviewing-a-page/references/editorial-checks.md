@@ -18,7 +18,11 @@ The same words are fine describing behaviour: "a robust retry policy", "leverage
 
 **Rhetorical questions**, especially as headings. `What is caching?` is a blog heading. Here it is `Caching`.
 
-**Title-case headings.** Sentence case, always. `Configuring cache policies`, not `Configuring Cache Policies`.
+**Title-case headings.** Sentence case, always. `Configure cache policies`, not `Configure Cache Policies`.
+
+**Gerund headings.** A heading naming a task starts with a bare imperative verb. `Creating a bucket` becomes `Create a bucket`, `Deploying the application` becomes `Deploy the application`. Not a finding when the `-ing` word names a thing rather than a task — `Getting started`, `Monitoring` as a feature — or when it appears later in the heading.
+
+This is the single most common editorial defect in the corpus: 932 headings across 310 pages. Report it once per page as a pattern with the count, never as one finding per heading.
 
 **Proper nouns are not title case.** This is where a naive check goes wrong. Product names keep their capitals, so these headings are all correct:
 
@@ -65,6 +69,29 @@ Before flagging, check each capitalized word against the product list in `.agent
 
 **Non-parallel list items.** All items start with a verb, or all with a noun. Mixing makes a list harder to scan than prose.
 
+## Simplified Technical English
+
+Full rules in `.agents/references/simplified-technical-english.md`. Which budget applies depends on the content type, so establish that first.
+
+| Content type | Mode | Sentence cap |
+| --- | --- | --- |
+| Tutorial, how-to | procedural | 20 words |
+| Reference, explanation | descriptive | 25 words |
+
+Flag:
+
+- **Sentences over the cap.** Count prose only. Table cells, code blocks, and command output are not sentences.
+- **Compound tenses.** "has been created", "will have configured". Simple tenses only.
+- **`-ing` used as a verb or a trailing participle clause.** "…routes traffic, reducing latency and improving performance." Both padding and an ambiguity.
+- **Noun clusters over three words.** `Rules Engine request phase behavior configuration`. Count a product name as one unit — `Azion Web Platform` and `Real-Time Metrics` are names, not clusters.
+- **Dropped articles, subjects, or verbs.** "Objects not cached will be purged" leaves the reader guessing which objects.
+- **Paragraphs over six sentences, or covering two topics.**
+- **Rotating synonyms for one action.** `check` / `verify` / `confirm` used for the same step reads as three different steps. Worth flagging only when one page does all three.
+
+A step holding two instructions is **P1**, not P2. It is in `structural-checks.md`.
+
+**Cap these at three findings per page.** Measured on `guides/`, 57% of pages breach the sentence cap five or more times. 14% breach it ten or more. Listing them all buries every P0 and P1 you found. Report the two or three worst, give the total, and call it an editorial pass.
+
 ## Do not flag
 
 - Prose you would have written differently. Voice is not a defect.
@@ -73,9 +100,14 @@ Before flagging, check each capitalized word against the product list in `.agent
 - Sentence fragments in table cells. That is what table cells are.
 - British or American spelling, as long as one page is internally consistent.
 - Contractions. Fine in this voice.
+- An `-ing` word that names a thing rather than a task: `Getting started`, `Billing`, `Monitoring` as a feature name.
+- A 26-word descriptive sentence that reads clearly. The caps are targets and nothing in CI counts words.
+- Portuguese pages against the English vocabulary rules. Structure transfers; the dictionary does not.
 
 ## Report sparingly
 
 Editorial findings are the easiest to generate and the least valuable. Three good ones beat fifteen.
 
 If a page has more than about five P2 findings, do not list them all. Say the page needs an editorial pass, name the two or three patterns driving it, and move on.
+
+This matters most for the Simplified Technical English checks, which are the easiest to over-report. A legacy page can breach the sentence cap forty times. Say so once, with a count and two examples, and call it a rewrite. Forty findings is not a review.

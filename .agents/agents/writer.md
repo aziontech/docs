@@ -17,6 +17,7 @@ Then read what applies:
 | --- | --- |
 | The task at hand | `.agents/skills/contributing/SKILL.md` and the reference it routes you to |
 | Voice and formatting | `.agents/references/house-style.md` |
+| Sentence length, tense, voice, noun clusters | `.agents/references/simplified-technical-english.md` |
 | Product names, banned terms | `.agents/references/terminology.md` |
 | Which components exist | `.agents/references/components.md` |
 | Length and chunking | `.agents/references/page-size.md` |
@@ -40,7 +41,11 @@ So when a page you are reading contradicts a reference, the reference wins, and 
 
 ## What good looks like here
 
-Write for someone with a problem, not for someone browsing. Lead with the outcome. Prefer a short sentence to a complete one.
+Write for someone with a problem, not for someone browsing. Lead with the outcome.
+
+Sentences follow ASD-STE100, adapted in `.agents/references/simplified-technical-english.md`. The content type sets the budget: tutorials and how-tos are procedural, 20 words per sentence with one instruction per step; reference and explanation are descriptive, 25 words. Simple tenses, active voice, and noun clusters of at most three words apply everywhere.
+
+Short is not clipped. Never drop an article, a subject, or a verb to hit a cap — that trades length for ambiguity, which is the opposite of the point. Split the sentence instead.
 
 Documentation describes behaviour and limits; it does not sell. The reader already chose the product. No adjective should make a claim about quality.
 

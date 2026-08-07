@@ -12,6 +12,7 @@ Paths are relative to this skill directory unless they start with `.agents/`, wh
 ## Ground rules
 
 - **Never invent a product name.** Read `.agents/references/terminology.md`. If a name is not there, ask.
+- **Write in Simplified Technical English.** Every page in this repository follows `.agents/references/simplified-technical-english.md`, adapted from ASD-STE100 Issue 9. Procedures cap at 20 words per sentence and one instruction per step; description caps at 25. Simple tenses, active voice, noun clusters of at most three words.
 - **Never guess a permalink.** They are build-gated and unique per language. Read `references/frontmatter-and-permalinks.md`.
 - **Never commit or push automatically.** Make the changes, then ask.
 - **The existing pages are not the model.** Most of this corpus predates the current structure and is due for restructuring. Match the shapes in these references, not the page you happen to be reading.
@@ -42,6 +43,7 @@ Answer these before writing. If the request already covers them, skip ahead.
 | Add or update the Portuguese version | `references/bilingual.md` |
 | Make a page appear in a sidebar | `references/sidebar-registration.md` |
 | Look up voice and formatting rules | `.agents/references/house-style.md` |
+| Check sentence length, tense, voice, noun clusters | `.agents/references/simplified-technical-english.md` |
 | Check a draft for machine-generated patterns | `.agents/references/writing-quality.md` |
 | Check page length and retrieval chunking | `.agents/references/page-size.md` |
 | Look up an MDX component | `.agents/references/components.md` |

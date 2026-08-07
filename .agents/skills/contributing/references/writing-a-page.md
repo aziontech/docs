@@ -36,9 +36,11 @@ Read `frontmatter-and-permalinks.md` and fill in all five required fields before
 
 ## 6. Draft against the shape
 
-Open the reference for your content type and follow its skeleton. Then check yourself against `.agents/references/house-style.md`, `.agents/references/terminology.md`, and `.agents/references/writing-quality.md`.
+Open the reference for your content type and follow its skeleton. Then check yourself against `.agents/references/house-style.md`, `.agents/references/simplified-technical-english.md`, `.agents/references/terminology.md`, and `.agents/references/writing-quality.md`.
 
 Body starts at `##`. The `title` field renders the H1.
+
+The content type you picked in step 3 also sets your sentence budget. Tutorials and how-tos are procedural: 20 words per sentence, one instruction per step. Reference and explanation are descriptive: 25 words.
 
 ## 7. Use the components that exist
 
@@ -69,6 +71,7 @@ Both the build and the frontmatter validator must pass. Then look at the rendere
 - [ ] One content type, not two
 - [ ] Every claim traceable to the source from step 1
 - [ ] Checked against `.agents/references/writing-quality.md`: no invented limits, no promotional adjectives
+- [ ] Checked against `.agents/references/simplified-technical-english.md`: sentence caps, one instruction per step, simple tenses, no noun cluster over three words
 - [ ] Within the caps in `.agents/references/page-size.md`: sections under 2,000 characters, page under 8,000
 - [ ] Every `##` section makes sense read alone, with no back-references
 - [ ] Frontmatter complete, permalink has no language prefix

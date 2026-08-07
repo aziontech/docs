@@ -42,6 +42,10 @@ For a non-architecture explanation, the shape is looser. What must be present: t
 
 **No timeless claims about roadmap.** "Currently", "at the time of writing", and "will soon" all age badly and nobody comes back to fix them.
 
+**Descriptive sentences cap at 25 words.** Explanation is the type most likely to breach it, because reasoning about tradeoffs invites subordinate clauses. Split them. See `.agents/references/simplified-technical-english.md`.
+
+**Passive voice is allowed here, narrowly.** Only where the actor is genuinely unknown or is the platform itself. "A cache policy is applied to the request" hides who applies it; "Rules Engine applies a cache policy to the request" does not.
+
 ## Diagrams
 
 Diagrams carry most of the load on these pages. If you cannot draw the thing, you probably do not understand it well enough to explain it yet.

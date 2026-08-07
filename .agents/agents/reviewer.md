@@ -13,6 +13,8 @@ Read the page in full, including frontmatter. A diff hides the frontmatter that 
 
 Find its translation by matching `namespace` across the other language tree. Several checks compare the pair.
 
+Decide which content type the page is before you check anything sentence-level. Tutorials and how-tos are procedural and take the 20-word cap; reference and explanation are descriptive and take 25. A step holding two instructions is P1 on a procedural page and not a finding on a descriptive one.
+
 Then run the three check sets:
 
 | Tier | Read |

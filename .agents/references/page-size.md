@@ -36,15 +36,18 @@ The rule that follows from this, and the one that actually changes your drafting
 Concretely:
 
 - **Name the subject in each section.** Not "It caches content at the edge" but "Cache stores content at the edge." A pronoun whose referent is two sections up is broken the moment the section is retrieved on its own.
-- **No back-references.** "As mentioned above", "the previous step", "this feature" all assume context the chunk will not have. If a section genuinely depends on an earlier one, say which: "After creating the bucket described in Creating a bucket".
-- **Headings are search queries.** `Configuring cache TTL` retrieves. `Configuration` does not, and `Step 2` never will.
+- **No back-references.** "As mentioned above", "the previous step", "this feature" all assume context the chunk will not have. If a section genuinely depends on an earlier one, say which: "After creating the bucket described in Create a bucket".
+- **Headings are search queries.** `Configure cache TTL` retrieves. `Configuration` does not, and `Step 2` never will. Lead with the imperative verb, which is also what a reader types into search.
 - **Keep a table with its caption.** A table split from the sentence that explains it is noise. If a table is long enough to be its own chunk, give it a heading.
+- **One topic per paragraph, six sentences at most.** From `simplified-technical-english.md`. A paragraph covering two topics chunks badly wherever the splitter cuts it, and a 45-word sentence broken across a boundary leaves two fragments that each say something false.
 
 ## Concision is a retrieval requirement here
 
 Verbose prose does not just waste the reader's time. It dilutes the chunk. An embedding of 2,000 characters where 600 carry the information matches worse than an embedding of 600 that are all signal.
 
 So the vocabulary and padding rules in `writing-quality.md` are not only style. Cutting "in order to" to "to" is a small thing; cutting a 200-word preamble that restates the heading is the difference between a chunk that retrieves and one that does not.
+
+The sentence caps in `simplified-technical-english.md` do the same work one level down. What they do not license is compression by deletion: dropping an article or a subject to save characters produces a shorter chunk that retrieves an ambiguity.
 
 ## Exemptions
 
@@ -61,7 +64,7 @@ Everything else that is over the cap is over the cap because it is doing too muc
 
 Measured on the English tree, body only: 150 of 728 pages are over the 8,000 target and 60 are over the 16,000 cap. Those 60 are the split backlog, not a reason to relax the rule. New pages meet it.
 
-## Checking
+## Check a page
 
 ```bash
 # body size of one page, excluding frontmatter

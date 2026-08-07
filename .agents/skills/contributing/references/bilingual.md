@@ -60,6 +60,14 @@ A Portuguese page may link to an English page when no translation exists. That i
 
 Asset paths carry no language prefix and are identical in both: `/assets/docs/images/uploads/...`.
 
+## Write the English page so it survives translation
+
+ASD-STE100 exists because most readers of aerospace manuals work in a second language. The same rules make the Portuguese page easier to write and less likely to drift. An English sentence that runs 45 words with three subordinate clauses forces the translator to restructure it, and a restructured sentence is where meaning gets lost.
+
+The structural rules in `.agents/references/simplified-technical-english.md` carry over to Portuguese unchanged: sentence caps, one instruction per step, simple tenses, active voice, noun clusters of at most three words.
+
+The vocabulary rules do not. ASD's dictionary is English. The Portuguese equivalent is the substitution table below and the full list in `terminology.md`.
+
 ## Translation rules
 
 Full rules in `.agents/references/terminology.md`. The ones that come up constantly:

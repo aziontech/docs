@@ -1,6 +1,6 @@
 # House style
 
-Voice and formatting for Azion documentation. Product names and banned expressions are in `terminology.md`. Components are in `components.md`.
+Voice and formatting for Azion documentation. Product names and banned expressions are in `terminology.md`. Components are in `components.md`. Sentence construction — length, tense, voice, noun clusters — is in `simplified-technical-english.md`, and where the two touch, that file is the narrower rule.
 
 ## Voice
 
@@ -10,15 +10,19 @@ Voice and formatting for Azion documentation. Product names and banned expressio
 
 **Say what it does, not how good it is.** Documentation describes behaviour and limits. It does not sell. A reader who reached the docs has already bought.
 
-**Short sentences carry technical content better than long ones.** If a sentence has three clauses and a parenthetical, it is two sentences.
+**Short sentences carry technical content better than long ones.** If a sentence has three clauses and a parenthetical, it is two sentences. The caps are 20 words in a procedure and 25 in descriptive text, from `simplified-technical-english.md`.
+
+**Short is not the same as clipped.** Never drop a subject, a verb, or an article to hit the cap. "Objects not cached will be purged" is shorter than "Azion purges the objects that are not cached" and leaves the reader guessing which objects. Split the sentence instead.
 
 ## Headings
 
-**Sentence case.** `Configuring cache policies`, not `Configuring Cache Policies`.
+**Sentence case.** `Configure cache policies`, not `Configure Cache Policies`.
+
+**Lead with an imperative verb, not a gerund.** `Create a bucket`, not `Creating a bucket`. Gerunds translate inconsistently as the first word of a heading, and they put the heading in a different register from the imperative steps underneath it. An `-ing` word that names a thing rather than a task is a noun and stays: `Getting started`, `Monitoring`. Full rule and the corpus backlog are in `simplified-technical-english.md`.
 
 **Body starts at `##`.** The `title` field renders the H1. A `#` in the body is a defect.
 
-**Headings name the thing, not the section.** `Limits`, not `Some important limits to keep in mind`. `Creating a bucket`, not `Step 1`.
+**Headings name the thing, not the section.** `Limits`, not `Some important limits to keep in mind`. `Create a bucket`, not `Step 1`.
 
 **Do not skip levels.** `##` then `###`, never `##` then `####`.
 
@@ -82,6 +86,6 @@ Every command and snippet must have been run. An untested code block is a guess 
 
 ## Writing quality
 
-The vocabulary tables, the patterns that make a draft read as machine-generated, and the docs-specific calibration are in `writing-quality.md`. Read it before handing over a draft.
+The vocabulary tables, the patterns that make a draft read as machine-generated, and the docs-specific calibration are in `writing-quality.md`. The sentence-level rules — one instruction per step, simple tenses, noun-cluster limits — are in `simplified-technical-english.md`. Read both before handing over a draft.
 
 The short version: documentation tolerates bullets, tables, dense emphasis, and repeated structure, and those are not defects here. It does not tolerate promotional language, rhetorical questions as headings, or invented specifics. That last one is the failure that matters, because a confidently wrong limit is indistinguishable from a correct one until a reader tries it.

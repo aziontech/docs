@@ -42,6 +42,8 @@ You promise: if they follow every step in order, it works. That promise is the w
 
 **Show the result of every step.** Command output, a screenshot, a URL to open, a value that changed. Steps whose effect is invisible make the reader lose confidence.
 
+**One instruction per step, 20 words per sentence.** Tutorials are procedural, so they take the tighter budget in `.agents/references/simplified-technical-english.md`. The reader here is new and has no way to recover from a step they misread, which is the exact reader ASD-STE100 was written for.
+
 **Prerequisites are a barrier.** Every item in "Before you start" is a reason someone abandons the page. Cut anything you can supply yourself, and link the rest.
 
 **One tutorial per product area.** Tutorials are expensive to keep working. A product with five tutorials has five things to break on the next release.

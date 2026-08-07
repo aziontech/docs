@@ -29,6 +29,17 @@ Check against the skeleton in the matching reference file. Common gaps:
 - Tutorial with no statement of what the reader will have built
 - Explanation that names no tradeoff
 
+## Steps that hold more than one instruction
+
+Procedural pages only — tutorials and how-tos. A numbered step containing two or more actions is P1, not P2, because the reader executes steps one at a time and the second action gets skipped.
+
+- Flag: `Click **Save**, then purge the cache and confirm the TTL changed.`
+- Fix: three numbered steps.
+
+This is the rule ASD-STE100 was built around, and `.agents/references/simplified-technical-english.md` has the rest. Everything else from that file is P2 and belongs in `editorial-checks.md`. This one earns P1 on its own because it changes what the reader does.
+
+Descriptive pages are exempt. A reference sentence listing three properties is a list, not a compound instruction.
+
 ## Legacy product names
 
 | Flag | Replace with |

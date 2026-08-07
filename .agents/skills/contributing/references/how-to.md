@@ -11,7 +11,7 @@ Gets a reader who already has a problem to a solved problem. They know what they
 [Prerequisites, if any. One aside, not a section.]
 :::
 
-## <Gerund phrase describing the task>
+## <Imperative verb phrase naming the task>
 [Steps. Tabbed by interface if the task has more than one.]
 
 ## <Next task, if the page covers a sequence>
@@ -27,7 +27,9 @@ Gets a reader who already has a problem to a solved problem. They know what they
 
 Titles start with "How to": `How to create an Object Storage bucket`. This is house convention and 114 of the 206 pages in `guides/` already follow it.
 
-Section headings are gerund phrases naming the task: `Creating a bucket`, `Setting a cache policy`, `Bypassing origin cache`. Not `Bucket creation`, not `Step 1`.
+Section headings are imperative verb phrases naming the task: `Create a bucket`, `Set a cache policy`, `Bypass origin cache`. Not `Creating a bucket`, not `Bucket creation`, not `Step 1`.
+
+The imperative matches the steps underneath it and survives translation; a leading gerund does neither. 932 headings in this corpus still use the gerund form and are a backlog, not a precedent. See `.agents/references/simplified-technical-english.md`.
 
 ## The multi-interface pattern
 
@@ -86,6 +88,13 @@ Rules that will bite you:
 **Do not teach.** The reader has a problem, not a curiosity. A sentence of context is fine; a paragraph is a sign the content belongs in an explanation page with a link to it.
 
 **Steps are imperative and numbered.** "Click", "Enter", "Select". Not "You should click" or "The user clicks".
+
+**One instruction per step, 20 words per sentence.** This page is procedural, so it takes the tighter of the two budgets in `.agents/references/simplified-technical-english.md`. A step holding two actions is a step where the second one gets skipped.
+
+- No: `Click **Save**, then purge the cache and confirm the TTL changed.`
+- Yes: three numbered steps.
+
+**One verb per action, everywhere on the page.** If the Console button says **Delete**, the step says "delete" and so does every other mention. Rotating "delete", "remove", and "erase" reads as three different actions.
 
 **Write the agent twin.** How-to pages are also served as markdown at `<permalink>.md`, and that version should read as a skill an agent can execute. See `agent-twin.md`.
 

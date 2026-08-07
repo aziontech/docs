@@ -19,7 +19,9 @@ A file path, a directory, or a diff. If given a directory, review each page and 
 
 **2. Find its translation** by matching `namespace` across the other language tree. Several checks compare the pair.
 
-**3. Run the three check sets in order.** Stop reporting a category once you have found it three times on one page; say "and N more" instead of listing every instance.
+**3. Decide which content type the page is.** Several checks depend on it. Tutorials and how-tos are procedural and take the 20-word sentence cap; reference and explanation are descriptive and take 25. A step holding two instructions is a P1 finding on a procedural page and not a finding at all on a descriptive one.
+
+**4. Run the three check sets in order.** Stop reporting a category once you have found it three times on one page; say "and N more" instead of listing every instance.
 
 | Check set | Read |
 | --- | --- |
@@ -27,7 +29,7 @@ A file path, a directory, or a diff. If given a directory, review each page and 
 | P1, wrong shape or wrong words | `references/structural-checks.md` |
 | P2, voice and formatting | `references/editorial-checks.md` |
 
-**4. Report.** Format below.
+**5. Report.** Format below.
 
 ## Output format
 

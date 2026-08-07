@@ -4,6 +4,8 @@ Patterns that make a draft read as machine-generated, calibrated for technical d
 
 Adapted from Wikipedia's "Signs of AI writing" and Azion's `ai-writing-detector`. Neither is used unmodified: both are tuned for prose, and documentation has different tolerances.
 
+This file is about **word choice and framing**. `simplified-technical-english.md` is about **sentence construction** — length, tense, voice, noun clusters, one instruction per step. They are complements, and a draft needs both.
+
 ## Calibration first
 
 **Documentation legitimately does things a blog post should not.** Applying a general prose linter here produces mostly noise and buries the findings that matter.
@@ -72,6 +74,8 @@ The test is whether the word makes a claim about *quality* or about *behaviour*.
 
 **Participle padding.** Trailing `-ing` clauses that add words and no information: "…reducing latency and improving performance, ensuring a better experience." Cut to the claim that is actually measurable.
 
+ASD-STE100 bans the same construction for a second reason worth knowing: `the valve controlling the flow` reads as either an action or a name, and the reader cannot tell which. So a trailing participle is both padding and an ambiguity. See `simplified-technical-english.md`.
+
 **Generic conclusions.** A closing paragraph that restates the page without adding anything. End on the last concrete fact, or on a link worth following.
 
 **Negative parallelism.** "It's not just X, it's Y." Say Y.
@@ -108,3 +112,4 @@ Files that quote bad examples in order to ban them are not violating their own r
 - [ ] Headings name things and are in sentence case
 - [ ] No sentence would survive being deleted without loss
 - [ ] Read one paragraph aloud; if you run out of breath, split it
+- [ ] The sentence-construction checklist in `simplified-technical-english.md` also passes

@@ -62,5 +62,6 @@ Do not rewrite the Portuguese page by translating the new English one from scrat
 - [ ] The page is now exactly one content type
 - [ ] Every factual claim survived or moved somewhere named
 - [ ] Specifics kept: error strings, exact values, real caveats
+- [ ] Sentences brought within the caps in `.agents/references/simplified-technical-english.md`, without dropping articles or subjects to get there
 - [ ] Portuguese page rewritten too, or a linked follow-up issue exists
 - [ ] `pnpm build:local` passes

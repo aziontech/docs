@@ -58,6 +58,12 @@ If a reference page needs to show how to do something, link to the how-to. Do no
 
 **Consistent phrasing across rows.** If one row says "Maximum number of buckets per account", the next says "Maximum number of objects per bucket", not "How many objects you can put in a bucket". Reference readers scan; inconsistent phrasing forces them to actually read.
 
+This is the STE "same word, same meaning" rule applied to a column. See `.agents/references/simplified-technical-english.md`.
+
+**Descriptive sentences cap at 25 words.** Reference is descriptive, so it takes the looser of the two budgets. Table cells and code are exempt; the prose between tables is not.
+
+**Watch the noun clusters.** Reference prose stacks nouns more than any other type here, and four in a row leaves the reader guessing which word modifies which. `Rules Engine request phase behavior configuration` becomes `the behavior configuration for the Rules Engine request phase`. A product name counts as one unit.
+
 **State the units and the defaults.** A limit without a unit is not a fact. A setting without a default is a question.
 
 **No marketing.** Not "powerful caching capabilities". Just what it does and what its limits are. `terminology.md` has the banned expressions.

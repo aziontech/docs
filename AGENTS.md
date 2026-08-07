@@ -64,6 +64,7 @@ Use these when fanning work out to subagents, which do not inherit the skills lo
 | File | Contents |
 | --- | --- |
 | `.agents/references/house-style.md` | Voice, headings, links, lists, code |
+| `.agents/references/simplified-technical-english.md` | Sentence construction, adapted from ASD-STE100 Issue 9 |
 | `.agents/references/writing-quality.md` | Patterns that read as machine-generated |
 | `.agents/references/components.md` | The MDX components that are actually live |
 | `.agents/references/terminology.md` | Product names, banned terms, translation rules |
@@ -107,6 +108,8 @@ The Zod schema marks nearly everything optional; `test-frontmatter.js` disagrees
 ### Writing and style rules
 
 In `.agents/references/house-style.md` and the content-type references under `.agents/skills/contributing/references/`. Four Diátaxis types: tutorial, how-to, reference, explanation. One per page.
+
+Sentence construction follows **ASD-STE100 Issue 9**, adapted in `.agents/references/simplified-technical-english.md`. The standard splits its rules between procedures and descriptions, and that split maps onto Diátaxis: tutorials and how-tos are procedural, capped at 20 words per sentence with one instruction each; reference and explanation are descriptive, capped at 25. Simple tenses, active voice, and noun clusters of at most three words apply throughout. We do not use ASD's approved dictionary — `terminology.md` fills that role, under the standard's own allowance for project-specific technical vocabulary.
 
 ## Components
 
