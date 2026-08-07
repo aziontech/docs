@@ -1,130 +1,60 @@
-# Azion Docs contributing guide
+# Contributing to Azion Docs
 
-Thank you for taking the time to contribute to the Azion documentation! :orange_heart:
+Thanks for helping improve [Azion Developer Documentation](https://azion.com/en/documentation/)!
 
-Your contributions will help us maintain the [Azion Docs](https://docs.azion.com) portal.
+## The 60-second version:
+1. Open an issue (or grab one) → 2. Branch from `main` → 3. Write the page → 4. Run `pnpm build:local` → 5. Open a PR with a [conventional title](GOVERNANCE.md#4-pr-standard-enforced-by-ci) → 6. CI + two reviewers → 7. Squash-merge
 
-In this guide you'll get an overview of the contribution workflow from opening an issue, creating a PR, reviewing, and merging the PR.
+Rules of the road live in [GOVERNANCE.md](GOVERNANCE.md). This page is the practical walkthrough.
 
-> :wave: **New to contributions?** To get an overview of the project, read the [README](README.md) file. Here are some resources to help you get started with open source contributions:
-> - [Finding ways to contribute to open source on GitHub](https://docs.github.com/en/get-started/exploring-projects-on-github/finding-ways-to-contribute-to-open-source-on-github)
-> - [Set up Git](https://docs.github.com/en/get-started/quickstart/set-up-git)
-> - [GitHub flow](https://docs.github.com/en/get-started/quickstart/github-flow)
-> - [Collaborating with pull requests](https://docs.github.com/en/github/collaborating-with-pull-requests)
+## Before you write
 
+- Search existing issues first. If none fits, open one via the [issue forms](https://github.com/aziontech/docs/issues/new/choose) (Add / Upkeep / Fix / Question).
+- Small fixes (typos, broken links) can skip the issue and go straight to a PR.
+- Who reviews what is defined only in [`.github/CODEOWNERS`](CODEOWNERS). If you read a list of names anywhere else, trust CODEOWNERS.
 
-## Important
+## Setup
 
-- In the Azion **docs** repository, you can open an issue without opening a PR after, but you should open an issue before opening a PR.
-- PRs with only minor changes can be opened without an issue.
-- PRs submitted by code owners (internal) have priority over PRs submitted by external users (external).
-- For significant changes on docs, we recommend you open an issue and wait for one of our code owners to respond so we can find the best approach.
+```bash
+git clone https://github.com/aziontech/docs.git   # or your fork (external contributors)
+cd docs
+nvm use                          # Node version from .nvmrc
+pnpm install --frozen-lockfile   # pnpm is the package manager of record. Do not commit npm/yarn lockfiles
+pnpm dev                         # local preview
+```
 
-## Code owners
+## Making changes
 
-`aziontech/docs` has two teams as code owners:
+- All content lives in `src/content/docs/{en,pt-br}` as `.mdx`. English is the source of truth, so write it first. Add the `pt-br` version in the same PR when you can.
+- Trunk-based flow: `main` is the only long-lived branch. Branch off it (`EDU-1234-short-slug` or `type/short-slug`), keep the branch alive **3 days or less**, and PR back into `main`. Do not push to `main` directly, do not commit through the web UI, and do not keep personal long-running branches. Embargoed launch content merges behind a draft/publish frontmatter gate instead of waiting in a branch.
+- One concern per PR. Content changes and platform/code changes never travel together.
 
-- Developer education, the gatekeepers of all content.
-- 
-  - [@guiafonso-ol](https://github.com/guiafonso-ol) :dog:
-  - [@GabrielAzion](https://github.com/GabrielAzion) :owl:
-  - [@LuizaVSantos](https://github.com/LuizaVSantos) :guitar:
-  - [@MarianaReisAlcantara](https://github.com/MarianaReisAlcantara) :panda_face:
+## Before opening the PR
 
-- UX Engineering (UXE), the gatekeepers of all structure code.
+```bash
+pnpm build:local     # build + frontmatter validation (CI runs this too)
+pnpm lint:slugcheck  # permalink rules
+```
 
-  - [@robsongajunior](https://github.com/robsongajunior)
-  - [@lfsigreja](https://github.com/lfsigreja )
+- Changed a permalink or moved a page? **Add the redirect in this PR.**
+- Can't update `pt-br` yourself? Create the follow-up `i18n` issue and link it in the PR checklist.
 
----
+## The PR
 
-## Getting started
+- Title: `type(scope): imperative summary`, enforced by CI. **No ticket codes in the title**: the branch name and the Related issue field carry those, and squash makes titles permanent history.
+  - `feat` new content · `fix` corrections · `docs` upkeep · `i18n` translation · `refactor`/`chore` structure & tooling
+- Fill the PR template. The checklists are the review contract, and reviewers will hold you to them.
+- Two people sign off: an SME confirms it's technically true, and a DevRel maintainer confirms it's well written and well placed. Expect a first response within 1 business day. Short-lived branches only work when reviews are fast.
+- Merges are **squash-only**; your PR title becomes the permanent commit message.
 
-### :grey_exclamation: Open a new issue
+## External contributors
 
-If you spot a problem with the docs, first [search if an issue already exists](https://docs.github.com/en/github/searching-for-information-on-github/searching-on-github/searching-issues-and-pull-requests#search-by-the-title-body-or-comments) in the Azion Docs repository.
+Fork → branch → PR to `main`. Enable "allow maintainer edits" so we can help you across the finish line. Internal team PRs may take priority when a launch is in flight, but community PRs get folded in and credited.
 
-If a related issue doesn't exist, you can open a new issue using one of the [issue forms](https://github.com/aziontech/docs/issues/new/choose).
+## AI-assisted contributions
 
-There are 4 types of contribution to the Azion Docs repository:
+Welcome, and held to identical standards. Whether the branch came from you, Codex, Copilot, or Claude, it meets the same template, title, and checklist requirements as any other PR. You are accountable for the accuracy of what the agent wrote, and "the AI generated it" is not a review response.
 
-- **Add**: addition of new content.
-- **Upkeep**: update of existing content.
-- **Fix**: correction of content errors.
-- **Questions**: doubts.
+## After the merge
 
-### :pencil2: Make changes
-
-After you open an issue, you can either start making changes yourself or wait for one of our tech writers to address your issue.
-
-Only code owners from the [Azion organization](https://github.com/aziontech/) can directly create branches and open pull requests on the docs repository. If you aren't part of the Azion organization but want to contribute, [fork the repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo) first.
-
-In your fork, make the necessary modifications to the files. The directory path `src/content/docs` holds all of the content in the Azion Docs portal, divided by language.
-
-If you feel confident writing in both English and Portuguese, don't forget to make the changes to both English and Portuguese versions of the documentation. Otherwise, one of our team members will open a PR for the other language on your behalf.
-
-Azion Docs uses the [Astro framework](https://docs.astro.build/en/guides/markdown-content/), allowing you to write content in `.mdx` format. Take a look at [some of our existing content](https://github.com/aziontech/docs/tree/community-guidelines/src/content/docs) to get a sense of how our documentation is structured.
-
-If you want to propose a new page:
-
-1. Find the appropriate directory.
-2. Create a new `.mdx` file.
-3. Add a [front matter YAML](https://docs.github.com/en/github-ae@latest/contributing/syntax-and-versioning-for-github-docs/using-yaml-frontmatter) to the top of the `.mdx` file to fill out titles and metadata as shown below:
-
-  ```md
-  ---
-  title: <Insert page title>
-  description: <Insert page description>
-  meta_tags: <Insert tags>
-  namespace: <Insert namespace following the structure: documentation_type_product_module_feature>
-  permalink: <Insert a permalink for the page following the structure: /en/documentation/type/product/module/feature>
-  ---
-  ```
-
-4. Write the content below the front matter in Markdown format.
-
-You can branch out from main or commit the changes directly once you're pleased with them. We use the basics of the **Conventional Commits** standard to title commits and PRs.
-
-### :speech_balloon: Create a Pull Request
-
-When you're finished with the changes, create a pull request (PR).
-
-1. [Open a new PR](https://github.com/aziontech/docs/compare) by selecting your forked repository and the branch in which you commited your changes.
-2. Fill in the PR title and description according to the template so that we can review your PR.
-  - The description template helps reviewers understand your changes as well as the purpose of your PR.
-3. Don't forget to [link the PR to the issue you opened](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue).
-4. Enable the checkbox to [allow maintainer edits](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/allowing-changes-to-a-pull-request-branch-created-from-a-fork) so the branch can be updated for a merge.
-5. Once you submit your PR, our code owners will review your contributions. We may ask questions or request additional context. 
-  - Reviewers will test your changes locally to make sure your modifications don't break the application's build process.
-6. After testing, we may ask for changes to be made before a PR can be merged, either using [suggested changes](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/incorporating-feedback-in-your-pull-request) or pull request comments. 
-  - You can apply suggested changes directly through the UI. You can make any other changes in your fork, then commit them to your branch.
-7. As you update your PR and apply changes, mark each conversation as [resolved](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations).
-
-Now you'll need the approval from at least two code owners before you can merge your changes.
-
-#### :memo: Review by code owners
-
-When the repository's code owners review your PR, they may make suggestions, request changes, or even reject your PR. Possibilities that lead to a PR rejection:
-
-- PR based on the wrong branch (not main).
-- PR attempts to merge changes into the wrong branch.
-- Contribution was already addressed in another PR.
-- Contribution has wrong technical information. Address the responsible Technical Writer (TW) and a Subject Matter Expert (SME), if needed.
-- Contribution is already being worked on by a TW (if it’s a product/feature launch and the TW is already working on the content on a branch, the TW’s contribution has priority. Community contribution can be incorporated into the TW’s PR).
-- Contributor opened a PR with major changes without a GitHub issue.
-- Contributor didn’t describe what they were changing/adding/fixing on the PR description.
-- Contributor didn’t add a descriptive title/label.
-
-### :thumbsup: Merge changes
-
-Once you have at least two approvals from code owners, you can merge your PR! 🥳
-
-Check the [GitHub Actions tab](https://github.com/aziontech/docs/actions) to see the status of your modifications. If you run into any merge issues, check this [git tutorial](https://github.com/skills/resolve-merge-conflicts) to help you resolve merge conflicts and other issues.
-
-Once your PR is merged successfully, you can review your contribution on the [Azion Docs](https://docs.azion.com) portal. 📙
-
-### :white_check_mark: Close the issue
-
-Congratulations, your PR has been merged! :tada: The issue you created can now be updated and closed once the merge has been made.
-
-> Don't forget to [keep your forked repository up-to-date with the Azion docs repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork) if you wish to make more contributions in the future.
+CI deploys `main` to production automatically. Check your page on [https://azion.com/en/documentation/](https://azion.com/en/documentation/), then close the issue.
