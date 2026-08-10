@@ -1,53 +1,79 @@
-
-<h1 align="center">
-  Azion Docs 💻📚🧡
-</h1>
-
-![docs production](https://github.com/aziontech/docs/actions/workflows/prod.yml/badge.svg)
-![docs stage](https://github.com/aziontech/docs/actions/workflows/stage.yml/badge.svg)
-![docs development](https://github.com/aziontech/docs/actions/workflows/dev.yml/badge.svg)
+<h1 align="center">Azion Docs</h1>
 
 <p align="center">
-    We're under a <a href="https://opensource.org/license/mit/" title="MIT">MIT</a> license.
-    <br>
-    You can read more about it on <a href="./LICENSE" title=".LICENSE">LICENSE</a>.
+  <b>The source for <a href="https://azion.com/en/documentation/">Azion's developer documentation</a>.</b>
+  <br>
+  Built with <a href="https://astro.build/">Astro</a> and <a href="https://mdxjs.com/">MDX</a>, in English and Portuguese.
 </p>
 
-- [About us](#about-us-%E2%84%B9%EF%B8%8F)
-- [Contributions](#contributions-)
-- [Community](#community-)
+<p align="center">
+  <a href="https://github.com/aziontech/docs/actions/workflows/prod.yml"><img src="https://github.com/aziontech/docs/actions/workflows/prod.yml/badge.svg" alt="production build"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-orange" alt="MIT license"></a>
+</p>
 
-Welcome to our open documentation repository! We're thrilled that you're interested in contributing to our documentation and being a part of our community. This README will go over the mission to empower Azion users through effective and clear documentation, as well as introduce how anyone willing to do good can help us by contributing. 📖
+---
 
-## About Us ℹ️
+## Quick links
 
-We are a web platform that allows you to build and run applications anywhere. Our documentation is a crucial part of ensuring our users have the best experience with our products and services. 🌐🚀
+| If you want to | Go to |
+| --- | --- |
+| Read the documentation | [azion.com/en/documentation](https://azion.com/en/documentation/) |
+| Report an error, request a page, or ask a question | [Issue forms](https://github.com/aziontech/docs/issues/new/choose) |
+| Make a change | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
+| Understand the rules | [GOVERNANCE.md](.github/GOVERNANCE.md) |
+| Find out who reviews what | [CODEOWNERS](.github/CODEOWNERS) |
+| Get help with an Azion product | [Azion Support](https://tickets.azion.com/en/support/login/new) |
 
-Our documentation includes:
+## What's in here
 
-- Product reference
-- API reference
-- Guides
-- Use cases
-- Code samples
+Published content lives in `src/content/docs/`, split into `en` and `pt-br`. Pages are `.mdx`, so a page can pull in front-end components instead of being limited to prose. The site covers product reference, API reference, guides, use cases, and code samples.
 
-The documentation portal is built on [Astro](https://docs.astro.build/en/getting-started/) and leverages [MDX](https://mdxjs.com/docs/what-is-mdx/) to build experience-focused content with front-end components, going beyond text.
+English is the source of truth. Portuguese mirrors it, and divergence is tracked in an `i18n` issue rather than left silent.
 
-## Contributions 🤝
+We treat these pages as an API. People read them, but so do agents and crawlers through llms.txt, context7, and MCP. That makes frontmatter schema, heading structure, and working links contract requirements rather than style preferences.
 
-We encourage and welcome contributions from the community. Whether you've found a typo, want to fix a bug, or add new content, your help is greatly appreciated. To get started, please [go to Azion Docs Contributing guide](https://github.com/aziontech/docs/blob/main/.github/CONTRIBUTING.md) to get familiar with the process.
+## Run it locally
 
-### Contributor Covenant Code of Conduct 📜
+You need Node 20.13.1 or newer and pnpm.
 
-To maintain the quality and integrity of our documentation, contributors are required to read our [Contributor Covenant Code of Conduct](https://github.com/aziontech/docs/blob/main/CODE_OF_CONDUCT.md). 📝🤝
+```bash
+git clone https://github.com/aziontech/docs.git
+cd docs
+nvm use
+pnpm install --frozen-lockfile
+pnpm dev
+```
 
-## Community 💬 
+Before you open a pull request:
 
-You can find us on:
+```bash
+pnpm build:local     # build + frontmatter validation
+pnpm lint:slugcheck  # permalink rules
+```
+
+pnpm is the package manager of record. Do not commit npm or yarn lockfiles.
+
+## How changes get made
+
+[GOVERNANCE.md](.github/GOVERNANCE.md) is the source of truth. If it contradicts any other document in this repository, including this one, it wins. The short version:
+
+- `main` is the only long-lived branch. Work happens on short-lived branches that merge back within days.
+- Merges are squash only, so the pull request title becomes permanent commit history. Titles follow `type(scope): summary` and never carry ticket codes.
+- Technical content passes two gates. A subject matter expert confirms it is true, and a DevRel maintainer confirms it is well written and well placed.
+- A permalink change without a redirect in the same pull request is a broken build.
+- Expect a first response on any pull request within one business day.
+
+[CONTRIBUTING.md](.github/CONTRIBUTING.md) walks through all of it step by step. Contributions from outside Azion are welcome and get credited: fork the repository, branch, and open a pull request against `main`.
+
+## Community
 
 - [Discord](https://discord.com/invite/Yp9N7RMVZy)
-- [X](https://x.com/aziontech) 
+- [X](https://x.com/aziontech)
 - [LinkedIn](https://www.linkedin.com/company/aziontech)
 - [YouTube](https://www.youtube.com/aziontech)
 
-Thank you for considering contributing to our documentation. Together, we can empower our community with valuable resources. 🧡🙏
+Everyone taking part here follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+Released under the [MIT License](LICENSE). Copyright (c) 2026 Azion Technologies.
