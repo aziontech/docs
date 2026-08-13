@@ -7,9 +7,9 @@ Every page on this site is also served as markdown at the same URL with `.md` ap
 /en/documentation/get-started/first-deploy.md    what an agent fetches
 ```
 
-For **how-to and tutorial pages**, that markdown twin should be written so an agent can load it and act on it directly. In other words, it should look like a skill.
+For **procedural kinds** — get started, tutorial, how-to, multi-product guide, use case — that markdown twin should be written so an agent can load it and act on it directly. In other words, it should look like a skill.
 
-Reference and explanation pages do not need this. Nothing there is executable.
+Descriptive kinds do not need this. Nothing there is executable.
 
 ## Why it is worth the extra work
 
@@ -23,7 +23,7 @@ It is not a mechanical transform of the page. The published example differs from
 
 Write the page first, for people. Then write the twin, for an agent, from the same source of truth.
 
-> **The serving mechanism is not in this branch yet.** `src/pages/[lang]/[...slug].md.js` currently strips the frontmatter and emits `# title` followed by the page body, so it cannot serve an authored twin. Publishing one needs that endpoint to read a companion artifact instead. The conventions below are validated against a published example, so they are settled; the plumbing is not. Confirm how the twin is sourced before authoring a set of them.
+How a twin gets served is a repository concern, and it has a caveat — check `information-architecture.md` before authoring a set of them.
 
 ## Shape
 

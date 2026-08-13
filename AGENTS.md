@@ -34,41 +34,42 @@ env/                          per-environment consts, copied by build:* scripts
 cicd/massive-redirect/        redirect pairs, en.json and pt-br.json
 scripts/                      linters and utilities
 test-frontmatter.js           the real frontmatter gate
-.agents/                      agent skills, agents, and references
+.agents/                      the writing system: persona, skills, references, tests
 ```
 
-## Agent skills, agents, and references
+## The writing system: `.agents/`
 
-Repo-specific agent config lives in `.agents/`. All of it is committed. Tool-specific paths are symlinks into it: `.claude/CLAUDE.md`, `.claude/agents`, `.claude/skills`. **Add files to `.agents/`, never to `.claude/`** — that directory carries a deny-all `.gitignore`, so anything dropped there is invisible to git.
+**`.agents/` is self-contained and canonical.** With the folder and a factual input, an agent produces a finished Azion documentation page — no repository required, no URLs fetched. All writing rules live inside it; this file adds only what is specific to this repository. On any conflict about a writing rule, `.agents/` wins.
+
+Tool-specific paths are symlinks into it: `.claude/CLAUDE.md`, `.claude/agents`, `.claude/skills`. **Add files to `.agents/`, never to `.claude/`** — that directory carries a deny-all `.gitignore`, so anything dropped there is invisible to git.
+
+Start at `.agents/README.md`. The layout:
+
+| Path | Holds |
+| --- | --- |
+| `.agents/agents/docs.md` | The writer-and-reviewer persona. Self-sufficient; restates the essentials, routes for detail. |
+| `.agents/references/style-guide.md` | The canonical law: voice, word choice, UI language, headings, links, frontmatter contract, code, admonitions. |
+| `.agents/references/procedures.md` | Step grammar: the canonical Console first step, one action per step, outcome sentences. |
+| `.agents/references/simplified-technical-english.md` | Sentence construction, adapted from ASD-STE100: caps, tenses, noun clusters. |
+| `.agents/references/components.md` | The live MDX component set and its mechanics. |
+| `.agents/references/terminology.md` | Product names, banned expressions, translation rules. |
+| `.agents/references/page-size.md` | Length caps and writing for retrieval. |
+| `.agents/skills/contributing/` | The workflow skill: writing, the twelve page kinds, component choice, information architecture, changelog, reviewing, bilingual, agent twins. |
+| `.agents/skills/writing-a-use-case/` | The use-case kind: a how-to with a commercial frame. |
+| `.agents/tests/` | The conformance harness: briefs in, generated pages and conformance records out. The generated pages double as worked examples of every kind. They are test artifacts, not site content. |
 
 ### Skills
 
 | Skill | Use it for |
 | --- | --- |
-| `contributing` | Writing, rewriting, splitting, or translating a page |
-| `reviewing-a-page` | Auditing a page and reporting problems, ranked |
+| `contributing` | Writing, rewriting, splitting, translating, or reviewing a page |
+| `writing-a-use-case` | Turning a commercial scenario into a verifiable setup guide |
 
-Both are thin routers. The detail lives in their `references/`, loaded only when the task needs it.
+### Content types
 
-### Agents
+Twelve page kinds, defined with their skeletons in `.agents/skills/contributing/references/content-types.md`: Overview, Get started, Tutorial, How-to, Multi-product guide, Troubleshooting, Reference, Concept, Architecture, Changelog, Navigation hub, and Use case. Each kind mandates its opening move, section order, and closing. The kind's base form sets the sentence budget: procedural kinds 20 words per sentence with one instruction per step, descriptive kinds 25.
 
-| Agent | Use it for |
-| --- | --- |
-| `writer` | A delegated writer working on pages |
-| `reviewer` | A delegated auditor, especially across many files |
-
-Use these when fanning work out to subagents, which do not inherit the skills loaded in your session.
-
-### Reference files
-
-| File | Contents |
-| --- | --- |
-| `.agents/references/house-style.md` | Voice, headings, links, lists, code |
-| `.agents/references/simplified-technical-english.md` | Sentence construction, adapted from ASD-STE100 Issue 9 |
-| `.agents/references/writing-quality.md` | Patterns that read as machine-generated |
-| `.agents/references/components.md` | The MDX components that are actually live |
-| `.agents/references/terminology.md` | Product names, banned terms, translation rules |
-| `.agents/references/page-size.md` | Length caps and writing for retrieval |
+When fanning work out to subagents, use the `docs` persona in `.agents/agents/docs.md` — subagents do not inherit the skills loaded in your session.
 
 ## Content
 
@@ -82,11 +83,11 @@ Portuguese paths are translated, not mirrored: `main-menu/` is `menu-principal/`
 
 ```yaml
 ---
-title: How to create an Object Storage bucket
+title: Create an Object Storage bucket
 description: >-
-  Learn how to create a read-only bucket and grant read-write permissions
-  using the Azion API.
-meta_tags: 'Object Storage, bucket, S3, API'
+  Create a read-only Object Storage bucket and grant read-write
+  permissions from the Azion API, the CLI, or Azion Console.
+meta_tags: 'Object Storage, bucket, permissions, edge storage, create bucket'
 namespace: docs_store_journey_storage_create_bucket
 permalink: /documentation/products/store/storage/create-bucket/
 ---
@@ -97,7 +98,7 @@ permalink: /documentation/products/store/storage/create-bucket/
 | `title` | Zod schema | Renders the H1. Body starts at `##`. |
 | `namespace` | `test-frontmatter.js` | Unique per language. **Identical across a translation pair.** |
 | `permalink` | `test-frontmatter.js` | Unique per language. **No language prefix.** |
-| `description` | nothing | Write it. It is the meta description. |
+| `description` | nothing | Write it: 50–160 characters, imperative opener. It is the meta description. |
 | `meta_tags` | nothing | Write it. Comma-separated keywords. |
 | `menu_namespace` | nothing | Only to place a page in a product sidebar. |
 | `og_image` | nothing | Rare. |
@@ -105,17 +106,7 @@ permalink: /documentation/products/store/storage/create-bucket/
 
 The Zod schema marks nearly everything optional; `test-frontmatter.js` disagrees and runs inside every `build:*`. The validator is the real contract. Unknown keys are silently stripped, so a mistyped field name fails quietly.
 
-### Writing and style rules
-
-In `.agents/references/house-style.md` and the content-type references under `.agents/skills/contributing/references/`. Four Diátaxis types: tutorial, how-to, reference, explanation. One per page.
-
-Sentence construction follows **ASD-STE100 Issue 9**, adapted in `.agents/references/simplified-technical-english.md`. The standard splits its rules between procedures and descriptions, and that split maps onto Diátaxis: tutorials and how-tos are procedural, capped at 20 words per sentence with one instruction each; reference and explanation are descriptive, capped at 25. Simple tenses, active voice, and noun clusters of at most three words apply throughout. We do not use ASD's approved dictionary — `terminology.md` fills that role, under the standard's own allowance for project-specific technical vocabulary.
-
-## Components
-
-Only a small set is live. Ranked by real usage: asides (`:::note`, auto-imported), `LinkButton`, `Code`, `Tag`, `Tabs`+`Fragment`, `Video` (auto-imported), `SectionBasicContent`, shared snippets.
-
-`Card`, `Badge`, `FileTree`, `Checklist`, `Spoiler`, `Since`, `Button`, `TabBox`, and `Breadcrumb` have **zero usages in content**. Importing one fails the build. Full catalogue in `.agents/references/components.md`.
+The full contract, including the description rules and what translates in a pair, is in `.agents/references/style-guide.md`. Repository enforcement mechanics are in `.agents/skills/contributing/references/information-architecture.md`.
 
 ## Validation
 
@@ -157,7 +148,7 @@ Three workflows, all triggered on **push**, none on pull request:
 | `stage.yml` | push to `stage` | build, publish to stage |
 | `dev.yml` | push to `dev` | build, publish to dev |
 
-Nothing runs before a merge, so a broken build reaches `main` before anyone finds out. `dev` and `stage` are 905 commits behind and last saw a commit in June 2025.
+Nothing runs before a merge, so a broken build reaches `main` before anyone finds out. `dev` and `stage` are far behind `main` and effectively dormant.
 
 CI installs with `npm`. Both `package-lock.json` and `pnpm-lock.yaml` are committed.
 
@@ -203,21 +194,19 @@ Pages pair by `namespace`, not by path. `src/util/getPageTranslations.ts` matche
 | `menu_namespace` | identical |
 | `meta_tags` | conventionally left in English |
 
-737 namespaces pair correctly today; 8 English pages have no Portuguese version.
+737 namespaces pair correctly today; 8 English pages have no Portuguese version. Writing rules for the pair are in `.agents/skills/contributing/references/bilingual.md`.
 
 ## Sidebars
 
 Nothing scans the content directory. A new page is reachable from nowhere until it is registered by hand in `src/i18n/en/<menu>.ts` **and** `src/i18n/pt-br/<menu>.ts`.
 
-Entries need `text` and `key`; link entries need `slug`, which equals the page's `permalink` exactly and excludes the language code. Valid `menu_namespace` values are in `src/data/availableMenu.ts`; an unrecognized value silently falls back to `nav`.
+Entries need `text` and `key`; link entries need `slug`, which equals the page's `permalink` exactly and excludes the language code. Valid `menu_namespace` values are in `src/data/availableMenu.ts`; an unrecognized value silently falls back to `nav`. The full registration procedure is in `.agents/skills/contributing/references/information-architecture.md`.
 
 ## Page size and retrieval
 
-These pages are fetched by agents, served as markdown twins at `<url>.md`, and will be indexed for retrieval. A retriever returns one section, not a page.
+These pages are fetched by agents, served as markdown twins at `<url>.md`, and indexed for retrieval. A retriever returns one section, not a page.
 
-Targets: 2,000 characters per `##` section, 8,000 per page body. Hard caps 4,000 and 16,000. Currently 150 of 728 English pages are over target and 60 over the cap.
-
-The rule that matters more than the number: **every section must make sense read alone.** Details in `.agents/references/page-size.md`.
+Targets: 2,000 characters per `##` section, 8,000 per page body. Hard caps 4,000 and 16,000. The rule that matters more than the number: **every section must make sense read alone.** Details in `.agents/references/page-size.md`.
 
 ## Terminology
 
