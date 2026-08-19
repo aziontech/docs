@@ -9,7 +9,7 @@
           v-if="!menuitem.items || !menuitem.items.length"
           :href="menuitem.href || ''"
           :title="menuitem.label || ''"
-          class="p-button p-button-text p-button-primary p-button-sm whitespace-nowrap text-white active:bg-header-button-hover hover:surface-hover"
+          class="wk-nav-button whitespace-nowrap text-white active:bg-header-button-hover hover:surface-hover"
           :class="getBreakpointClass(menuitem)"
         >
           <span class="">
@@ -17,7 +17,10 @@
           </span>
         </a>
 
-        <div v-if="menuitem.items && menuitem.items.length">
+        <div
+          v-if="menuitem.items && menuitem.items.length"
+          ref="menuRootRefs"
+        >
           <button
             @click="
               (event) => {
@@ -25,7 +28,7 @@
               }
             "
             tabindex="0"
-            class="p-button p-button-text p-button-primary p-button-sm whitespace-nowrap active:bg-header-button-hover hover:surface-hover"
+            class="wk-nav-button whitespace-nowrap active:bg-header-button-hover hover:surface-hover"
             :class="activeMenu == menuitem.ref && 'surface-hover'"
           >
             <div class="flex flex-row gap-2 text-white items-center">
@@ -38,18 +41,11 @@
               />
             </div>
           </button>
-          <OverlayPanel
-            unstyled
+
+          <div
+            v-if="activeMenu === menuitem.ref"
             :id="menuitem.ref"
-            @hide="hideOverlayPanel(menuitem.ref)"
-            ref="itemRefs"
-            :pt="{
-              content: {
-                class:
-                  'fixed p-0 hidden lg:flex flex-row border surface-border rounded-md surface-0 max-w-[calc(100%-8.5rem)] xl:max-w-6xl 2xl:max-w-screen-xl w-full'
-              },
-              root: { class: 'left-8 lg:left-[8.5rem] top-12 z-50' }
-            }"
+            class="fixed p-0 hidden lg:flex flex-row border surface-border rounded-md surface-0 max-w-[calc(100%-8.5rem)] xl:max-w-6xl 2xl:max-w-screen-xl w-full left-8 lg:left-[8.5rem] top-12 z-50"
           >
             <div
               class="flex flex-col gap-1 border-r surface-border p-3 surface-50 rounded-l-md min-w-56"
@@ -59,11 +55,10 @@
                 v-bind:key="index"
               >
                 <template v-if="subitem.items">
-                  <Button
-                    text
-                    size="small"
+                  <button
+                    type="button"
                     :class="{ 'surface-hover': active === index }"
-                    class="flex gap-2 justify-between w-full text-nowrap text-left min-w-52"
+                    class="wk-nav-button-text flex gap-2 justify-between w-full text-nowrap text-left min-w-52"
                     @click="active = index"
                   >
                     <span class="flex gap-2 items-center">
@@ -71,11 +66,11 @@
                       <i :class="subitem.icon"></i>
                     </span>
                     <i class="pi pi-angle-right"></i>
-                  </Button>
+                  </button>
                 </template>
                 <template v-else>
                   <a
-                    class="p-button p-component p-button-text hover:surface-hover p-button-sm flex gap-2 hover:surface-hover justify-between w-full items-centerm min-w-52"
+                    class="wk-nav-button-text hover:surface-hover flex gap-2 hover:surface-hover justify-between w-full items-centerm min-w-52"
                     :href="subitem.href"
                     :target="subitem.external ? '_blank' : '_self'"
                   >
@@ -91,12 +86,10 @@
               </template>
             </div>
 
-            <TabView
-              v-model:activeIndex="active"
-              :pt="{ navContainer: { class: 'hidden' }, root: { class: 'w-full' } }"
-            >
-              <TabPanel
+            <div class="w-full">
+              <div
                 v-for="(subitem, jIndex) in menuitem.items"
+                v-show="active === jIndex"
                 :key="jIndex"
               >
                 <div
@@ -122,7 +115,7 @@
                       <a
                         v-bind="link.href ? { href: link.href } : {}"
                         :title="link.label"
-                        class="p-button p-button-text p-button-sm w-full p-3 flex flex-col justify-start items-start"
+                        class="wk-nav-button-text w-full p-3 flex flex-col justify-start items-start"
                         :class="
                           link.href ? 'hover:surface-hover' : 'cursor-default hover:bg-inherit'
                         "
@@ -142,10 +135,7 @@
                                 {{ link.label }}
                               </p>
                               <template v-if="link.tag">
-                                <Tag
-                                  :value="link.tag"
-                                  severity="primary"
-                                />
+                                <Tag :value="link.tag" />
                               </template>
                             </div>
                             <p
@@ -180,11 +170,11 @@
                               <a
                                 :href="sublink.href"
                                 :title="sublink.label"
-                                class="w-full p-button p-button-sm text-xs"
+                                class="wk-nav-button-sm w-full text-xs"
                                 :class="[
                                   sublink.isLink
-                                    ? 'p-button-link hover:underline'
-                                    : 'hover:surface-hover text-color p-button-text',
+                                    ? 'wk-nav-button-link hover:underline'
+                                    : 'hover:surface-hover text-color wk-nav-button-text',
                                   sublink.isLink && link.subitems.length <= 4 ? 'hidden' : ''
                                 ]"
                               >
@@ -211,7 +201,7 @@
                               <a
                                 :href="sublink.href"
                                 :title="sublink.label"
-                                class="w-full p-button p-button-text hover:surface-hover p-button-sm text-xs hover:surface-hover"
+                                class="wk-nav-button-text hover:surface-hover w-full text-xs hover:surface-hover"
                               >
                                 <div class="flex gap-3">
                                   <div v-if="sublink.icon">
@@ -271,7 +261,7 @@
                                 <p class="text-xs leading-relaxed text-color-secondary">
                                   {{ block.description }}
                                 </p>
-                                <p class="p-button p-button-link p-button-sm px-0">
+                                <p class="wk-nav-button-link px-0">
                                   {{ block.link.label }}
                                   <i class="pi pi-angle-right"></i>
                                 </p>
@@ -314,7 +304,7 @@
                             <p class="text-xs text-color-secondary leading-relaxed">
                               {{ block.description }}
                             </p>
-                            <p class="p-button p-button-link p-button-sm px-0">
+                            <p class="wk-nav-button-link px-0">
                               {{ block.link.label }}
                               <i class="pi pi-angle-right"></i>
                             </p>
@@ -324,9 +314,9 @@
                     </div>
                   </div>
                 </div>
-              </TabPanel>
-            </TabView>
-          </OverlayPanel>
+              </div>
+            </div>
+          </div>
         </div>
       </li>
     </ul>
@@ -334,13 +324,9 @@
 </template>
 
 <script setup>
-  import { ref } from 'vue'
-  import Button from 'primevue/button'
-  import OverlayPanel from 'primevue/overlaypanel'
-  import TabView from 'primevue/tabview'
-  import TabPanel from 'primevue/tabpanel'
-  import Tag from 'primevue/tag'
+  import { ref, onMounted, onBeforeUnmount } from 'vue'
   import Overline from '~/components/webkit/Overline.vue'
+  import Tag from '~/components/webkit/Tag.vue'
 
   const props = defineProps({
     menuData: {
@@ -351,29 +337,33 @@
   const { menuData } = props
   const active = ref(0)
   const activeMenu = ref(null)
-  let itemRefs = ref([])
-
-  const hideOverlayPanel = (refAttr) => {
-    if (refAttr === activeMenu.value) setMenuState(refAttr)
-  }
-
-  const setMenuState = (refAttr) => {
-    activeMenu.value = activeMenu.value == refAttr ? null : refAttr
-  }
+  const menuRootRefs = ref([])
 
   const toggle = (event, refAttr) => {
-    try {
-      if (refAttr) {
-        active.value = 0
-        const activeTab = itemRefs.value.find((i) => i.$params.attrs.id === refAttr)
-        activeTab.toggle(event)
-
-        setMenuState(refAttr)
-      }
-    } catch (error) {
-      console.error('Error in toggle method:', error)
-    }
+    if (!refAttr) return
+    active.value = 0
+    activeMenu.value = activeMenu.value === refAttr ? null : refAttr
   }
+
+  function onDocumentClick(event) {
+    if (activeMenu.value === null) return
+    const clickedInsideOpenMenu = menuRootRefs.value.some((el) => el?.contains(event.target))
+    if (!clickedInsideOpenMenu) activeMenu.value = null
+  }
+
+  function onDocumentKeydown(event) {
+    if (event.key === 'Escape' && activeMenu.value !== null) activeMenu.value = null
+  }
+
+  onMounted(() => {
+    document.addEventListener('click', onDocumentClick)
+    document.addEventListener('keydown', onDocumentKeydown)
+  })
+
+  onBeforeUnmount(() => {
+    document.removeEventListener('click', onDocumentClick)
+    document.removeEventListener('keydown', onDocumentKeydown)
+  })
 
   const getBreakpointClass = (menu) => {
     const breakpoint = menu?.minBreakpoint
@@ -390,3 +380,38 @@
     return breakpoints[breakpoint] || ''
   }
 </script>
+
+<style scoped>
+  /*
+    Visual port of azion-theme's PrimeVue `.p-button` variants (text, small),
+    self-contained so this component no longer depends on PrimeVue classes.
+    Same values as src/components/webkit/LinkButton.vue's `!important`-free
+    base -- this file never sits inside ReadableContent's `.prose` wrapper,
+    so it doesn't need the `.prose a:not(.p-button)` escape hatch there.
+  */
+  .wk-nav-button,
+  .wk-nav-button-text,
+  .wk-nav-button-sm {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-color);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .wk-nav-button,
+  .wk-nav-button-text,
+  .wk-nav-button-sm {
+    padding: 0.301rem 0.65625rem;
+  }
+  .wk-nav-button-link {
+    color: var(--text-color-link);
+  }
+  .wk-nav-button-link:hover {
+    color: var(--text-color-link-hover);
+  }
+</style>

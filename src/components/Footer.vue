@@ -82,7 +82,7 @@
 </template>
 
 <script setup>
-  import Divider from 'primevue/divider'
+  import Divider from '~/components/webkit/Divider.vue'
   import AzionLogo from '~/components/webkit/AzionLogo.vue'
   import Overline from '~/components/webkit/Overline.vue'
   import LinkButton from '~/components/webkit/LinkButton.vue'

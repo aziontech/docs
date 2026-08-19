@@ -84,29 +84,16 @@ export default defineConfig({
 			// Astro 7 renders static pages in a dedicated `prerender` Vite
 			// environment that does not inherit the legacy `ssr.noExternal`
 			// list (and Astro overwrites `environments.prerender` wholesale in
-			// its build config). These packages must be bundled — primevue's
-			// ESM files use directory imports (e.g. `primevue/api`) that Node
-			// cannot resolve when the package is externalized.
+			// its build config).
 			name: 'azion:server-noexternal',
 			configEnvironment(name: string) {
 				if (name === 'client') return null;
 				return {
 					resolve: {
-						noExternal: ['@astrojs/vue', 'azion-theme', 'primevue'],
+						noExternal: ['@astrojs/vue', 'azion-theme'],
 						external: ['vue']
 					}
 				};
-			},
-			// Astro's crawlFrameworkPkgs marks primevue as external for the
-			// server/prerender builds, and `external` wins over `noExternal`.
-			// Strip it from the final resolved config so it really gets bundled.
-			configResolved(config: any) {
-				for (const c of Object.values(config.environments ?? {}) as any[]) {
-					const ext = c?.resolve?.external;
-					if (Array.isArray(ext) && ext.includes('primevue')) {
-						c.resolve.external = ext.filter((name: string) => name !== 'primevue');
-					}
-				}
 			}
 		},
 		cssnano({
@@ -119,13 +106,11 @@ export default defineConfig({
 		})
 	],
 	ssr: {
-      // primevue must be bundled: its ESM files use directory imports
-      // (e.g. `primevue/api`), which Node cannot resolve when externalized.
-      noExternal: ['@astrojs/vue', 'azion-theme', 'primevue'],
+      noExternal: ['@astrojs/vue', 'azion-theme'],
       external: ['vue']
     },
 		optimizeDeps: {
-			include: ['vue', 'primevue/config']
+			include: ['vue']
 		}
 	}
 });

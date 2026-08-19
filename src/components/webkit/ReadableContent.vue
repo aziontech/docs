@@ -140,10 +140,6 @@
 		margin-top: 0.25rem !important;
 	}
 
-	.prose *:is(.p-tag p) {
-		margin: 0 !important;
-	}
-
 	.prose *:is(small) {
 		color: var(--prose-neutral-400);
 	}
