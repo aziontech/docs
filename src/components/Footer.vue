@@ -83,9 +83,9 @@
 
 <script setup>
   import Divider from 'primevue/divider'
-  import AzionLogo from 'azion-webkit/azionlogo'
-  import Overline from 'azion-webkit/overline'
-  import LinkButton from 'azion-webkit/linkbutton'
+  import AzionLogo from '~/components/webkit/AzionLogo.vue'
+  import Overline from '~/components/webkit/Overline.vue'
+  import LinkButton from '~/components/webkit/LinkButton.vue'
 
   defineProps({
     lang: {
