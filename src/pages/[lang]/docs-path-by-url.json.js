@@ -28,7 +28,7 @@ export async function GET({ params, props }) {
     docs
   } = props;
 
-  const docsData = docs.map(({ data: page, collection, id }) => {
+  const docsData = docs.map(({ data: page, collection, id, filePath }) => {
     const docsSlug = {
       'en': 'documentation',
       'pt-br': 'documentacao',
@@ -40,7 +40,7 @@ export async function GET({ params, props }) {
 
     return {
 			repository: 'docs',
-      filePath: `${paths.collections}/${collection}/${id}`,
+      filePath: filePath ?? `${paths.collections}/${collection}/${id}`,
 			permalink: `/${permalink}/`,
       url: `${SITE_URL}/${permalink}/`,
       namespace

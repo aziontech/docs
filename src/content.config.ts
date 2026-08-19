@@ -1,5 +1,7 @@
 import type { CollectionEntry } from 'astro:content';
-import { defineCollection, z } from 'astro:content';
+import { defineCollection } from 'astro:content';
+import { glob } from 'astro/loaders';
+import { z } from 'astro/zod';
 
 export const baseSchema = z.object({
 	type: z.literal('base').optional().default('base'),
@@ -11,7 +13,7 @@ export const baseSchema = z.object({
 	meta_tags: z.string().optional(),
 	og_image: z.string().optional(),
 	i18nReady: z.boolean().default(false),
-	githubURL: z.string().url().optional(),
+	githubURL: z.url().optional(),
 	hasREADME: z.boolean().optional(),
 })
 
@@ -54,7 +56,7 @@ export const integrationSchema = baseSchema.extend({
 		),
 	category: z.enum(['renderer', 'adapter', 'other']),
 	hasREADME: z.literal(true).default(true),
-	githubURL: z.string().url(),
+	githubURL: z.url(),
 });
 
 export const migrationSchema = baseSchema.extend({
@@ -137,13 +139,14 @@ export function isRecipeEntry(entry: CollectionEntry<'docs'>): entry is RecipeEn
 
 export function createIsLangEntry(lang: string) {
 	return function isLangEntry(entry: CollectionEntry<'docs'>): boolean {
-		return entry.slug.startsWith(lang + '/');
+		return entry.id.startsWith(lang + '/');
 	};
 }
 
 export const isEnglishEntry = createIsLangEntry('en');
 
 const docs = defineCollection({
+	loader: glob({ pattern: '**/[^_]*.{md,mdx}', base: './src/content/docs' }),
 	schema: z.union([
 		baseSchema,
 		backendSchema,

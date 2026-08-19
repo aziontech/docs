@@ -1,8 +1,9 @@
 import { SITE_URL } from './src/consts';
 import { defineConfig } from 'astro/config';
+import { unified } from '@astrojs/markdown-remark';
+import tailwindcss from '@tailwindcss/vite';
 
 import mdx from '@astrojs/mdx';
-import tailwind from '@astrojs/tailwind';
 import vue from '@astrojs/vue';
 import preact from '@astrojs/preact';
 import AutoImport from 'astro-auto-import';
@@ -40,16 +41,21 @@ export default defineConfig({
 		astroAsides(),
 		AzionExpressiveCode(),
 		mdx(),
-		tailwind({ applyBaseStyles: false }),
 		vue({ appEntrypoint: '/src/vue.config.js' })
 	],
 	markdown: {
+		// Astro 7 defaults to the Sätteri (Rust) markdown pipeline, which does not
+		// run remark/rehype plugins. Keep the unified() processor until the custom
+		// plugins below are ported to Sätteri (planned as a follow-up).
+		processor: unified() as any,
 		// Override with our own config
 		smartypants: false,
+		// The plugins below were written against unified 10 typings; they run
+		// fine on the unified() processor but Astro 7's plugin types reject them.
 		remarkPlugins: [
 			[remarkSmartypants, { dashes: false }],
 			// Add our custom plugin that marks links to fallback language pages
-		],
+		] as any,
 		rehypePlugins: [
 			rehypeSlug,
 			rehypeScrollableTables,
@@ -62,18 +68,47 @@ export default defineConfig({
 			rehypei18nAutolinkHeadings(),
 			// Collapse static parts of the hast to html
 			rehypeOptimizeStatic,
-		]
+		] as any
 	},
 	compressHTML: productionBuild ? true : false,
 	trailingSlash: 'always', // for server
 	vite: {
-		ssrBuild: true,
 		server: {
       fs: {
         allow: ['..']
       }
     },
 	plugins: [
+		tailwindcss(),
+		{
+			// Astro 7 renders static pages in a dedicated `prerender` Vite
+			// environment that does not inherit the legacy `ssr.noExternal`
+			// list (and Astro overwrites `environments.prerender` wholesale in
+			// its build config). These packages must be bundled — primevue's
+			// ESM files use directory imports (e.g. `primevue/api`) that Node
+			// cannot resolve when the package is externalized.
+			name: 'azion:server-noexternal',
+			configEnvironment(name: string) {
+				if (name === 'client') return null;
+				return {
+					resolve: {
+						noExternal: ['@astrojs/vue', 'azion-webkit', 'azion-theme', 'primevue'],
+						external: ['vue']
+					}
+				};
+			},
+			// Astro's crawlFrameworkPkgs marks primevue as external for the
+			// server/prerender builds, and `external` wins over `noExternal`.
+			// Strip it from the final resolved config so it really gets bundled.
+			configResolved(config: any) {
+				for (const c of Object.values(config.environments ?? {}) as any[]) {
+					const ext = c?.resolve?.external;
+					if (Array.isArray(ext) && ext.includes('primevue')) {
+						c.resolve.external = ext.filter((name: string) => name !== 'primevue');
+					}
+				}
+			}
+		},
 		cssnano({
 			preset: [
 			'default', {
@@ -84,7 +119,9 @@ export default defineConfig({
 		})
 	],
 	ssr: {
-      noExternal: ['@astrojs/vue', 'azion-webkit', 'azion-theme'],
+      // primevue must be bundled: its ESM files use directory imports
+      // (e.g. `primevue/api`), which Node cannot resolve when externalized.
+      noExternal: ['@astrojs/vue', 'azion-webkit', 'azion-theme', 'primevue'],
       external: ['vue']
     },
 		optimizeDeps: {
