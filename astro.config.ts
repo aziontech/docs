@@ -92,7 +92,7 @@ export default defineConfig({
 				if (name === 'client') return null;
 				return {
 					resolve: {
-						noExternal: ['@astrojs/vue', 'azion-webkit', 'azion-theme', 'primevue'],
+						noExternal: ['@astrojs/vue', 'azion-theme', 'primevue'],
 						external: ['vue']
 					}
 				};
@@ -121,7 +121,7 @@ export default defineConfig({
 	ssr: {
       // primevue must be bundled: its ESM files use directory imports
       // (e.g. `primevue/api`), which Node cannot resolve when externalized.
-      noExternal: ['@astrojs/vue', 'azion-webkit', 'azion-theme', 'primevue'],
+      noExternal: ['@astrojs/vue', 'azion-theme', 'primevue'],
       external: ['vue']
     },
 		optimizeDeps: {

@@ -340,7 +340,7 @@
   import TabView from 'primevue/tabview'
   import TabPanel from 'primevue/tabpanel'
   import Tag from 'primevue/tag'
-  import Overline from 'azion-webkit/overline'
+  import Overline from '~/components/webkit/Overline.vue'
 
   const props = defineProps({
     menuData: {
