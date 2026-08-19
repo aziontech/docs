@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { TutorialEntry } from '~/content/config';
+import type { TutorialEntry } from '~/content.config';
 import { stripLangFromSlug } from '~/util';
 import { groupPagesByLang } from './groupPagesByLang';
 
@@ -9,8 +9,8 @@ export function getTutorialPages(allPages: TutorialEntry[], lang: string) {
 	/** Pages */
 	const pages = pagesByLang['en']
 		.map((englishPage) => {
-			const enSlug = stripLangFromSlug(englishPage.slug);
-			const langPage = pagesByLang[lang]?.find((page) => stripLangFromSlug(page.slug) === enSlug);
+			const enSlug = stripLangFromSlug(englishPage.id);
+			const langPage = pagesByLang[lang]?.find((page) => stripLangFromSlug(page.id) === enSlug);
 			return {
 				...(langPage || englishPage),
 				isFallback: !langPage,

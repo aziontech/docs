@@ -66,8 +66,8 @@ function getMarkdownBasedOnCards(title, description, productCards) {
 export async function getStaticPaths() {
 	return allPages.map((page) => {
 		const permalink = getSlugFromPermalink(page);
-		const lang = getLangFromSlug(page.slug);
-		const slug = typeof permalink === 'string' ? permalink : stripLangFromSlug(page.slug);
+		const lang = getLangFromSlug(page.id);
+		const slug = typeof permalink === 'string' ? permalink : stripLangFromSlug(page.id);
 
 		return {
 			params: { lang, slug: slug },
