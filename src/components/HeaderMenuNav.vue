@@ -258,7 +258,7 @@
                               class="flex gap-4 group"
                             >
                               <figure
-                                class="mb-4 overflow-hidden rounded border surface-border h-fit w-[280px] grayscale group-hover:grayscale-0"
+                                class="mb-4 overflow-hidden rounded-sm border surface-border h-fit w-[280px] grayscale group-hover:grayscale-0"
                               >
                                 <img
                                   :src="`${block.img.src}`"
@@ -296,7 +296,7 @@
                           class="w-full"
                         >
                           <figure
-                            class="w-[160px] h-[90px] mb-4 overflow-hidden rounded border surface-border"
+                            class="w-[160px] h-[90px] mb-4 overflow-hidden rounded-sm border surface-border"
                           >
                             <img
                               :src="`${block.img.src}`"
