@@ -27,9 +27,16 @@
 					>
 						{{ item.text }}
 					</p>
+					<!--
+						`text-default`, not `text-primary`: the disclosure chevron is
+						part of the row's label, so it takes the same neutral text
+						colour the label next to it uses instead of the brand orange.
+						Being a token, it follows the theme -- near-white on dark,
+						near-black on light -- rather than being pinned to one value.
+					-->
 					<i
 						v-if="item.items && item.items.length"
-						class="pi pi-angle-right text-primary ml-auto pr-1"
+						class="pi pi-angle-right text-default ml-auto pr-1"
 						:class="{ 'rotate-90': expandedKeys[item.key] }"
 					></i>
 				</div>
@@ -50,7 +57,7 @@
 					></i>
 
 					<span @click="$emit('itemClick', item, $event)">
-						<i class="pi pi-angle-right text-primary ml-auto pr-1"></i>
+						<i class="pi pi-angle-right text-default ml-auto pr-1"></i>
 					</span>
 				</a>
 				<a
