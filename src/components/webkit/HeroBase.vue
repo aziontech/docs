@@ -1,6 +1,6 @@
 <template>
 	<section
-		:class="`relative max-w-xl xxxl:max-w-xxl mx-auto mt-16 p-6 md:p-0 ${bottomSpacing}`"
+		:class="`relative max-w-5xl 2xl:max-w-6xl mx-auto mt-16 p-6 md:p-0 ${bottomSpacing}`"
 		:id="id"
 	>
 		<div
@@ -91,12 +91,12 @@
 						<div
 							v-html="descriptionRawHtml"
 							:class="[{ 'text-center': isCentralized }]"
-							class="text-color-secondary text-base leading-relaxed text-balance prose max-w-none"
+							class="text-muted text-base leading-relaxed text-balance prose max-w-none"
 						></div>
 					</template>
 					<template v-else-if="description && description.trim().length">
 						<p
-							class="text-color-secondary text-body-3 leading-relaxed text-balance"
+							class="text-muted text-body-3 leading-relaxed text-balance"
 							:class="[{ 'text-center': isCentralized }]"
 						>
 							{{ description }}

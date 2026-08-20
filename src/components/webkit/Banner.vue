@@ -1,15 +1,15 @@
 <template>
-	<div class="px-3 p-2 rounded-md border surface-border max-w-3xl">
+	<div class="px-3 p-2 rounded-md border border-default max-w-3xl">
 		<p class="text-center">
 			<span class="wk-tag mr-1.5">News</span>
-			<span class="text-sm text-color-secondary text-center *:">
+			<span class="text-sm text-muted text-center *:">
 				{{ description }}
 			</span>
 			<a
 				:title="cta"
 				:href="link"
 				class="text-sm font-medium ml-1"
-				style="color: var(--text-color-link); display: inline"
+				style="color: var(--text-link); display: inline"
 			>
 				{{ cta }}
 			</a>

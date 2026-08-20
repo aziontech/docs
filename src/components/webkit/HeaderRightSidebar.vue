@@ -3,10 +3,13 @@
 	<button
 		type="button"
 		@click="visibleRight = true"
-		class="p-button p-component p-button-sm p-button-icon-only lg:hidden flex text-white flex-none border-header w-8 h-8 bg-header hover:bg-header-button-hover items-center justify-center"
+		class="wk-drawer-icon-button lg:hidden flex flex-none w-8 h-8 items-center justify-center"
 		aria-label="Menu"
 	>
-		<span class="pi pi-bars p-button-icon text-white" data-pc-section="icon"></span>
+		<span
+			class="pi pi-bars"
+			data-pc-section="icon"
+		></span>
 	</button>
 
 	<!-- Teleport only after mount: Astro islands SSR this component, and a
@@ -19,25 +22,28 @@
 		<!-- mask -->
 		<div
 			v-if="visibleRight"
-			class="p-sidebar-mask fixed inset-0 z-[1100] bg-black/40 flex justify-end"
+			class="fixed inset-0 z-[1100] bg-[var(--bg-backdrop)] flex justify-end"
 			@click.self="visibleRight = false"
 		>
 			<!-- sidebar -->
 			<aside
-				class="p-sidebar p-sidebar-right p-component relative flex flex-col md:pt-3 pb-20 h-[100%] border-l surface-border w-[20rem] md:w-[22rem] text-sm"
+				class="relative flex flex-col md:pt-3 pb-20 h-[100%] border-l border-default bg-surface text-default w-[20rem] md:w-[22rem] text-sm"
 				role="complementary"
 				aria-modal="true"
 			>
-				<div class="p-sidebar-content grow overflow-y-auto">
+				<div class="grow overflow-y-auto p-3 md:p-8">
 					<!-- close sidebar button -->
 					<div class="flex justify-end pb-6 pr-2 md:pr-0">
 						<button
 							type="button"
 							@click="visibleRight = false"
-							class="p-button p-component p-button-sm p-button-outlined p-button-icon-only flex-none w-8 h-8 items-center justify-center"
+							class="wk-drawer-icon-button flex flex-none w-8 h-8 items-center justify-center"
 							aria-label="Close"
 						>
-							<span class="pi pi-times p-button-icon" data-pc-section="icon"></span>
+							<span
+								class="pi pi-times"
+								data-pc-section="icon"
+							></span>
 						</button>
 					</div>
 
@@ -46,12 +52,12 @@
 
 					<template v-if="menuSecondary">
 						<div
-							class="p-divider p-component p-divider-horizontal my-8"
+							class="my-8 w-full border-t border-t-[var(--border-default)]"
 							role="separator"
 						></div>
-						<div class="p-menu p-component p-0 w-full border-none bg-transparent">
+						<div class="w-full p-0 bg-transparent">
 							<ul
-								class="p-menu-list list-none p-0 m-0"
+								class="list-none p-0 m-0"
 								role="menu"
 							>
 								<template
@@ -60,21 +66,20 @@
 								>
 									<li
 										v-if="entry.items && entry.label"
-										class="p-submenu-header"
+										class="px-2 py-2 text-xs font-medium uppercase tracking-wider text-muted"
 									>
 										{{ entry.label }}
 									</li>
 									<li
 										v-for="(item, itemIndex) in entry.items || [entry]"
 										:key="itemIndex"
-										class="p-menuitem"
 										role="menuitem"
 									>
 										<a
 											v-if="item.url"
 											:target="item.target"
 											:href="item.url"
-											class="p-menuitem-link p-2 flex gap-2 no-underline"
+											class="p-2 flex gap-2 items-center no-underline rounded-[var(--shape-elements)] text-default hover:bg-[var(--bg-hover)]"
 										>
 											<span
 												v-if="item.icon"
@@ -83,13 +88,12 @@
 											<span class="ml-2 font-medium text-sm">
 												{{ item.label }}
 											</span>
-											<span
+											<Tag
 												v-for="tag in item.tags"
 												:key="tag"
-												class="p-tag p-component p-tag-info"
-											>
-												<span class="p-tag-value">{{ tag }}</span>
-											</span>
+												:value="tag"
+												severity="info"
+											/>
 										</a>
 									</li>
 								</template>
@@ -106,9 +110,9 @@
 								:title="button.urlTitle"
 								:class="[
 									button.destak
-										? 'flex gap-2 justify-between p-button p-button-primary p-button-sm whitespace-nowrap'
-										: 'flex gap-2 p-button p-button-primary p-button-outlined p-button-sm text-white hover:surface-hover whitespace-nowrap',
-									{ 'p-button-info': button.severity === 'info' }
+										? 'wk-drawer-button wk-drawer-button-primary justify-between'
+										: 'wk-drawer-button wk-drawer-button-outlined',
+									{ 'wk-drawer-button-info': button.severity === 'info' }
 								]"
 							>
 								{{ button.label }}
@@ -127,6 +131,7 @@
 
 <script setup>
 	import { onBeforeUnmount, onMounted, onUpdated, ref } from 'vue'
+	import Tag from '~/components/webkit/Tag.vue'
 
 	let props = defineProps({
 		menuData: Object,
@@ -166,3 +171,75 @@
 		document.removeEventListener('keydown', onDocumentKeydown)
 	})
 </script>
+
+<style scoped>
+	/*
+		Visual port of azion-theme's PrimeVue `.p-button` (small size) variants
+		used by this drawer -- the outlined icon buttons that open/close it and
+		the call-to-action links pinned to its bottom edge. Rebuilt on
+		@aziontech/theme v4 tokens.
+	*/
+	.wk-drawer-icon-button {
+		background: transparent;
+		border: var(--border-width-default) solid var(--border-default);
+		border-radius: var(--shape-button);
+		color: var(--text-default);
+		font-size: var(--text-sm);
+		cursor: pointer;
+		user-select: none;
+		transition:
+			background-color var(--transition-duration-fast-02) var(--ease-productive-entrance),
+			border-color var(--transition-duration-fast-02) var(--ease-productive-entrance);
+	}
+
+	.wk-drawer-icon-button:hover,
+	.wk-drawer-icon-button:active {
+		background: var(--bg-hover);
+	}
+
+	.wk-drawer-button {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-xs);
+		white-space: nowrap;
+		padding: var(--spacing-xxs) var(--spacing-sm);
+		border: var(--border-width-default) solid transparent;
+		border-radius: var(--shape-button);
+		font-size: var(--text-sm);
+		font-weight: 500;
+		line-height: 1.25rem;
+		text-decoration: none;
+		cursor: pointer;
+		user-select: none;
+		transition:
+			background-color var(--transition-duration-fast-02) var(--ease-productive-entrance),
+			border-color var(--transition-duration-fast-02) var(--ease-productive-entrance),
+			color var(--transition-duration-fast-02) var(--ease-productive-entrance);
+	}
+
+	.wk-drawer-button-primary {
+		background: var(--primary);
+		border-color: var(--primary);
+		color: var(--primary-contrast);
+	}
+
+	.wk-drawer-button-outlined {
+		background: transparent;
+		border-color: var(--border-default);
+		color: var(--text-default);
+	}
+
+	.wk-drawer-button-outlined:hover,
+	.wk-drawer-button-outlined:active {
+		background: var(--bg-hover);
+	}
+
+	/* info severity (last, so it wins over the primary/outlined variants) */
+	.wk-drawer-button-info,
+	.wk-drawer-button-info:hover,
+	.wk-drawer-button-info:active {
+		background: var(--info);
+		border-color: var(--info-border);
+		color: var(--info-contrast);
+	}
+</style>

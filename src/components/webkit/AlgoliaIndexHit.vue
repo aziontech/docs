@@ -21,9 +21,9 @@
 							/>
 
 							<div class='flex flex-row gap-3 items-center'>
-								<p class='text-xs text-color-secondary'>{{ nbHits }} results</p>
+								<p class='text-xs text-muted'>{{ nbHits }} results</p>
 								<AisPagination />
-								<p class='text-xs text-color-secondary'>{{ page + 1 }} - {{ nbPages }}</p>
+								<p class='text-xs text-muted'>{{ page + 1 }} - {{ nbPages }}</p>
 							</div>
 						</div>
 					</template>
@@ -34,10 +34,10 @@
 				<template v-slot='{ nbPages, query }'>
 					<p
 						v-show='nbPages === 0'
-						class='py-4 text-color-secondary text-sm'
+						class='py-4 text-muted text-sm'
 					>
 						No results found for the term
-						<strong class='text-color font-normal'>"{{ query }}"</strong>.
+						<strong class='text-default font-normal'>"{{ query }}"</strong>.
 					</p>
 
 					<AisHits>
@@ -47,19 +47,19 @@
 								:title='item.title'
 								class='ais-Hits-item-card w-full no-underline flex cursor-pointer rounded-md'
 							>
-								<div class='flex h-full w-full flex-col gap-3 rounded-md border surface-border surface-card p-4 transition-colors hover:border-[var(--text-color)]'>
+								<div class='flex h-full w-full flex-col gap-3 rounded-md border border-default bg-surface-raised p-4 transition-colors hover:border-[var(--text-default)]'>
 									<div class='flex flex-col gap-3'>
-										<h2 class='text-base font-normal text-color'>
+										<h2 class='text-base font-normal text-default'>
 											{{ item.title }}
 										</h2>
 
 										<ul class='flex items-center flex-wrap text-xs'>
-											<li class='text-color-secondary mr-0.5'>
+											<li class='text-muted mr-0.5'>
 												<small class='flex gap-0.5 capitalize items-center'>
 													{{ props.label }} <i class='pi pi-angle-right text-[8px]'></i>
 												</small>
 											</li>
-											<li class='text-color-secondary'>
+											<li class='text-muted'>
 												<small class='flex gap-2'>
 													{{ item.title }}
 												</small>
@@ -67,7 +67,7 @@
 										</ul>
 									</div>
 
-									<p class='text-sm text-color-secondary leading-relaxed'>
+									<p class='text-sm text-muted leading-relaxed'>
 										<!--
 											item.text used to site/blog/cases
 											item.description used to documentation
@@ -152,7 +152,7 @@
 		}
 		.ais-Pagination-item {
 			.ais-Pagination-link {
-				border: solid 1px var(--surface-border);
+				border: solid 1px var(--border-default);
 				margin-left: -1px;
 				width: 2rem;
 				height: 2rem;

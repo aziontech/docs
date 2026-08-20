@@ -90,7 +90,7 @@ export default defineConfig({
 				if (name === 'client') return null;
 				return {
 					resolve: {
-						noExternal: ['@astrojs/vue', 'azion-theme'],
+						noExternal: ['@astrojs/vue', '@aziontech/theme'],
 						external: ['vue']
 					}
 				};
@@ -106,7 +106,7 @@ export default defineConfig({
 		})
 	],
 	ssr: {
-      noExternal: ['@astrojs/vue', 'azion-theme'],
+      noExternal: ['@astrojs/vue', '@aziontech/theme'],
       external: ['vue']
     },
 		optimizeDeps: {

@@ -30,7 +30,7 @@
 			</svg>
 		</div>
 		<div
-			class="h-[17.82px] flex items-center tracking-[0.4px] text-color text-[11.4px] roboto-condensed italic font-normal"
+			class="h-[17.82px] flex items-center tracking-[0.4px] text-default text-[11.4px] roboto-condensed italic font-normal"
 		>
 			move to the edge
 		</div>

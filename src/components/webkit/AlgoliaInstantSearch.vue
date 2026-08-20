@@ -14,10 +14,10 @@
 				<template v-slot='{ query }'>
 					<div
 						v-if='query.length'
-						class='px-6 py-4 sticky top-[48px] surface-section z-10'
+						class='px-6 py-4 sticky top-[48px] bg-surface z-10'
 					>
 						<nav class='block mb-2 overflow-x-auto'>
-							<ul class='flex list-none border-b surface-border p-0 m-0'>
+							<ul class='flex list-none border-b border-default p-0 m-0'>
 								<li
 									v-for='(item, index) in algoliaModel'
 									:key='index'
@@ -27,8 +27,8 @@
 										class='cursor-pointer whitespace-nowrap border-0 border-b-2 border-solid bg-transparent px-4 py-3 text-sm font-medium transition-colors'
 										:class='
 											activeIndex === index
-												? "border-[var(--primary-color)] text-color"
-												: "border-transparent text-color-secondary hover:text-color"
+												? "border-[var(--border-selected)] text-default"
+												: "border-transparent text-muted hover:text-default"
 										'
 										:aria-pressed='activeIndex === index'
 										@click='eventHandler(index)'
@@ -117,7 +117,7 @@
 			border: none;
 			border-top-right-radius: 4px;
 			border-top-left-radius: 4px;
-			border-bottom: solid 1px var(--surface-border);
+			border-bottom: solid 1px var(--border-default);
 			outline: none;
 		}
 

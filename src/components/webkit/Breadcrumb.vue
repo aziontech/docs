@@ -1,17 +1,17 @@
 <template>
 	<div class="h-[24px] -ml-2">
-		<nav class="p-breadcrumb p-component">
-			<ol class="p-breadcrumb-list">
+		<nav class="wk-breadcrumb overflow-x-auto p-1">
+			<ol class="flex items-center flex-nowrap list-none m-0 p-0">
 				<template
 					v-for="(item, index) in props.data"
 					:key="`${item.label}_${index}`"
 				>
 					<li
 						v-if="index !== 0"
-						class="p-menuitem-separator"
+						class="flex items-center mx-2 text-muted"
 					>
 						<svg
-							class="p-icon"
+							class="w-4 h-4"
 							aria-hidden="true"
 							width="14"
 							height="14"
@@ -25,23 +25,23 @@
 							/>
 						</svg>
 					</li>
-					<li class="p-menuitem">
+					<li class="flex items-center">
 						<a
 							v-if="item.url"
 							:href="item.url"
 							:target="item.target"
 							:aria-current="isCurrentUrl(item)"
-							class="p-menuitem-link"
+							class="flex items-center no-underline leading-none rounded-[var(--shape-elements)] text-muted hover:text-[var(--text-default)] aria-[current=page]:text-[var(--text-default)]"
 						>
-							<span class="text-color-secondary">
+							<span>
 								{{ item.label }}
 							</span>
 						</a>
 						<p
 							v-else
-							class="p-menuitem-link"
+							class="flex items-center m-0 leading-none text-default"
 						>
-							<span class="text-color-secondary">
+							<span>
 								{{ item.label }}
 							</span>
 						</p>
@@ -65,45 +65,12 @@
 
 <style scoped>
 	/*
-	  Base layout rules vendored from PrimeVue's Breadcrumb component CSS
-	  (also shipped as azion-webkit/src/assets/styles/breadcrumb.css). Theme
-	  colors/spacing (.p-breadcrumb, .p-menuitem-link, .p-menuitem-separator)
-	  still come from the globally imported azion-theme.
+		Layout/colors are utilities on the elements themselves (ported from
+		PrimeVue's Breadcrumb CSS + azion-theme's breadcrumb variables onto
+		@aziontech/theme v4 tokens). Only the scrollbar-hiding rule has no
+		utility equivalent.
 	*/
-	.p-breadcrumb {
-		overflow-x: auto;
-	}
-
-	.p-breadcrumb .p-breadcrumb-list {
-		margin: 0;
-		padding: 0;
-		list-style-type: none;
-		display: flex;
-		align-items: center;
-		flex-wrap: nowrap;
-	}
-
-	.p-breadcrumb .p-menuitem-text {
-		line-height: 1;
-	}
-
-	.p-breadcrumb .p-menuitem-link {
-		text-decoration: none;
-		display: flex;
-		align-items: center;
-	}
-
-	.p-breadcrumb .p-menuitem-separator {
-		display: flex;
-		align-items: center;
-	}
-
-	.p-breadcrumb::-webkit-scrollbar {
+	.wk-breadcrumb::-webkit-scrollbar {
 		display: none;
-	}
-
-	.p-icon {
-		width: 1rem;
-		height: 1rem;
 	}
 </style>

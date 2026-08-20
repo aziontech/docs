@@ -12,7 +12,7 @@
 	<button
 		type='button'
 		aria-label='Search'
-		class='text-neutral-900 flex-none border-header p-2 bg-transparent xl:border-hidden inline-flex cursor-pointer items-center justify-center rounded-md xl:p-6'
+		class='text-neutral-900 flex-none p-2 bg-transparent xl:border-hidden inline-flex cursor-pointer items-center justify-center rounded-md xl:p-6'
 		@click='activeDialog'
 	>
 		<i class='pi pi-search xl:text-neutral-200'></i>

@@ -28,7 +28,7 @@
 					</clipPath>
 				</defs>
 			</svg>
-			<div class="flex gap-[1px] justify-end w-full items-start text-color titillium-web">
+			<div class="flex gap-[1px] justify-end w-full items-start text-default titillium-web">
 				<div class="text-[9.35px]">technologies</div>
 				<div class="text-[6.2px]">®</div>
 			</div>
