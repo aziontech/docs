@@ -17,7 +17,7 @@
 
 				<div
 					v-if="!item.slug && item.text"
-					class="flex hover:surface-hover py-2 px-4 border-none cursor-pointer rounded-sm h-9"
+					class="flex hover:bg-hover py-2 px-4 border-none cursor-pointer rounded-sm h-9"
 					:style="{ paddingLeft: `${item.level * 16 + 16}px !important` }"
 					@click="$emit('toggle', item)"
 				>
@@ -38,8 +38,8 @@
 					:title="item.text"
 					:href="isCurrent(item) ? '#' : modelSlug(item.slug, item.isFallback, lang)"
 					:target="isURL(item.slug) ? '_blank' : '_self'"
-					:class="isCurrent(item) ? 'surface-200' : ''"
-					class="text-sm h-9 flex justify-between items-center hover:surface-hover py-2 px-4 border-none cursor-pointer rounded-sm"
+					:class="isCurrent(item) ? 'bg-selected' : ''"
+					class="text-sm h-9 flex justify-between items-center hover:bg-hover py-2 px-4 border-none cursor-pointer rounded-sm"
 					:style="{ paddingLeft: `${item.level * 16 + 16}px !important` }"
 					@click="$emit('itemClick', item, $event)"
 				>
@@ -58,8 +58,8 @@
 					:title="item.text"
 					:href="modelSlug(item.slug, item.isFallback, lang)"
 					:target="isURL(item.slug) ? '_blank' : '_self'"
-					:class="isCurrent(item) ? 'surface-200' : ''"
-					class="text-sm h-9 flex justify-between items-center hover:surface-hover py-2 px-4 border-none cursor-pointer rounded-sm"
+					:class="isCurrent(item) ? 'bg-selected' : ''"
+					class="text-sm h-9 flex justify-between items-center hover:bg-hover py-2 px-4 border-none cursor-pointer rounded-sm"
 					:style="{ paddingLeft: `${item.level * 16 + 16}px !important` }"
 					@click="$emit('trackClick', item, modelSlug(item.slug, item.isFallback, lang))"
 				>

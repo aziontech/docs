@@ -7,8 +7,8 @@
 			<a
 				@click="onScroll"
 				:class="[
-					'rounded hover:underline text-color-secondary text-sm max-w-full px-2 py-1',
-					currentHeading === slug && 'surface-200'
+					'rounded hover:underline text-muted text-sm max-w-full px-2 py-1',
+					currentHeading === slug && 'bg-selected'
 				]"
 				:href="`#${slug}`"
 			>

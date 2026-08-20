@@ -1,27 +1,29 @@
 <template>
 	<div
-		class="wk-card w-full shadow-none flex flex-col rounded-md border group"
+		class="wk-card w-full shadow-none flex flex-col rounded-[var(--shape-card)] border group"
 		:class="[
-			{ 'hover:border-[var(--primary-color)]': hover == 'default' },
-			{ 'hover:bg-[var(--surface-0)] hover:border-[var(--primary-color)]': hover == 'outlined' },
+			{ 'hover:border-[var(--border-strong)]': hover == 'default' },
+			{
+				'hover:bg-[var(--bg-hover)] hover:border-[var(--border-strong)]': hover == 'outlined'
+			},
 			{
 				'hover:transform hover:-translate-y-6 transition-transform duration-300':
 					hover == 'slide-up'
 			},
 			{
-				'bg-[var(--surface-50)] surface-border focus:outline-[rgba(243,100,43,.624)]':
+				'bg-[var(--bg-surface-raised)] border-default focus:outline-[var(--border-selected)]':
 					backgroundColor == 'outlined'
 			},
 			{
-				'bg-[var(--surface-50)] border-transparent focus:outline-[rgba(243,100,43,.624)]':
+				'bg-[var(--bg-surface-raised)] border-transparent focus:outline-[var(--border-selected)]':
 					backgroundColor == 'shape'
 			},
 			{
-				'bg-[var(--surface-50)] border-[#F3652B] focus:outline-[rgba(243,100,43,.624)]':
+				'bg-[var(--bg-surface-raised)] border-[var(--border-selected)] focus:outline-[var(--border-selected)]':
 					backgroundColor == 'highlighted'
 			},
 			{
-				'bg-transparent surface-border focus:outline-[rgba(243,100,43,.624)]':
+				'bg-transparent border-default focus:outline-[var(--border-selected)]':
 					backgroundColor == 'default'
 			},
 			ptPrime?.root?.class
@@ -151,11 +153,11 @@
 <style scoped>
 	/*
 		Replaces PrimeVue's Card wrapper. azion-theme's `.p-card` contributed
-		`color: var(--text-color)` (body/content padding was `none`); background
+		`color: var(--text-default)` (body/content padding was `none`); background
 		and radius are always set by the utility classes above.
 	*/
 	.wk-card {
-		color: var(--text-color);
+		color: var(--text-default);
 	}
 
 	/* Parity with the `.p-card-header img` rule in webkit-v1-main.css. */

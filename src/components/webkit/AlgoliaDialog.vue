@@ -17,7 +17,7 @@
 			@mousedown.self='toggleDialog(false)'
 		>
 			<div
-				class='relative flex max-h-[85vh] w-[95vw] flex-col overflow-y-auto rounded-md border surface-border surface-section shadow-lg md:w-[85vw] lg:w-[75vw] xl:w-[65vw]'
+				class='relative flex max-h-[85vh] w-[95vw] flex-col overflow-y-auto rounded-md border border-default bg-surface shadow-lg md:w-[85vw] lg:w-[75vw] xl:w-[65vw]'
 				role='dialog'
 				aria-modal='true'
 				aria-label='Search'

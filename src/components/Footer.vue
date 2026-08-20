@@ -1,5 +1,5 @@
 <template>
-  <footer class="py-12 dark:bg-neutral-950 surface-ground border-t border-solid surface-border bg-header text-white">
+  <footer class="py-12 bg-canvas border-t border-solid border-default text-default">
     <div class="flex flex-col gap-9 lg:gap-8 px-shell">
       <div class="flex flex-col lg:flex-row justify-between w-full gap-9 lg:gap-12">
         <div class="w-full flex flex-col justify-between gap-4">
@@ -13,9 +13,9 @@
             />
 
             <slot name="system-status" />
-            <p class="text-color-secondary text-sm">
+            <p class="text-muted text-sm">
               {{ cta.text }}
-              <span class="text-color whitespace-nowrap">{{ cta.phone }}</span>
+              <span class="text-default whitespace-nowrap">{{ cta.phone }}</span>
             </p>
           </div>
           <div

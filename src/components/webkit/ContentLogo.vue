@@ -14,7 +14,7 @@
 				<template v-if="!isCentralized">
 					<p
 						v-if="title"
-						class="text-color-secondary text-xs"
+						class="text-muted text-xs"
 						:class="{ 'text-center': isCentralized }"
 					>
 						{{ title }}
@@ -28,7 +28,7 @@
 				</template>
 			</template>
 			<div
-				class="flex items-center flex-wrap m-0 text-color-secondary"
+				class="flex items-center flex-wrap m-0 text-muted"
 				:class="[
 					{ 'justify-center gap-8 lg:gap-0 gap-y-8 md:gap-y-16 ': isCentralized },
 					{ 'gap-5': !isCentralized }

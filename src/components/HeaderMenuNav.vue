@@ -9,7 +9,7 @@
           v-if="!menuitem.items || !menuitem.items.length"
           :href="menuitem.href || ''"
           :title="menuitem.label || ''"
-          class="wk-nav-button whitespace-nowrap text-white active:bg-header-button-hover hover:surface-hover"
+          class="wk-nav-button whitespace-nowrap text-default active:bg-[var(--bg-active)] hover:bg-hover"
           :class="getBreakpointClass(menuitem)"
         >
           <span class="">
@@ -28,10 +28,10 @@
               }
             "
             tabindex="0"
-            class="wk-nav-button whitespace-nowrap active:bg-header-button-hover hover:surface-hover"
-            :class="activeMenu == menuitem.ref && 'surface-hover'"
+            class="wk-nav-button whitespace-nowrap active:bg-[var(--bg-active)] hover:bg-hover"
+            :class="activeMenu == menuitem.ref && 'bg-hover'"
           >
-            <div class="flex flex-row gap-2 text-white items-center">
+            <div class="flex flex-row gap-2 text-default items-center">
               <span>
                 {{ menuitem.label }}
               </span>
@@ -45,10 +45,10 @@
           <div
             v-if="activeMenu === menuitem.ref"
             :id="menuitem.ref"
-            class="fixed p-0 hidden lg:flex flex-row border surface-border rounded-md surface-0 max-w-[calc(100%-8.5rem)] xl:max-w-6xl 2xl:max-w-screen-xl w-full left-8 lg:left-[8.5rem] top-12 z-50"
+            class="fixed p-0 hidden lg:flex flex-row border border-default rounded-md bg-surface max-w-[calc(100%-8.5rem)] xl:max-w-6xl 2xl:max-w-screen-xl w-full left-8 lg:left-[8.5rem] top-12 z-50"
           >
             <div
-              class="flex flex-col gap-1 border-r surface-border p-3 surface-50 rounded-l-md min-w-56"
+              class="flex flex-col gap-1 border-r border-default p-3 bg-surface-raised rounded-l-md min-w-56"
             >
               <template
                 v-for="(subitem, index) in menuitem.items"
@@ -57,7 +57,7 @@
                 <template v-if="subitem.items">
                   <button
                     type="button"
-                    :class="{ 'surface-hover': active === index }"
+                    :class="{ 'bg-hover': active === index }"
                     class="wk-nav-button-text flex gap-2 justify-between w-full text-nowrap text-left min-w-52"
                     @click="active = index"
                   >
@@ -70,7 +70,7 @@
                 </template>
                 <template v-else>
                   <a
-                    class="wk-nav-button-text hover:surface-hover flex gap-2 hover:surface-hover justify-between w-full items-centerm min-w-52"
+                    class="wk-nav-button-text hover:bg-hover flex gap-2 hover:bg-hover justify-between w-full items-centerm min-w-52"
                     :href="subitem.href"
                     :target="subitem.external ? '_blank' : '_self'"
                   >
@@ -117,12 +117,12 @@
                         :title="link.label"
                         class="wk-nav-button-text w-full p-3 flex flex-col justify-start items-start"
                         :class="
-                          link.href ? 'hover:surface-hover' : 'cursor-default hover:bg-inherit'
+                          link.href ? 'hover:bg-hover' : 'cursor-default hover:bg-inherit'
                         "
                       >
                         <div class="flex gap-3">
                           <div v-if="link.icon">
-                            <span class="py-1 px-1.5 flex rounded-md surface-200">
+                            <span class="py-1 px-1.5 flex rounded-md bg-selected">
                               <i
                                 :class="link.icon"
                                 class="text-xs"
@@ -140,7 +140,7 @@
                             </div>
                             <p
                               v-if="link.description"
-                              class="font-normal text-xs text-color-secondary text-left"
+                              class="font-normal text-xs text-muted text-left"
                             >
                               {{ link.description }}
                             </p>
@@ -174,7 +174,7 @@
                                 :class="[
                                   sublink.isLink
                                     ? 'wk-nav-button-link hover:underline'
-                                    : 'hover:surface-hover text-color wk-nav-button-text',
+                                    : 'hover:bg-hover text-default wk-nav-button-text',
                                   sublink.isLink && link.subitems.length <= 4 ? 'hidden' : ''
                                 ]"
                               >
@@ -201,11 +201,11 @@
                               <a
                                 :href="sublink.href"
                                 :title="sublink.label"
-                                class="wk-nav-button-text hover:surface-hover w-full text-xs hover:surface-hover"
+                                class="wk-nav-button-text hover:bg-hover w-full text-xs hover:bg-hover"
                               >
                                 <div class="flex gap-3">
                                   <div v-if="sublink.icon">
-                                    <span class="py-1 px-1.5 flex rounded-md surface-200">
+                                    <span class="py-1 px-1.5 flex rounded-md bg-selected">
                                       <i
                                         :class="sublink.icon"
                                         class="text-xs"
@@ -227,7 +227,7 @@
                   </ul>
                   <div
                     v-if="menuitem.rightBlock"
-                    class="border-l surface-border p-6 gap-3 flex-col min-h-52 hidden lg:flex w-full max-w-[340px] surface-50 rounded-r-md"
+                    class="border-l border-default p-6 gap-3 flex-col min-h-52 hidden lg:flex w-full max-w-[340px] bg-surface-raised rounded-r-md"
                   >
                     <div v-if="menuitem.rightBlock.type === 'cases'">
                       <Overline
@@ -248,7 +248,7 @@
                               class="flex gap-4 group"
                             >
                               <figure
-                                class="mb-4 overflow-hidden rounded-sm border surface-border h-fit w-[280px] grayscale group-hover:grayscale-0"
+                                class="mb-4 overflow-hidden rounded-sm border border-default h-fit w-[280px] grayscale group-hover:grayscale-0"
                               >
                                 <img
                                   :src="`${block.img.src}`"
@@ -258,7 +258,7 @@
                                 />
                               </figure>
                               <div class="w-full flex flex-col">
-                                <p class="text-xs leading-relaxed text-color-secondary">
+                                <p class="text-xs leading-relaxed text-muted">
                                   {{ block.description }}
                                 </p>
                                 <p class="wk-nav-button-link px-0">
@@ -286,7 +286,7 @@
                           class="w-full"
                         >
                           <figure
-                            class="w-[160px] h-[90px] mb-4 overflow-hidden rounded-sm border surface-border"
+                            class="w-[160px] h-[90px] mb-4 overflow-hidden rounded-sm border border-default"
                           >
                             <img
                               :src="`${block.img.src}`"
@@ -298,10 +298,10 @@
                             />
                           </figure>
                           <div class="w-full flex flex-col gap-1">
-                            <p class="text-base font-medium text-color mb-2 leading-normal">
+                            <p class="text-base font-medium text-default mb-2 leading-normal">
                               {{ block.title }}
                             </p>
-                            <p class="text-xs text-color-secondary leading-relaxed">
+                            <p class="text-xs text-muted leading-relaxed">
                               {{ block.description }}
                             </p>
                             <p class="wk-nav-button-link px-0">
@@ -399,7 +399,7 @@
     background: transparent;
     border: none;
     border-radius: 6px;
-    color: var(--text-color);
+    color: var(--text-default);
     font-size: 0.875rem;
     font-weight: 500;
   }
@@ -409,9 +409,9 @@
     padding: 0.301rem 0.65625rem;
   }
   .wk-nav-button-link {
-    color: var(--text-color-link);
+    color: var(--text-link);
   }
   .wk-nav-button-link:hover {
-    color: var(--text-color-link-hover);
+    color: var(--text-link-hover);
   }
 </style>

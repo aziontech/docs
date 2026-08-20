@@ -1,11 +1,16 @@
 <template>
-	<span class="wk-tag" :class="severity ? `wk-tag-${severity}` : ''">
+	<span
+		class="inline-block whitespace-nowrap px-[var(--spacing-xs)] py-[var(--spacing-xxs)] rounded-[var(--shape-elements)] text-tag-sm tracking-[0.01rem]"
+		:class="severityClasses"
+	>
 		<slot>{{ value }}</slot>
 	</span>
 </template>
 
 <script setup>
-	defineProps({
+	import { computed } from 'vue';
+
+	const props = defineProps({
 		value: {
 			type: [String, Number],
 			required: false
@@ -16,40 +21,18 @@
 			validator: (value) => ['success', 'info', 'warning', 'danger'].includes(value)
 		}
 	});
-</script>
 
-<style scoped>
-	/*
-		Visual port of azion-theme's PrimeVue `.p-tag` styles, self-contained so
-		this component no longer depends on PrimeVue classes. Values from
-		azion-theme/src/azion/{_variables.scss,extended-components/_tag.scss}.
-	*/
-	.wk-tag {
-		display: inline-block;
-		background: var(--p-tag-background);
-		color: var(--p-tag-color);
-		padding: var(--tag-padding);
-		font-size: 0.75rem;
-		font-weight: 500;
-		letter-spacing: 0.01rem;
-		border-radius: 6px;
-		white-space: nowrap;
-	}
-	.wk-tag-info {
-		background: var(--surface-section);
-		color: var(--text-color);
-		box-shadow: 0 0 0 1px var(--surface-border);
-	}
-	.wk-tag-success {
-		background: var(--p-tag-success-background);
-		color: var(--p-tag-success-color);
-	}
-	.wk-tag-warning {
-		background: var(--p-tag-warning-background);
-		color: var(--p-tag-warning-color);
-	}
-	.wk-tag-danger {
-		background: var(--p-tag-danger-background);
-		color: var(--p-tag-danger-color);
-	}
-</style>
+	// `info` keeps the neutral surface look the old PrimeVue theme gave it
+	// rather than @aziontech/theme's blue `info` status color: it is the
+	// severity used by the ~390 content badges ("Preview", "Compute",
+	// "Static"), which read as labels, not as informational alerts.
+	const severityClasses = computed(
+		() =>
+			({
+				info: 'bg-surface text-default shadow-[0_0_0_1px_var(--border-default)]',
+				success: 'bg-success text-success-contrast',
+				warning: 'bg-warning text-warning-contrast',
+				danger: 'bg-danger text-danger-contrast'
+			})[props.severity] ?? 'bg-primary-mask text-primary'
+	);
+</script>
