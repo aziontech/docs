@@ -1,16 +1,13 @@
 <template>
 	<!-- open sidebar button -->
-	<button
-		type="button"
-		@click="visibleRight = true"
-		class="wk-drawer-icon-button lg:hidden flex flex-none w-8 h-8 items-center justify-center"
+	<IconButton
+		icon="pi pi-bars"
 		aria-label="Menu"
-	>
-		<span
-			class="pi pi-bars"
-			data-pc-section="icon"
-		></span>
-	</button>
+		kind="outlined"
+		size="medium"
+		class="lg:hidden flex-none"
+		@click="visibleRight = true"
+	/>
 
 	<!-- Teleport only after mount: Astro islands SSR this component, and a
 	     server-rendered teleport has no matching node on the client (the
@@ -34,17 +31,14 @@
 				<div class="grow overflow-y-auto p-3 md:p-8">
 					<!-- close sidebar button -->
 					<div class="flex justify-end pb-6 pr-2 md:pr-0">
-						<button
-							type="button"
-							@click="visibleRight = false"
-							class="wk-drawer-icon-button flex flex-none w-8 h-8 items-center justify-center"
+						<IconButton
+							icon="pi pi-times"
 							aria-label="Close"
-						>
-							<span
-								class="pi pi-times"
-								data-pc-section="icon"
-							></span>
-						</button>
+							kind="outlined"
+							size="medium"
+							class="flex-none"
+							@click="visibleRight = false"
+						/>
 					</div>
 
 					<!-- slot to receive custom menu -->
@@ -102,25 +96,23 @@
 					</template>
 
 					<template v-if="bottomButtons">
-						<div class="fixed bottom-6 flex gap-2 items-center">
-							<a
+						<!--
+							`flex-wrap` and the `small` size below keep the three CTAs
+							inside the drawer: webkit's `medium` Button carries a
+							`min-w-16` that the hand-styled anchors did not have, which
+							pushed the row past the 320px drawer on mobile.
+						-->
+						<div class="fixed bottom-6 flex flex-wrap gap-2 items-center">
+							<Button
 								v-for="(button, index) in bottomButtons"
 								:key="index"
+								:label="button.label"
 								:href="button.url"
 								:title="button.urlTitle"
-								:class="[
-									button.destak
-										? 'wk-drawer-button wk-drawer-button-primary justify-between'
-										: 'wk-drawer-button wk-drawer-button-outlined',
-									{ 'wk-drawer-button-info': button.severity === 'info' }
-								]"
-							>
-								{{ button.label }}
-								<i
-									v-if="button.icon"
-									:class="button.icon"
-								></i>
-							</a>
+								:icon="button.icon"
+								:kind="bottomButtonKind(button)"
+								size="small"
+							/>
 						</div>
 					</template>
 				</div>
@@ -131,7 +123,29 @@
 
 <script setup>
 	import { onBeforeUnmount, onMounted, onUpdated, ref } from 'vue'
+
+	import Button from '@aziontech/webkit/button'
+	import IconButton from '@aziontech/webkit/icon-button'
+
 	import Tag from '~/components/webkit/Tag.vue'
+
+	/*
+		The drawer's controls come from @aziontech/webkit now (IconButton for
+		the open/close triggers, Button for the bottom CTAs) instead of the
+		`.wk-drawer-icon-button` / `.wk-drawer-button` CSS this file used to
+		carry -- that was a hand-made port of azion-theme's PrimeVue
+		`.p-button`, i.e. a parallel implementation of the design system's own
+		button.
+
+		`severity: 'info'` has no counterpart among webkit's kinds (theme@4's
+		`--info` is a tinted surface, not a button kind), so it falls back to
+		`outlined` like everywhere else in this repo.
+	*/
+	function bottomButtonKind(button) {
+		if (button.severity === 'info') return 'outlined'
+
+		return button.destak ? 'primary' : 'outlined'
+	}
 
 	let props = defineProps({
 		menuData: Object,
@@ -172,74 +186,3 @@
 	})
 </script>
 
-<style scoped>
-	/*
-		Visual port of azion-theme's PrimeVue `.p-button` (small size) variants
-		used by this drawer -- the outlined icon buttons that open/close it and
-		the call-to-action links pinned to its bottom edge. Rebuilt on
-		@aziontech/theme v4 tokens.
-	*/
-	.wk-drawer-icon-button {
-		background: transparent;
-		border: var(--border-width-default) solid var(--border-default);
-		border-radius: var(--shape-button);
-		color: var(--text-default);
-		font-size: var(--text-sm);
-		cursor: pointer;
-		user-select: none;
-		transition:
-			background-color var(--transition-duration-fast-02) var(--ease-productive-entrance),
-			border-color var(--transition-duration-fast-02) var(--ease-productive-entrance);
-	}
-
-	.wk-drawer-icon-button:hover,
-	.wk-drawer-icon-button:active {
-		background: var(--bg-hover);
-	}
-
-	.wk-drawer-button {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-xs);
-		white-space: nowrap;
-		padding: var(--spacing-xxs) var(--spacing-sm);
-		border: var(--border-width-default) solid transparent;
-		border-radius: var(--shape-button);
-		font-size: var(--text-sm);
-		font-weight: 500;
-		line-height: 1.25rem;
-		text-decoration: none;
-		cursor: pointer;
-		user-select: none;
-		transition:
-			background-color var(--transition-duration-fast-02) var(--ease-productive-entrance),
-			border-color var(--transition-duration-fast-02) var(--ease-productive-entrance),
-			color var(--transition-duration-fast-02) var(--ease-productive-entrance);
-	}
-
-	.wk-drawer-button-primary {
-		background: var(--primary);
-		border-color: var(--primary);
-		color: var(--primary-contrast);
-	}
-
-	.wk-drawer-button-outlined {
-		background: transparent;
-		border-color: var(--border-default);
-		color: var(--text-default);
-	}
-
-	.wk-drawer-button-outlined:hover,
-	.wk-drawer-button-outlined:active {
-		background: var(--bg-hover);
-	}
-
-	/* info severity (last, so it wins over the primary/outlined variants) */
-	.wk-drawer-button-info,
-	.wk-drawer-button-info:hover,
-	.wk-drawer-button-info:active {
-		background: var(--info);
-		border-color: var(--info-border);
-		color: var(--info-contrast);
-	}
-</style>

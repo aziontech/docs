@@ -1,59 +1,75 @@
 <template>
-	<div
-		ref='rootRef'
-		class='relative flex h-8'
+	<!--
+		Composed exactly the way @aziontech/webkit builds its own SplitButton --
+		Button + IconButton joined inside a Dropdown -- rather than the two
+		hand-painted <button>s (and hand-written outside-click / Escape
+		handling) this component used to carry. SplitButton itself is not used
+		directly because its `model` renders label-only rows, and these actions
+		each carry a description line; Dropdown.Option's default slot keeps
+		them.
+	-->
+	<Dropdown
+		placement='bottom-end'
+		@select='onSelect'
 	>
-		<button
-			type='button'
-			class='text-sm min-w-32 group cursor-pointer bg-neutral-950 text-neutral-100 duration-300 px-3 transition ease-in-out rounded-l-md active:bg-neutral-900 border border-neutral-900 hover:bg-neutral-900 hover:text-orange-500'
-			@click='getPageMarkdown'
-		>
-			{{ label }}
-		</button>
+		<div class='inline-flex w-fit items-stretch'>
+			<Button
+				:label='label'
+				kind='secondary'
+				size='medium'
+				class='min-w-32 rounded-r-none! focus-visible:z-[1]'
+				@click='getPageMarkdown'
+			/>
 
-		<button
-			type='button'
-			aria-haspopup='menu'
-			:aria-expanded='isMenuOpen'
-			aria-label='More options'
-			class='group cursor-pointer bg-neutral-950 text-neutral-100 duration-300 transition px-3 rounded-r-md rounded-l-none active:bg-neutral-900 border border-l-0 border-neutral-900 hover:bg-neutral-900'
-			@click='toggleMenu'
-		>
-			<i class='pi pi-chevron-down group-hover:text-orange-500 h-3 w-3 text-xs'></i>
-		</button>
+			<Dropdown.Trigger>
+				<IconButton
+					icon='pi pi-chevron-down'
+					:ariaLabel='toggleAriaLabel'
+					kind='secondary'
+					size='medium'
+					class='rounded-l-none! -ml-px border-l border-[var(--border-default)] focus-visible:z-[1]'
+				/>
+			</Dropdown.Trigger>
+		</div>
 
-		<ul
-			v-if='isMenuOpen'
-			role='menu'
-			class='absolute right-0 top-full z-50 mt-1 w-64 list-none p-3 m-0 rounded-md bg-neutral-950 border border-neutral-900'
-		>
-			<li
-				v-for='(item, index) in menuItems[props.lang as keyof typeof menuItems]'
+		<Dropdown.Group>
+			<!--
+				Dropdown.Option is a single-line row (`h-8 min-h-8`, and it puts
+				`whitespace-nowrap` on its content). These actions each carry a
+				description line, so the row is relaxed to grow with its content
+				and the text is allowed to wrap -- otherwise the two lines
+				overlap and long labels get clipped by the panel's
+				`overflow-hidden`.
+			-->
+			<Dropdown.Option
+				v-for='(item, index) in items'
 				:key='index'
-				role='menuitem'
+				:value='String(index)'
+				class='h-auto py-[var(--spacing-xs)]'
 			>
-				<div
-					class='flex gap-2 hover:bg-neutral-900 p-1 rounded-md cursor-pointer'
-					@click='runItemCommand(item)'
-				>
+				<template #left>
 					<i
 						:class='item.icon'
-						class='text-neutral-500 text-xs pt-0.5'
+						class='text-[length:inherit] leading-none'
+						aria-hidden='true'
 					/>
-					<div class='flex flex-col gap-1'>
-						<p class='text-neutral-100 text-sm'>
-							{{ item.label }}
-						</p>
-						<p class='text-neutral-500 text-xs'>{{ item.description }}</p>
-					</div>
-				</div>
-			</li>
-		</ul>
-	</div>
+				</template>
+
+				<span class='flex min-w-0 flex-col gap-1 whitespace-normal'>
+					<span>{{ item.label }}</span>
+					<span class='text-xs text-muted'>{{ item.description }}</span>
+				</span>
+			</Dropdown.Option>
+		</Dropdown.Group>
+	</Dropdown>
 </template>
 
 <script setup lang="ts">
-	import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+	import { computed, ref } from 'vue'
+
+	import Button from '@aziontech/webkit/button'
+	import IconButton from '@aziontech/webkit/icon-button'
+	import Dropdown from '@aziontech/webkit/dropdown'
 
 	interface AskAISplitButtonMenuItem {
 		label: string
@@ -73,8 +89,6 @@
 	})
 
 	const isCopied = ref(false)
-	const isMenuOpen = ref(false)
-	const rootRef = ref<HTMLElement | null>(null)
 
 	const label = computed(() => {
 		const lang = props.lang as AskAISplitButtonLang
@@ -92,37 +106,13 @@
 		}[lang]
 	})
 
-	const toggleMenu = () => {
-		isMenuOpen.value = !isMenuOpen.value
+	const toggleAriaLabel = computed(() => `${label.value} \u2014 more actions`)
+
+	// Dropdown owns open state, outside-click and Escape now; it hands back the
+	// activated option's value, which is the item's index in `items`.
+	const onSelect = (_event: MouseEvent | KeyboardEvent, value: string | number) => {
+		items.value[Number(value)]?.command()
 	}
-
-	const closeMenu = () => {
-		isMenuOpen.value = false
-	}
-
-	const runItemCommand = (item: AskAISplitButtonMenuItem) => {
-		item.command()
-		closeMenu()
-	}
-
-	const onDocumentClick = (event: MouseEvent) => {
-		if (!isMenuOpen.value) return
-		if (rootRef.value && !rootRef.value.contains(event.target as Node)) closeMenu()
-	}
-
-	const onDocumentKeydown = (event: KeyboardEvent) => {
-		if (event.key === 'Escape') closeMenu()
-	}
-
-	onMounted(() => {
-		document.addEventListener('click', onDocumentClick)
-		document.addEventListener('keydown', onDocumentKeydown)
-	})
-
-	onBeforeUnmount(() => {
-		document.removeEventListener('click', onDocumentClick)
-		document.removeEventListener('keydown', onDocumentKeydown)
-	})
 
 	const pageMarkdown = ref<string | null>(null)
 
@@ -345,4 +335,8 @@
 			}
 		]
 	}
+
+	const items = computed(
+		() => menuItems[props.lang as AskAISplitButtonLang] ?? menuItems.en
+	)
 </script>

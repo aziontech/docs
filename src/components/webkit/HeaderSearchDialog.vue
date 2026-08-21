@@ -9,18 +9,26 @@
 		:inputPlaceholder='inputPlaceholder'
 	/>
 
-	<button
-		type='button'
+	<!--
+		The search trigger is webkit's IconButton (icon-only control) instead of
+		a hand-styled <button>. `transparent` is the kind that matches how it
+		has to sit inside the header bar.
+	-->
+	<IconButton
+		icon='pi pi-search'
 		aria-label='Search'
-		class='text-neutral-900 flex-none p-2 bg-transparent xl:border-hidden inline-flex cursor-pointer items-center justify-center rounded-md xl:p-6'
+		kind='transparent'
+		size='medium'
+		class='flex-none'
 		@click='activeDialog'
-	>
-		<i class='pi pi-search xl:text-neutral-200'></i>
-	</button>
+	/>
 </template>
 
 <script setup>
 	import { ref, onMounted, onBeforeUnmount } from 'vue'
+
+	import IconButton from '@aziontech/webkit/icon-button'
+
 	import AlgoliaDialog from './AlgoliaDialog.vue'
 
 	const props = defineProps({
