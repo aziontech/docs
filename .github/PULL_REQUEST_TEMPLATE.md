@@ -1,23 +1,24 @@
-<!--
-Thank you for contributing to Azion Docs! Please fill out the information below.
-Use the conventional commits standard to categorize the type of change in the PR title. We recommend:
-- feat: adding new content
-- refactor: making minor changes
-- fix: fixing errors
+## What & why
 
-Don't forget to add the Jira issue code to the PR title or the GitHub issue hash.
-For example: 
-- [EDU-3000] refactor: modify origins page to include load balancer
-- [#34] feat: add new application CLI commands
-- [NO-ISSUE] fix: fix broken link in Orch doc
--->
+**Related issue:** <!-- EDU-1234 / #123 / none — the ticket lives here and in the branch name, never in the title -->
+**Pages affected:** <!-- permalinks or file paths -->
 
-### Related issue: <!-- Link any existing GitHub or Jira issues related to the change. -->
+## Type of change
 
-### Changes
+- [ ] 🆕 New content (`feat`)
+- [ ] 🩹 Fix (`fix`) — typo, broken link, wrong information
+- [ ] ♻️ Content update (`docs`) — rewrite, expansion, upkeep
+- [ ] 🌐 Translation sync (`i18n`)
+- [ ] 🏗️ Platform / structure (`refactor` / `chore`) — reviewed by UXE, no content mixed in
 
-<!-- List and describe the major changes that this PR will implement. -->
+## Author checklist
 
-### Additional links
-
-<!-- You may add any links you believe relevant here, like message threads, external documentation, other issues, etc. -->
+- [ ] PR title follows `type(scope): summary` (see [GOVERNANCE.md §4](GOVERNANCE.md))
+- [ ] Frontmatter complete: `title`, `description`, `meta_tags`, `namespace`, `permalink`, `last_reviewed`
+- [ ] No legacy "edge-" product names in the copy
+- [ ] How-to/tutorial content includes at least one runnable, copy-paste-tested code block
+- [ ] Screenshots (if any) have alt text and follow image standards
+- [ ] Internal links are relative and resolve locally
+- [ ] **If any permalink changed or page moved: redirect added in this PR**
+- [ ] **i18n:** `pt-br` updated in this PR **or** follow-up `i18n` issue created: <!-- link -->
+- [ ] I ran `pnpm build:local` (build + frontmatter check) without errors
