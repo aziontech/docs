@@ -2,7 +2,7 @@
 	<p
 		class="max-w-lg text-pretty"
 		:class="[
-			{ 'text-color-secondary': color == 'secondary' },
+			{ 'text-muted': color == 'secondary' },
 			{ 'text-body-1': size == 'small' },
 			{ 'text-body-2': size == 'medium' },
 			{ 'text-body-3': size == 'large' }

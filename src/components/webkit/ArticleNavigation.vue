@@ -18,10 +18,10 @@
 				:class="item === 'next' ? 'text-right items-end' : 'text-left'"
 			>
 				<div
-					class="p-card p-component w-full shadow-none rounded-md border group text-color hover:bg-[var(--surface-0)] hover:border-[var(--primary-color)] bg-transparent surface-border focus:outline-[rgba(243,100,43,.624)] flex flex-col h-full"
+					class="w-full shadow-none rounded-[var(--shape-card)] border group text-default bg-transparent border-default hover:bg-[var(--bg-hover)] hover:border-[var(--border-strong)] focus:outline-[var(--border-selected)] flex flex-col h-full"
 				>
-					<div class="p-card-body flex flex-col grow">
-						<div class="p-card-content flex flex-col grow">
+					<div class="flex flex-col grow">
+						<div class="flex flex-col grow">
 							<div class="flex flex-col gap-8 justify-between grow p-4 md:p-6">
 								<div class="flex flex-col gap-3 grow">
 									<div
@@ -33,7 +33,7 @@
 											class="min-w-fit"
 										>
 											<div
-												class="rounded flex justify-center items-center h-6 w-6 bg-(--surface-400) text-color-secondary"
+												class="rounded flex justify-center items-center h-6 w-6 bg-(--surface-400) text-muted"
 											>
 												<p class="text-sm flex justify-center items-center">
 													<i class="text-xs pi pi-arrow-left" />
@@ -42,7 +42,7 @@
 										</div>
 										<div class="flex flex-col gap-3">
 											<span
-												class="text-[.625rem] sm:text-xs uppercase tracking-widest font-mono text-color-secondary text-balance"
+												class="text-[.625rem] sm:text-xs uppercase tracking-widest font-mono text-muted text-balance"
 											>
 												{{ overline[item] }}
 											</span>
@@ -55,7 +55,7 @@
 											class="min-w-fit"
 										>
 											<div
-												class="rounded flex justify-center items-center h-6 w-6 bg-(--surface-400) text-color-secondary"
+												class="rounded flex justify-center items-center h-6 w-6 bg-(--surface-400) text-muted"
 											>
 												<p class="text-sm flex justify-center items-center">
 													<i class="text-xs pi pi-arrow-right"></i>

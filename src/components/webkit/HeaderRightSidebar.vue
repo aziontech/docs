@@ -1,13 +1,13 @@
 <template>
 	<!-- open sidebar button -->
-	<button
-		type="button"
-		@click="visibleRight = true"
-		class="p-button p-component p-button-sm p-button-icon-only lg:hidden flex text-white flex-none border-header w-8 h-8 bg-header hover:bg-header-button-hover items-center justify-center"
+	<IconButton
+		icon="pi pi-bars"
 		aria-label="Menu"
-	>
-		<span class="pi pi-bars p-button-icon text-white" data-pc-section="icon"></span>
-	</button>
+		kind="outlined"
+		size="medium"
+		class="lg:hidden flex-none"
+		@click="visibleRight = true"
+	/>
 
 	<!-- Teleport only after mount: Astro islands SSR this component, and a
 	     server-rendered teleport has no matching node on the client (the
@@ -19,26 +19,26 @@
 		<!-- mask -->
 		<div
 			v-if="visibleRight"
-			class="p-sidebar-mask fixed inset-0 z-[1100] bg-black/40 flex justify-end"
+			class="fixed inset-0 z-[1100] bg-[var(--bg-backdrop)] flex justify-end"
 			@click.self="visibleRight = false"
 		>
 			<!-- sidebar -->
 			<aside
-				class="p-sidebar p-sidebar-right p-component relative flex flex-col md:pt-3 pb-20 h-[100%] border-l surface-border w-[20rem] md:w-[22rem] text-sm"
+				class="relative flex flex-col md:pt-3 pb-20 h-[100%] border-l border-default bg-surface text-default w-[20rem] md:w-[22rem] text-sm"
 				role="complementary"
 				aria-modal="true"
 			>
-				<div class="p-sidebar-content grow overflow-y-auto">
+				<div class="grow overflow-y-auto p-3 md:p-8">
 					<!-- close sidebar button -->
 					<div class="flex justify-end pb-6 pr-2 md:pr-0">
-						<button
-							type="button"
-							@click="visibleRight = false"
-							class="p-button p-component p-button-sm p-button-outlined p-button-icon-only flex-none w-8 h-8 items-center justify-center"
+						<IconButton
+							icon="pi pi-times"
 							aria-label="Close"
-						>
-							<span class="pi pi-times p-button-icon" data-pc-section="icon"></span>
-						</button>
+							kind="outlined"
+							size="medium"
+							class="flex-none"
+							@click="visibleRight = false"
+						/>
 					</div>
 
 					<!-- slot to receive custom menu -->
@@ -46,12 +46,12 @@
 
 					<template v-if="menuSecondary">
 						<div
-							class="p-divider p-component p-divider-horizontal my-8"
+							class="my-8 w-full border-t border-t-[var(--border-default)]"
 							role="separator"
 						></div>
-						<div class="p-menu p-component p-0 w-full border-none bg-transparent">
+						<div class="w-full p-0 bg-transparent">
 							<ul
-								class="p-menu-list list-none p-0 m-0"
+								class="list-none p-0 m-0"
 								role="menu"
 							>
 								<template
@@ -60,21 +60,20 @@
 								>
 									<li
 										v-if="entry.items && entry.label"
-										class="p-submenu-header"
+										class="px-2 py-2 text-xs font-medium uppercase tracking-wider text-muted"
 									>
 										{{ entry.label }}
 									</li>
 									<li
 										v-for="(item, itemIndex) in entry.items || [entry]"
 										:key="itemIndex"
-										class="p-menuitem"
 										role="menuitem"
 									>
 										<a
 											v-if="item.url"
 											:target="item.target"
 											:href="item.url"
-											class="p-menuitem-link p-2 flex gap-2 no-underline"
+											class="p-2 flex gap-2 items-center no-underline rounded-[var(--shape-elements)] text-default hover:bg-[var(--bg-hover)]"
 										>
 											<span
 												v-if="item.icon"
@@ -83,13 +82,12 @@
 											<span class="ml-2 font-medium text-sm">
 												{{ item.label }}
 											</span>
-											<span
+											<Tag
 												v-for="tag in item.tags"
 												:key="tag"
-												class="p-tag p-component p-tag-info"
-											>
-												<span class="p-tag-value">{{ tag }}</span>
-											</span>
+												:value="tag"
+												severity="info"
+											/>
 										</a>
 									</li>
 								</template>
@@ -98,25 +96,23 @@
 					</template>
 
 					<template v-if="bottomButtons">
-						<div class="fixed bottom-6 flex gap-2 items-center">
-							<a
+						<!--
+							`flex-wrap` and the `small` size below keep the three CTAs
+							inside the drawer: webkit's `medium` Button carries a
+							`min-w-16` that the hand-styled anchors did not have, which
+							pushed the row past the 320px drawer on mobile.
+						-->
+						<div class="fixed bottom-6 flex flex-wrap gap-2 items-center">
+							<Button
 								v-for="(button, index) in bottomButtons"
 								:key="index"
+								:label="button.label"
 								:href="button.url"
 								:title="button.urlTitle"
-								:class="[
-									button.destak
-										? 'flex gap-2 justify-between p-button p-button-primary p-button-sm whitespace-nowrap'
-										: 'flex gap-2 p-button p-button-primary p-button-outlined p-button-sm text-white hover:surface-hover whitespace-nowrap',
-									{ 'p-button-info': button.severity === 'info' }
-								]"
-							>
-								{{ button.label }}
-								<i
-									v-if="button.icon"
-									:class="button.icon"
-								></i>
-							</a>
+								:icon="button.icon"
+								:kind="bottomButtonKind(button)"
+								size="small"
+							/>
 						</div>
 					</template>
 				</div>
@@ -127,6 +123,29 @@
 
 <script setup>
 	import { onBeforeUnmount, onMounted, onUpdated, ref } from 'vue'
+
+	import Button from '@aziontech/webkit/button'
+	import IconButton from '@aziontech/webkit/icon-button'
+
+	import Tag from '~/components/webkit/Tag.vue'
+
+	/*
+		The drawer's controls come from @aziontech/webkit now (IconButton for
+		the open/close triggers, Button for the bottom CTAs) instead of the
+		`.wk-drawer-icon-button` / `.wk-drawer-button` CSS this file used to
+		carry -- that was a hand-made port of azion-theme's PrimeVue
+		`.p-button`, i.e. a parallel implementation of the design system's own
+		button.
+
+		`severity: 'info'` has no counterpart among webkit's kinds (theme@4's
+		`--info` is a tinted surface, not a button kind), so it falls back to
+		`outlined` like everywhere else in this repo.
+	*/
+	function bottomButtonKind(button) {
+		if (button.severity === 'info') return 'outlined'
+
+		return button.destak ? 'primary' : 'outlined'
+	}
 
 	let props = defineProps({
 		menuData: Object,
@@ -166,3 +185,4 @@
 		document.removeEventListener('keydown', onDocumentKeydown)
 	})
 </script>
+

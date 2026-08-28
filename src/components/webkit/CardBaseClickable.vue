@@ -4,7 +4,7 @@
 		:title="title"
 		:target="target"
 		:aria-label="ariaLabel"
-		class="no-underline flex border-radius cursor-pointer h-full"
+		class="not-prose no-underline flex border-radius cursor-pointer h-full"
 	>
 		<CardBase v-bind="props">
 			<template
