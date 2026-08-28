@@ -120,7 +120,7 @@ const PricingTableOfContents = ({ headings, labels, sharedStore = 'pricing-tabs'
 			<li class="flex flex-col gap-1 -ml-2 overflow-hidden">
 				<a
 					class={`rounded hover:underline text-sm max-w-full px-2 py-1 ${
-						isActive ? 'surface-200 text-color-secondary' : 'text-color-secondary'
+						isActive ? 'bg-selected text-muted' : 'text-muted'
 					}`}
 					href={`#${actualSlug}`}
 					onClick={onLinkClick}

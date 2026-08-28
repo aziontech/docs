@@ -33,8 +33,8 @@
   </template>
   
   <script setup>
-    import ContentSection from 'azion-webkit/contentsection'
-    import LinkButton from 'azion-webkit/linkbutton'
+    import ContentSection from '~/components/webkit/ContentSection.vue'
+    import LinkButton from '~/components/webkit/LinkButton.vue'
   
     defineProps({
       id: {
