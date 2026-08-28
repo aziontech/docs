@@ -1,18 +1,22 @@
 <template>
+	<!--
+		Still a <kbd> wrapping a real <button> -- only the button's paint moved
+		to webkit's Button (`small` + `outlined`, the closest kind to the
+		transparent bordered chip this drew by hand).
+	-->
 	<kbd>
-		<button
-			type='button'
-			class='cursor-pointer rounded border surface-border bg-transparent px-2 py-1 text-color transition-colors hover:surface-hover'
-			@click='emitClicked'
-		>
-			<small>
-				{{ keyname }}
-			</small>
-		</button>
+		<Button
+			:label="keyname"
+			kind="outlined"
+			size="small"
+			@click="emitClicked"
+		/>
 	</kbd>
 </template>
 
 <script setup>
+	import Button from '@aziontech/webkit/button'
+
 	const props = defineProps({
 		keyname: String
 	})

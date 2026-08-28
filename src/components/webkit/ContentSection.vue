@@ -51,13 +51,13 @@
 						<template v-if="descriptionRawHtml && descriptionRawHtml.trim().length">
 							<div
 								v-html="descriptionRawHtml"
-								class="text-color-secondary text-base leading-relaxed text-balance prose max-w-none"
+								class="text-muted text-base leading-relaxed text-balance prose max-w-none"
 								:class="[{ 'text-center': isContentCentralized }]"
 							></div>
 						</template>
 						<template v-else-if="description && description.trim().length">
 							<p
-								class="text-color-secondary text-base leading-relaxed text-balance"
+								class="text-muted text-base leading-relaxed text-balance"
 								:class="[{ 'text-center': isContentCentralized }]"
 							>
 								{{ description }}
@@ -158,7 +158,7 @@
 	});
 
 	const containerClasses = computed(() => {
-		const baseClasses = 'text-white relative max-w-xl xxxl:max-w-xxl mx-auto md:mt-10';
+		const baseClasses = 'text-white relative max-w-5xl 2xl:max-w-6xl mx-auto md:mt-10';
 		const paddingClasses = props.hasContainer ? 'p-6 md:p-0' : 'px-0';
 		const flexClasses = 'w-full flex flex-col gap-10 md:gap-20';
 

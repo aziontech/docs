@@ -1,47 +1,47 @@
 <template>
 	<div
 		ref="rootRef"
-		class="p-dropdown p-component p-inputwrapper p-inputwrapper-filled relative inline-flex cursor-pointer select-none"
-		:class="{ 'p-focus': isOpen }"
+		class="relative inline-flex cursor-pointer select-none rounded-[var(--shape-elements)] border border-default bg-surface text-default transition-colors hover:bg-hover focus-within:ring-2 focus-within:ring-[var(--ring-color)]"
+		:class="{ 'ring-2 ring-[var(--ring-color)]': isOpen }"
 	>
 		<button
 			type="button"
-			class="p-dropdown-label p-inputtext flex-auto flex items-center bg-transparent border-none cursor-pointer text-left overflow-hidden whitespace-nowrap"
+			class="flex flex-auto items-center overflow-hidden whitespace-nowrap border-none bg-transparent px-[var(--spacing-xs)] py-[var(--spacing-xxs)] text-left text-sm text-default outline-none cursor-pointer"
 			:aria-label="selectedTheme.label"
 			aria-haspopup="listbox"
 			:aria-expanded="isOpen"
 			@click="toggle"
 			@keydown="onTriggerKeydown"
 		>
-			<span class="flex gap-2 align-items-center">
+			<span class="flex items-center gap-2">
 				<i :class="selectedTheme.icon"></i>
 				<span>{{ selectedTheme.label }}</span>
 			</span>
 		</button>
 		<span
-			class="p-dropdown-trigger flex items-center justify-center shrink-0"
+			class="flex w-8 shrink-0 items-center justify-center text-default"
 			aria-hidden="true"
 			@click="toggle"
 		>
-			<span class="pi pi-chevron-down p-dropdown-trigger-icon text-xs"></span>
+			<span class="pi pi-chevron-down text-xs"></span>
 		</span>
 
 		<div
 			v-if="isOpen"
-			class="p-dropdown-panel p-component absolute left-0 z-50 w-full min-w-max"
+			class="absolute left-0 z-[var(--z-input-popup)] w-full min-w-max overflow-hidden rounded-[var(--shape-elements)] border border-default bg-surface-raised text-default shadow-lg"
 			:class="openUpward ? 'bottom-full mb-1' : 'top-full mt-1'"
 		>
-			<div class="p-dropdown-items-wrapper max-h-52 overflow-auto">
+			<div class="max-h-52 overflow-auto">
 				<ul
-					class="p-dropdown-items list-none m-0"
+					class="list-none m-0 p-[var(--spacing-xxs)]"
 					role="listbox"
 					aria-label="Theme"
 				>
 					<li
 						v-for="theme in themes"
 						:key="theme.label"
-						class="p-dropdown-item"
-						:class="{ 'p-highlight': theme.label === selectedTheme.label }"
+						class="flex items-center rounded-[var(--shape-elements)] px-[var(--spacing-sm)] py-[var(--spacing-xs)] text-sm text-default transition-colors outline-offset-[-2px] hover:bg-hover focus-visible:outline-2 focus-visible:outline-[var(--ring-color)]"
+						:class="{ 'bg-selected': theme.label === selectedTheme.label }"
 						role="option"
 						:aria-selected="theme.label === selectedTheme.label"
 						tabindex="0"
@@ -50,7 +50,7 @@
 						@keydown.space.prevent="selectOption(theme)"
 						@keydown.esc.prevent="close(true)"
 					>
-						<div class="flex gap-2 align-items-center">
+						<div class="flex items-center gap-2">
 							<i :class="theme.icon"></i>
 							<div>{{ theme.label }}</div>
 						</div>

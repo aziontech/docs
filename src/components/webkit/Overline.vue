@@ -1,5 +1,5 @@
 <template>
-	<span class="text-overline text-color-secondary text-balance">
+	<span class="text-overline text-muted text-balance">
 		{{ label }}
 	</span>
 </template>

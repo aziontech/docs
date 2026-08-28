@@ -9,7 +9,7 @@
 			>
 				<a
 					:href="href"
-					class="text-color-secondary text-sm"
+					class="text-muted text-sm"
 				>
 					<i
 						:class="icon"

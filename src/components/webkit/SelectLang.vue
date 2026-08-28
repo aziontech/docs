@@ -2,12 +2,12 @@
 	<div
 		v-if="i18nPages"
 		ref="rootRef"
-		class="p-dropdown p-component p-inputwrapper p-inputwrapper-filled relative inline-flex cursor-pointer select-none w-full"
-		:class="{ 'p-focus': isOpen }"
+		class="relative inline-flex w-full cursor-pointer select-none rounded-[var(--shape-elements)] border border-default bg-surface text-default transition-colors hover:bg-hover focus-within:ring-2 focus-within:ring-[var(--ring-color)]"
+		:class="{ 'ring-2 ring-[var(--ring-color)]': isOpen }"
 	>
 		<button
 			type="button"
-			class="p-dropdown-label p-inputtext flex-auto flex items-center bg-transparent border-none cursor-pointer text-left w-full overflow-hidden whitespace-nowrap"
+			class="flex flex-auto w-full items-center overflow-hidden whitespace-nowrap border-none bg-transparent px-[var(--spacing-xs)] py-[var(--spacing-xxs)] text-left text-sm text-default outline-none cursor-pointer"
 			:aria-label="activeLang?.lang"
 			aria-haspopup="listbox"
 			:aria-expanded="isOpen"
@@ -17,36 +17,36 @@
 			<span v-if="activeLang">{{ activeLang.lang }}</span>
 		</button>
 		<span
-			class="p-dropdown-trigger flex items-center justify-center shrink-0"
+			class="flex w-8 shrink-0 items-center justify-center text-default"
 			aria-hidden="true"
 			@click="toggle"
 		>
-			<span class="pi pi-chevron-down p-dropdown-trigger-icon text-xs"></span>
+			<span class="pi pi-chevron-down text-xs"></span>
 		</span>
 
 		<div
 			v-if="isOpen"
-			class="p-dropdown-panel p-component absolute left-0 z-50 w-full min-w-max"
+			class="absolute left-0 z-[var(--z-input-popup)] w-full min-w-max overflow-hidden rounded-[var(--shape-elements)] border border-default bg-surface-raised text-default shadow-lg"
 			:class="openUpward ? 'bottom-full mb-1' : 'top-full mt-1'"
 		>
-			<div class="p-dropdown-items-wrapper max-h-52 overflow-auto">
+			<div class="max-h-52 overflow-auto">
 				<ul
-					class="p-dropdown-items list-none m-0"
+					class="list-none m-0 p-[var(--spacing-xxs)]"
 					role="listbox"
 					:aria-label="activeLang?.lang"
 				>
 					<li
 						v-for="(option, index) in i18nPages"
 						:key="index"
-						class="p-dropdown-item p-0"
-						:class="{ 'p-highlight': option.lang === activeLang?.lang }"
+						class="flex items-center rounded-[var(--shape-elements)] p-0 text-sm text-default transition-colors hover:bg-hover"
+						:class="{ 'bg-selected': option.lang === activeLang?.lang }"
 						role="option"
 						:aria-selected="option.lang === activeLang?.lang"
 					>
 						<a
 							:href="option.slug"
 							target="_self"
-							class="w-full px-2 py-3 flex no-underline text-inherit"
+							class="flex w-full items-center rounded-[inherit] px-[var(--spacing-sm)] py-[var(--spacing-xs)] no-underline text-inherit outline-offset-[-2px] focus-visible:outline-2 focus-visible:outline-[var(--ring-color)]"
 							@keydown.esc.prevent="close(true)"
 						>
 							{{ option.lang }}
