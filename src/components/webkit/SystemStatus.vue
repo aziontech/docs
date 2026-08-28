@@ -4,13 +4,13 @@
 		:title="label"
 		target="_blank"
 		rel="noopener noreferrer"
-		class="p-button p-component p-button-sm p-button-outlined hover:surface-hover w-fit no-underline justify-center gap-2 px-4 flex flex-row-reverse md:justify-start surface-section hover:surface-hover whitespace-nowrap h-8 flex-row items-center"
+		class="w-fit no-underline justify-center gap-2 px-4 flex flex-row-reverse md:justify-start whitespace-nowrap h-8 flex-row items-center cursor-pointer select-none rounded-[var(--shape-button)] border border-default bg-surface text-sm font-medium text-default transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring-color)]"
 	>
 		{{ capitalizeLetter(String(label).trim()) }}
 
 		<span
 			:style="`color: ${color}`"
-			class="pi p-button-icon pi pi-circle-fill"
+			class="pi pi-circle-fill text-sm"
 			data-pc-section="icon"
 		/>
 	</a>

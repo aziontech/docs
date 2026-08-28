@@ -84,29 +84,22 @@ export default defineConfig({
 			// Astro 7 renders static pages in a dedicated `prerender` Vite
 			// environment that does not inherit the legacy `ssr.noExternal`
 			// list (and Astro overwrites `environments.prerender` wholesale in
-			// its build config). These packages must be bundled — primevue's
-			// ESM files use directory imports (e.g. `primevue/api`) that Node
-			// cannot resolve when the package is externalized.
+			// its build config).
 			name: 'azion:server-noexternal',
 			configEnvironment(name: string) {
 				if (name === 'client') return null;
 				return {
 					resolve: {
-						noExternal: ['@astrojs/vue', 'azion-theme', 'primevue'],
+						// `@aziontech/webkit` has to be bundled, not externalised:
+						// its `navigation-menu` entry is an `index.js` that imports
+						// `.vue` files, and Node cannot load those on its own
+						// ("Unknown file extension .vue"). Components whose entry is
+						// itself a `.vue` or a `.ts` happen to work either way, which
+						// is why this only surfaced when NavigationMenu was adopted.
+						noExternal: ['@astrojs/vue', '@aziontech/theme', '@aziontech/webkit'],
 						external: ['vue']
 					}
 				};
-			},
-			// Astro's crawlFrameworkPkgs marks primevue as external for the
-			// server/prerender builds, and `external` wins over `noExternal`.
-			// Strip it from the final resolved config so it really gets bundled.
-			configResolved(config: any) {
-				for (const c of Object.values(config.environments ?? {}) as any[]) {
-					const ext = c?.resolve?.external;
-					if (Array.isArray(ext) && ext.includes('primevue')) {
-						c.resolve.external = ext.filter((name: string) => name !== 'primevue');
-					}
-				}
 			}
 		},
 		cssnano({
@@ -119,13 +112,11 @@ export default defineConfig({
 		})
 	],
 	ssr: {
-      // primevue must be bundled: its ESM files use directory imports
-      // (e.g. `primevue/api`), which Node cannot resolve when externalized.
-      noExternal: ['@astrojs/vue', 'azion-theme', 'primevue'],
+      noExternal: ['@astrojs/vue', '@aziontech/theme', '@aziontech/webkit'],
       external: ['vue']
     },
 		optimizeDeps: {
-			include: ['vue', 'primevue/config']
+			include: ['vue']
 		}
 	}
 });
