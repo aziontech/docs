@@ -1,5 +1,11 @@
 <template>
-	<template v-if="href || type === 'link' || type === 'linkExternal' || type === 'linkSecondary'">
+	<!--
+		Link variants stay as they are: `link`, `linkExternal` and
+		`linkSecondary` are text links with an animated underline and a trailing
+		arrow, not buttons -- webkit's Button has no such variant and would drop
+		the affordance.
+	-->
+	<template v-if="isLinkVariant">
 		<a
 			:href="href"
 			class="not-prose flex gap-3 w-fit cursor-pointer group"
@@ -46,30 +52,29 @@
 			</span>
 		</a>
 	</template>
+	<!--
+		Chip variants (primary / secondary / tertiary) are buttons, so they come
+		from @aziontech/webkit now. Button renders an <a> when `href` is set and
+		a <button> otherwise, which is exactly the split this component used to
+		hand-code.
+	-->
 	<template v-else>
-		<button
-			type="button"
-			class="wk-hero-button"
-			:class="[customClass, buttonClasses[theme]]"
-		>
-			<span
-				v-if="icon"
-				class="wk-hero-button-icon pi"
-				:class="[icon, themedIconClasses]"
-			/>
-			<span
-				v-if="label"
-				class="wk-hero-button-label"
-				:class="labelClasses"
-			>
-				{{ label }}
-			</span>
-		</button>
+		<Button
+			:label="label"
+			:icon="icon"
+			:kind="kind"
+			:size="webkitSize"
+			:href="href"
+			:target="target"
+			class="not-prose no-underline"
+		/>
 	</template>
 </template>
 
 <script setup>
 	import { computed } from 'vue';
+
+	import Button from '@aziontech/webkit/button';
 
 	/*
 		Colors below are @aziontech/theme@4 semantic tokens instead of the raw
@@ -90,7 +95,15 @@
 		},
 		type: {
 			type: String,
-			options: ['primary', 'secondary', 'link', 'linkExternal', 'tertiary', 'linkSecondary'],
+			options: [
+				'primary',
+				'secondary',
+				'outlined',
+				'link',
+				'linkExternal',
+				'tertiary',
+				'linkSecondary'
+			],
 			default: 'secondary'
 		},
 		href: String,
@@ -109,6 +122,46 @@
 			options: ['_blank', '_self']
 		}
 	});
+
+	const LINK_VARIANTS = ['link', 'linkExternal', 'linkSecondary'];
+
+	const isLinkVariant = computed(() => LINK_VARIANTS.includes(props.type));
+
+	/*
+		Chip variants onto webkit's kinds, deliberately using the design
+		system's own names one-to-one instead of re-interpreting them:
+
+		- `primary`   -> `primary`    (solid brand fill: the page's main CTA)
+		- `secondary` -> `secondary`  (the inverted-surface chip)
+		- `outlined`  -> `outlined`   (bordered, low-emphasis)
+		- `tertiary`  -> `text`       (no box at rest)
+
+		`secondary` mapping straight through is the point. A button authored in
+		src/content as `severity: 'secondary'` reaches LinkButton as webkit's
+		`secondary`, so sending the same authored value to webkit's `outlined`
+		here made one prop render as two different buttons depending on whether
+		it sat in a hero or in body copy. The hero now matches the ~1.5k content
+		CTAs.
+
+		What does not carry over from the old bespoke chips: the hover inversion
+		(`primary` used to sit on a raised surface and flip to the brand fill),
+		the `font-proto-mono` label, and the `customClass` padding override --
+		all of those are webkit's Button's business now. `theme` still drives
+		the link variants below.
+	*/
+	const kind = computed(
+		() =>
+			({
+				primary: 'primary',
+				secondary: 'secondary',
+				outlined: 'outlined',
+				tertiary: 'text'
+			})[props.type] ?? 'secondary'
+	);
+
+	// This component's sizes are ['small', 'large']; webkit's are
+	// small | medium | large, so they line up directly.
+	const webkitSize = computed(() => (props.size === 'small' ? 'small' : 'large'));
 
 	const underlineHover = computed(() => {
 		const underlineBase =
@@ -141,39 +194,11 @@
 		const focusOverride =
 			'focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-none';
 
-		// primary: raised surface chip that turns into the brand fill on hover.
-		// `--bg-surface-raised` is neutral-900 on dark / white on light, and
-		// `--text-default` is its readable counterpart, so one string covers the
-		// old dark/light pair. On hover the label uses `--primary-contrast`, the
-		// theme's prescribed colour for text on `--primary`.
-		const primary = `h-fit group border-1 border-[var(--bg-surface-raised)] bg-[var(--bg-surface-raised)] text-[var(--text-default)] duration-300 transition rounded-[var(--shape-button)] hover:bg-[var(--primary)] hover:border-[var(--primary)] hover:text-[var(--primary-contrast)] ${focusOverride}`;
-
-		// secondary: `--bg-selected` is the resting chip and `--bg-surface` the
-		// hover step -- which conveniently moves in the direction each theme
-		// used to move by hand (darker on dark, lighter on light).
-		const secondary = `h-fit group bg-[var(--bg-selected)] text-[var(--text-default)] duration-300 transition rounded-[var(--shape-button)] active:bg-[var(--bg-selected)] border-1 border-[var(--border-default)] hover:bg-[var(--bg-surface)] hover:text-[var(--primary)] hover:border-[var(--border-default)] ${focusOverride}`;
-
-		// tertiary: `--primary-mask` is exactly the 20%-alpha orange the raw
-		// `bg-orange-900/20` was approximating.
-		const tertiary = `h-fit group font-proto-mono bg-[var(--primary-mask)] text-[var(--primary)] duration-300 transition rounded-none border-none ${focusOverride}`;
-
 		const linkBase = `w-fit !leading-[.75rem] bg-transparent border-none px-0 py-0 ${focusOverride}`;
 		const link = `${linkBase} text-[var(--text-link)]`;
 		const linkSecondary = `${linkBase} text-[var(--text-default)]`;
 
 		return {
-			primary: {
-				dark: primary,
-				light: primary
-			},
-			secondary: {
-				dark: secondary,
-				light: secondary
-			},
-			tertiary: {
-				dark: tertiary,
-				light: tertiary
-			},
 			link: {
 				dark: link,
 				light: link
@@ -192,27 +217,9 @@
 	const themedIconClasses = computed(() => {
 		const baseClasses = '!text-[.75rem] duration-300 transition flex items-center mr-2';
 
-		// Icons ride along with the label colour of their variant, which also
-		// removes the old light-theme glitch where the `secondary` icon turned
-		// neutral-100 on a light hover background.
-		const primary = `h-fit ${baseClasses} text-[var(--text-default)] group-hover:text-[var(--primary-contrast)]`;
-		const secondary = `h-fit ${baseClasses} text-[var(--text-default)] group-hover:text-[var(--primary)]`;
-		const tertiary = `h-min ${baseClasses} text-[var(--text-default)] group-hover:text-[var(--text-default)]`;
 		const onLink = `${baseClasses} text-[var(--primary)] hover:text-[var(--primary)] leading-1`;
 
 		const classes = {
-			primary: {
-				dark: primary,
-				light: primary
-			},
-			secondary: {
-				dark: secondary,
-				light: secondary
-			},
-			tertiary: {
-				dark: tertiary,
-				light: tertiary
-			},
 			link: onLink,
 			linkSecondary: onLink,
 			linkExternal: onLink
@@ -227,9 +234,6 @@
 		const fontSize = props.size === 'small' ? 'text-xs' : '';
 
 		return {
-			primary: `font-proto-mono ${leading} whitespace-nowrap`,
-			secondary: `font-proto-mono ${leading} whitespace-nowrap`,
-			tertiary: `font-proto-mono ${leading} whitespace-nowrap`,
 			link: `font-proto-mono ${leading} ${fontSize} after:bg-[var(--text-link)] whitespace-nowrap`,
 			linkSecondary: `font-proto-mono ${leading} ${fontSize} after:bg-[var(--text-default)] whitespace-nowrap`,
 			linkExternal: `font-proto-mono ${leading} ${fontSize} after:bg-[var(--text-link)] whitespace-nowrap`
