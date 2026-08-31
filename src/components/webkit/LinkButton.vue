@@ -12,27 +12,36 @@
 		The labelled Button has no such square to protect -- its width is
 		content-driven with a `min-w-*` floor -- so `w-fit` stays there.
 	-->
-	<IconButton
-		v-if="isIconOnly"
-		:icon="icon"
-		:aria-label="String(label ?? '')"
-		:kind="iconButtonKind"
-		:size="webkitSize"
-		:href="link"
-		:target="target"
-		class="not-prose no-underline"
-	/>
+	<!--
+		The `data-doc-chrome` wrapper (display: contents, so it is
+		layout-neutral) is what keeps DocProse's prose-link paint (color,
+		underline) off the button: webkit's Button forwards only `class` and
+		`data-testid` to its root `<a>`, so the escape attribute cannot ride
+		on the component itself.
+	-->
+	<span data-doc-chrome class="contents">
+		<IconButton
+			v-if="isIconOnly"
+			:icon="icon"
+			:aria-label="String(label ?? '')"
+			:kind="iconButtonKind"
+			:size="webkitSize"
+			:href="link"
+			:target="target"
+			class="not-prose no-underline"
+		/>
 
-	<Button
-		v-else
-		:label="displayLabel"
-		:kind="kind"
-		:size="webkitSize"
-		:icon="icon"
-		:href="link"
-		:target="target"
-		class="not-prose w-fit no-underline"
-	/>
+		<Button
+			v-else
+			:label="displayLabel"
+			:kind="kind"
+			:size="webkitSize"
+			:icon="icon"
+			:href="link"
+			:target="target"
+			class="not-prose w-fit no-underline"
+		/>
+	</span>
 </template>
 
 <script setup>
@@ -61,14 +70,12 @@
 		`customIconStyle` is kept in the prop list only so Vue does not leak it
 		to the DOM as an attribute; no call site in this repo passes it.
 
-		`not-prose` on the root stays load-bearing. Every LinkButton inside
-		article content sits under ReadableContent's `.prose` wrapper, whose
-		`prose-a:*` utilities target every link in the content; `not-prose` is
-		the typography plugin's own opt-out and keeps those rules from
-		repainting the button's label. It matters more now, not less: webkit
-		paints the label with a Tailwind utility, so both sides would otherwise
-		be `!important` utilities competing on specificity (this repo imports
-		Tailwind in important mode).
+		Article content now sits under webkit's DocProse (via ReadableContent),
+		whose prose rules paint every authored `a`; the `data-doc-chrome`
+		wrapper in the template above is that contract's opt-out and keeps the
+		button's label out of the prose link paint. `not-prose` stays on the
+		components while the typography plugin is still loaded for other
+		surfaces, but the wrapper is what does the work here.
 	*/
 	const props = defineProps({
 		icon: {

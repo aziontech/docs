@@ -11,5 +11,9 @@ const AnchorLinkIcon = h('i', {
  */
 export const autoLinks = {
 	behavior: 'append',
+	// `data-doc-anchor` is DocProse's own escape hatch: it keeps the heading
+	// anchor out of the prose link paint (color, underline) that the article
+	// typography contract applies to every authored `a`.
+	properties: { 'data-doc-anchor': '' },
 	content: AnchorLinkIcon,
 };
