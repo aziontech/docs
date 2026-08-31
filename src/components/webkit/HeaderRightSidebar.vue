@@ -2,44 +2,47 @@
 	<!-- open sidebar button -->
 	<IconButton
 		icon="pi pi-bars"
-		aria-label="Menu"
+		aria-label="Open documentation navigation"
 		kind="outlined"
 		size="medium"
 		class="lg:hidden flex-none"
-		@click="visibleRight = true"
+		@click="open = true"
 	/>
 
-	<!-- Teleport only after mount: Astro islands SSR this component, and a
-	     server-rendered teleport has no matching node on the client (the
-	     drawer is closed until interaction anyway). -->
-	<Teleport
-		v-if="isMounted"
-		to="body"
+	<!-- The DS Drawer owns what the old Teleport/mask/aside did by hand: the
+	     portal, the backdrop, Escape and backdrop-click dismissal, scroll lock
+	     and focus return. `side="left"`/`size="small"` as in the webkit docs
+	     sample (DocsLayout.vue). -->
+	<Drawer
+		v-model:open="open"
+		side="left"
+		size="small"
 	>
-		<!-- mask -->
-		<div
-			v-if="visibleRight"
-			class="fixed inset-0 z-[1100] bg-[var(--bg-backdrop)] flex justify-end"
-			@click.self="visibleRight = false"
-		>
-			<!-- sidebar -->
-			<aside
-				class="relative flex flex-col md:pt-3 pb-20 h-[100%] border-l border-default bg-surface text-default w-[20rem] md:w-[22rem] text-sm"
-				role="complementary"
-				aria-modal="true"
-			>
-				<div class="grow overflow-y-auto p-3 md:p-8">
-					<!-- close sidebar button -->
-					<div class="flex justify-end pb-6 pr-2 md:pr-0">
-						<IconButton
-							icon="pi pi-times"
-							aria-label="Close"
-							kind="outlined"
-							size="medium"
-							class="flex-none"
-							@click="visibleRight = false"
-						/>
-					</div>
+		<DrawerPortal>
+			<DrawerOverlay />
+			<DrawerContent>
+				<!-- No header on a phone: closing happens by tapping the backdrop,
+				     pressing Escape, or picking a page. `hidden` rather than
+				     removed — DrawerContent names the dialog via `aria-labelledby`
+				     pointing at this title, so the sheet keeps its accessible name
+				     even while the title itself is visually hidden. -->
+				<PanelHeader class="hidden w-full md:flex">
+					<DrawerTitle>Documentation</DrawerTitle>
+					<DrawerClose />
+				</PanelHeader>
+
+				<div class="min-h-0 w-full grow overflow-y-auto p-(--spacing-md) text-sm">
+					<!-- The docs navigation tree, as a direct Vue child rather than
+					     slotted Astro content: an astro-island nested inside this
+					     island's slot arrives through <template>/innerHTML and never
+					     hydrates, so the drawer menu is passed in as data instead. -->
+					<DocsSidebarMenu
+						v-if="menuGroups?.length"
+						:groups="menuGroups"
+						:active-id="menuActiveId"
+						:initial-expanded="menuExpanded"
+						:aria-label="menuAriaLabel"
+					/>
 
 					<!-- slot to receive custom menu -->
 					<slot name="main-content" />
@@ -94,49 +97,51 @@
 							</ul>
 						</div>
 					</template>
-
-					<template v-if="bottomButtons">
-						<!--
-							`flex-wrap` and the `small` size below keep the three CTAs
-							inside the drawer: webkit's `medium` Button carries a
-							`min-w-16` that the hand-styled anchors did not have, which
-							pushed the row past the 320px drawer on mobile.
-						-->
-						<div class="fixed bottom-6 flex flex-wrap gap-2 items-center">
-							<Button
-								v-for="(button, index) in bottomButtons"
-								:key="index"
-								:label="button.label"
-								:href="button.url"
-								:title="button.urlTitle"
-								:icon="button.icon"
-								:kind="bottomButtonKind(button)"
-								size="small"
-							/>
-						</div>
-					</template>
 				</div>
-			</aside>
-		</div>
-	</Teleport>
+
+				<template v-if="bottomButtons">
+					<!--
+						`flex-wrap` and the `small` size below keep the three CTAs
+						inside the drawer: webkit's `medium` Button carries a
+						`min-w-16` that the hand-styled anchors did not have, which
+						pushed the row past the drawer on mobile.
+					-->
+					<PanelFooter class="w-full flex-wrap gap-2">
+						<Button
+							v-for="(button, index) in bottomButtons"
+							:key="index"
+							:label="button.label"
+							:href="button.url"
+							:title="button.urlTitle"
+							:icon="button.icon"
+							:kind="bottomButtonKind(button)"
+							size="small"
+						/>
+					</PanelFooter>
+				</template>
+			</DrawerContent>
+		</DrawerPortal>
+	</Drawer>
 </template>
 
 <script setup>
-	import { onBeforeUnmount, onMounted, onUpdated, ref } from 'vue'
+	import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 	import Button from '@aziontech/webkit/button'
+	import Drawer from '@aziontech/webkit/drawer'
+	import DrawerClose from '@aziontech/webkit/drawer-close'
+	import DrawerContent from '@aziontech/webkit/drawer-content'
+	import DrawerOverlay from '@aziontech/webkit/drawer-overlay'
+	import DrawerPortal from '@aziontech/webkit/drawer-portal'
+	import DrawerTitle from '@aziontech/webkit/drawer-title'
 	import IconButton from '@aziontech/webkit/icon-button'
+	import PanelFooter from '@aziontech/webkit/panel-footer'
+	import PanelHeader from '@aziontech/webkit/panel-header'
 
+	import DocsSidebarMenu from '~/components/webkit/DocsSidebarMenu.vue'
 	import Tag from '~/components/webkit/Tag.vue'
 
 	/*
-		The drawer's controls come from @aziontech/webkit now (IconButton for
-		the open/close triggers, Button for the bottom CTAs) instead of the
-		`.wk-drawer-icon-button` / `.wk-drawer-button` CSS this file used to
-		carry -- that was a hand-made port of azion-theme's PrimeVue
-		`.p-button`, i.e. a parallel implementation of the design system's own
-		button.
-
 		`severity: 'info'` has no counterpart among webkit's kinds (theme@4's
 		`--info` is a tinted surface, not a button kind), so it falls back to
 		`outlined` like everywhere else in this repo.
@@ -150,39 +155,29 @@
 	let props = defineProps({
 		menuData: Object,
 		menuSecondary: Array,
-		bottomButtons: Array
+		bottomButtons: Array,
+		menuGroups: { type: Array, default: null },
+		menuActiveId: { type: String, default: '' },
+		menuExpanded: { type: Array, default: () => [] },
+		menuAriaLabel: { type: String, default: 'Menu' }
 	})
 
 	const { menuSecondary, bottomButtons } = props
-	const visibleRight = ref(false)
-	const isMounted = ref(false)
+	const open = ref(false)
 
-	function getHTMLElement() {
-		return document.querySelector('html')
-	}
-
-	function pageScroll(action) {
-		const overflow = action === 'stop' ? 'hidden' : 'auto'
-		getHTMLElement().style.overflow = overflow
-
-		return overflow
-	}
-
-	onUpdated(() => {
-		visibleRight.value ? pageScroll('stop') : pageScroll('auto')
-	})
-
-	function onDocumentKeydown(event) {
-		if (event.key === 'Escape' && visibleRight.value) visibleRight.value = false
+	// The search palette is a separate island; when it opens, this drawer must
+	// close — two stacked overlays would trap focus in the bottom one. The
+	// sample expresses this as a watch inside one SPA; across islands it is a
+	// window event (dispatched by webkit/HeaderSearchDialog.vue).
+	function onPaletteOpen() {
+		open.value = false
 	}
 
 	onMounted(() => {
-		isMounted.value = true
-		document.addEventListener('keydown', onDocumentKeydown)
+		window.addEventListener('docs:palette-open', onPaletteOpen)
 	})
 
 	onBeforeUnmount(() => {
-		document.removeEventListener('keydown', onDocumentKeydown)
+		window.removeEventListener('docs:palette-open', onPaletteOpen)
 	})
 </script>
-

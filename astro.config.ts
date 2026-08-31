@@ -13,7 +13,7 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import remarkSmartypants from 'remark-smartypants';
 
 import { asideAutoImport, astroAsides } from './integrations/astro-asides';
-import AzionExpressiveCode from './integrations/expressive-code';
+import { astroCodeBlocks, codeBlockAutoImport } from './integrations/astro-code-blocks';
 
 import { sitemap } from './integrations/sitemap';
 import { autoLinks } from './plugins/rehype-autolink-config';
@@ -34,14 +34,20 @@ export default defineConfig({
 	},
 	integrations: [
 		AutoImport({
-			imports: [asideAutoImport, { '~/components/Video.astro': [['default', 'Video']] }],
+			imports: [
+				asideAutoImport,
+				codeBlockAutoImport,
+				{ '~/components/Video.astro': [['default', 'Video']] },
+			],
 		}),
 		preact({ compat: true }),
 		sitemap(),
 		astroAsides(),
-		AzionExpressiveCode(),
+		astroCodeBlocks(),
 		mdx(),
-		vue({ appEntrypoint: '/src/vue.config.js' })
+		// No appEntrypoint: the only global Vue plugin was vue-instantsearch,
+		// gone with the Algolia dialog (the palette talks to Algolia directly).
+		vue()
 	],
 	markdown: {
 		// Astro 7 defaults to the Sätteri (Rust) markdown pipeline, which does not
