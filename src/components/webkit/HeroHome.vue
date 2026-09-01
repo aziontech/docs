@@ -16,7 +16,15 @@
 			/>
 		</template>
 		<template #actions>
-			<div class="flex gap-4 flex-col md:flex-row justify-center items-center">
+			<!--
+				data-doc-chrome: the hero CTAs are chrome, not prose. Without it
+				DocProse paints these anchors as prose links (link ink, underline,
+				flat radius) right over the Button's own tokens.
+			-->
+			<div
+				data-doc-chrome
+				class="flex gap-4 flex-col md:flex-row justify-center items-center"
+			>
 				<!--
 					The `buttons` array authored in src/content uses LinkButton's prop
 					shape (`outlined` / `severity`), not HeroButton's `type`, so both
