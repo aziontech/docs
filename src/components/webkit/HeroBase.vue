@@ -39,10 +39,16 @@
 						</div>
 					</template>
 
+					<!--
+						The webkit Overline is a `w-fit` row, so in the centered hero it
+						has to center itself; the surrounding `text-center` only moves
+						inline text.
+					-->
 					<Overline
 						v-if="overline && overline.length"
-						:label="overline"
-					/>
+						:class="{ 'self-center': isCentralized }"
+						>{{ overline }}</Overline
+					>
 					<template v-if="title">
 						<h1
 							v-if="titleTag === 'h1'"
@@ -133,7 +139,7 @@
 </template>
 
 <script setup>
-	import Overline from './Overline.vue';
+	import Overline from '@aziontech/webkit/overline';
 	import Banner from './Banner.vue';
 
 	defineProps({

@@ -21,10 +21,12 @@
 					</p>
 				</template>
 				<template v-else-if="isCentralized">
-					<Overline
-						class="text-center"
-						:label="title"
-					/>
+					<!--
+						The webkit Overline is a `w-fit` row, not a block of text, so
+						centering it takes `self-center` on the flex column rather than
+						the `text-center` the old block-level span needed.
+					-->
+					<Overline class="self-center">{{ title }}</Overline>
 				</template>
 			</template>
 			<div
@@ -66,7 +68,7 @@
 </template>
 
 <script setup>
-	import Overline from './Overline.vue';
+	import Overline from '@aziontech/webkit/overline';
 
 	defineProps({
 		isCentralized: {
