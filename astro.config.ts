@@ -1,4 +1,5 @@
 import { SITE_URL } from './src/consts';
+import type { AstroUserConfig } from 'astro';
 import { defineConfig } from 'astro/config';
 import { unified } from '@astrojs/markdown-remark';
 import tailwindcss from '@tailwindcss/vite';
@@ -23,6 +24,8 @@ import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headi
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
 import rehypeScrollableTables from './plugins/rehype-scrollable-tables.js'
+
+type MarkdownConfig = NonNullable<AstroUserConfig['markdown']>;
 
 const productionBuild = import.meta.env.PROD;
 
@@ -53,7 +56,7 @@ export default defineConfig({
 		// Astro 7 defaults to the Sätteri (Rust) markdown pipeline, which does not
 		// run remark/rehype plugins. Keep the unified() processor until the custom
 		// plugins below are ported to Sätteri (planned as a follow-up).
-		processor: unified() as any,
+		processor: unified() as unknown as MarkdownConfig['processor'],
 		// Override with our own config
 		smartypants: false,
 		// The plugins below were written against unified 10 typings; they run
@@ -61,7 +64,7 @@ export default defineConfig({
 		remarkPlugins: [
 			[remarkSmartypants, { dashes: false }],
 			// Add our custom plugin that marks links to fallback language pages
-		] as any,
+		] as MarkdownConfig['remarkPlugins'],
 		rehypePlugins: [
 			rehypeSlug,
 			rehypeScrollableTables,
@@ -74,7 +77,7 @@ export default defineConfig({
 			rehypei18nAutolinkHeadings(),
 			// Collapse static parts of the hast to html
 			rehypeOptimizeStatic,
-		] as any
+		] as MarkdownConfig['rehypePlugins'],
 	},
 	compressHTML: productionBuild ? true : false,
 	trailingSlash: 'always', // for server

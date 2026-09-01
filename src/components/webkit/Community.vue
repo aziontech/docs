@@ -3,9 +3,9 @@
 		<p class="font-medium text-base">{{ setTranslations.title }}</p>
 		<ul class="flex flex-col gap-2">
 			<li
-				class="hover:underline"
 				v-for="({ label, icon, href }, index) in setTranslations.communities"
 				:key="index"
+				class="hover:underline"
 			>
 				<a
 					:href="href"

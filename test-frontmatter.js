@@ -3,7 +3,7 @@ import path from 'path';
 import matter from 'gray-matter';
 
 function findFilesRecursively(directory) {
-	let dir = [];
+	let dir;
 	let files = [];
 
 	try {
@@ -69,7 +69,7 @@ const validate = {
 	},
 	permalink: {
 		format: function (contentDir) {
-			const slugRegex = /^[a-z-0-9-|\/]+$/;
+			const slugRegex = /^[a-z-0-9-|/]+$/;
 			const files = findFilesRecursively(contentDir);
 
 			for (const filePath of files) {

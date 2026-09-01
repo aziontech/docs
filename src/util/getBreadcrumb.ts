@@ -38,7 +38,7 @@ export async function getPageBreadcrumb(Astro: Readonly<AstroGlobal>, lang: stri
 		}
 	});
 	
-	let breadcrumbs: Breadcrumbs[] = [];
+	const breadcrumbs: Breadcrumbs[] = [];
 
 	urlSegments.map((segment) => {
 		const matchedPage = matchedPages.find(({ data }) => data.permalink?.endsWith(`/${segment}/`));

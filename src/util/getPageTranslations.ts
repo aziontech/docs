@@ -17,7 +17,7 @@ export const getTranslatedPagesByNamespace = async (namespace: string): Promise<
 }
 
 
-export const groupPagesByLang = (pages: any[]) =>
+export const groupPagesByLang = (pages: unknown[]) =>
   pages.reduce((pages, page) => {
     if(page) {
       const lang = page.id.split('/')[0];

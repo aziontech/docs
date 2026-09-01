@@ -99,7 +99,7 @@ export function useTranslationsForLang(lang: UILanguageKeys): (key: UIDictionary
 	return function getTranslation(key: UIDictionaryKeys) {
 		let str = translations[lang]?.[key] || translations[fallbackLang][key];
 		if (str === undefined) {
-			let jsonKeys = Object.keys(translations[lang]);
+			const jsonKeys = Object.keys(translations[lang]);
 
 			jsonKeys.map(jsonKey => {
 				if(translations[lang][jsonKey] === key) {

@@ -8,16 +8,21 @@
 		- the scroll-spy that decides which heading is active (the rail is
 		  presentation only — the page owns the scroll container);
 		- smooth scrolling with the fixed header's offset on activation;
-		- analytics tracking for the group links that declare a `tracking` type.
+		- analytics tracking for the group links that declare a `tracking` type;
+		- the scroll container itself: the rail lives inside the design system's
+		  ScrollArea (thin, themed scrollbar) instead of the sidebar's native
+		  `overflow: auto`, which painted a white scrollbar over the dark canvas.
 	-->
-	<WkDocOnThisPage
-		:items='items'
-		:active-id='activeId'
-		:title='title'
-		:groups='groups'
-		@select='onSelect'
-		@click='onLinkClick'
-	/>
+	<WkScrollArea class='h-full'>
+		<WkDocOnThisPage
+			:items='items'
+			:active-id='activeId'
+			:title='title'
+			:groups='groups'
+			@select='onSelect'
+			@click='onLinkClick'
+		/>
+	</WkScrollArea>
 </template>
 
 <script setup lang="ts">
@@ -27,6 +32,7 @@
 		type DocTocItem,
 		type DocTocLink
 	} from '@aziontech/webkit/doc-on-this-page'
+	import WkScrollArea from '@aziontech/webkit/scroll-area'
 
 	type Heading = { depth: number; slug: string; text: string }
 

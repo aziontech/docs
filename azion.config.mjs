@@ -25,7 +25,7 @@ export default {
   storage: [
     {
       name: 'docs-preview-webkit',
-      prefix: '20260821112524',
+      prefix: '20260831143756',
       dir: './dist',
       workloadsAccess: 'read_only'
     }
@@ -37,7 +37,7 @@ export default {
       type: 'storage',
       attributes: {
         bucket: 'docs-preview-webkit',
-        prefix: '20260821112524'
+        prefix: '20260831143756'
       }
     }
   ],

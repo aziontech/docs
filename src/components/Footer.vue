@@ -46,7 +46,7 @@
 					:key="index"
 					kind="transparent"
 					:icon="icon"
-					:ariaLabel="title"
+					:aria-label="title"
 					:href="link"
 					:target="target || '_blank'"
 				/>

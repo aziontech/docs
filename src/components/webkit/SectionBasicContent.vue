@@ -1,12 +1,12 @@
 <template>
 	<ContentSection
-		:isContentCentralized="isContentCentralized"
+		:id="id"
+		:is-content-centralized="isContentCentralized"
 		:overline="overline"
-		:titleTag="titleTag"
+		:title-tag="titleTag"
 		:title="title"
 		:description="description"
-		:descriptionRawHtml="descriptionRawHtml"
-		:id="id"
+		:description-raw-html="descriptionRawHtml"
 		:margin="margin"
 	>
 		<template #actions>
@@ -14,9 +14,10 @@
 				v-for="(button, index) in buttons"
 				:key="index"
 			>
-				<LinkButton
+				<Button
 					v-if="button.link"
-					v-bind="button"
+					v-bind="toButtonProps(button)"
+					class="not-prose w-fit no-underline"
 				/>
 			</template>
 		</template>
@@ -25,7 +26,27 @@
 
 <script setup>
 	import ContentSection from './ContentSection.vue'
-	import LinkButton from './LinkButton.vue'
+	import Button from '@aziontech/webkit/button'
+
+	// Maps the author-shaped button objects from src/content (LinkButton's old
+	// prop surface: link/severity/outlined/text) onto webkit Button's props.
+	const toButtonProps = (button) => ({
+		label: button.label,
+		href: button.link,
+		target: button.target,
+		icon: button.icon,
+		iconPos: button.iconPos ?? button['icon-pos'],
+		size: 'medium',
+		kind:
+			button.textLink || button.text
+				? 'text'
+				: button.outlined
+					? 'outlined'
+					: button.severity === 'secondary'
+						? 'secondary'
+						: 'primary'
+	})
+
 
 	defineProps({
 		id: {
