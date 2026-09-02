@@ -39,10 +39,6 @@ export default {
 	// Used in previous/next page links at the bottom of pages
 	'articleNav.nextPage': 'Next Page',
 	'articleNav.prevPage': 'Back',
-	// Used in `<Since>`: Added in: v0.24.0 [NEW]
-	'since.addedIn': 'Added in:',
-	'since.new': 'New',
-	'since.beta': 'Beta',
 	// Installation Guide
 	'install.autoTab': 'Automatic CLI',
 	'install.manualTab': 'Manual Setup',

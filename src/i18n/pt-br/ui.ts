@@ -41,10 +41,6 @@ export default UIDictionary({
 	// Used in previous/next page links at the bottom of pages
 	'articleNav.nextPage': 'Próxima página',
 	'articleNav.prevPage': 'Página anterior',
-	// Used in `<Since>`: Added in: v0.24.0 [NEW]
-	'since.addedIn': 'Adicionado em:',
-	'since.new': 'Novo',
-	'since.beta': 'Beta',
 	// Installation Guide
 	'install.autoTab': 'Interface de Linha de Comando Automática',
 	'install.manualTab': 'Instalação Manual',
