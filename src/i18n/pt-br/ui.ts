@@ -55,8 +55,6 @@ export default UIDictionary({
 	// Migration Guides vocabulary
 	'migration.navTitle': 'Mais guias de migração',
 	// `<ContributorList>` fallback text
-	'contributors.title': 'Contribuidores',
-	'contributors.seeAll': 'Veja todos os contribuidores',
 	// Fallback content notice shown when a page is not yet translated
 	'fallbackContent.notice':
 		'Esta página ainda não está disponível em sua língua, portanto estamos te mostrando a versão em Inglês. Você pode nos ajudar a traduzindo!',
