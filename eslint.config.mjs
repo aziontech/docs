@@ -3,7 +3,6 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import astro from 'eslint-plugin-astro';
 import vue from 'eslint-plugin-vue';
-import react from 'eslint-plugin-react';
 import webkit from '@aziontech/webkit/eslint-plugin';
 
 export default tseslint.config(
@@ -15,7 +14,6 @@ export default tseslint.config(
 			'node_modules/**',
 			'.github/**',
 			'.changeset/**',
-			'**/*.jsx',
 		],
 	},
 
@@ -26,9 +24,6 @@ export default tseslint.config(
 			ecmaVersion: 'latest',
 			sourceType: 'module',
 			globals: { ...globals.node, ...globals.browser },
-		},
-		settings: {
-			react: { pragma: 'h', version: '16.0' },
 		},
 	},
 
@@ -50,22 +45,6 @@ export default tseslint.config(
 	{
 		files: ['**/*.d.ts'],
 		rules: { '@typescript-eslint/triple-slash-reference': 'off' },
-	},
-
-	// Preact components authored as .tsx — typed linting needs the project service.
-	{
-		files: ['**/*.tsx'],
-		plugins: { react },
-		languageOptions: {
-			parserOptions: {
-				projectService: true,
-				tsconfigRootDir: import.meta.dirname,
-			},
-		},
-		rules: {
-			...react.configs.flat.recommended.rules,
-			...react.configs.flat['jsx-runtime'].rules,
-		},
 	},
 
 	...astro.configs.recommended,
