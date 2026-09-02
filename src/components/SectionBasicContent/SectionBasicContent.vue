@@ -1,50 +1,89 @@
 <template>
-    <ContentSection
-      :id="id"
-      :overline="overline"
-      :title-tag="titleTag"
-      :title="title"
-      :description="description"
-      :description-raw-html="descriptionRawHtml"
-      :margin="margin"
-      :has-container="false"
-    >
-      <template #actions>
-        <template
-          v-for="(button, index) in buttons"
-          :key="index"
-        >
-          <Button
-            v-if="button.link"
-            v-bind="toButtonProps(button)"
-            class="not-prose w-fit no-underline"
-          />
-        </template>
-      </template>
-      <template #main>
-        <div class="2xl:w-1/2"></div>
-      </template>
-    </ContentSection>
-    <div
-      v-if="$slots.content"
-      class="min-w-full flex xl:flex-row flex-col gap-4"
-    >
-      <slot name="content" />
-    </div>
-  </template>
-  
-  <script setup>
-    import ContentSection from '~/components/webkit/ContentSection.vue'
-    import Button from '@aziontech/webkit/button'
+	<!--
+		What 70 content files actually ask of this component, measured rather
+		than assumed: `description`, `buttons`, a `content` slot, and
+		`titleTag` on seven of them, which had no effect because none of the 70
+		passes a `title`. Everything else the two former variants and their
+		shared ContentSection accepted -- title, overline, descriptionRawHtml,
+		id, margin, position, reverse, isSticky, textCenter, pt, hasContainer,
+		and the `title` / `main` / `principal` slots -- had no call site at all.
 
-	// Maps the author-shaped button objects from src/content (LinkButton's old
-	// prop surface: link/severity/outlined/text) onto webkit Button's props.
+		So the design system's SectionTitle, which the titled branch of
+		ContentSection used to route to, is *not* what these pages are:
+		SectionTitle takes `title` as a required prop and would emit an empty
+		`h2` for every one of them. A section with no heading is the gap;
+		DocProse covers the rest.
+
+		The description is a bare `<p>` on purpose. These sections render inside
+		the article body, so DocProse paints it with the same
+		`text-body-prose-md` / `--text-muted` / rhythm as every other paragraph
+		on the page -- which is what the old hand-written
+		`text-muted text-base leading-relaxed text-balance` was approximating.
+		Leaving it unmarked is the change: no local typography at all.
+
+		The actions row keeps one `data-doc-chrome` wrapper (not DocButton per
+		button, whose `data-doc-block` top margin would land on each item of a
+		flex row) so DocProse leaves the Buttons' own tokens alone.
+
+		The two-column band around the `content` slot stays local. It is page
+		layout, and the design system has no container or two-column primitive
+		to hand it to.
+	-->
+	<section class="flex flex-col gap-(--spacing-md)">
+		<p v-if="description">{{ description }}</p>
+
+		<div
+			v-if="actionable.length"
+			data-doc-chrome
+			class="flex flex-row flex-wrap items-center gap-(--spacing-sm)"
+		>
+			<Button
+				v-for="(button, index) in actionable"
+				:key="index"
+				v-bind="toButtonProps(button)"
+			/>
+		</div>
+
+		<div
+			v-if="$slots.content"
+			class="flex min-w-full flex-col gap-(--spacing-md) xl:flex-row"
+		>
+			<slot name="content" />
+		</div>
+	</section>
+</template>
+
+<script setup>
+	import { computed } from 'vue';
+
+	import Button from '@aziontech/webkit/button';
+
+	const props = defineProps({
+		description: {
+			type: String,
+			default: () => ''
+		},
+		buttons: {
+			type: Array,
+			default: () => []
+		}
+	});
+
+	// A button with no destination rendered nothing before and still does.
+	const actionable = computed(() => props.buttons.filter((button) => button.link));
+
+	/*
+		Maps the author-shaped button objects in src/content (the old
+		LinkButton prop surface: link / severity / outlined / text) onto webkit
+		Button's props. `iconPos` is not in the mapping: Button places its icon
+		before the label and has no position prop, which is what the authored
+		`iconPos: 'left'` already asked for.
+	*/
 	const toButtonProps = (button) => ({
 		label: button.label,
 		href: button.link,
 		target: button.target,
 		icon: button.icon,
-		iconPos: button.iconPos ?? button['icon-pos'],
 		size: 'medium',
 		kind:
 			button.textLink || button.text
@@ -54,67 +93,5 @@
 					: button.severity === 'secondary'
 						? 'secondary'
 						: 'primary'
-	})
-
-  
-    defineProps({
-      id: {
-        type: String,
-        default: () => ''
-      },
-      isContentCentralized: {
-        type: Boolean,
-        default: () => true
-      },
-      overline: {
-        type: String,
-        default: () => ''
-      },
-      titleTag: {
-        type: String,
-        default: () => 'h2',
-        validator: (value) => ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(value)
-      },
-      title: {
-        type: String,
-        rquired: true
-      },
-      description: {
-        type: String,
-        default: () => ''
-      },
-      descriptionRawHtml: {
-        type: String,
-        default: () => ''
-      },
-      buttons: {
-        type: Array,
-        default: () => []
-      },
-      margin: {
-        type: String,
-        options: ['none', 'small', 'default', 'large'],
-        default: () => 'none'
-      }
-    })
+	});
 </script>
-  
-<style scoped>
-    /* Target prose paragraphs within this component */
-    :deep(.prose-lg p) {
-        margin-bottom: 0 !important;
-        margin-top: 0 !important;
-    }
-    
-    /* Alternative approach - target all paragraphs within the component */
-    :deep(p) {
-        margin-bottom: 0 !important;
-        margin-top: 0 !important;
-    }
-
-    @media screen and (max-width: 640px) { 
-      :deep(th), :deep(td) {
-        width: 100%;
-      }
-    }
-</style>

@@ -1,115 +1,93 @@
 <template>
-	<HeroBase
-		isDisplay
-		:isCentralized="true"
+	<!--
+		The whole hero is webkit's HeroTitle now. It owns the `h1`, the
+		supporting paragraph and the actions row -- including the row's
+		stack-and-go-fluid behaviour below `sm` -- so the four components this
+		replaces (HeroBase, HeroButton, ContentLogo, Banner) are gone rather
+		than adapted.
+
+		`data-doc-chrome` sits on the component root instead of on the actions
+		wrapper the old hero marked. HeroTitle binds `$attrs` to its `<header>`,
+		and DocProse's rules all read `:not([data-doc-chrome], [data-doc-chrome]
+		*)`, so one marker covers the headline and the copy too -- and it has to,
+		because these homes render inside ReadableContent and DocProse would
+		otherwise repaint the component's own typography as article prose.
+
+		The vertical rhythm is the old hero's, in theme tokens: `--spacing-xl`
+		above and `--spacing-xxl` below. Deliberately not SectionGap, even
+		though it is the design system's spacer: SectionGap is a FrameBox with
+		`borders="y"` and corner marks, i.e. it draws the rules of a framed
+		page. These homes are not framed, so it would add two hairlines that
+		nothing else on the page answers to.
+
+		One loss, and it is a loss rather than a choice: both homes write their
+		accent at the *end* of the headline ("Welcome to <span>Azion
+		Docs</span>"), while HeroTitle's `highlight` is documented and built as
+		the *opening* phrase and there is no slot for the title. Passing "Azion
+		Docs" as `highlight` would print it before "Welcome to". So the headline
+		goes through unaccented and the gap is filed against the design system.
+		What leaves with that span is a hardcoded `#F3652B !important` that
+		never followed the theme in the first place.
+	-->
+	<HeroTitle
+		data-doc-chrome
+		centered
+		:title="title"
 		:description="description"
-		:descriptionRawHtml="descriptionRawHtml"
-		:bannerNews="bannerNews"
-		:id="id"
-		:margin="margin"
-		:bottomSpacing="bottomSpacing"
+		class="mt-(--spacing-xl) mb-(--spacing-xxl)"
 	>
-		<template #title>
-			<h1
-				class="font-medium text-heading-5 text-balance"
-				v-html="title"
+		<template
+			v-if="buttons.length"
+			#actions
+		>
+			<Button
+				v-for="button in buttons"
+				:key="button.label || button.link"
+				:label="button.label"
+				:icon="button.icon"
+				:kind="buttonKind(button)"
+				:size="buttonSize(button)"
+				:href="button.link"
 			/>
 		</template>
-		<template #actions>
-			<!--
-				data-doc-chrome: the hero CTAs are chrome, not prose. Without it
-				DocProse paints these anchors as prose links (link ink, underline,
-				flat radius) right over the Button's own tokens.
-			-->
-			<div
-				data-doc-chrome
-				class="flex gap-4 flex-col md:flex-row justify-center items-center"
-			>
-				<!--
-					The `buttons` array authored in src/content uses LinkButton's prop
-					shape (`outlined` / `severity`), not HeroButton's `type`, so both
-					entries used to fall through to HeroButton's default variant and
-					render identically -- the "create an account" CTA lost its
-					emphasis. `buttonType` translates between the two shapes so the
-					pair reads as a primary + secondary action, and an explicit
-					`button.type` still wins for any call site that speaks
-					HeroButton's own language.
-				-->
-				<HeroButton
-					v-for="button in buttons"
-					:key="button.label || button.link"
-					:label="button.label"
-					:href="button.link"
-					:icon="button.icon"
-					:size="buttonSize(button)"
-					:type="buttonType(button)"
-					:theme="button.theme"
-				/>
-			</div>
-		</template>
-		<template #content>
-			<div class="flex flex-col gap-4 md:gap-8 items-center text-center">
-				<ContentLogo
-					size="small"
-					:isCentralized="true"
-					:title="logosTitle"
-					:logos="logos"
-				/>
-			</div>
-		</template>
-	</HeroBase>
+	</HeroTitle>
 </template>
 
 <script setup>
-	import HeroBase from './HeroBase.vue';
-	import HeroButton from './HeroButton.vue';
-	import ContentLogo from './ContentLogo.vue';
+	import Button from '@aziontech/webkit/button';
+	import HeroTitle from '@aziontech/webkit/hero-title';
 
 	/*
-		Maps a content-authored button object onto HeroButton's `type`. Same
-		precedence LinkButton uses for the equivalent props: an explicit variant
-		wins, then `severity`, then `outlined`.
-	*/
-	function buttonType(button) {
-		if (button.type) return button.type
-		if (button.severity === 'secondary') return 'secondary'
-		if (button.outlined) return 'outlined'
+		Maps a content-authored button object onto webkit's `kind`, keeping the
+		precedence the deleted HeroButton used: an explicit variant wins, then
+		`severity`, then `outlined`. The authored objects speak the older
+		`outlined` / `severity` shape, which is why the mapping stays -- the two
+		homes pass `outlined: false` and `severity: 'secondary'`, so the pair
+		reads as a primary and a secondary action.
 
-		return 'primary'
+		`secondary` maps straight through on purpose: the same authored value
+		reaches DocButton as webkit's `secondary` in body copy, and having the
+		hero send it to `outlined` instead is what used to make one prop render
+		as two different buttons depending on where it sat.
+	*/
+	function buttonKind(button) {
+		if (button.kind) return button.kind;
+		if (button.type) return button.type === 'tertiary' ? 'text' : button.type;
+		if (button.severity === 'secondary') return 'secondary';
+		if (button.outlined) return 'outlined';
+
+		return 'primary';
 	}
 
 	/*
 		Hero actions are the page's largest call to action, so `large` is the
-		default and `small` has to be asked for. The previous ternary inverted
-		that -- it only produced `large` when a button declared
-		`size: 'medium'`, and nothing in src/content does, so every hero CTA
-		rendered at the smallest size. That went unnoticed while HeroButton drew
-		its own box from `customClass` ('px-3 py-3') regardless of `size`;
-		webkit's Button honours the size token, so the plumbing bug became
-		visible as a 28px-tall hero button.
+		default and `small` has to be asked for.
 	*/
 	function buttonSize(button) {
-		return button.size === 'small' ? 'small' : 'large'
+		return button.size === 'small' ? 'small' : 'large';
 	}
 
 	defineProps({
-		id: {
-			type: String,
-			default: () => ''
-		},
-		bannerNews: {
-			type: Object,
-			default: () => {}
-		},
-		overline: {
-			type: String,
-			default: () => ''
-		},
-		titleTag: {
-			type: String,
-			default: () => 'h1',
-			validator: (value) => ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(value)
-		},
 		title: {
 			type: String,
 			default: () => ''
@@ -118,31 +96,9 @@
 			type: String,
 			default: () => ''
 		},
-		descriptionRawHtml: {
-			type: String,
-			default: () => ''
-		},
-		logosTitle: {
-			type: String,
-			default: () => ''
-		},
-		logos: {
-			type: Array,
-			required: true,
-			default: () => []
-		},
 		buttons: {
 			type: Array,
 			default: () => []
-		},
-		margin: {
-			type: String,
-			options: ['none', 'small', 'default', 'large'],
-			default: () => 'none'
-		},
-		bottomSpacing: {
-			type: String,
-			default: () => 'mb-24'
 		}
 	});
 </script>
