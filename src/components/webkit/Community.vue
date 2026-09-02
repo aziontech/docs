@@ -24,12 +24,8 @@
 
 <script setup>
 	/*
-		Hand-written for the same reason as EditButton.astro: every row here is
-		icon-first (`pi pi-discord`, `pi pi-comment`, `ai ai-x`) and
-		webkit's Link puts its icon after the label with no way to move it. The
-		component also sits in `src/components/webkit/` without importing
-		anything from webkit -- the directory name is about where the docs keep
-		their design-system adapters, not a claim about this file.
+		Not webkit's Link, same reason as EditButton.astro: it puts the icon
+		after the label and these rows are icon-first.
 	*/
 	const props = defineProps({
 		lang: {
