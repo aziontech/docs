@@ -23,6 +23,10 @@
 </template>
 
 <script setup>
+	/*
+		Not webkit's Link, same reason as EditButton.astro: it puts the icon
+		after the label and these rows are icon-first.
+	*/
 	const props = defineProps({
 		lang: {
 			type: String,
@@ -47,7 +51,7 @@
 				},
 				{
 					label: 'Follow us on X',
-					icon: 'ai ai-twitter',
+					icon: 'ai ai-x',
 					href: 'https://twitter.com/aziontech'
 				}
 			]
@@ -67,7 +71,7 @@
 				},
 				{
 					label: 'Junte-se a nós no X',
-					icon: 'ai ai-twitter',
+					icon: 'ai ai-x',
 					href: 'https://twitter.com/aziontech'
 				}
 			]
@@ -87,7 +91,7 @@
 				},
 				{
 					label: 'Síguenos en X',
-					icon: 'ai ai-twitter',
+					icon: 'ai ai-x',
 					href: 'https://twitter.com/aziontech'
 				}
 			]

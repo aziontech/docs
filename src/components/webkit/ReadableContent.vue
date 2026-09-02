@@ -57,7 +57,7 @@
 	});
 </script>
 
-<style lang="scss">
+<style>
 	/*
 		Global on purpose: the article body is slotted in by Astro, so scoped
 		styles would never reach it. Everything below is docs-only surface —
@@ -112,39 +112,6 @@
 		.readable-content td {
 			white-space: normal;
 		}
-	}
-
-	/* Asides (Aside.astro). Their body keeps DocProse's prose contract
-	   (rhythm, muted ink, code chips); the paint below overrides only the
-	   component's own theme-var chrome, hence the !important — same as the
-	   old prose-era overrides. The title is a div, out of the contract's
-	   paragraph rules by construction. */
-	.readable-content aside.content {
-		background: color-mix(in srgb, var(--primary) 10%, transparent) !important;
-		border-radius: 0.325rem !important;
-		border-left: var(--primary) 5px solid !important;
-		margin: 2rem 0 !important;
-	}
-
-	.readable-content aside.content.note {
-		background: var(--bg-surface-raised) !important;
-		border-left: var(--border-strong) 5px solid !important;
-	}
-
-	.readable-content aside.content > .title {
-		display: flex;
-		gap: 0.375rem;
-		fill: var(--primary) !important;
-		margin: 0 !important;
-		padding-left: 0.375rem;
-	}
-
-	.readable-content aside.content > section > p {
-		padding-left: 0.375rem;
-	}
-
-	.readable-content a button {
-		margin-top: 0.25rem !important;
 	}
 
 	.readable-content small {

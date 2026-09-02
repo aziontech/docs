@@ -6,7 +6,6 @@ import tailwindcss from '@tailwindcss/vite';
 
 import mdx from '@astrojs/mdx';
 import vue from '@astrojs/vue';
-import preact from '@astrojs/preact';
 import AutoImport from 'astro-auto-import';
 
 import cssnano from 'cssnano';
@@ -43,7 +42,6 @@ export default defineConfig({
 				{ '~/components/Video.astro': [['default', 'Video']] },
 			],
 		}),
-		preact({ compat: true }),
 		sitemap(),
 		astroAsides(),
 		astroCodeBlocks(),
