@@ -25,7 +25,7 @@
 <script setup>
 	/*
 		Hand-written for the same reason as EditButton.astro: every row here is
-		icon-first (`pi pi-discord`, `pi pi-comment`, `ai ai-twitter`) and
+		icon-first (`pi pi-discord`, `pi pi-comment`, `ai ai-x`) and
 		webkit's Link puts its icon after the label with no way to move it. The
 		component also sits in `src/components/webkit/` without importing
 		anything from webkit -- the directory name is about where the docs keep
@@ -55,7 +55,7 @@
 				},
 				{
 					label: 'Follow us on X',
-					icon: 'ai ai-twitter',
+					icon: 'ai ai-x',
 					href: 'https://twitter.com/aziontech'
 				}
 			]
@@ -75,7 +75,7 @@
 				},
 				{
 					label: 'Junte-se a nós no X',
-					icon: 'ai ai-twitter',
+					icon: 'ai ai-x',
 					href: 'https://twitter.com/aziontech'
 				}
 			]
@@ -95,7 +95,7 @@
 				},
 				{
 					label: 'Síguenos en X',
-					icon: 'ai ai-twitter',
+					icon: 'ai ai-x',
 					href: 'https://twitter.com/aziontech'
 				}
 			]
