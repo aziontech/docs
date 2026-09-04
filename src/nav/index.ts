@@ -4,9 +4,13 @@ import { navRoot, navTree, topNav, type Lang, type NavTree } from './schema';
 import {
 	buildNavIndex,
 	buildTopNav,
+	resolveBreadcrumb,
+	resolveNeighbours,
 	resolveSidebar,
 	type NavData,
 	type NavLocation,
+	type Crumb,
+	type Neighbour,
 	type PageIndex,
 	type SidebarModel,
 	type TopNavModel,
@@ -70,6 +74,17 @@ export async function getTopNav(lang: Lang): Promise<TopNavModel | null> {
 	return buildTopNav(await getNavData(), lang);
 }
 
+export async function getBreadcrumb(pathname: string, lang: Lang): Promise<Crumb[]> {
+	return resolveBreadcrumb(await getNavData(), pathname, lang);
+}
+
+export async function getNeighbours(
+	pathname: string,
+	lang: Lang,
+): Promise<{ previous?: Neighbour; next?: Neighbour }> {
+	return resolveNeighbours(await getNavData(), pathname, lang);
+}
+
 /** Permalink → tree location, memoized per language for the whole build. */
 export async function getNavIndex(lang: Lang): Promise<Map<string, NavLocation>> {
 	const hit = cachedIndex.get(lang);
@@ -80,4 +95,4 @@ export async function getNavIndex(lang: Lang): Promise<Map<string, NavLocation>>
 }
 
 export type { Lang } from './schema';
-export type { MenuGroupNode, MenuNode, NavLocation, SidebarModel, TopNavModel } from './resolve';
+export type { Crumb, MenuGroupNode, MenuNode, NavLocation, Neighbour, SidebarModel, TopNavModel } from './resolve';

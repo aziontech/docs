@@ -226,7 +226,7 @@ function toMenuNodes(
 	nodes: NavNode[],
 	lang: Lang,
 	parentId: string,
-	ctx: { activePath: string; activeId: string; expanded: string[] },
+	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string },
 	ancestors: string[],
 ): MenuNode[] {
 	const out: MenuNode[] = [];
@@ -242,7 +242,9 @@ function toMenuNodes(
 			? toMenuNodes(data, node.items, lang, id, ctx, [...ancestors, id])
 			: undefined;
 
-		if (href && normalize(href) === ctx.activePath) {
+		// Several rows share the coming-soon page, so none of them may claim the active state.
+		const claimsActive = Boolean(href) && href !== ctx.comingSoonHref;
+		if (claimsActive && normalize(href!) === ctx.activePath) {
 			ctx.activeId = children?.length ? `${id}__index` : id;
 			ctx.expanded.push(...ancestors, ...(children?.length ? [id] : []));
 		}
@@ -286,7 +288,7 @@ function groupsToMenu(
 	groups: NavGroup[],
 	lang: Lang,
 	idPrefix: string,
-	ctx: { activePath: string; activeId: string; expanded: string[] },
+	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string },
 	firstGroupLabel?: string,
 ): MenuGroupNode[] {
 	return groups
@@ -301,7 +303,12 @@ export function resolveSidebar(data: NavData, pathname: string, lang: Lang): Sid
 	const activePath = normalize(pathname);
 	const index = buildNavIndex(data, lang);
 	const location = index.get(activePath);
-	const ctx = { activePath, activeId: '', expanded: [] as string[] };
+	const ctx = {
+		activePath,
+		activeId: '',
+		expanded: [] as string[],
+		comingSoonHref: pageHref(data, COMING_SOON, lang),
+	};
 
 	if (!location) {
 		const groups = groupsToMenu(data, data.root.groups, lang, 'root', ctx);
@@ -395,4 +402,77 @@ export function buildTopNav(data: NavData, lang: Lang): TopNavModel | null {
 		devtools: config.devtools.map(entry).filter(Boolean) as TopNavEntry[],
 		guides: entry(config.guides),
 	};
+}
+
+export interface Crumb {
+	label: string;
+	url?: string;
+}
+
+/** Tree title, the folds above the page, then the page itself. */
+export function resolveBreadcrumb(data: NavData, pathname: string, lang: Lang): Crumb[] {
+	const activePath = normalize(pathname);
+	const location = buildNavIndex(data, lang).get(activePath);
+	if (!location) return [];
+
+	const tree = data.trees.get(location.treeId);
+	if (!tree) return [];
+
+	const crumbs: Crumb[] = [
+		{
+			label: text(tree.title, lang) ?? tree.id,
+			url: tree.root ? pageHref(data, tree.root, lang) : undefined,
+		},
+	];
+
+	const entries = walkTree(tree, lang);
+	for (const ancestorId of location.ancestors) {
+		const ancestor = entries.find((entry) => entry.nodeId === ancestorId);
+		if (!ancestor) continue;
+		crumbs.push({
+			label: nodeLabel(data, ancestor.node, lang),
+			url: ancestor.node.page ? pageHref(data, ancestor.node.page, lang) : undefined,
+		});
+	}
+
+	const self = entries.find((entry) => entry.nodeId === location.nodeId);
+	if (self) crumbs.push({ label: nodeLabel(data, self.node, lang), url: activePath });
+
+	return crumbs;
+}
+
+export interface Neighbour {
+	text: string;
+	link: string;
+}
+
+/** Previous and next page in the reading order of the tree that owns this page. */
+export function resolveNeighbours(
+	data: NavData,
+	pathname: string,
+	lang: Lang,
+): { previous?: Neighbour; next?: Neighbour } {
+	const activePath = normalize(pathname);
+	const location = buildNavIndex(data, lang).get(activePath);
+	if (!location) return {};
+
+	const tree = data.trees.get(location.treeId);
+	if (!tree) return {};
+
+	const leaves = walkTree(tree, lang)
+		.filter((entry) => entry.node.page && !entry.node.placeholder && !entry.node.linkOnly)
+		.map((entry) => ({
+			nodeId: entry.nodeId,
+			text: nodeLabel(data, entry.node, lang),
+			link: pageHref(data, entry.node.page!, lang),
+		}))
+		.filter((leaf): leaf is Neighbour & { nodeId: string } => Boolean(leaf.link));
+
+	const at = leaves.findIndex((leaf) => leaf.nodeId === location.nodeId);
+	if (at === -1) return {};
+
+	const pick = (index: number) =>
+		index >= 0 && index < leaves.length ? { text: leaves[index].text, link: leaves[index].link } : undefined;
+
+	return { previous: pick(at - 1), next: pick(at + 1) };
 }
