@@ -130,6 +130,9 @@ function nodeLabel(data: NavData, node: NavNode, lang: Lang): string {
 
 /** The row's live URL, taken from the page's current permalink so the tree renders correctly before and after a URL migration. */
 function nodeHref(data: NavData, node: NavNode, lang: Lang): string | undefined {
+	const withQuery = (href: string | undefined) =>
+		href && node.query ? `${href}?${node.query}` : href;
+
 	if (node.href) return node.href;
 	if (node.tree) {
 		const tree = data.trees.get(node.tree);
@@ -138,7 +141,7 @@ function nodeHref(data: NavData, node: NavNode, lang: Lang): string | undefined 
 		// A tree with no landing page of its own sends the reader to the shared coming-soon page.
 		return pageHref(data, COMING_SOON, lang);
 	}
-	if (node.page) return pageHref(data, node.page, lang);
+	if (node.page) return withQuery(pageHref(data, node.page, lang));
 	if (node.placeholder) return pageHref(data, COMING_SOON, lang);
 	return undefined;
 }
@@ -530,4 +533,59 @@ export function buildDirectory(
 	if (rest.length) groups.push({ items: rest });
 
 	return groups;
+}
+
+export interface GuideLink {
+	label: string;
+	href: string;
+	description?: string;
+	products: string[];
+}
+
+export interface GuidesHomeModel {
+	featured: GuideLink[];
+	areas: { label: string; subs: { label: string; items: GuideLink[] }[] }[];
+	/** Products that at least one guide is tagged with, for the filter. */
+	products: { id: string; label: string }[];
+}
+
+/** The guides tree flattened for the hub page: areas, their sub-areas, and the product filter. */
+export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): GuidesHomeModel {
+	const tree = data.trees.get(treeId);
+	if (!tree) return { featured: [], areas: [], products: [] };
+
+	const featured: GuideLink[] = [];
+	const areas: GuidesHomeModel['areas'] = [];
+	const tagged = new Set<string>();
+
+	const toLink = (node: NavNode): GuideLink | null => {
+		if (!node.page) return null;
+		const href = pageHref(data, node.page, lang);
+		if (!href) return null;
+		const facts = data.pages.get(node.page)?.[lang] ?? data.pages.get(node.page)?.en;
+		const products = node.products ?? [];
+		for (const product of products) tagged.add(product);
+		return { label: nodeLabel(data, node, lang), href, description: facts?.description, products };
+	};
+
+	for (const group of tree.groups) {
+		for (const areaNode of group.items) {
+			if (!areaNode.items?.length) continue;
+			const subs: GuidesHomeModel['areas'][number]['subs'] = [];
+			for (const subNode of areaNode.items) {
+				const items = (subNode.items ?? []).map(toLink).filter((link): link is GuideLink => link !== null);
+				for (const [index, child] of (subNode.items ?? []).entries()) {
+					if (child.featured && items[index]) featured.push(items[index]);
+				}
+				if (items.length) subs.push({ label: nodeLabel(data, subNode, lang), items });
+			}
+			if (subs.length) areas.push({ label: nodeLabel(data, areaNode, lang), subs });
+		}
+	}
+
+	const products = [...tagged]
+		.map((id) => ({ id, label: text(data.trees.get(id)?.title, lang) ?? id }))
+		.sort((a, b) => a.label.localeCompare(b.label));
+
+	return { featured, areas, products };
 }

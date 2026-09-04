@@ -9,6 +9,12 @@ export default {
 	'site.og.imageSrc': '/default-og-image.png?v=1',
 	'site.og.imageAlt':
 		'astro logo on a starry expanse of space, with a purple saturn-like planet floating in the right foreground',
+	// Guides home
+	'guides.featured': 'Most read',
+	'guides.filter': 'Filter by product',
+	'guides.allProducts': 'All products',
+	'guides.empty': 'No guide is tagged with this product yet.',
+	'guides.count': '{count} guides',
 	// Top navigation
 	'topNav.a11yTitle': 'Documentation',
 	'topNav.products': 'Products',

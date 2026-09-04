@@ -28,6 +28,8 @@ const baseNode = z.object({
 	tree: z.string().min(1).optional(),
 	/** Absolute URL, for a row that leaves the docs. */
 	href: z.url().optional(),
+	/** Query string appended to the resolved destination, e.g. a hub's filter. */
+	query: z.string().min(1).optional(),
 	/** Overrides the page title as the row label. */
 	label: localized.optional(),
 	/** Overrides the last URL segment; defaults to the page's current one. */
