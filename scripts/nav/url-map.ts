@@ -184,6 +184,13 @@ for (const lang of LANGS) {
 
 fs.writeFileSync(path.join(OUT_DIR, 'url-map.md'), lines.join('\n'));
 
+if (moves.length === 0 && Object.keys(redirects).length > 0) {
+	console.warn(
+		`no permalink differs from ${baselineRef}. If the migration is already committed, ` +
+			'pass the commit before it, e.g. --baseline=<migration-commit>^, or the map will list only retired pages.',
+	);
+}
+
 console.log(`baseline ${baselineRef}`);
 console.log(`moved   ${moves.length} page/language pairs`);
 console.log(`retired ${removals.length} page/language pairs`);
