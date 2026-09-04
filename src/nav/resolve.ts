@@ -366,13 +366,16 @@ export interface TopNavEntry {
 	label: string;
 	href?: string;
 	description?: string;
-	icon?: string;
-	modules?: TopNavEntry[];
+}
+
+export interface TopNavColumn {
+	label: string;
+	items: TopNavEntry[];
 }
 
 export interface TopNavModel {
-	products: { label: string; items: TopNavEntry[] }[];
-	devtools: TopNavEntry[];
+	products: TopNavColumn[];
+	devtools: TopNavColumn[];
 	guides?: TopNavEntry;
 }
 
@@ -392,17 +395,15 @@ export function buildTopNav(data: NavData, lang: Lang): TopNavModel | null {
 		};
 	};
 
-	return {
-		products: config.products.map((column) => ({
+	const columns = (list: typeof config.products): TopNavColumn[] =>
+		list.map((column) => ({
 			label: text(column.label, lang) ?? '',
-			items: column.items.flatMap((item) => {
-				const base = entry(item.tree);
-				if (!base) return [];
-				const modules = (item.modules ?? []).map(entry).filter(Boolean) as TopNavEntry[];
-				return [{ ...base, modules: modules.length ? modules : undefined }];
-			}),
-		})),
-		devtools: config.devtools.map(entry).filter(Boolean) as TopNavEntry[],
+			items: column.items.map((item) => entry(item.tree)).filter(Boolean) as TopNavEntry[],
+		}));
+
+	return {
+		products: columns(config.products),
+		devtools: columns(config.devtools),
 		guides: entry(config.guides),
 	};
 }
@@ -494,14 +495,6 @@ export function buildDirectory(
 		label: entry.label,
 		href: entry.href,
 		target: '_self',
-		children: entry.modules?.length
-			? entry.modules.map((module, index) => ({
-					id: `${id}/${index}`,
-					label: module.label,
-					href: module.href,
-					target: '_self',
-				}))
-			: undefined,
 	});
 
 	const groups: MenuGroupNode[] = [];
@@ -524,10 +517,11 @@ export function buildDirectory(
 		rest.push({ id: 'directory/guides', label: labels.guides, href: model.guides.href, target: '_self' });
 	}
 	if (model.devtools.length) {
+		const tools = model.devtools.flatMap((column) => column.items);
 		rest.push({
 			id: 'directory/devtools',
 			label: labels.devtools,
-			children: model.devtools.map((tool, index) => entryNode(tool, `directory/devtools/${index}`)),
+			children: tools.map((tool, index) => entryNode(tool, `directory/devtools/${index}`)),
 		});
 	}
 	if (rest.length) groups.push({ items: rest });

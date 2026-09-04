@@ -82,16 +82,12 @@ for (const ref of rootRefs) {
 }
 
 if (data.topnav) {
-	for (const column of data.topnav.products) {
-		for (const item of column.items) {
-			if (!data.trees.has(item.tree)) fail(`topnav.json: unknown tree "${item.tree}"`);
-			for (const module of item.modules ?? []) {
-				if (!data.trees.has(module)) fail(`topnav.json: unknown module tree "${module}"`);
+	for (const [panel, columns] of [['products', data.topnav.products], ['devtools', data.topnav.devtools]] as const) {
+		for (const column of columns) {
+			for (const item of column.items) {
+				if (!data.trees.has(item.tree)) fail(`topnav.json: unknown ${panel} tree "${item.tree}"`);
 			}
 		}
-	}
-	for (const tool of data.topnav.devtools) {
-		if (!data.trees.has(tool)) fail(`topnav.json: unknown devtools tree "${tool}"`);
 	}
 	if (!data.trees.has(data.topnav.guides)) fail(`topnav.json: unknown guides tree "${data.topnav.guides}"`);
 }

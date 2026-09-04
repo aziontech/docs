@@ -110,21 +110,14 @@ export const navRoot = z.object({ groups: z.array(navGroup).min(1) });
 
 export type NavRoot = z.infer<typeof navRoot>;
 
+const topNavColumn = z.object({
+	label: localized,
+	items: z.array(z.object({ tree: z.string().min(1) })).min(1),
+});
+
 export const topNav = z.object({
-	products: z
-		.array(
-			z.object({
-				label: localized,
-				items: z.array(
-					z.object({
-						tree: z.string().min(1),
-						modules: z.array(z.string().min(1)).optional(),
-					}),
-				).min(1),
-			}),
-		)
-		.min(1),
-	devtools: z.array(z.string().min(1)).min(1),
+	products: z.array(topNavColumn).min(1),
+	devtools: z.array(topNavColumn).min(1),
 	guides: z.string().min(1),
 });
 

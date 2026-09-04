@@ -33,36 +33,23 @@
 						</svg>
 					</NavigationMenu.Icon>
 				</NavigationMenu.Trigger>
-				<NavigationMenu.Content class="w-full p-0">
-					<div class="grid grid-cols-4 gap-(--spacing-md) p-(--spacing-sm)">
+				<NavigationMenu.Content class="w-max p-0">
+					<div class="grid grid-cols-[repeat(4,18rem)] gap-(--spacing-lg) p-(--spacing-md)">
 						<NavigationMenu.List
 							v-for="column in products"
 							:key="column.label"
 							:label="column.label"
 						>
-							<template
+							<NavigationMenu.Item
 								v-for="entry in column.items"
 								:key="entry.href"
+								layout="entry"
+								:href="entry.href"
+								:description="entry.description"
+								close-on-click
 							>
-								<NavigationMenu.Item
-									layout="entry"
-									:href="entry.href"
-									:description="entry.description"
-									close-on-click
-								>
-									{{ entry.label }}
-								</NavigationMenu.Item>
-								<NavigationMenu.Item
-									v-for="module in entry.modules ?? []"
-									:key="module.href"
-									layout="entry"
-									:href="module.href"
-									class="ps-(--spacing-md)"
-									close-on-click
-								>
-									{{ module.label }}
-								</NavigationMenu.Item>
-							</template>
+								{{ entry.label }}
+							</NavigationMenu.Item>
 						</NavigationMenu.List>
 					</div>
 				</NavigationMenu.Content>
@@ -96,11 +83,15 @@
 						</svg>
 					</NavigationMenu.Icon>
 				</NavigationMenu.Trigger>
-				<NavigationMenu.Content class="w-full p-0">
-					<div class="grid grid-cols-3 gap-(--spacing-md) p-(--spacing-sm)">
-						<NavigationMenu.List>
+				<NavigationMenu.Content class="w-max p-0">
+					<div class="grid grid-cols-[repeat(3,18rem)] gap-(--spacing-lg) p-(--spacing-md)">
+						<NavigationMenu.List
+							v-for="column in devtools"
+							:key="column.label"
+							:label="column.label"
+						>
 							<NavigationMenu.Item
-								v-for="tool in devtools"
+								v-for="tool in column.items"
 								:key="tool.href"
 								layout="entry"
 								:href="tool.href"
@@ -115,7 +106,7 @@
 			</NavigationMenu.Item>
 		</NavigationMenu.List>
 
-		<NavigationMenu.Portal>
+		<NavigationMenu.Portal v-if="mounted">
 			<NavigationMenu.Positioner
 				side="bottom"
 				align="start"
@@ -132,12 +123,12 @@
 
 <script setup lang="ts">
 	import NavigationMenu from '@aziontech/webkit/navigation-menu'
+	import { onMounted, ref } from 'vue'
 
 	interface Entry {
 		label: string
 		href?: string
 		description?: string
-		modules?: Entry[]
 	}
 
 	interface Column {
@@ -148,7 +139,7 @@
 	withDefaults(
 		defineProps<{
 			products?: Column[]
-			devtools?: Entry[]
+			devtools?: Column[]
 			guides?: Entry | null
 			labels?: { products: string; guides: string; devtools: string }
 			ariaLabel?: string
@@ -161,4 +152,9 @@
 			ariaLabel: 'Documentation'
 		}
 	)
+
+	const mounted = ref(false)
+	onMounted(() => {
+		mounted.value = true
+	})
 </script>
