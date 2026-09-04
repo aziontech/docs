@@ -11,13 +11,13 @@ export const getTranslatedPagesByNamespace = async (namespace: string): Promise<
 
 	const mappedPageData =  translatePageData
 		.filter(page => page.data.permalink)
-		.map(page => ({ slug: removeTrailingSlash(removeLeadingSlash(normalizePathSlashes(page.data.permalink))), lang: getLangFromSlug(page.slug) }));
+		.map(page => ({ slug: removeTrailingSlash(removeLeadingSlash(normalizePathSlashes(page.data.permalink))), lang: getLangFromSlug(page.id) }));
 
 	return mappedPageData.length > 0 ? mappedPageData : undefined
 }
 
 
-export const groupPagesByLang = (pages: any[]) =>
+export const groupPagesByLang = (pages: unknown[]) =>
   pages.reduce((pages, page) => {
     if(page) {
       const lang = page.id.split('/')[0];

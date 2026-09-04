@@ -29,10 +29,10 @@ export function normalizeCanonicalPath(path: string | undefined) {
 }
 
 /** Get a page’s slug, without the language prefix (e.g. `'en/migrate'` => `'migrate'`). */
-export const stripLangFromSlug = (slug: CollectionEntry<'docs'>['slug']) => slug.split('/').slice(1).join('/');
+export const stripLangFromSlug = (slug: string) => slug.split('/').slice(1).join('/');
 
 /** Get a page’s lang tag from its slug (e.g. `'en/migrate'` => `'en'`). */
-export const getLangFromSlug = (slug: CollectionEntry<'docs'>['slug']) => slug.split('/')[0];
+export const getLangFromSlug = (slug: string) => slug.split('/')[0];
 
 export const getSlugFromPermalink = (collection: CollectionEntry<'docs'>) => {
 	let permalink = collection.data.permalink

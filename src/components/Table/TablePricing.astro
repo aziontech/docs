@@ -1,5 +1,13 @@
 ---
 // @ts-nocheck
+import ScrollArea from '@aziontech/webkit/scroll-area';
+
+/**
+ * ScrollArea replaces a bare `overflow-x-scroll` div. No `client:` directive
+ * on purpose: the page keeps shipping zero JS and the browser already scrolls
+ * a focused overflow container.
+ */
+
 const {
 	coin='dolar',
 	lang='pt-br',
@@ -27,7 +35,6 @@ const i18n = {
 		'Other_Regions': 'Outras Regiões',
 		'Class C Operations': 'Operações / mês',
 
-		'First 10 GB / month': 'Primeiros 10 GB / mês',
 		'First 50 GB / month': 'Primeiros 50 GB / mês',
 		'Next 9,950 GB / month': 'Próximos 9.950 GB / mês',
 		'Next 9,990 GB / month': 'Próximos 9.990 GB / mês',
@@ -48,7 +55,6 @@ const i18n = {
 		'First 10 million requests / month':'Primeiros 10 milhões de requisições / mês',
 		'Next 990 million requests / month': 'Próximos 990 milhões de requisições / mês',
 		'Next 999 million requests / month': 'Próximos 999 milhões de requisições / mês',
-		'Next 4 billion requests / month': 'Próximos 4 bilhões de requisições / mês',
 		'Up to 10 rules per firewall': 'Até 10 regras por firewall',
 
 		'Up to 1 connector': 'Até 1 conector',
@@ -57,8 +63,6 @@ const i18n = {
 		'First 10 GB / month': 'Primeiros 10 GB / mês',
 		'Over 1 GB / month': 'Acima de 1 GB / mês',
 		'Next 49,990 GB / month': 'Próximos 49.990 GB / mês',
-		'Next 450 TB / month': 'Próximos 450 TB / mês',
-		'Over 500 TB / month': 'Acima de 500 TB / mês',
 
 		'First 1 GB / month':'Primeiro 1 GB / mês',
 		'First 1 GB  / month': 'Primeiro 1 GB / mês',
@@ -111,7 +115,6 @@ const i18n = {
 
 		'First 1 million queries / month': 'Primeiro 1 milhão de consultas / mês',
 		'Next 999 million queries / month': 'Próximos 999 milhões de consultas / mês',
-		'Over 1 billion queries / month': 'Acima de 1 bilhão de consultas / mês',
 		'First 10 zones / month': 'Primeiras 10 zonas / mês',
 		'Next 15 zones / month': 'Próximas 15 zonas / mês',
 		'Over 25 zones / month': 'Acima de 25 zonas / mês',
@@ -157,7 +160,6 @@ const i18n = {
 		'First 200.000 BRL':'Primeiros R$ 200.000,00',
 		'Next 400.000 BRL': 'Próximos R$ 400.000,00',
 		'Next 600.000 BRL': 'Próximos R$ 600.000,00',
-		'Next 800.000 BRL': 'Próximos R$ 800.000,00',
 		'Next 1.000.000 BRL': 'Próximos R$ 1.000.000,00',
 		'Over 1.000.000 BRL': 'Acima de R$ 1.000.000,00',
 		'Over 1.200.000 BRL': 'Acima de R$ 1.200.000,00',
@@ -188,13 +190,26 @@ const i18n = {
 
 async function fetchPricingData() {
 	// product_slug come from Astro.props
-  const response = await fetch(`https://vef4esszhdq.map.azionedge.net/api/pricing/get/product_slug/${product_slug}`);
-  if (!response.ok) {
-    throw new Error(`Pricing API returned ${response.status} for product_slug "${product_slug}"`);
-  }
-  const data = await response.json();
-  // Return empty array if API returns error object instead of array
-  return Array.isArray(data) ? data : [];
+	// Cache per product_slug for the whole build: many pages (x2 languages)
+	// render this component, and hammering the API in the prerender pass
+	// causes transient DNS failures that abort the build.
+	const cache = (globalThis.__pricingCache ??= new Map());
+	if (!cache.has(product_slug)) {
+		cache.set(product_slug, (async () => {
+			const response = await fetch(`https://vef4esszhdq.map.azionedge.net/api/pricing/get/product_slug/${product_slug}`);
+			if (!response.ok) {
+				throw new Error(`Pricing API returned ${response.status} for product_slug "${product_slug}"`);
+			}
+			const data = await response.json();
+			// Return empty array if API returns error object instead of array
+			return Array.isArray(data) ? data : [];
+		})().catch((error) => {
+			// Don't cache failures, so a retry within the same build can succeed.
+			cache.delete(product_slug);
+			throw error;
+		}));
+	}
+	return cache.get(product_slug);
 }
 
 function isReal() {
@@ -264,7 +279,7 @@ function transformData(data) {
 		};
 		const tier = lang === 'pt-br' ? i18n[lang][item.tier_name] : item.tier_name;
     const region = normalizeRegionName(item.region);
-		let price = '';
+		let price;
 	
 		if (item.brazilian_real_formatted || item.american_dollar_formatted) {
 			price = isReal() ? item.brazilian_real_formatted : item.american_dollar_formatted;
@@ -414,32 +429,29 @@ const pricingData = await fetchPricingData();
 const transformedData = transformData(pricingData);
 ---
 
-<style lang="scss">
-	.content-pricing-table {
-		table {
+<style>
+	/*
+		Selectors hang off `table`, not the wrapper's class: Astro scopes every
+		selector part with `data-astro-cid-*` and ScrollArea declares
+		`inheritAttrs: false`, so the attribute never reaches its root.
+	*/
+	table th,
+	table td {
+		white-space: nowrap;
+		min-width: 110px;
+		padding-left: 1rem;
+		padding-right: 1rem;
+	}
 
-			thead, tbody {
-				tr {
-					th, td {
-						white-space: nowrap;
-						min-width: 110px;
-						padding-left: 1rem;
-						padding-right: 1rem;
-
-	
-						&:first-child {
-							padding-left: 0;
-							padding-right: 0;
-							min-width: 200px
-						}
-					}
-				}
-			}
-		}
+	table th:first-child,
+	table td:first-child {
+		min-width: 200px;
+		padding-left: 0;
+		padding-right: 0;
 	}
 </style>
 
-<div class="content-pricing-table w-full flex-nowrap overflow-x-scroll">
+<ScrollArea orientation="horizontal" class="w-full" ariaLabel={metric}>
 	<table>
 		<thead>
 			<tr>
@@ -466,4 +478,4 @@ const transformedData = transformData(pricingData);
 			}
 		</tbody>
 	</table>
-</div>
+</ScrollArea>

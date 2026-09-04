@@ -72,11 +72,6 @@ const listData = [
   },
 ]
 
-const cta =
-{
-  text: "For support and sales, please call ", phone: "+1 (833) 33-AZION",
-}
-
 const socialButtons = [
   {
     title: "GitHub",
@@ -122,11 +117,10 @@ const socialButtons = [
   // },
 ]
 
-const copyright = '© Azion Technologies, Inc or its affiliates. All rights reserved.';
+const tagline = 'The web platform for modern workloads';
 
 export default {
   listData,
-  cta,
-  copyright,
+  tagline,
   socialButtons
 }

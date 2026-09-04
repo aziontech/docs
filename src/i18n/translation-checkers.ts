@@ -38,7 +38,7 @@ type navMatching = Array<{
 }>
 
 export const NavDictionary = (dict: navMatching) => {
-	const parsingNavMenu = (enMenu: any, dict: navMatching) => {
+	const parsingNavMenu = (enMenu: NavDict, dict: navMatching) => {
 		const orderedDictionary: NavDict = [];
 		for (const entry of enMenu) {
 			const matchedObject = dict.find((value) => value.key === entry.key);

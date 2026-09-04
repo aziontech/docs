@@ -1,99 +1,76 @@
 <template>
-    <ContentSection
-      :overline="overline"
-      :titleTag="titleTag"
-      :title="title"
-      :description="description"
-      :descriptionRawHtml="descriptionRawHtml"
-      :id="id"
-      :margin="margin"
-      :hasContainer="false"
-    >
-      <template #actions>
-        <template
-          v-for="(button, index) in buttons"
-          :key="index"
-        >
-          <LinkButton
-            v-if="button.link"
-            v-bind="button"
-          />
-        </template>
-      </template>
-      <template #main>
-        <div class="2xl:w-1/2"></div>
-      </template>
-    </ContentSection>
-    <div
-      v-if="$slots.content"
-      class="min-w-full flex xl:flex-row flex-col gap-4"
-    >
-      <slot name="content" />
-    </div>
-  </template>
-  
-  <script setup>
-    import ContentSection from 'azion-webkit/contentsection'
-    import LinkButton from 'azion-webkit/linkbutton'
-  
-    defineProps({
-      id: {
-        type: String,
-        default: () => ''
-      },
-      isContentCentralized: {
-        type: Boolean,
-        default: () => true
-      },
-      overline: {
-        type: String,
-        default: () => ''
-      },
-      titleTag: {
-        type: String,
-        default: () => 'h2',
-        validator: (value) => ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(value)
-      },
-      title: {
-        type: String,
-        rquired: true
-      },
-      description: {
-        type: String,
-        default: () => ''
-      },
-      descriptionRawHtml: {
-        type: String,
-        default: () => ''
-      },
-      buttons: {
-        type: Array,
-        default: () => []
-      },
-      margin: {
-        type: String,
-        options: ['none', 'small', 'default', 'large'],
-        default: () => 'none'
-      }
-    })
-</script>
-  
-<style scoped>
-    /* Target prose paragraphs within this component */
-    :deep(.prose-lg p) {
-        margin-bottom: 0 !important;
-        margin-top: 0 !important;
-    }
-    
-    /* Alternative approach - target all paragraphs within the component */
-    :deep(p) {
-        margin-bottom: 0 !important;
-        margin-top: 0 !important;
-    }
+	<!--
+		The 70 content files that use this only ever pass `description`,
+		`buttons` and a `content` slot -- never a `title`, which is why it does
+		not route to webkit's SectionTitle: that requires `title` and would
+		emit an empty `h2` for every one of them.
 
-    @media screen and (max-width: 640px) { 
-      :deep(th), :deep(td) {
-        width: 100%;
-      }
-    }
-</style>
+		The description is a bare `<p>` so DocProse paints it like any other
+		paragraph in the article body. `data-doc-chrome` goes on the actions
+		row, not on each button, whose `data-doc-block` top margin would land
+		on every item of the flex row.
+	-->
+	<section class="flex flex-col gap-(--spacing-md)">
+		<p v-if="description">{{ description }}</p>
+
+		<div
+			v-if="actionable.length"
+			data-doc-chrome
+			class="flex flex-row flex-wrap items-center gap-(--spacing-sm)"
+		>
+			<Button
+				v-for="(button, index) in actionable"
+				:key="index"
+				v-bind="toButtonProps(button)"
+			/>
+		</div>
+
+		<div
+			v-if="$slots.content"
+			class="flex min-w-full flex-col gap-(--spacing-md) xl:flex-row"
+		>
+			<slot name="content" />
+		</div>
+	</section>
+</template>
+
+<script setup>
+	import { computed } from 'vue';
+
+	import Button from '@aziontech/webkit/button';
+
+	const props = defineProps({
+		description: {
+			type: String,
+			default: () => ''
+		},
+		buttons: {
+			type: Array,
+			default: () => []
+		}
+	});
+
+	// A button with no destination rendered nothing before and still does.
+	const actionable = computed(() => props.buttons.filter((button) => button.link));
+
+	/*
+		Maps the authored button shape (link / severity / outlined / text) onto
+		webkit Button. No `iconPos`: Button always puts the icon before the
+		label, which is what the authored `iconPos: 'left'` asked for.
+	*/
+	const toButtonProps = (button) => ({
+		label: button.label,
+		href: button.link,
+		target: button.target,
+		icon: button.icon,
+		size: 'medium',
+		kind:
+			button.textLink || button.text
+				? 'text'
+				: button.outlined
+					? 'outlined'
+					: button.severity === 'secondary'
+						? 'secondary'
+						: 'primary'
+	});
+</script>

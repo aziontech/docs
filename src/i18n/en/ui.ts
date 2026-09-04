@@ -39,10 +39,6 @@ export default {
 	// Used in previous/next page links at the bottom of pages
 	'articleNav.nextPage': 'Next Page',
 	'articleNav.prevPage': 'Back',
-	// Used in `<Since>`: Added in: v0.24.0 [NEW]
-	'since.addedIn': 'Added in:',
-	'since.new': 'New',
-	'since.beta': 'Beta',
 	// Installation Guide
 	'install.autoTab': 'Automatic CLI',
 	'install.manualTab': 'Manual Setup',
@@ -62,8 +58,6 @@ export default {
 	'recipesLink.singular': 'Related recipe:',
 	'recipesLink.plural': 'Related recipes',
 	// `<ContributorList>` fallback text
-	'contributors.title': 'Contributors',
-	'contributors.seeAll': 'See all contributors',
 	// Fallback content notice shown when a page is not yet translated
 	'fallbackContent.notice':
 		'This page is not yet available in your language, so we’re showing you the English version. You can help by translating it!',

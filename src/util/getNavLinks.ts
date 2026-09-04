@@ -3,6 +3,13 @@ import { getLanguageFromURL, isURL } from '../util';
 import { getNavigationMenu } from './getNav';
 import { removeTrailingSlash, removeLeadingSlash } from '../util';
 
+interface MenuItem {
+	text: string;
+	slug?: string;
+	onlyMobile?: boolean;
+	items?: MenuItem[];
+}
+
 interface NavItem {
 	text: string;
 	slug: string;
@@ -28,10 +35,10 @@ export async function getNavLinks(
 	return getPreviousAndNext(navLinks, Astro);
 }
 
-function getLinksFromMenu(navLinks: any): NavItem[] {
+function getLinksFromMenu(navLinks: MenuItem[]): NavItem[] {
 	const links: NavItem[] = [];
 
-	function extractLinks(items: any) {
+	function extractLinks(items: MenuItem[]) {
 
 		for (const item of items) {
 			if (item.items && item.items.length > 0) {

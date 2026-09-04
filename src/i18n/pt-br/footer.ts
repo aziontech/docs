@@ -74,15 +74,9 @@ const listData = [
   },
 ]
 
-const cta = {
-  text: "Para vendas e suporte, entre em contato no ",
-  phone: "0800 883 6313"
-}
-
-const copyright = '© Azion Technologies ou suas afiliadas. Todos os direitos reservados.';
+const tagline = 'A plataforma web para workloads modernos';
 
 export default {
   listData,
-  cta,
-  copyright
+  tagline
 }
