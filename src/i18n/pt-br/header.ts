@@ -7,12 +7,12 @@ const menuData = {
     },
 		{
       label: 'Guias',
-      href: '/pt-br/documentacao/produtos/guias/',
+      href: '/pt-br/documentacao/guias/',
       items: []
     },
 		{
       label: 'DevTools',
-      href: '/pt-br/documentacao/produtos/devtools/',
+      href: '/pt-br/documentacao/',
       items: []
     }
   ]

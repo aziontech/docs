@@ -38,6 +38,15 @@ function valueEnd(lines: string[], block: Block, at: number): number {
 	return end;
 }
 
+/** Line span a field occupies, following a folded scalar into its indented lines. */
+export function fieldRange(source: string, key: string): [number, number] | null {
+	const block = frontmatterBlock(source);
+	if (!block) return null;
+	const at = keyLine(block.lines, block, key);
+	if (at === -1) return null;
+	return [at, valueEnd(block.lines, block, at)];
+}
+
 export function readField(source: string, key: string): string | null {
 	const block = frontmatterBlock(source);
 	if (!block) return null;
