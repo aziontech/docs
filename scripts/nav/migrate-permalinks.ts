@@ -52,7 +52,7 @@ for (const lang of LANGS) {
 	}
 }
 
-const orphanedNamespaces = corpus.filter((page) => page.menuNamespace).length;
+const orphanedNamespaces = corpus.filter((page) => page.hasMenuNamespace).length;
 
 if (apply) {
 	let touched = 0;
@@ -65,7 +65,7 @@ if (apply) {
 		touched += 1;
 	}
 	for (const page of corpus) {
-		if (!page.menuNamespace) continue;
+		if (!page.hasMenuNamespace) continue;
 		const file = path.join(REPO_ROOT, 'src/content/docs', page.file);
 		const before = fs.readFileSync(file, 'utf8');
 		const after = removeField(before, 'menu_namespace');

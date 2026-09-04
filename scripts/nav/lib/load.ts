@@ -17,6 +17,8 @@ export interface CorpusPage {
 	permalink: string;
 	title: string;
 	description: string;
+	/** True when the field is present at all, empty value included. */
+	hasMenuNamespace: boolean;
 	menuNamespace: string;
 }
 
@@ -43,6 +45,7 @@ export function readCorpus(): CorpusPage[] {
 			permalink: String(data.permalink ?? '').trim(),
 			title: String(data.title ?? '').trim(),
 			description: String(data.description ?? data.Description ?? '').trim(),
+			hasMenuNamespace: 'menu_namespace' in data,
 			menuNamespace: String(data.menu_namespace ?? '').trim(),
 		});
 	}

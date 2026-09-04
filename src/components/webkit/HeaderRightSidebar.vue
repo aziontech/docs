@@ -163,7 +163,6 @@
 	}
 
 	let props = defineProps({
-		menuData: Object,
 		menuSecondary: Array,
 		bottomButtons: Array,
 		menuGroups: { type: Array, default: null },

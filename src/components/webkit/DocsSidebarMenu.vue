@@ -13,7 +13,7 @@
 <script setup>
 	/**
 	 * The docs navigation tree on webkit's data-driven `Menu`. The tree itself
-	 * is built server-side by `~/util/menuToWebkit` (from the i18n menu data)
+	 * is built server-side by `~/nav` (from the tree that owns the current page)
 	 * and arrives here as plain `groups` + `activeId` + the fold ids above the
 	 * active row.
 	 *

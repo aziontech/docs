@@ -1,11 +1,9 @@
 import type { AstroGlobal } from 'astro';
 import { getLanguageFromURL } from '../util';
 import type {
-	NavDict,
 	UIDict,
 	UIDictionaryKeys,
 	UILanguageKeys,
-	HeaderMenuTranslation,
 	FooterTranslations,
 	SearchMenuTranslation
 } from './translation-checkers';
@@ -24,30 +22,7 @@ function mapDefaultExports<T>(modules: Record<string, { default: T }>) {
 	return exportMap;
 }
 
-function mapDefaultNavExports<T>(modules: Record<string, { default: T }>, lang: string) {
-	const exportMap: Record<string, T> = {};
-	for (const [, module] of Object.entries(modules)) {
-		exportMap[lang] = module.default;
-	}
-
-	return exportMap;
-}
-
-export async function mapNavigationMenuByName(menuName: string, lang: string) {
-	const translations = await import(`../i18n/${lang}/${menuName}.ts`)
-		.catch(async () => await import(`../i18n/en/${menuName}.ts`))
-
-	return mapDefaultNavExports<NavDict>([translations], lang)
-}
-
 export const translations = mapDefaultExports<UIDict>(import.meta.glob('./*/ui.ts', { eager: true }));
-
-export const navTranslations = mapDefaultExports<NavDict>(
-	import.meta.glob('./*/nav.ts', { eager: true })
-);
-export const headerMenuTranslations = mapDefaultExports<HeaderMenuTranslation>(
-	import.meta.glob('./*/headerMenu.ts', { eager: true })
-);
 
 export const footerTranslations = mapDefaultExports<FooterTranslations>(
 	import.meta.glob('./*/footer.ts', { eager: true })
@@ -58,11 +33,6 @@ export const searchTranslations = mapDefaultExports<SearchMenuTranslation>(
 );
 
 export const fallbackLang = 'en';
-
-export function getHeaderMenuStrings(Astro: AstroGlobal): HeaderMenuTranslation {
-	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
-	return { ...headerMenuTranslations[fallbackLang], ...headerMenuTranslations[lang] };
-}
 
 export function getFooterTranslations(Astro: AstroGlobal): FooterTranslations {
 	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
