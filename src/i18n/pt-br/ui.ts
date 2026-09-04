@@ -11,6 +11,12 @@ export default UIDictionary({
 	'site.og.imageSrc': '/default-og-image.png?v=1',
 	'site.og.imageAlt':
 		'a logo do astro em um estrelado pedaço do espaço, com um planeta roxo parecido com Saturno flutuando à direita',
+	// Top navigation
+	'topNav.a11yTitle': 'Documentação',
+	'topNav.products': 'Produtos',
+	'topNav.guides': 'Guias',
+	'topNav.devtools': 'Ferramentas de desenvolvimento',
+	'topNav.signIn': 'Entrar',
 	// Left Sidebar
 	'leftSidebar.a11yTitle': 'Primária',
 	'leftSidebar.learnTab': 'Documentação',

@@ -9,6 +9,12 @@ export default {
 	'site.og.imageSrc': '/default-og-image.png?v=1',
 	'site.og.imageAlt':
 		'astro logo on a starry expanse of space, with a purple saturn-like planet floating in the right foreground',
+	// Top navigation
+	'topNav.a11yTitle': 'Documentation',
+	'topNav.products': 'Products',
+	'topNav.guides': 'Guides',
+	'topNav.devtools': 'Developer tools',
+	'topNav.signIn': 'Sign in',
 	// Left Sidebar
 	'leftSidebar.a11yTitle': 'Primary',
 	'leftSidebar.learnTab': 'Documentation',

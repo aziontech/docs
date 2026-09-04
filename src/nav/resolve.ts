@@ -476,3 +476,58 @@ export function resolveNeighbours(
 
 	return { previous: pick(at - 1), next: pick(at + 1) };
 }
+
+/** The top-nav directory as sidebar groups, for the viewport where there is no top nav. */
+export function buildDirectory(
+	data: NavData,
+	lang: Lang,
+	labels: { products: string; guides: string; devtools: string },
+): MenuGroupNode[] {
+	const model = buildTopNav(data, lang);
+	if (!model) return [];
+
+	const entryNode = (entry: TopNavEntry, id: string): MenuNode => ({
+		id,
+		label: entry.label,
+		href: entry.href,
+		target: '_self',
+		children: entry.modules?.length
+			? entry.modules.map((module, index) => ({
+					id: `${id}/${index}`,
+					label: module.label,
+					href: module.href,
+					target: '_self',
+				}))
+			: undefined,
+	});
+
+	const groups: MenuGroupNode[] = [];
+
+	if (model.products.length) {
+		groups.push({
+			label: labels.products,
+			items: model.products.map((column, columnIndex) => ({
+				id: `directory/products/${columnIndex}`,
+				label: column.label,
+				children: column.items.map((entry, index) =>
+					entryNode(entry, `directory/products/${columnIndex}/${index}`),
+				),
+			})),
+		});
+	}
+
+	const rest: MenuNode[] = [];
+	if (model.guides?.href) {
+		rest.push({ id: 'directory/guides', label: labels.guides, href: model.guides.href, target: '_self' });
+	}
+	if (model.devtools.length) {
+		rest.push({
+			id: 'directory/devtools',
+			label: labels.devtools,
+			children: model.devtools.map((tool, index) => entryNode(tool, `directory/devtools/${index}`)),
+		});
+	}
+	if (rest.length) groups.push({ items: rest });
+
+	return groups;
+}

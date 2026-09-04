@@ -90,6 +90,15 @@
         target="_blank"
         class="shrink-0"
       />
+
+      <Button
+        :label="signInLabel"
+        kind="primary"
+        size="medium"
+        href="https://console.azion.com/login"
+        target="_blank"
+        class="hidden shrink-0 md:inline-flex"
+      />
     </GlobalHeader.Right>
   </GlobalHeader>
 </template>
@@ -105,6 +114,11 @@
     homeHref: {
       type: String,
       default: '/'
+    },
+    /** Translated label for the console sign-in action. */
+    signInLabel: {
+      type: String,
+      default: 'Sign in'
     }
   })
 </script>

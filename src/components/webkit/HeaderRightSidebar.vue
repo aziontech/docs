@@ -36,6 +36,16 @@
 					     slotted Astro content: an astro-island nested inside this
 					     island's slot arrives through <template>/innerHTML and never
 					     hydrates, so the drawer menu is passed in as data instead. -->
+					<!-- The directory the top nav carries on wider viewports, where
+					     that bar is hidden. It leads, because it answers "what else
+					     is there" and the tree below answers "where am I". -->
+					<DocsSidebarMenu
+						v-if="directoryGroups?.length"
+						:groups="directoryGroups"
+						:aria-label="directoryAriaLabel"
+						class="mb-(--spacing-md)"
+					/>
+
 					<DocsSidebarMenu
 						v-if="menuGroups?.length"
 						:groups="menuGroups"
@@ -159,7 +169,9 @@
 		menuGroups: { type: Array, default: null },
 		menuActiveId: { type: String, default: '' },
 		menuExpanded: { type: Array, default: () => [] },
-		menuAriaLabel: { type: String, default: 'Menu' }
+		menuAriaLabel: { type: String, default: 'Menu' },
+		directoryGroups: { type: Array, default: null },
+		directoryAriaLabel: { type: String, default: 'Directory' }
 	})
 
 	const { menuSecondary, bottomButtons } = props

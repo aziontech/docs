@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content';
 import { navRoot, navTree, topNav, type Lang, type NavTree } from './schema';
 import {
 	buildNavIndex,
+	buildDirectory,
 	buildTopNav,
 	resolveBreadcrumb,
 	resolveNeighbours,
@@ -10,6 +11,7 @@ import {
 	type NavData,
 	type NavLocation,
 	type Crumb,
+	type MenuGroupNode,
 	type Neighbour,
 	type PageIndex,
 	type SidebarModel,
@@ -72,6 +74,13 @@ export async function getSidebar(pathname: string, lang: Lang): Promise<SidebarM
 
 export async function getTopNav(lang: Lang): Promise<TopNavModel | null> {
 	return buildTopNav(await getNavData(), lang);
+}
+
+export async function getDirectory(
+	lang: Lang,
+	labels: { products: string; guides: string; devtools: string },
+): Promise<MenuGroupNode[]> {
+	return buildDirectory(await getNavData(), lang, labels);
 }
 
 export async function getBreadcrumb(pathname: string, lang: Lang): Promise<Crumb[]> {
