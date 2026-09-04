@@ -135,7 +135,8 @@ function nodeHref(data: NavData, node: NavNode, lang: Lang): string | undefined 
 		const tree = data.trees.get(node.tree);
 		if (!tree) return undefined;
 		if (tree.root) return pageHref(data, tree.root, lang);
-		return `/${lang}/${DOCS_BASE[lang]}/${trimSlashes(text(tree.path, lang) ?? tree.id)}/`;
+		// A tree with no landing page of its own sends the reader to the shared coming-soon page.
+		return pageHref(data, COMING_SOON, lang);
 	}
 	if (node.page) return pageHref(data, node.page, lang);
 	if (node.placeholder) return pageHref(data, COMING_SOON, lang);
@@ -337,9 +338,7 @@ function backRow(data: NavData, tree: NavTree, lang: Lang): MenuNode | undefined
 	}
 	const parent = data.trees.get(parentId);
 	if (!parent) return undefined;
-	const href = parent.root
-		? pageHref(data, parent.root, lang)
-		: `/${lang}/${DOCS_BASE[lang]}/${trimSlashes(text(parent.path, lang) ?? parent.id)}/`;
+	const href = parent.root ? pageHref(data, parent.root, lang) : pageHref(data, COMING_SOON, lang);
 	return {
 		id: `${tree.id}#back`,
 		label: text(parent.title, lang) ?? parentId,
