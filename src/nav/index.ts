@@ -1,6 +1,6 @@
 import { getCollection } from 'astro:content';
 
-import { navRoot, navTree, topNav, type Lang, type NavTree } from './schema';
+import { navRoot, navTree, navVideos, topNav, type Lang, type NavTree } from './schema';
 import {
 	buildNavIndex,
 	buildDirectory,
@@ -21,6 +21,7 @@ import {
 } from './resolve';
 import rootJson from './root.json';
 import topNavJson from './topnav.json';
+import videosJson from './videos.json';
 
 const treeModules = import.meta.glob<{ default: unknown }>('./trees/*.json', { eager: true });
 
@@ -67,7 +68,8 @@ async function loadPages(): Promise<PageIndex> {
 export async function getNavData(): Promise<NavData> {
 	const root = navRoot.parse(rootJson);
 	const config = topNav.parse(topNavJson);
-	return { root, trees: loadTrees(), topnav: config, pages: await loadPages() };
+	const videos = navVideos.parse(videosJson);
+	return { root, trees: loadTrees(), topnav: config, videos, pages: await loadPages() };
 }
 
 export async function getSidebar(pathname: string, lang: Lang): Promise<SidebarModel> {
@@ -112,7 +114,7 @@ export async function getNavIndex(lang: Lang): Promise<Map<string, NavLocation>>
 export type { Lang } from './schema';
 export type {
 	Crumb,
-	GuideLink,
+	CatalogEntry,
 	GuidesHomeModel,
 	MenuGroupNode,
 	MenuNode,

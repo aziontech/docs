@@ -92,6 +92,12 @@ if (data.topnav) {
 	if (!data.trees.has(data.topnav.guides)) fail(`topnav.json: unknown guides tree "${data.topnav.guides}"`);
 }
 
+for (const [index, video] of (data.videos ?? []).entries()) {
+	for (const product of video.products ?? []) {
+		if (!data.trees.has(product)) fail(`videos.json: entry ${index} is tagged with unknown tree "${product}"`);
+	}
+}
+
 for (const [namespace, target] of Object.entries(redirects)) {
 	if (!enPages.has(namespace)) fail(`redirects.json: "${namespace}" is not a page in the collection`);
 	const named = [target.page, target.tree, target.path].filter(Boolean).length;

@@ -1,4 +1,4 @@
-import type { Lang, Localized, LocalizedSegment, NavGroup, NavNode, NavRoot, NavTree, TopNav } from './schema';
+import type { Lang, Localized, LocalizedSegment, NavGroup, NavNode, NavRoot, NavTree, NavVideos, TopNav } from './schema';
 
 export interface PageFacts {
 	permalink?: string;
@@ -28,6 +28,7 @@ export interface NavData {
 	root: NavRoot;
 	trees: Map<string, NavTree>;
 	topnav?: TopNav;
+	videos?: NavVideos;
 	pages: PageIndex;
 }
 
@@ -539,57 +540,84 @@ export function buildDirectory(
 	return groups;
 }
 
-export interface GuideLink {
+export type GuideKind = 'learning-path' | 'tutorial' | 'reference-architecture' | 'video';
+
+const GUIDE_KINDS: GuideKind[] = ['learning-path', 'tutorial', 'reference-architecture', 'video'];
+
+export interface CatalogEntry {
 	label: string;
 	href: string;
 	description?: string;
+	kind: GuideKind;
 	products: string[];
+	/** Shown beside the kind: the first product, or the area the guide sits in. */
+	topic: string;
+	external?: boolean;
 }
 
 export interface GuidesHomeModel {
-	featured: GuideLink[];
-	areas: { label: string; subs: { label: string; items: GuideLink[] }[] }[];
-	/** Products that at least one guide is tagged with, for the filter. */
+	entries: CatalogEntry[];
+	/** Kinds at least one entry has, in canonical order. */
+	kinds: GuideKind[];
+	/** Products at least one entry is tagged with, for the topic filter. */
 	products: { id: string; label: string }[];
 }
 
-/** The guides tree flattened for the hub page: areas, their sub-areas, and the product filter. */
+/** The guides tree and the video list flattened into one filterable catalog. */
 export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): GuidesHomeModel {
 	const tree = data.trees.get(treeId);
-	if (!tree) return { featured: [], areas: [], products: [] };
-
-	const featured: GuideLink[] = [];
-	const areas: GuidesHomeModel['areas'] = [];
+	const entries: CatalogEntry[] = [];
 	const tagged = new Set<string>();
+	const productLabel = (id: string) => text(data.trees.get(id)?.title, lang) ?? id;
 
-	const toLink = (node: NavNode): GuideLink | null => {
-		if (!node.page) return null;
-		const href = pageHref(data, node.page, lang);
-		if (!href) return null;
-		const facts = data.pages.get(node.page)?.[lang] ?? data.pages.get(node.page)?.en;
-		const products = node.products ?? [];
-		for (const product of products) tagged.add(product);
-		return { label: nodeLabel(data, node, lang), href, description: facts?.description, products };
+	const push = (entry: CatalogEntry) => {
+		for (const product of entry.products) tagged.add(product);
+		entries.push(entry);
 	};
 
-	for (const group of tree.groups) {
-		for (const areaNode of group.items) {
-			if (!areaNode.items?.length) continue;
-			const subs: GuidesHomeModel['areas'][number]['subs'] = [];
-			for (const subNode of areaNode.items) {
-				const items = (subNode.items ?? []).map(toLink).filter((link): link is GuideLink => link !== null);
-				for (const [index, child] of (subNode.items ?? []).entries()) {
-					if (child.featured && items[index]) featured.push(items[index]);
+	for (const group of tree?.groups ?? []) {
+		for (const area of group.items) {
+			const areaLabel = nodeLabel(data, area, lang);
+			for (const sub of area.items ?? []) {
+				for (const row of sub.items ?? []) {
+					if (!row.page) continue;
+					const href = pageHref(data, row.page, lang);
+					if (!href) continue;
+					const products = row.products ?? [];
+					push({
+						label: nodeLabel(data, row, lang),
+						href,
+						description: pageFacts(data, row.page, lang)?.description,
+						kind: row.kind ?? sub.kind ?? area.kind ?? 'tutorial',
+						products,
+						topic: products[0] ? productLabel(products[0]) : areaLabel,
+					});
 				}
-				if (items.length) subs.push({ label: nodeLabel(data, subNode, lang), items });
 			}
-			if (subs.length) areas.push({ label: nodeLabel(data, areaNode, lang), subs });
 		}
 	}
 
-	const products = [...tagged]
-		.map((id) => ({ id, label: text(data.trees.get(id)?.title, lang) ?? id }))
-		.sort((a, b) => a.label.localeCompare(b.label));
+	for (const video of data.videos ?? []) {
+		const products = video.products ?? [];
+		push({
+			label: text(video.title, lang) ?? video.href,
+			href: video.href,
+			description: text(video.description, lang),
+			kind: 'video',
+			products,
+			topic: products[0] ? productLabel(products[0]) : 'YouTube',
+			external: true,
+		});
+	}
 
-	return { featured, areas, products };
+	entries.sort((a, b) => a.label.localeCompare(b.label, lang));
+	const present = new Set(entries.map((entry) => entry.kind));
+
+	return {
+		entries,
+		kinds: GUIDE_KINDS.filter((kind) => present.has(kind)),
+		products: [...tagged]
+			.map((id) => ({ id, label: productLabel(id) }))
+			.sort((a, b) => a.label.localeCompare(b.label, lang)),
+	};
 }

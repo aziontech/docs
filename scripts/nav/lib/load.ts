@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 
-import { navRedirects, navRoot, navTree, topNav, type Lang, type NavRedirects, type NavTree } from '../../../src/nav/schema';
+import { navRedirects, navRoot, navTree, navVideos, topNav, type Lang, type NavRedirects, type NavTree } from '../../../src/nav/schema';
 import type { NavData, PageIndex } from '../../../src/nav/resolve';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -95,6 +95,12 @@ export function loadNav(): LoadResult {
 		for (const issue of redirectsParsed.error.issues) issues.push(`redirects.json: ${issue.path.join('.')} ${issue.message}`);
 	}
 
+	const videosPath = path.join(NAV_DIR, 'videos.json');
+	const videosParsed = navVideos.safeParse(fs.existsSync(videosPath) ? readJson(videosPath) : []);
+	if (!videosParsed.success) {
+		for (const issue of videosParsed.error.issues) issues.push(`videos.json: ${issue.path.join('.')} ${issue.message}`);
+	}
+
 	const trees = new Map<string, NavTree>();
 	const treeDir = path.join(NAV_DIR, 'trees');
 	const treeFiles = fs.existsSync(treeDir) ? fs.readdirSync(treeDir).filter((f) => f.endsWith('.json')).sort() : [];
@@ -119,6 +125,7 @@ export function loadNav(): LoadResult {
 			root: rootParsed.success ? rootParsed.data : { groups: [] as never },
 			trees,
 			topnav: topParsed.success ? topParsed.data : undefined,
+			videos: videosParsed.success ? videosParsed.data : [],
 			pages: toPageIndex(corpus),
 		},
 		redirects: redirectsParsed.success ? redirectsParsed.data : {},

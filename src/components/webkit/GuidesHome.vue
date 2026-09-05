@@ -1,182 +1,335 @@
 <template>
-	<div class="flex flex-col gap-(--spacing-xl)">
-		<section
-			v-if="featured.length && !selected"
-			class="flex flex-col gap-(--spacing-sm)"
+	<div class="grid items-start gap-(--spacing-lg) lg:grid-cols-[15rem_1fr]">
+		<aside
+			:aria-label="labels.filters"
+			class="flex flex-col gap-(--spacing-md) lg:sticky lg:top-18 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:[scrollbar-width:thin] lg:[scrollbar-color:var(--border-muted)_transparent]"
 		>
-			<h2 class="text-heading-sm text-(--text-default)">{{ labels.featured }}</h2>
-			<DocCardGroup>
-				<DocCard
-					v-for="guide in featured"
-					:key="guide.href"
-					:title="guide.label"
-					:href="guide.href"
-				/>
-			</DocCardGroup>
-		</section>
+			<InputText
+				v-model="query"
+				type="search"
+				size="medium"
+				:placeholder="labels.search"
+				:aria-label="labels.search"
+			>
+				<template #iconLeft>
+					<i
+						class="pi pi-search text-body-sm"
+						aria-hidden="true"
+					/>
+				</template>
+			</InputText>
 
-		<section
-			v-if="products.length"
-			class="flex flex-col gap-(--spacing-sm)"
-		>
-			<h2 class="text-heading-sm text-(--text-default)">{{ labels.filter }}</h2>
-			<div class="flex flex-wrap items-center gap-(--spacing-xxs)">
-				<Chip
-					:kind="selected ? 'outlined' : 'filled'"
-					size="small"
-					clickable
-					@click="select('')"
+			<fieldset class="m-0 flex flex-col gap-(--spacing-xs) border-0 p-0">
+				<legend class="mb-(--spacing-xs) p-0 text-overline-sm text-(--text-muted)">
+					{{ labels.contentType }}
+				</legend>
+				<label
+					v-for="kind in kinds"
+					:key="kind"
+					class="flex cursor-pointer items-center gap-(--spacing-xs) text-label-sm text-(--text-default)"
 				>
-					{{ labels.allProducts }}
-				</Chip>
-				<Chip
+					<Checkbox
+						binary
+						:model-value="kindsOn.includes(kind)"
+						@update:model-value="toggleKind(kind, Boolean($event))"
+					/>
+					<span>{{ labels.kinds[kind] ?? kind }}</span>
+					<span class="text-body-xs text-(--text-muted)">{{ totals.kinds[kind] ?? 0 }}</span>
+				</label>
+			</fieldset>
+
+			<fieldset
+				v-if="products.length"
+				class="m-0 flex flex-col gap-(--spacing-xs) border-0 p-0"
+			>
+				<legend class="mb-(--spacing-xs) p-0 text-overline-sm text-(--text-muted)">
+					{{ labels.topics }}
+				</legend>
+				<label
 					v-for="product in products"
 					:key="product.id"
-					:kind="selected === product.id ? 'filled' : 'outlined'"
+					class="flex cursor-pointer items-center gap-(--spacing-xs) text-label-sm text-(--text-default)"
+				>
+					<Checkbox
+						binary
+						:model-value="productsOn.includes(product.id)"
+						@update:model-value="toggleProduct(product.id, Boolean($event))"
+					/>
+					<span>{{ product.label }}</span>
+					<span class="text-body-xs text-(--text-muted)">{{ totals.products[product.id] ?? 0 }}</span>
+				</label>
+			</fieldset>
+		</aside>
+
+		<section class="flex min-w-0 flex-col gap-(--spacing-sm)">
+			<div class="flex items-center justify-between gap-(--spacing-sm)">
+				<p
+					class="text-body-sm text-(--text-muted)"
+					aria-live="polite"
+				>
+					{{ countLabel }}
+				</p>
+				<Button
+					kind="text"
 					size="small"
-					clickable
-					@click="select(product.id)"
-				>
-					{{ product.label }}
-				</Chip>
+					:label="labels.clear"
+					:disabled="!filtered"
+					@click="clear"
+				/>
 			</div>
-			<p
-				class="text-body-sm text-(--text-muted)"
-				aria-live="polite"
+
+			<div
+				v-if="visible.length"
+				ref="results"
+				class="flex flex-col gap-(--spacing-md)"
 			>
-				{{ countLabel }}
-			</p>
-		</section>
-
-		<section
-			v-for="area in visibleAreas"
-			:key="area.label"
-			class="flex flex-col gap-(--spacing-sm)"
-		>
-			<h2 class="text-heading-sm text-(--text-default)">{{ area.label }}</h2>
-			<div class="flex flex-col gap-(--spacing-md)">
-				<div
-					v-for="sub in area.subs"
-					:key="sub.label"
-					class="flex flex-col gap-(--spacing-xxs)"
+				<DocCardGroup :cols="2">
+					<DocCard
+						v-for="entry in paged"
+						:key="entry.href"
+						:overline="overline(entry)"
+						:title="entry.label"
+						:label="entry.description"
+						:href="entry.href"
+						:target="entry.external ? '_blank' : '_self'"
+					/>
+				</DocCardGroup>
+				<Paginator
+					v-if="pageCount > 1"
+					:aria-label="labels.pagination"
 				>
-					<h3 class="text-label-md text-(--text-muted)">{{ sub.label }}</h3>
-					<FrameBox borders="all">
-						<ItemList>
-							<DocItem
-								v-for="guide in sub.items"
-								:key="guide.href"
-								:title="guide.label"
-								:href="guide.href"
-							/>
-						</ItemList>
-					</FrameBox>
-				</div>
+					<template #info>{{ rangeLabel }}</template>
+					<Paginator.Button
+						kind="previous"
+						:aria-label="labels.previous"
+						:disabled="page <= 1"
+						@click="goTo(page - 1)"
+					/>
+					<Paginator.Button
+						v-for="item in pageItems"
+						:key="item.key"
+						:kind="item.type === 'page' ? 'number' : 'more'"
+						:selected="item.type === 'page' && item.value === page"
+						:disabled="item.type === 'more'"
+						@click="item.type === 'page' && goTo(item.value)"
+					>
+						{{ item.type === 'page' ? item.value : '' }}
+					</Paginator.Button>
+					<Paginator.Button
+						kind="next"
+						:aria-label="labels.next"
+						:disabled="page >= pageCount"
+						@click="goTo(page + 1)"
+					/>
+				</Paginator>
 			</div>
+			<EmptyState
+				v-else
+				:title="labels.empty"
+				icon="pi pi-search"
+				size="small"
+				bordered
+			/>
 		</section>
-
-		<p
-			v-if="!visibleAreas.length"
-			class="text-body-sm text-(--text-muted)"
-		>
-			{{ labels.empty }}
-		</p>
 	</div>
 </template>
 
 <script setup lang="ts">
-	/*
-		The hub the guides tree cannot be: seventeen sub-areas deep, the reader
-		who thinks "Cache" rather than "Application Performance" needs a filter,
-		not a third level of folds. The product chips are that filter, and they
-		are deep-linkable so a product section can point straight at its own
-		slice (`?product=cache`).
-	*/
-	import Chip from '@aziontech/webkit/chip'
+	import Button from '@aziontech/webkit/button'
+	import Checkbox from '@aziontech/webkit/checkbox'
 	import DocCard from '@aziontech/webkit/doc-card'
 	import DocCardGroup from '@aziontech/webkit/doc-card-group'
-	import DocItem from '@aziontech/webkit/doc-item'
-	import FrameBox from '@aziontech/webkit/frame-box'
-	import ItemList from '@aziontech/webkit/item-list'
-	import { computed, onMounted, ref } from 'vue'
+	import EmptyState from '@aziontech/webkit/empty-state'
+	import InputText from '@aziontech/webkit/input-text'
+	import Paginator from '@aziontech/webkit/paginator'
+	import { computed, onMounted, ref, watch } from 'vue'
 
-	interface GuideLink {
+	const PAGE_SIZE = 24
+
+	type Kind = 'learning-path' | 'tutorial' | 'reference-architecture' | 'video'
+
+	interface Entry {
 		label: string
 		href: string
 		description?: string
+		kind: Kind
 		products: string[]
-	}
-
-	interface Area {
-		label: string
-		subs: { label: string; items: GuideLink[] }[]
+		topic: string
+		external?: boolean
 	}
 
 	const props = withDefaults(
 		defineProps<{
-			featured?: GuideLink[]
-			areas?: Area[]
+			entries?: Entry[]
+			kinds?: Kind[]
 			products?: { id: string; label: string }[]
 			labels?: {
-				featured: string
-				filter: string
-				allProducts: string
+				search: string
+				filters: string
+				contentType: string
+				topics: string
+				kinds: Partial<Record<Kind, string>>
+				countOne: string
+				countMany: string
+				clear: string
 				empty: string
-				count: string
+				pagination: string
+				previous: string
+				next: string
+				range: string
 			}
 		}>(),
 		{
-			featured: () => [],
-			areas: () => [],
+			entries: () => [],
+			kinds: () => [],
 			products: () => [],
 			labels: () => ({
-				featured: 'Most read',
-				filter: 'Filter by product',
-				allProducts: 'All products',
-				empty: 'No guide matches this product yet.',
-				count: '{count} guides'
+				search: 'Search by name or description',
+				filters: 'Filters',
+				contentType: 'Content type',
+				topics: 'Topics',
+				kinds: {},
+				countOne: '{count} page',
+				countMany: '{count} pages',
+				clear: 'Clear filters',
+				empty: 'No pages match your filters.',
+				pagination: 'Pagination',
+				previous: 'Previous page',
+				next: 'Next page',
+				range: 'Showing {start} to {end} of {total}'
 			})
 		}
 	)
 
-	const selected = ref('')
+	const query = ref('')
+	const kindsOn = ref<Kind[]>([...props.kinds])
+	const productsOn = ref<string[]>([])
+	const page = ref(1)
+	const results = ref<HTMLElement | null>(null)
 
-	const visibleAreas = computed(() =>
-		props.areas
-			.map((area) => ({
-				label: area.label,
-				subs: area.subs
-					.map((sub) => ({
-						label: sub.label,
-						items: selected.value
-							? sub.items.filter((guide) => guide.products.includes(selected.value))
-							: sub.items
-					}))
-					.filter((sub) => sub.items.length > 0)
-			}))
-			.filter((area) => area.subs.length > 0)
+	const fold = (value: string) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+	const haystacks = computed(() => props.entries.map((entry) => fold(`${entry.label} ${entry.description ?? ''}`)))
+
+	const visible = computed(() => {
+		const needle = fold(query.value.trim())
+		return props.entries.filter(
+			(entry, index) =>
+				kindsOn.value.includes(entry.kind) &&
+				(!productsOn.value.length || entry.products.some((product) => productsOn.value.includes(product))) &&
+				(!needle || haystacks.value[index].includes(needle))
+		)
+	})
+
+	const totals = computed(() => {
+		const kinds: Partial<Record<Kind, number>> = {}
+		const products: Record<string, number> = {}
+		for (const entry of props.entries) {
+			kinds[entry.kind] = (kinds[entry.kind] ?? 0) + 1
+			for (const product of entry.products) products[product] = (products[product] ?? 0) + 1
+		}
+		return { kinds, products }
+	})
+
+	const filtered = computed(
+		() => query.value !== '' || productsOn.value.length > 0 || kindsOn.value.length !== props.kinds.length
 	)
 
-	const count = computed(() =>
-		visibleAreas.value.reduce((total, area) => total + area.subs.reduce((n, sub) => n + sub.items.length, 0), 0)
+	const countLabel = computed(() =>
+		(visible.value.length === 1 ? props.labels.countOne : props.labels.countMany).replace(
+			'{count}',
+			String(visible.value.length)
+		)
 	)
 
-	const countLabel = computed(() => props.labels.count.replace('{count}', String(count.value)))
+	const pageCount = computed(() => Math.max(1, Math.ceil(visible.value.length / PAGE_SIZE)))
 
-	/* The filter is part of the address, so a filtered list can be linked and shared. */
-	function select(product: string) {
-		selected.value = product
-		if (typeof window === 'undefined') return
+	const paged = computed(() => visible.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
+
+	const rangeLabel = computed(() =>
+		props.labels.range
+			.replace('{start}', String((page.value - 1) * PAGE_SIZE + 1))
+			.replace('{end}', String(Math.min(page.value * PAGE_SIZE, visible.value.length)))
+			.replace('{total}', String(visible.value.length))
+	)
+
+	type PageItem = { type: 'page'; value: number; key: string } | { type: 'more'; key: string }
+
+	/* First, last, the current page and one neighbour each side; an ellipsis stands in for the rest. */
+	const pageItems = computed<PageItem[]>(() => {
+		const count = pageCount.value
+		const current = page.value
+		const pages = (from: number, to: number): PageItem[] =>
+			Array.from({ length: to - from + 1 }, (_, i) => ({ type: 'page', value: from + i, key: `page-${from + i}` }))
+		if (count <= 7) return pages(1, count)
+		const nearStart = current <= 3
+		const nearEnd = current >= count - 2
+		if (nearStart) return [...pages(1, 5), { type: 'more', key: 'more-right' }, ...pages(count, count)]
+		if (nearEnd) return [...pages(1, 1), { type: 'more', key: 'more-left' }, ...pages(count - 4, count)]
+		return [
+			...pages(1, 1),
+			{ type: 'more', key: 'more-left' },
+			...pages(current - 1, current + 1),
+			{ type: 'more', key: 'more-right' },
+			...pages(count, count)
+		]
+	})
+
+	function goTo(next: number) {
+		page.value = Math.min(Math.max(1, next), pageCount.value)
+		const top = results.value?.getBoundingClientRect().top
+		if (top !== undefined) window.scrollTo({ top: top + window.scrollY - 80, behavior: 'smooth' })
+	}
+
+	function overline(entry: Entry) {
+		return [props.labels.kinds[entry.kind] ?? entry.kind, entry.topic].filter(Boolean).join(' · ')
+	}
+
+	function toggleKind(kind: Kind, on: boolean) {
+		kindsOn.value = props.kinds.filter((each) => (each === kind ? on : kindsOn.value.includes(each)))
+	}
+
+	function toggleProduct(id: string, on: boolean) {
+		productsOn.value = props.products
+			.map((product) => product.id)
+			.filter((each) => (each === id ? on : productsOn.value.includes(each)))
+	}
+
+	function clear() {
+		query.value = ''
+		kindsOn.value = [...props.kinds]
+		productsOn.value = []
+		page.value = 1
+	}
+
+	/* The filters and the page live in the address (?q=, ?kind=, ?product=, ?page=), so a view can be linked. */
+	function readUrl() {
+		const params = new URLSearchParams(window.location.search)
+		query.value = params.get('q') ?? ''
+		const kind = params.get('kind')?.split(',')
+		kindsOn.value = kind ? props.kinds.filter((each) => kind.includes(each)) : [...props.kinds]
+		const product = params.get('product')?.split(',')
+		productsOn.value = product ? props.products.map((each) => each.id).filter((id) => product.includes(id)) : []
+		page.value = Math.min(Math.max(1, Number(params.get('page')) || 1), pageCount.value)
+	}
+
+	function writeUrl() {
 		const url = new URL(window.location.href)
-		if (product) url.searchParams.set('product', product)
+		if (query.value) url.searchParams.set('q', query.value)
+		else url.searchParams.delete('q')
+		if (kindsOn.value.length === props.kinds.length) url.searchParams.delete('kind')
+		else url.searchParams.set('kind', kindsOn.value.join(','))
+		if (productsOn.value.length) url.searchParams.set('product', productsOn.value.join(','))
 		else url.searchParams.delete('product')
+		if (page.value > 1) url.searchParams.set('page', String(page.value))
+		else url.searchParams.delete('page')
 		window.history.replaceState({}, '', url)
 	}
 
 	onMounted(() => {
-		const requested = new URLSearchParams(window.location.search).get('product') ?? ''
-		if (requested && props.products.some((product) => product.id === requested)) {
-			selected.value = requested
-		}
+		readUrl()
+		watch([query, kindsOn, productsOn], () => {
+			page.value = 1
+		})
+		watch([query, kindsOn, productsOn, page], writeUrl)
 	})
 </script>

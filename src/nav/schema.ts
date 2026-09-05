@@ -46,8 +46,8 @@ const baseNode = z.object({
 	placeholder: z.boolean().optional(),
 	/** Tree ids this guide belongs to; drives the guides home filter. */
 	products: z.array(z.string().min(1)).optional(),
-	/** Surfaces the guide in the guides home highlight block. */
-	featured: z.boolean().optional(),
+	/** Content type in the guides catalog; a fold's value covers the rows beneath it. */
+	kind: z.enum(['learning-path', 'tutorial', 'reference-architecture']).optional(),
 });
 
 export type NavNode = z.infer<typeof baseNode> & { items?: NavNode[] };
@@ -122,6 +122,19 @@ export const topNav = z.object({
 });
 
 export type TopNav = z.infer<typeof topNav>;
+
+/** Videos from the Azion channel; listed in the guides catalog, never in a tree. */
+export const navVideos = z.array(
+	z.object({
+		href: z.url(),
+		title: localized,
+		description: localized.optional(),
+		/** Tree ids the video belongs to; drives the topic filter. */
+		products: z.array(z.string().min(1)).optional(),
+	}),
+);
+
+export type NavVideos = z.infer<typeof navVideos>;
 
 /** Namespace of a discarded page, mapped to what replaces it. */
 export const navRedirects = z.record(
