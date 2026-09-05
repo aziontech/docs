@@ -40,8 +40,8 @@
 						{{ header.title }}
 					</a>
 				</div>
-				<InputText
-					ref="filterRef"
+				<div ref="filterWrap">
+					<InputText
 					v-model="filter"
 					:placeholder="filterPlaceholder"
 					:aria-label="filterPlaceholder"
@@ -50,7 +50,8 @@
 					<template #iconRight>
 						<Kbd size="small">/</Kbd>
 					</template>
-				</InputText>
+					</InputText>
+				</div>
 			</SidebarHeader>
 		</template>
 
@@ -102,14 +103,15 @@
 	});
 
 	const filter = ref('');
-	const filterRef = ref(null);
+	const filterWrap = ref(null);
 
 	// `/` jumps to the filter from anywhere on the page that is not already a field.
 	function onSlash(event) {
+		if (!railQuery?.matches) return;
 		if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
 		const target = event.target;
 		if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
-		const input = filterRef.value?.$el?.querySelector?.('input') ?? filterRef.value?.$el;
+		const input = filterWrap.value?.querySelector('input');
 		if (!input) return;
 		event.preventDefault();
 		input.focus();

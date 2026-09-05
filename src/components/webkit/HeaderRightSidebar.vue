@@ -36,33 +36,42 @@
 					     slotted Astro content: an astro-island nested inside this
 					     island's slot arrives through <template>/innerHTML and never
 					     hydrates, so the drawer menu is passed in as data instead. -->
-					<!-- The directory the top nav carries on wider viewports, where
-					     that bar is hidden. It leads, because it answers "what else
-					     is there" and the tree below answers "where am I". -->
-					<DocsSidebarMenu
-						v-if="directoryGroups?.length"
-						:groups="directoryGroups"
-						:aria-label="directoryAriaLabel"
-						class="mb-(--spacing-md)"
-					/>
-
-					<div
-						v-if="menuHeader"
-						class="mb-(--spacing-xs) flex items-center gap-(--spacing-xs)"
-					>
-						<IconButton
-							icon="pi pi-arrow-left"
-							kind="outlined"
-							size="small"
-							:aria-label="menuHeader.backLabel"
-							:href="menuHeader.backHref"
-						/>
-						<a
-							:href="menuHeader.href"
-							class="truncate text-label-md text-(--text-default) no-underline"
+					<div class="mb-(--spacing-sm) flex flex-col gap-(--spacing-sm)">
+						<div
+							v-if="menuHeader"
+							class="flex items-center gap-(--spacing-xs)"
 						>
-							{{ menuHeader.title }}
-						</a>
+							<IconButton
+								icon="pi pi-arrow-left"
+								kind="outlined"
+								size="small"
+								:aria-label="menuHeader.backLabel"
+								:href="menuHeader.backHref"
+							/>
+							<a
+								:href="menuHeader.href"
+								class="truncate text-label-md text-(--text-default) no-underline"
+							>
+								{{ menuHeader.title }}
+							</a>
+						</div>
+						<div ref="filterWrap">
+							<InputText
+								v-model="filter"
+								:placeholder="menuFilterPlaceholder"
+								:aria-label="menuFilterPlaceholder"
+								size="medium"
+							>
+								<template #iconRight>
+									<Kbd
+										size="small"
+										class="hidden sm:inline-flex"
+									>
+										/
+									</Kbd>
+								</template>
+							</InputText>
+						</div>
 					</div>
 
 					<DocsSidebarMenu
@@ -71,6 +80,17 @@
 						:active-id="menuActiveId"
 						:initial-expanded="menuExpanded"
 						:aria-label="menuAriaLabel"
+						:filter="filter"
+						:no-matches-label="menuNoMatchesLabel"
+					/>
+
+					<!-- The directory the top nav carries on wider viewports, where
+					     that bar is hidden. -->
+					<DocsSidebarMenu
+						v-if="directoryGroups?.length"
+						:groups="directoryGroups"
+						:aria-label="directoryAriaLabel"
+						class="mt-(--spacing-md)"
 					/>
 
 					<!-- slot to receive custom menu -->
@@ -164,6 +184,8 @@
 	import DrawerPortal from '@aziontech/webkit/drawer-portal'
 	import DrawerTitle from '@aziontech/webkit/drawer-title'
 	import IconButton from '@aziontech/webkit/icon-button'
+	import InputText from '@aziontech/webkit/input-text'
+	import Kbd from '@aziontech/webkit/kbd'
 	import PanelFooter from '@aziontech/webkit/panel-footer'
 	import PanelHeader from '@aziontech/webkit/panel-header'
 
@@ -189,12 +211,28 @@
 		menuExpanded: { type: Array, default: () => [] },
 		menuAriaLabel: { type: String, default: 'Menu' },
 		menuHeader: { type: Object, default: null },
+		menuFilterPlaceholder: { type: String, default: 'Filter sidebar' },
+		menuNoMatchesLabel: { type: String, default: 'No rows match.' },
 		directoryGroups: { type: Array, default: null },
 		directoryAriaLabel: { type: String, default: 'Directory' }
 	})
 
 	const { menuSecondary, bottomButtons } = props
 	const open = ref(false)
+	const filter = ref('')
+	const filterWrap = ref(null)
+
+	// `/` reaches the drawer's filter only while the drawer is open; closed, the
+	// key belongs to the rail.
+	function onSlash(event) {
+		if (!open.value || event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return
+		const target = event.target
+		if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
+		const input = filterWrap.value?.querySelector('input')
+		if (!input) return
+		event.preventDefault()
+		input.focus()
+	}
 
 	// The search palette is a separate island; when it opens, this drawer must
 	// close — two stacked overlays would trap focus in the bottom one. The
@@ -206,9 +244,12 @@
 
 	onMounted(() => {
 		window.addEventListener('docs:palette-open', onPaletteOpen)
+		// Capture phase: the drawer's focus trap stops keydown from bubbling out of the dialog.
+		window.addEventListener('keydown', onSlash, true)
 	})
 
 	onBeforeUnmount(() => {
 		window.removeEventListener('docs:palette-open', onPaletteOpen)
+		window.removeEventListener('keydown', onSlash, true)
 	})
 </script>
