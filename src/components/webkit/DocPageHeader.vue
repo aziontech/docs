@@ -9,11 +9,15 @@
 		- the meta-line actions are wired: "Copy as Markdown" fetches the
 		  page's `.md` twin and puts it on the clipboard (with a transient
 		  "Copied!" label), "View as Markdown" is a plain link the built-in
-		  renders as a real anchor.
+		  renders as a real anchor, "Agent setup" is the way to the agent
+		  pages, offered on every page that is not one of them.
 	-->
 	<WkDocPageHeader
 		:breadcrumb='breadcrumb'
 		:description='description'
+		:last-updated='lastUpdated'
+		:last-updated-label='t.updated'
+		:locale='locale'
 		:meta-actions='metaActions'
 		@meta-action='onMetaAction'
 	>
@@ -52,35 +56,62 @@
 		/** The page's markdown twin, e.g. `/en/documentation/.../cache.md`. */
 		markdownHref: string
 		lang: string
+		/** ISO date of the last content change, `2026-06-30`. */
+		lastUpdated?: string
+		/** The Agent Setup section; absent on its own pages. */
+		agentSetupHref?: string
 	}>()
 
 	const isCopied = ref(false)
 
-	const labels: Record<DocPageHeaderLang, { copy: string; copied: string; copyTip: string; view: string; viewTip: string }> = {
+	type Labels = {
+		updated: string
+		copy: string
+		copied: string
+		copyTip: string
+		view: string
+		viewTip: string
+		agents: string
+		agentsTip: string
+	}
+
+	const labels: Record<DocPageHeaderLang, Labels> = {
 		en: {
+			updated: 'Last updated',
 			copy: 'Copy as Markdown',
 			copied: 'Copied!',
 			copyTip: 'Copy this page as Markdown, ready to paste into an assistant.',
 			view: 'View as Markdown',
-			viewTip: 'Open this page as plain Markdown in a new tab.'
+			viewTip: 'Open this page as plain Markdown in a new tab.',
+			agents: 'Agent setup',
+			agentsTip: 'Connect your AI coding agent to Azion: CLI, MCP server and prompts.'
 		},
 		'pt-br': {
+			updated: 'Última atualização',
 			copy: 'Copiar como Markdown',
 			copied: 'Copiado!',
 			copyTip: 'Copie esta página como Markdown, pronta para colar em um assistente.',
 			view: 'Ver como Markdown',
-			viewTip: 'Abra esta página como Markdown puro em uma nova aba.'
+			viewTip: 'Abra esta página como Markdown puro em uma nova aba.',
+			agents: 'Configurar agente',
+			agentsTip: 'Conecte seu agente de código à Azion: CLI, servidor MCP e prompts.'
 		},
 		es: {
+			updated: 'Última actualización',
 			copy: 'Copiar como Markdown',
 			copied: '¡Copiado!',
 			copyTip: 'Copie esta página como Markdown, lista para pegar en un asistente.',
 			view: 'Ver como Markdown',
-			viewTip: 'Abra esta página como Markdown puro en una nueva pestaña.'
+			viewTip: 'Abra esta página como Markdown puro en una nueva pestaña.',
+			agents: 'Configurar agente',
+			agentsTip: 'Conecte su agente de código a Azion: CLI, servidor MCP y prompts.'
 		}
 	}
 
+	const locales: Record<DocPageHeaderLang, string> = { en: 'en-US', 'pt-br': 'pt-BR', es: 'es' }
+
 	const t = computed(() => labels[props.lang as DocPageHeaderLang] ?? labels.en)
+	const locale = computed(() => locales[props.lang as DocPageHeaderLang] ?? locales.en)
 
 	const metaActions = computed<DocPageAction[]>(() => [
 		{
@@ -96,7 +127,16 @@
 			href: props.markdownHref,
 			target: '_blank',
 			tip: t.value.viewTip
-		}
+		},
+		...(props.agentSetupHref
+			? [{
+				value: 'agents',
+				label: t.value.agents,
+				icon: 'pi pi-microchip-ai',
+				href: props.agentSetupHref,
+				tip: t.value.agentsTip
+			}]
+			: [])
 	])
 
 	const pageMarkdown = ref<string | null>(null)

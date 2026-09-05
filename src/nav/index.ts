@@ -9,18 +9,21 @@ import {
 	buildDirectory,
 	buildGuidesHome,
 	buildTopNav,
+	pageHref,
 	resolveBreadcrumb,
 	resolveNeighbours,
 	resolveSidebar,
 	type NavData,
 	type NavLocation,
 	type Crumb,
+	type PageFacts,
 	type GuidesHomeModel,
 	type MenuGroupNode,
 	type Neighbour,
 	type PageIndex,
 	type SidebarModel,
 	type TopNavModel,
+	withSlashes,
 } from './resolve';
 import rootJson from './root.json';
 import topNavJson from './topnav.json';
@@ -69,29 +72,50 @@ async function loadPages(): Promise<PageIndex> {
 	return pages;
 }
 
-let cachedDates: Map<string, string> | null = null;
+/** A commit touching more content files than this is a sweep (a rename, a URL migration), not an update to each page. */
+const SWEEP_FILES = 100;
 
-/** Last commit date per content file, from one git pass; file mtime when there is no history. */
+let cachedDates: Map<string, string> | null = null;
+let sweepDates: Map<string, string> | null = null;
+
+/**
+ * Last commit date per content file, from one git pass. Sweeps only count for a file
+ * nothing else ever touched; a file with no history at all falls back to its mtime.
+ */
 function lastUpdated(filePath?: string): string | undefined {
 	if (!filePath) return undefined;
-	if (!cachedDates) {
-		cachedDates = new Map();
+	if (!cachedDates || !sweepDates) {
+		const dates = new Map<string, string>();
+		const sweeps = new Map<string, string>();
 		try {
 			const log = execFileSync('git', ['log', '--format=%cI', '--name-only', '--diff-filter=AMR', '--', 'src/content/docs'], {
 				encoding: 'utf8',
 				maxBuffer: 64 * 1024 * 1024,
 			});
 			let date = '';
+			let files: string[] = [];
+			const flush = () => {
+				const target = files.length > SWEEP_FILES ? sweeps : dates;
+				for (const file of files) if (!target.has(file)) target.set(file, date);
+				files = [];
+			};
 			for (const line of log.split('\n')) {
 				if (!line) continue;
-				if (/^\d{4}-\d{2}-\d{2}T/.test(line)) date = line;
-				else if (!cachedDates.has(line)) cachedDates.set(line, date);
+				if (/^\d{4}-\d{2}-\d{2}T/.test(line)) {
+					flush();
+					date = line;
+				} else {
+					files.push(line);
+				}
 			}
+			flush();
 		} catch {
 			/* no git available; every page falls back to its mtime */
 		}
+		cachedDates = dates;
+		sweepDates = sweeps;
 	}
-	const fromGit = cachedDates.get(filePath);
+	const fromGit = cachedDates.get(filePath) ?? sweepDates.get(filePath);
 	if (fromGit) return fromGit;
 	try {
 		return statSync(filePath).mtime.toISOString();
@@ -146,6 +170,32 @@ export async function getNavIndex(lang: Lang): Promise<Map<string, NavLocation>>
 	return index;
 }
 
+/** The tree that lists the page at this URL, if any. */
+export async function getTreeId(pathname: string, lang: Lang): Promise<string | undefined> {
+	return (await getNavIndex(lang)).get(withSlashes(pathname.split('?')[0].split('#')[0]))?.treeId;
+}
+
+const cachedFacts = new Map<Lang, Map<string, PageFacts>>();
+
+/** Facts of the page at this URL in its own language, as the content collection has them. */
+export async function getPageFacts(pathname: string, lang: Lang): Promise<PageFacts | undefined> {
+	let byHref = cachedFacts.get(lang);
+	if (!byHref) {
+		byHref = new Map();
+		for (const entry of (await getNavData()).pages.values()) {
+			const facts = entry[lang];
+			if (facts?.permalink) byHref.set(`/${lang}${withSlashes(facts.permalink)}`, facts);
+		}
+		cachedFacts.set(lang, byHref);
+	}
+	return byHref.get(withSlashes(pathname.split('?')[0].split('#')[0]));
+}
+
+/** Where a page lives in this language, falling back to English. */
+export async function getPageHref(namespace: string, lang: Lang): Promise<string | undefined> {
+	return pageHref(await getNavData(), namespace, lang);
+}
+
 export type { Lang } from './schema';
 export type {
 	Crumb,
@@ -155,6 +205,7 @@ export type {
 	MenuNode,
 	NavLocation,
 	Neighbour,
+	PageFacts,
 	SidebarHeader,
 	SidebarModel,
 	TopNavModel,
