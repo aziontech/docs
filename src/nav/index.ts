@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import { statSync } from 'node:fs';
+
 import { getCollection } from 'astro:content';
 
 import { navRoot, navTree, navVideos, topNav, type Lang, type NavTree } from './schema';
@@ -56,6 +59,7 @@ async function loadPages(): Promise<PageIndex> {
 			permalink: entry.data.permalink?.trim(),
 			title: entry.data.title?.trim(),
 			description: entry.data.description?.trim(),
+			updated: lastUpdated(entry.filePath),
 		};
 		const existing = pages.get(namespace) ?? {};
 		existing[lang] = facts;
@@ -63,6 +67,37 @@ async function loadPages(): Promise<PageIndex> {
 	}
 	cachedPages = pages;
 	return pages;
+}
+
+let cachedDates: Map<string, string> | null = null;
+
+/** Last commit date per content file, from one git pass; file mtime when there is no history. */
+function lastUpdated(filePath?: string): string | undefined {
+	if (!filePath) return undefined;
+	if (!cachedDates) {
+		cachedDates = new Map();
+		try {
+			const log = execFileSync('git', ['log', '--format=%cI', '--name-only', '--diff-filter=AMR', '--', 'src/content/docs'], {
+				encoding: 'utf8',
+				maxBuffer: 64 * 1024 * 1024,
+			});
+			let date = '';
+			for (const line of log.split('\n')) {
+				if (!line) continue;
+				if (/^\d{4}-\d{2}-\d{2}T/.test(line)) date = line;
+				else if (!cachedDates.has(line)) cachedDates.set(line, date);
+			}
+		} catch {
+			/* no git available; every page falls back to its mtime */
+		}
+	}
+	const fromGit = cachedDates.get(filePath);
+	if (fromGit) return fromGit;
+	try {
+		return statSync(filePath).mtime.toISOString();
+	} catch {
+		return undefined;
+	}
 }
 
 export async function getNavData(): Promise<NavData> {

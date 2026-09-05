@@ -28,6 +28,9 @@ export default UIDictionary({
 	'guides.previous': 'Página anterior',
 	'guides.next': 'Próxima página',
 	'guides.range': 'Mostrando {start} a {end} de {total}',
+	'guides.table.name': 'Nome',
+	'guides.table.type': 'Tipo',
+	'guides.table.updated': 'Última atualização',
 	// Top navigation
 	'topNav.a11yTitle': 'Documentação',
 	'topNav.products': 'Produtos',

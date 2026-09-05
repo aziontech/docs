@@ -26,6 +26,9 @@ export default {
 	'guides.previous': 'Previous page',
 	'guides.next': 'Next page',
 	'guides.range': 'Showing {start} to {end} of {total}',
+	'guides.table.name': 'Name',
+	'guides.table.type': 'Type',
+	'guides.table.updated': 'Last updated',
 	// Top navigation
 	'topNav.a11yTitle': 'Documentation',
 	'topNav.products': 'Products',

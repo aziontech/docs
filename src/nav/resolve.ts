@@ -4,6 +4,8 @@ export interface PageFacts {
 	permalink?: string;
 	title?: string;
 	description?: string;
+	/** ISO date of the last commit that touched the source file. */
+	updated?: string;
 }
 
 /** Page facts read from the content collection, keyed by namespace then language. */
@@ -552,6 +554,7 @@ export interface CatalogEntry {
 	products: string[];
 	/** Shown beside the kind: the first product, or the area the guide sits in. */
 	topic: string;
+	updated?: string;
 	external?: boolean;
 }
 
@@ -584,13 +587,15 @@ export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): Guid
 					const href = pageHref(data, row.page, lang);
 					if (!href) continue;
 					const products = row.products ?? [];
+					const facts = pageFacts(data, row.page, lang);
 					push({
 						label: nodeLabel(data, row, lang),
 						href,
-						description: pageFacts(data, row.page, lang)?.description,
+						description: facts?.description,
 						kind: row.kind ?? sub.kind ?? area.kind ?? 'tutorial',
 						products,
 						topic: products[0] ? productLabel(products[0]) : areaLabel,
+						updated: facts?.updated,
 					});
 				}
 			}
