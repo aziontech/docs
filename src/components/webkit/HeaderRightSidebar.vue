@@ -46,6 +46,25 @@
 						class="mb-(--spacing-md)"
 					/>
 
+					<div
+						v-if="menuHeader"
+						class="mb-(--spacing-xs) flex items-center gap-(--spacing-xs)"
+					>
+						<IconButton
+							icon="pi pi-arrow-left"
+							kind="outlined"
+							size="small"
+							:aria-label="menuHeader.backLabel"
+							:href="menuHeader.backHref"
+						/>
+						<a
+							:href="menuHeader.href"
+							class="truncate text-label-md text-(--text-default) no-underline"
+						>
+							{{ menuHeader.title }}
+						</a>
+					</div>
+
 					<DocsSidebarMenu
 						v-if="menuGroups?.length"
 						:groups="menuGroups"
@@ -169,6 +188,7 @@
 		menuActiveId: { type: String, default: '' },
 		menuExpanded: { type: Array, default: () => [] },
 		menuAriaLabel: { type: String, default: 'Menu' },
+		menuHeader: { type: Object, default: null },
 		directoryGroups: { type: Array, default: null },
 		directoryAriaLabel: { type: String, default: 'Directory' }
 	})

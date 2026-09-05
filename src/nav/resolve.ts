@@ -31,11 +31,20 @@ export interface NavData {
 	pages: PageIndex;
 }
 
+/** What the rail shows above the rows when a tree owns the page. */
+export interface SidebarHeader {
+	title: string;
+	href?: string;
+	backHref: string;
+	backLabel: string;
+}
+
 export interface SidebarModel {
 	groups: MenuGroupNode[];
 	activeId: string;
 	expandedIds: string[];
 	treeId: string | null;
+	header: SidebarHeader | null;
 }
 
 /** Where a row lives: which tree, which group, and the rows above it. */
@@ -292,11 +301,10 @@ function groupsToMenu(
 	lang: Lang,
 	idPrefix: string,
 	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string },
-	firstGroupLabel?: string,
 ): MenuGroupNode[] {
 	return groups
-		.map((group, index) => ({
-			label: text(group.label, lang) ?? (index === 0 ? firstGroupLabel : undefined),
+		.map((group) => ({
+			label: text(group.label, lang),
 			items: toMenuNodes(data, group.items, lang, idPrefix, ctx, []),
 		}))
 		.filter((group) => group.items.length > 0);
@@ -313,25 +321,27 @@ export function resolveSidebar(data: NavData, pathname: string, lang: Lang): Sid
 		comingSoonHref: pageHref(data, COMING_SOON, lang),
 	};
 
-	if (!location) {
-		const groups = groupsToMenu(data, data.root.groups, lang, 'root', ctx);
-		return { groups, activeId: ctx.activeId, expandedIds: unique(ctx.expanded), treeId: null };
-	}
+	const tree = location ? data.trees.get(location.treeId) : undefined;
 
-	const tree = data.trees.get(location.treeId);
 	if (!tree) {
 		const groups = groupsToMenu(data, data.root.groups, lang, 'root', ctx);
-		return { groups, activeId: ctx.activeId, expandedIds: unique(ctx.expanded), treeId: null };
+		return { groups, activeId: ctx.activeId, expandedIds: unique(ctx.expanded), treeId: null, header: null };
 	}
 
 	const back = backRow(data, tree, lang);
-	const groups = groupsToMenu(data, tree.groups, lang, tree.id, ctx, text(tree.title, lang));
+	const groups = groupsToMenu(data, tree.groups, lang, tree.id, ctx);
 
 	return {
-		groups: back ? [{ items: [back] }, ...groups] : groups,
+		groups,
 		activeId: ctx.activeId,
 		expandedIds: unique(ctx.expanded),
 		treeId: tree.id,
+		header: {
+			title: text(tree.title, lang) ?? tree.id,
+			href: tree.root ? pageHref(data, tree.root, lang) : undefined,
+			backHref: back?.href ?? `/${lang}/${DOCS_BASE[lang]}/`,
+			backLabel: back?.label ?? 'All products',
+		},
 	};
 }
 

@@ -1,13 +1,20 @@
 <template>
 	<Menu
+		v-if="visibleGroups.length"
 		ref="menuRef"
 		v-model:expanded="expanded"
-		:groups="groups"
+		:groups="visibleGroups"
 		:active-id="activeId"
 		:role="presentation ? 'presentation' : undefined"
 		:aria-label="ariaLabel"
 		@navigate="onNavigate"
 	/>
+	<p
+		v-else
+		class="px-(--spacing-sm) py-(--spacing-xs) text-body-sm text-(--text-muted)"
+	>
+		{{ noMatchesLabel }}
+	</p>
 </template>
 
 <script setup>
@@ -31,15 +38,52 @@
 	 * next page.
 	 */
 	import Menu from '@aziontech/webkit/menu';
-	import { onMounted, ref, watch } from 'vue';
+	import { computed, onMounted, ref, watch } from 'vue';
 
 	const props = defineProps({
 		groups: { type: Array, required: true },
 		activeId: { type: String, default: '' },
 		initialExpanded: { type: Array, default: () => [] },
 		ariaLabel: { type: String, default: 'Menu' },
-		presentation: { type: Boolean, default: false }
+		presentation: { type: Boolean, default: false },
+		filter: { type: String, default: '' },
+		noMatchesLabel: { type: String, default: 'No rows match.' }
 	});
+
+	/*
+		A row survives the filter when its label matches or a descendant does. A
+		matching fold keeps all its children, so a reader who typed the group's
+		name sees what it holds; a fold kept only for a descendant is pruned to
+		the rows that matched.
+	*/
+	const query = computed(() => props.filter.trim().toLowerCase());
+
+	function prune(nodes) {
+		return nodes.flatMap((node) => {
+			const own = node.label.toLowerCase().includes(query.value);
+			const kids = node.children ? prune(node.children) : [];
+			if (own) return [node];
+			if (kids.length) return [{ ...node, children: kids }];
+			return [];
+		});
+	}
+
+	const visibleGroups = computed(() => {
+		if (!query.value) return props.groups;
+		return props.groups
+			.map((group) => ({ ...group, items: prune(group.items) }))
+			.filter((group) => group.items.length > 0);
+	});
+
+	function foldIds(nodes, out = []) {
+		for (const node of nodes) {
+			if (node.children?.length) {
+				out.push(node.id);
+				foldIds(node.children, out);
+			}
+		}
+		return out;
+	}
 
 	const EXPANDED_KEY = 'docs-sidebar-expanded';
 
@@ -69,10 +113,26 @@
 	});
 
 	watch(expanded, (value) => {
+		if (query.value) return;
 		try {
 			sessionStorage.setItem(EXPANDED_KEY, JSON.stringify(value));
 		} catch {
 			// ignore — see above
+		}
+	});
+
+	// While a filter is typed every surviving fold is open; clearing it restores
+	// the folds the reader had open before.
+	let restore = null;
+	watch(query, (value, previous) => {
+		if (value && !previous) restore = [...expanded.value];
+		if (value) {
+			expanded.value = visibleGroups.value.flatMap((group) => foldIds(group.items));
+			return;
+		}
+		if (restore) {
+			expanded.value = restore;
+			restore = null;
 		}
 	});
 

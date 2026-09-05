@@ -20,11 +20,47 @@
 		class="h-full w-(--rail-w)"
 		:style="railWidthStyle"
 	>
+		<template #header>
+			<SidebarHeader class="flex flex-col gap-(--spacing-sm) pt-(--spacing-sm)">
+				<div
+					v-if="header"
+					class="flex items-center gap-(--spacing-xs)"
+				>
+					<IconButton
+						icon="pi pi-arrow-left"
+						kind="outlined"
+						size="small"
+						:aria-label="header.backLabel"
+						:href="header.backHref"
+					/>
+					<a
+						:href="header.href"
+						class="truncate text-label-md text-(--text-default) no-underline"
+					>
+						{{ header.title }}
+					</a>
+				</div>
+				<InputText
+					ref="filterRef"
+					v-model="filter"
+					:placeholder="filterPlaceholder"
+					:aria-label="filterPlaceholder"
+					size="medium"
+				>
+					<template #iconRight>
+						<Kbd size="small">/</Kbd>
+					</template>
+				</InputText>
+			</SidebarHeader>
+		</template>
+
 		<DocsSidebarMenu
 			presentation
 			:groups="groups"
 			:active-id="activeId"
 			:initial-expanded="initialExpanded"
+			:filter="filter"
+			:no-matches-label="noMatchesLabel"
 		/>
 	</Sidebar>
 </template>
@@ -46,7 +82,11 @@
 	 * natural width the rail is seeded with before the reader ever drags it;
 	 * once sized, the persisted width takes over.
 	 */
+	import IconButton from '@aziontech/webkit/icon-button';
+	import InputText from '@aziontech/webkit/input-text';
+	import Kbd from '@aziontech/webkit/kbd';
 	import Sidebar from '@aziontech/webkit/sidebar';
+	import SidebarHeader from '@aziontech/webkit/sidebar-header';
 	import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 	import DocsSidebarMenu from './DocsSidebarMenu.vue';
@@ -55,8 +95,25 @@
 		groups: { type: Array, required: true },
 		activeId: { type: String, default: '' },
 		initialExpanded: { type: Array, default: () => [] },
-		ariaLabel: { type: String, default: 'Sidebar' }
+		header: { type: Object, default: null },
+		ariaLabel: { type: String, default: 'Sidebar' },
+		filterPlaceholder: { type: String, default: 'Filter sidebar' },
+		noMatchesLabel: { type: String, default: 'No rows match.' }
 	});
+
+	const filter = ref('');
+	const filterRef = ref(null);
+
+	// `/` jumps to the filter from anywhere on the page that is not already a field.
+	function onSlash(event) {
+		if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+		const target = event.target;
+		if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+		const input = filterRef.value?.$el?.querySelector?.('input') ?? filterRef.value?.$el;
+		if (!input) return;
+		event.preventDefault();
+		input.focus();
+	}
 
 	const COLLAPSED_KEY = 'docs-sidebar-collapsed';
 	const WIDTH_KEY = 'docs-sidebar-width';
@@ -99,9 +156,13 @@
 		}
 		remeasure();
 		railQuery?.addEventListener('change', remeasure);
+		window.addEventListener('keydown', onSlash);
 	});
 
-	onBeforeUnmount(() => railQuery?.removeEventListener('change', remeasure));
+	onBeforeUnmount(() => {
+		railQuery?.removeEventListener('change', remeasure);
+		window.removeEventListener('keydown', onSlash);
+	});
 
 	watch(collapsed, (value) => {
 		try {

@@ -118,6 +118,7 @@ export type {
 	MenuNode,
 	NavLocation,
 	Neighbour,
+	SidebarHeader,
 	SidebarModel,
 	TopNavModel,
 } from './resolve';

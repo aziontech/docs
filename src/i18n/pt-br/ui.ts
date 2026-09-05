@@ -24,6 +24,8 @@ export default UIDictionary({
 	'topNav.devtools': 'Ferramentas de desenvolvimento',
 	'topNav.signIn': 'Entrar',
 	// Left Sidebar
+	'leftSidebar.filter': 'Filtrar menu',
+	'leftSidebar.noMatches': 'Nenhuma linha corresponde.',
 	'leftSidebar.a11yTitle': 'Primária',
 	// Right Sidebar
 	'rightSidebar.onThisPage': 'Nesta página',

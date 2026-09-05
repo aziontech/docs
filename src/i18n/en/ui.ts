@@ -22,6 +22,8 @@ export default {
 	'topNav.devtools': 'Developer tools',
 	'topNav.signIn': 'Sign in',
 	// Left Sidebar
+	'leftSidebar.filter': 'Filter sidebar',
+	'leftSidebar.noMatches': 'No rows match.',
 	'leftSidebar.a11yTitle': 'Primary',
 	// Right Sidebar
 	'rightSidebar.a11yTitle': 'Secondary',
