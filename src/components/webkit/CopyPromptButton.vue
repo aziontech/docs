@@ -36,6 +36,7 @@
 						v-for="agent in agents"
 						:key="agent"
 						:name="agent"
+						mono
 						class="size-(--size-5)"
 					/>
 				</span>

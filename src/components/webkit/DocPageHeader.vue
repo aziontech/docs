@@ -18,11 +18,19 @@
 		@meta-action='onMetaAction'
 	>
 		<template #title>
-			<h1
-				id='overview'
-				class='m-0 w-full min-w-0 text-heading-2xl text-[var(--text-default)] sm:w-auto sm:flex-1 sm:text-heading-xl'
-				v-html='title'
-			/>
+			<slot name='title'>
+				<h1
+					id='overview'
+					class='m-0 w-full min-w-0 text-heading-2xl text-[var(--text-default)] sm:w-auto sm:flex-1 sm:text-heading-xl'
+					v-html='title'
+				/>
+			</slot>
+		</template>
+		<template
+			v-if='$slots.details'
+			#details
+		>
+			<slot name='details' />
 		</template>
 	</WkDocPageHeader>
 </template>
