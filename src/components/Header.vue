@@ -71,16 +71,26 @@
 
       <!-- GitHub, the docs bar's one external identity link. `outlined`, as in
            the sample: it sits with the bar's other icon controls and has to
-           read as one of them. -->
-      <IconButton
-        icon="pi pi-github"
-        kind="outlined"
-        size="medium"
-        aria-label="Azion on GitHub"
-        href="https://github.com/aziontech"
-        target="_blank"
-        class="shrink-0"
-      />
+           read as one of them.
+
+           The breakpoint wrappers below carry `hidden`, not the controls: a
+           webkit button sets its own display class on the same element and
+           wins the cascade, so `hidden` on the control never applies. Above
+           the breakpoint the wrapper is `contents`, so the control stays a
+           direct flex item of the bar. Below `sm` the bar (menu, wordmark,
+           search, Console) fits a 320px screen; the identity link and the
+           second call to action come back as the room does. -->
+      <div class="hidden sm:contents">
+        <IconButton
+          icon="pi pi-github"
+          kind="outlined"
+          size="medium"
+          aria-label="Azion on GitHub"
+          href="https://github.com/aziontech"
+          target="_blank"
+          class="shrink-0"
+        />
+      </div>
 
       <Button
         label="Console"
@@ -91,14 +101,16 @@
         class="shrink-0"
       />
 
-      <Button
-        :label="signInLabel"
-        kind="primary"
-        size="medium"
-        href="https://console.azion.com/login"
-        target="_blank"
-        class="hidden shrink-0 md:inline-flex"
-      />
+      <div class="hidden md:contents">
+        <Button
+          :label="signInLabel"
+          kind="primary"
+          size="medium"
+          href="https://console.azion.com/login"
+          target="_blank"
+          class="shrink-0"
+        />
+      </div>
     </GlobalHeader.Right>
   </GlobalHeader>
 </template>
