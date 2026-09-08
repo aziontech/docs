@@ -7,13 +7,6 @@ import { DOCS_BASE, withSlashes } from '../../src/nav/resolve';
 import { loadNav, readCorpus, REPO_ROOT, type CorpusPage } from './lib/load';
 import { readField } from './lib/frontmatter';
 
-/*
-	The de-para for this rework, built by comparing each page's permalink in a git
-	revision against the working tree. Taking the baseline from git rather than
-	from whatever moved the pages keeps the artifact reproducible and independent
-	of the order the migration ran in.
-*/
-
 const SITE = 'https://www.azion.com';
 const OUT_DIR = path.join(REPO_ROOT, 'redirects');
 const CONTENT = 'src/content/docs';
@@ -138,7 +131,6 @@ const url = (lang: Lang, permalink: string) => `${SITE}/${lang}${withSlashes(per
 const lastSegment = (permalink: string) => withSlashes(permalink).split('/').filter(Boolean).pop() ?? '';
 const csvField = (value: string) => (/[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
 
-/** Why a URL changed: the section whose path is now its prefix, and whether its last segment was renamed too. */
 function moveReason(move: Move): string {
 	const tree = data.trees.get(move.tree);
 	const treePath = tree ? (move.lang === 'en' ? tree.path.en : tree.path['pt-br'] ?? tree.path.en) : undefined;
@@ -148,11 +140,6 @@ function moveReason(move: Move): string {
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
-/*
-	The CSV states URL facts only: `changed` when the address moved, `unchanged`
-	when the same address still serves, whether or not the sidebar lists the page.
-	Being delisted is the Markdown's "retired" section, not a status here.
-*/
 const csv = ['old link,new link,status,reason'];
 
 for (const lang of LANGS) {

@@ -1,17 +1,4 @@
 <template>
-	<!--
-		Adapter over @aziontech/webkit's DocPageHeader. The masthead itself
-		(breadcrumb, title line, deck, meta line, closing rule) is the design
-		system's; what this wrapper adds is the docs site's own behavior:
-
-		- the `h1` keeps `id="overview"` (the "On this page" TOC anchors to it)
-		  and renders the title as HTML, which frontmatter titles may carry;
-		- the meta-line actions are wired: "Copy as Markdown" fetches the
-		  page's `.md` twin and puts it on the clipboard (with a transient
-		  "Copied!" label), "View as Markdown" is a plain link the built-in
-		  renders as a real anchor, "Agent setup" is the way to the agent
-		  pages, offered on every page that is not one of them.
-	-->
 	<WkDocPageHeader
 		:breadcrumb='breadcrumb'
 		:description='description'
@@ -53,12 +40,9 @@
 		title: string
 		description?: string
 		breadcrumb?: DocCrumb[]
-		/** The page's markdown twin, e.g. `/en/documentation/.../cache.md`. */
 		markdownHref: string
 		lang: string
-		/** ISO date of the last content change, `2026-06-30`. */
 		lastUpdated?: string
-		/** The Agent Setup section; absent on its own pages. */
 		agentSetupHref?: string
 	}>()
 

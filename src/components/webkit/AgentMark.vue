@@ -33,10 +33,8 @@
 	interface Mark {
 		label: string
 		viewBox: string
-		/** Single-path marks: drawn in the brand colour, or the current colour when `mono`. */
 		path?: string
 		color?: string
-		/** Multi-colour marks: the full artwork, or a single-path fallback when `mono`. */
 		body?: string
 		monoPath?: string
 		monoViewBox?: string
@@ -56,7 +54,6 @@
 
 	const base = computed(() => MARKS[props.name])
 
-	/** Mono with a single-path fallback becomes that path; otherwise the mark as authored. */
 	const mark = computed<Mark>(() =>
 		props.mono && base.value.monoPath
 			? { label: base.value.label, viewBox: base.value.monoViewBox ?? base.value.viewBox, path: base.value.monoPath }

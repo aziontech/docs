@@ -1,4 +1,3 @@
-/** Line-level frontmatter edits, so a rewrite touches only the keys it targets. */
 
 const FENCE = /^---[ \t]*$/;
 
@@ -8,7 +7,6 @@ interface Block {
 	lines: string[];
 }
 
-/** Locates the frontmatter block. Tolerates the trailing space some files carry after the fence. */
 export function frontmatterBlock(source: string): Block | null {
 	const lines = source.split('\n');
 	if (!FENCE.test(lines[0] ?? '')) return null;
@@ -26,7 +24,6 @@ function keyLine(lines: string[], block: Block, key: string): number {
 	return -1;
 }
 
-/** Last line of a key's value, following a folded or literal scalar into its indented lines. */
 function valueEnd(lines: string[], block: Block, at: number): number {
 	const value = lines[at].slice(lines[at].indexOf(':') + 1).trim();
 	if (!/^[>|][-+]?\d*$/.test(value)) return at;
@@ -38,7 +35,6 @@ function valueEnd(lines: string[], block: Block, at: number): number {
 	return end;
 }
 
-/** Line span a field occupies, following a folded scalar into its indented lines. */
 export function fieldRange(source: string, key: string): [number, number] | null {
 	const block = frontmatterBlock(source);
 	if (!block) return null;

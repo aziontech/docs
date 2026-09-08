@@ -63,7 +63,6 @@ export function label(group: string, key: string, lang: Lang): string {
 	return t(labels[group]?.[key] ?? key, lang)
 }
 
-/** The row of tags under an agent's title: workflows, pricing, model, context, and open source when it applies. */
 export function agentTags(agent: Agent, lang: Lang): string[] {
 	return [
 		...agent.workflows.map((w) => label('filters', w, lang)),

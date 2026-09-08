@@ -7,7 +7,6 @@ export type InlineToken =
 
 const PATTERN = /\[\[(\w+):([^\]]+)\]\]|`([^`]+)`|\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)\s]+)\)/g
 
-/** Splits authored copy into plain text, `code`, **strong**, [links](url) and [[tooltip:terms]]. */
 export function tokenize(text: string): InlineToken[] {
 	const tokens: InlineToken[] = []
 	let last = 0

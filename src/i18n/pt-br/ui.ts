@@ -11,7 +11,6 @@ export default UIDictionary({
 	'site.og.imageSrc': '/default-og-image.png?v=1',
 	'site.og.imageAlt':
 		'a logo do astro em um estrelado pedaço do espaço, com um planeta roxo parecido com Saturno flutuando à direita',
-	// Guides home
 	'guides.search': 'Buscar por nome ou descrição',
 	'guides.filters': 'Filtros',
 	'guides.contentType': 'Tipo de conteúdo',
@@ -31,7 +30,6 @@ export default UIDictionary({
 	'guides.table.name': 'Nome',
 	'guides.table.type': 'Tipo',
 	'guides.table.updated': 'Última atualização',
-	// Top navigation
 	'topNav.a11yTitle': 'Documentação',
 	'topNav.products': 'Produtos',
 	'topNav.guides': 'Guias',

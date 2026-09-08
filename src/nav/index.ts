@@ -72,16 +72,11 @@ async function loadPages(): Promise<PageIndex> {
 	return pages;
 }
 
-/** A commit touching more content files than this is a sweep (a rename, a URL migration), not an update to each page. */
 const SWEEP_FILES = 100;
 
 let cachedDates: Map<string, string> | null = null;
 let sweepDates: Map<string, string> | null = null;
 
-/**
- * Last commit date per content file, from one git pass. Sweeps only count for a file
- * nothing else ever touched; a file with no history at all falls back to its mtime.
- */
 function lastUpdated(filePath?: string): string | undefined {
 	if (!filePath) return undefined;
 	if (!cachedDates || !sweepDates) {
@@ -110,7 +105,7 @@ function lastUpdated(filePath?: string): string | undefined {
 			}
 			flush();
 		} catch {
-			/* no git available; every page falls back to its mtime */
+			// no git: dates fall back to mtime
 		}
 		cachedDates = dates;
 		sweepDates = sweeps;
@@ -161,7 +156,6 @@ export async function getNeighbours(
 	return resolveNeighbours(await getNavData(), pathname, lang);
 }
 
-/** Permalink → tree location, memoized per language for the whole build. */
 export async function getNavIndex(lang: Lang): Promise<Map<string, NavLocation>> {
 	const hit = cachedIndex.get(lang);
 	if (hit) return hit;
@@ -170,14 +164,12 @@ export async function getNavIndex(lang: Lang): Promise<Map<string, NavLocation>>
 	return index;
 }
 
-/** The tree that lists the page at this URL, if any. */
 export async function getTreeId(pathname: string, lang: Lang): Promise<string | undefined> {
 	return (await getNavIndex(lang)).get(withSlashes(pathname.split('?')[0].split('#')[0]))?.treeId;
 }
 
 const cachedFacts = new Map<Lang, Map<string, PageFacts>>();
 
-/** Facts of the page at this URL in its own language, as the content collection has them. */
 export async function getPageFacts(pathname: string, lang: Lang): Promise<PageFacts | undefined> {
 	let byHref = cachedFacts.get(lang);
 	if (!byHref) {
@@ -191,7 +183,6 @@ export async function getPageFacts(pathname: string, lang: Lang): Promise<PageFa
 	return byHref.get(withSlashes(pathname.split('?')[0].split('#')[0]));
 }
 
-/** Where a page lives in this language, falling back to English. */
 export async function getPageHref(namespace: string, lang: Lang): Promise<string | undefined> {
 	return pageHref(await getNavData(), namespace, lang);
 }

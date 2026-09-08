@@ -4,11 +4,9 @@ export interface PageFacts {
 	permalink?: string;
 	title?: string;
 	description?: string;
-	/** ISO date of the last commit that touched the source file. */
 	updated?: string;
 }
 
-/** Page facts read from the content collection, keyed by namespace then language. */
 export type PageIndex = Map<string, Partial<Record<Lang, PageFacts>>>;
 
 export interface MenuNode {
@@ -34,7 +32,6 @@ export interface NavData {
 	pages: PageIndex;
 }
 
-/** What the rail shows above the rows when a tree owns the page. */
 export interface SidebarHeader {
 	title: string;
 	href?: string;
@@ -50,20 +47,16 @@ export interface SidebarModel {
 	header: SidebarHeader | null;
 }
 
-/** Where a row lives: which tree, which group, and the rows above it. */
 export interface NavLocation {
 	treeId: string;
 	nodeId: string;
 	ancestors: string[];
 	groupIndex: number;
-	/** URL segments contributed by the groups and folds above this row. */
 	segments: string[];
-	/** Permalink this row's page will own once the tree's URLs are applied. */
 	target: string;
 	node: NavNode;
 }
 
-/** One row reached while walking a tree, with the URL segments above it. */
 export interface WalkEntry {
 	tree: NavTree;
 	group: NavGroup;
@@ -77,7 +70,6 @@ export interface WalkEntry {
 
 export const DOCS_BASE: Record<Lang, string> = { en: 'documentation', 'pt-br': 'documentacao' };
 
-/** Namespace of the page every not-yet-written section points at. */
 export const COMING_SOON = 'documentation_coming_soon';
 
 export function text(value: Localized | undefined, lang: Lang): string | undefined {
@@ -115,7 +107,6 @@ function pageFacts(data: NavData, namespace: string, lang: Lang): PageFacts | un
 	return entry[lang] ?? entry.en;
 }
 
-/** True when the page exists in this language rather than falling back to English. */
 function hasOwnLanguage(data: NavData, namespace: string, lang: Lang): boolean {
 	return Boolean(data.pages.get(namespace)?.[lang]?.permalink);
 }
@@ -140,7 +131,6 @@ function nodeLabel(data: NavData, node: NavNode, lang: Lang): string {
 	return node.tree ?? node.page ?? '';
 }
 
-/** The row's live URL, taken from the page's current permalink so the tree renders correctly before and after a URL migration. */
 function nodeHref(data: NavData, node: NavNode, lang: Lang): string | undefined {
 	const withQuery = (href: string | undefined) =>
 		href && node.query ? `${href}?${node.query}` : href;
@@ -150,7 +140,6 @@ function nodeHref(data: NavData, node: NavNode, lang: Lang): string | undefined 
 		const tree = data.trees.get(node.tree);
 		if (!tree) return undefined;
 		if (tree.root) return pageHref(data, tree.root, lang);
-		// A tree with no landing page of its own sends the reader to the shared coming-soon page.
 		return pageHref(data, COMING_SOON, lang);
 	}
 	if (node.page) return withQuery(pageHref(data, node.page, lang));
@@ -174,7 +163,6 @@ function nodeIdentity(node: NavNode, lang: Lang, index: number): string {
 	return label ? slugify(label) : `row-${index}`;
 }
 
-/** Every row of a tree, depth-first, carrying the URL segments above it. */
 export function walkTree(tree: NavTree, lang: Lang): WalkEntry[] {
 	const out: WalkEntry[] = [];
 
@@ -196,7 +184,6 @@ export function walkTree(tree: NavTree, lang: Lang): WalkEntry[] {
 	return out;
 }
 
-/** The permalink a row's page takes once the tree's URL scheme is applied. */
 export function targetPermalink(data: NavData, entry: WalkEntry, lang: Lang): string | undefined {
 	const { tree, node, segments } = entry;
 	if (!node.page || node.linkOnly || node.placeholder) return undefined;
@@ -206,7 +193,6 @@ export function targetPermalink(data: NavData, entry: WalkEntry, lang: Lang): st
 
 	const explicit = text(node.slug, lang);
 	const current = data.pages.get(node.page)?.[lang]?.permalink ?? data.pages.get(node.page)?.en?.permalink;
-	// A row that contributes a segment and owns a page is that segment's index.
 	const slug = segmentText(node.segment, lang) ?? explicit ?? (current ? lastSegment(current) : slugify(nodeLabel(data, node, lang)));
 
 	return `/${[DOCS_BASE[lang], treePath, ...segments, slug].filter(Boolean).join('/')}/`;
@@ -257,7 +243,6 @@ function toMenuNodes(
 			? toMenuNodes(data, node.items, lang, id, ctx, [...ancestors, id])
 			: undefined;
 
-		// Several rows share the coming-soon page, so none of them may claim the active state.
 		const claimsActive = Boolean(href) && href !== ctx.comingSoonHref;
 		if (claimsActive && normalize(href!) === ctx.activePath) {
 			ctx.activeId = children?.length ? `${id}__index` : id;
@@ -426,7 +411,6 @@ export interface Crumb {
 	url?: string;
 }
 
-/** Tree title, the folds above the page, then the page itself. */
 export function resolveBreadcrumb(data: NavData, pathname: string, lang: Lang): Crumb[] {
 	const activePath = normalize(pathname);
 	const location = buildNavIndex(data, lang).get(activePath);
@@ -463,7 +447,6 @@ export interface Neighbour {
 	link: string;
 }
 
-/** Previous and next page in the reading order of the tree that owns this page. */
 export function resolveNeighbours(
 	data: NavData,
 	pathname: string,
@@ -494,7 +477,6 @@ export function resolveNeighbours(
 	return { previous: pick(at - 1), next: pick(at + 1) };
 }
 
-/** The top-nav directory as sidebar groups, for the viewport where there is no top nav. */
 export function buildDirectory(
 	data: NavData,
 	lang: Lang,
@@ -552,7 +534,6 @@ export interface CatalogEntry {
 	description?: string;
 	kind: GuideKind;
 	products: string[];
-	/** Shown beside the kind: the first product, or the area the guide sits in. */
 	topic: string;
 	updated?: string;
 	external?: boolean;
@@ -560,13 +541,10 @@ export interface CatalogEntry {
 
 export interface GuidesHomeModel {
 	entries: CatalogEntry[];
-	/** Kinds at least one entry has, in canonical order. */
 	kinds: GuideKind[];
-	/** Products at least one entry is tagged with, for the topic filter. */
 	products: { id: string; label: string }[];
 }
 
-/** The guides tree and the video list flattened into one filterable catalog. */
 export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): GuidesHomeModel {
 	const tree = data.trees.get(treeId);
 	const entries: CatalogEntry[] = [];

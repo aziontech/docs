@@ -1,15 +1,4 @@
 <template>
-	<!--
-		The "On this page" rail for the pricing pages, on the same webkit
-		DocOnThisPage the rest of the documentation uses (see
-		~/components/webkit/OnThisPage.vue). What it adds is the one thing
-		pricing needs and no other page does: the outline follows the currency
-		tab.
-
-		Both currencies repeat the same headings, so rehype-slug hands the
-		second copy a `-1` suffix. The rail therefore lists each heading once
-		and rewrites the anchor to whichever copy is currently on screen.
-	-->
 	<WkDocOnThisPage :items="items" :active-id="activeId" :title="labels.title" @select="onSelect" />
 </template>
 
@@ -31,19 +20,8 @@ const props = withDefaults(
 	{ sharedStore: 'pricing-tabs' }
 );
 
-/**
- * The currency tab currently chosen on the page. `dolar` is the tab the
- * pricing content declares first, so it is what the page shows until the
- * reader picks the other one.
- */
 const currentTab = useSharedTab(props.sharedStore, 'dolar');
 
-/**
- * The heading a rail entry should point at for the tab in view.
- *
- * The BRL panel is the second copy of the same headings, so its anchors
- * carry rehype-slug's `-1` suffix; the USD panel keeps the bare slug.
- */
 const anchorFor = (slug: string) => {
 	if (currentTab.value !== 'real') return slug;
 	return props.headings.some((heading) => heading.slug === `${slug}-1`) ? `${slug}-1` : slug;
@@ -70,14 +48,6 @@ const onSelect = (event: MouseEvent, item: DocTocItem) => {
 
 let observer: IntersectionObserver | null = null;
 
-/**
- * Watch the headings that are actually on screen.
- *
- * Both currency panels stay in the document — the tab view only hides the
- * inactive one — so the observer has to skip anything sitting under a
- * `hidden` panel, or the rail would light up on headings the reader cannot
- * see. Switching tabs swaps which copy is visible, hence the re-scan.
- */
 const observeVisibleHeadings = () => {
 	observer?.disconnect();
 

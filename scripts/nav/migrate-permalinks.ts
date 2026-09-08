@@ -6,13 +6,6 @@ import { targetPermalink, walkTree, withSlashes } from '../../src/nav/resolve';
 import { loadNav, REPO_ROOT, type CorpusPage } from './lib/load';
 import { removeField, setField } from './lib/frontmatter';
 
-/*
-	Applies the URL each page takes from its position in the tree, and drops the
-	menu_namespace field the new model replaces. The de-para is not written here:
-	`pnpm nav:url-map` derives it by diffing against a git revision, so the
-	artifact stays correct however many times this runs.
-*/
-
 const apply = process.argv.includes('--apply');
 
 const { data, corpus, issues } = loadNav();

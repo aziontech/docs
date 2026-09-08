@@ -1,9 +1,4 @@
 <template>
-	<!-- The directory half of the navigation: reachable from any page, and the
-	     only place the product one-liners and the developer tools appear. The
-	     sidebar answers "where am I", this answers "what else is there". It is
-	     an island because the sliding hover highlight and the disclosure panels
-	     only exist once Vue mounts. -->
 	<NavigationMenu
 		:aria-label="ariaLabel"
 		class="hidden lg:flex"

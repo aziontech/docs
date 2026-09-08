@@ -1,15 +1,4 @@
 <template>
-	<!--
-		Width goes through the `--rail-w` custom property instead of Sidebar's
-		own inline width. This entry compiles Tailwind with the `important`
-		flag (see main.css), so any `w-*` utility on the aside — including the
-		component's built-in `w-full` — beats the inline `width` the rail's
-		drag/collapse gestures set. Routing every state (seed, sized, 0 when
-		collapsed) through the variable keeps the utility winning while the
-		gesture still decides the value. The only casualty is the collapsed
-		rail's hover "peek" (an internal inline width), which degrades to the
-		expand button alone.
-	-->
 	<Sidebar
 		ref="sidebarRef"
 		v-model:collapsed="collapsed"
@@ -67,22 +56,6 @@
 </template>
 
 <script setup>
-	/**
-	 * The desktop docs rail: webkit `Sidebar` (resizable + collapsible, per the
-	 * DS reference shell) hosting the navigation tree. `Sidebar` owns the drag /
-	 * collapse gestures; this wrapper only persists their outcome, because the
-	 * site is an Astro MPA and the component remounts on every navigation.
-	 *
-	 * `collapsed` and `width` are localStorage (a sizing preference, like the
-	 * reference implementation); the fold state lives in DocsSidebarMenu.
-	 * Both are read after mount rather than at setup so SSR markup and
-	 * hydration agree — the cost is that a collapsed rail renders expanded
-	 * until the island hydrates.
-	 *
-	 * `w-(--container-xs)` (20rem, the previous fixed column) is only the
-	 * natural width the rail is seeded with before the reader ever drags it;
-	 * once sized, the persisted width takes over.
-	 */
 	import IconButton from '@aziontech/webkit/icon-button';
 	import InputText from '@aziontech/webkit/input-text';
 	import Kbd from '@aziontech/webkit/kbd';
@@ -105,7 +78,6 @@
 	const filter = ref('');
 	const filterWrap = ref(null);
 
-	// `/` jumps to the filter from anywhere on the page that is not already a field.
 	function onSlash(event) {
 		if (!railQuery?.matches) return;
 		if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -124,9 +96,6 @@
 	const width = ref(null);
 	const sidebarRef = ref(null);
 
-	// See the template comment: the rail's width, in every state, expressed as
-	// the variable `w-(--rail-w)` reads. `--container-xs` (20rem, the previous
-	// fixed column) is the natural width before the reader ever drags it.
 	const railWidthStyle = computed(() => ({
 		'--rail-w': collapsed.value
 			? '0px'
@@ -135,12 +104,6 @@
 				: 'var(--container-xs)'
 	}));
 
-	// `Sidebar` seeds `width` from its natural width on mount — but the aside
-	// is `display: none` below `lg`, and Astro may hydrate this island while
-	// the rail is hidden (narrow window, background tab), leaving the model
-	// null and the drag/collapse gestures without a width to work from. The
-	// spec's answer is the exposed `measure()`: re-run it when the rail
-	// becomes visible.
 	const railQuery =
 		typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)') : null;
 	const remeasure = () => {
@@ -154,7 +117,7 @@
 			const stored = Number(localStorage.getItem(WIDTH_KEY));
 			if (Number.isFinite(stored) && stored > 0) width.value = stored;
 		} catch {
-			// localStorage unavailable — the rail just starts at its natural width.
+			// storage unavailable
 		}
 		remeasure();
 		railQuery?.addEventListener('change', remeasure);
@@ -170,7 +133,7 @@
 		try {
 			localStorage.setItem(COLLAPSED_KEY, String(value));
 		} catch {
-			// ignore
+			// storage unavailable
 		}
 	});
 
@@ -179,7 +142,7 @@
 		try {
 			localStorage.setItem(WIDTH_KEY, String(Math.round(value)));
 		} catch {
-			// ignore
+			// storage unavailable
 		}
 	});
 </script>

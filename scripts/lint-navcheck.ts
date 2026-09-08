@@ -4,7 +4,6 @@ import { loadNav } from './nav/lib/load';
 
 const MAX_DEPTH = 3;
 const MAX_CHILDREN = 7;
-/** Mirrors the permalink rule enforced by test-frontmatter.js. */
 const PERMALINK_FORMAT = /^[a-z0-9\-|/]+$/;
 
 const errors: string[] = [];
@@ -106,7 +105,6 @@ for (const [namespace, target] of Object.entries(redirects)) {
 	if (target.tree && !data.trees.has(target.tree)) fail(`redirects.json: "${namespace}" replaced by unknown tree "${target.tree}"`);
 }
 
-/** Every page ends in exactly one row, one redirect row, or an explicit report. */
 const homes = new Map<string, string[]>();
 for (const tree of data.trees.values()) {
 	for (const entry of walkTree(tree, 'en')) {

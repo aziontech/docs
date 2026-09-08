@@ -14,7 +14,6 @@ export const baseSchema = z.object({
 	i18nReady: z.boolean().default(false),
 	githubURL: z.url().optional(),
 	hasREADME: z.boolean().optional(),
-	/** Set to false when the page opens with its own hero instead of the title block. */
 	page_header: z.boolean().default(true),
 })
 

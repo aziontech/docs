@@ -254,7 +254,6 @@
 
 	type PageItem = { type: 'page'; value: number; key: string } | { type: 'more'; key: string }
 
-	/* First, last, the current page and one neighbour each side; an ellipsis stands in for the rest. */
 	const pageItems = computed<PageItem[]>(() => {
 		const count = pageCount.value
 		const current = page.value
@@ -301,7 +300,6 @@
 		page.value = 1
 	}
 
-	/* The filters and the page live in the address (?q=, ?kind=, ?product=, ?page=), so a view can be linked. */
 	function readUrl() {
 		const params = new URLSearchParams(window.location.search)
 		query.value = params.get('q') ?? ''

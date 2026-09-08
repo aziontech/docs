@@ -27,7 +27,6 @@ export default tseslint.config(
 		},
 	},
 
-	// TypeScript (and the <script> blocks Astro/Vue hand over as .ts).
 	...tseslint.configs.recommended.map((config) => ({
 		...config,
 		files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
@@ -50,7 +49,6 @@ export default tseslint.config(
 	...astro.configs.recommended,
 	...vue.configs['flat/recommended'],
 
-	// Vue SFCs: the design-system rules from the webkit plugin apply here.
 	{
 		files: ['**/*.vue'],
 		languageOptions: {
@@ -60,9 +58,7 @@ export default tseslint.config(
 			},
 		},
 		rules: {
-			// Docs components are single-word by convention (Footer.vue, Tag.vue).
 			'vue/multi-word-component-names': 'off',
-			// Formatting is Prettier's job — these rules only fight it.
 			'vue/html-indent': 'off',
 			'vue/html-quotes': 'off',
 			'vue/html-self-closing': 'off',
@@ -74,7 +70,6 @@ export default tseslint.config(
 
 	...webkit.configs.recommended,
 
-	// Node-only tooling: build scripts, plugins and configs.
 	{
 		files: [
 			'*.{js,mjs,cjs,ts}',

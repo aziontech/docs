@@ -9,10 +9,8 @@ const MAP_DIR = path.join(REPO_ROOT, 'redirects');
 const SITE = 'https://www.azion.com';
 const apply = process.argv.includes('--apply');
 
-/** Directories whose files may link to a documentation URL. */
 const SCAN = ['src/content/docs', 'src/includes', 'src/i18n', 'src/components', 'src/layouts', 'src/pages', 'src/data'];
 const EXTENSIONS = new Set(['.mdx', '.md', '.ts', '.js', '.astro', '.vue', '.json']);
-/** The legacy menu modules the new model replaces; retargeting them would only churn a file that is about to go. */
 const LEGACY_MENUS = new Set([
 	'nav.ts',
 	'headerMenu.ts',
@@ -46,18 +44,11 @@ for (const lang of LANGS) {
 	for (const row of JSON.parse(fs.readFileSync(file, 'utf8')) as Row[]) {
 		const from = row.from.replace(SITE, '');
 		const moved = row.moved.replace(SITE, '');
-		// With the language prefix, as links in content are written.
 		replacements.set(from, moved);
-		// And without it, for the few links that omit it.
 		replacements.set(from.replace(`/${lang as Lang}`, ''), moved.replace(`/${lang as Lang}`, ''));
 	}
 }
 
-/*
-	One pass, longest path first, so a parent path never rewrites the head of a
-	child that has its own row. The trailing guard rejects a match that another
-	segment continues, which is what makes a sequential replace corrupt URLs.
-*/
 const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const keys = [...replacements.keys()].sort((a, b) => b.length - a.length);
 const pattern = new RegExp(`(${keys.map((key) => escape(key.replace(/\/$/, ''))).join('|')})(\\/?)(?![A-Za-z0-9_\\-/])`, 'g');
@@ -92,13 +83,6 @@ for (const dir of SCAN) {
 				return target;
 			});
 
-		/*
-			A page's own address is migrate-permalinks' business: rewriting it here
-			would point a retired page at its replacement and claim that URL twice.
-			Only that field is protected, and by line span rather than by name,
-			because a folded scalar puts the value on its own line. Everything else,
-			including a description or a card link that carries a URL, is retargeted.
-		*/
 		const isContent = ['.md', '.mdx'].includes(path.extname(file));
 		const protectedRange = isContent ? fieldRange(before, 'permalink') : null;
 		let after: string;

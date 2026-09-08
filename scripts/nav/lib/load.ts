@@ -17,7 +17,6 @@ export interface CorpusPage {
 	permalink: string;
 	title: string;
 	description: string;
-	/** True when the field is present at all, empty value included. */
 	hasMenuNamespace: boolean;
 	menuNamespace: string;
 }
@@ -70,7 +69,6 @@ function readJson(file: string): unknown {
 export interface LoadResult {
 	data: NavData;
 	redirects: NavRedirects;
-	/** Namespaces kept out of every tree on purpose, mapped to the reason. */
 	exempt: Record<string, string>;
 	corpus: CorpusPage[];
 	issues: string[];
