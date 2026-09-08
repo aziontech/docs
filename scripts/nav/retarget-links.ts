@@ -10,7 +10,7 @@ const SITE = 'https://www.azion.com';
 const apply = process.argv.includes('--apply');
 
 /** Directories whose files may link to a documentation URL. */
-const SCAN = ['src/content/docs', 'src/i18n', 'src/components', 'src/layouts', 'src/pages', 'src/data'];
+const SCAN = ['src/content/docs', 'src/includes', 'src/i18n', 'src/components', 'src/layouts', 'src/pages', 'src/data'];
 const EXTENSIONS = new Set(['.mdx', '.md', '.ts', '.js', '.astro', '.vue', '.json']);
 /** The legacy menu modules the new model replaces; retargeting them would only churn a file that is about to go. */
 const LEGACY_MENUS = new Set([
