@@ -109,6 +109,12 @@ const socialButtons = [
     link: "https://discord.gg/Yp9N7RMVZy",
     icon: "pi pi-discord"
   },
+  {
+    title: "Reddit",
+    target: "_blank",
+    link: "https://www.reddit.com/r/aziontech",
+    icon: "pi pi-reddit"
+  },
   // {
   //   title: "Medium",
   //   link: "https://medium.com/aziontech",

@@ -4,7 +4,7 @@
 		:title="label"
 		target="_blank"
 		rel="noopener noreferrer"
-		class="flex h-8 w-fit items-center whitespace-nowrap rounded-[var(--shape-button)] border border-default bg-surface px-4 no-underline transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring-color)]"
+		class="flex h-8 w-fit items-center whitespace-nowrap rounded-(--shape-elements) no-underline transition-opacity hover:opacity-80 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ring-color)"
 	>
 		<StatusIndicator :severity="severity" :label="capitalizeLetter(String(label).trim())" />
 	</a>

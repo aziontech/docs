@@ -42,7 +42,8 @@ const onSelect = (event: MouseEvent, item: DocTocItem) => {
 	const target = document.getElementById(item.id);
 	if (!target) return;
 
-	window.scrollTo({ top: target.offsetTop - 96, behavior: 'smooth' });
+	// The content column scrolls, not the window; the heading's scroll-margin sets the offset.
+	target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	activeId.value = item.id;
 };
 

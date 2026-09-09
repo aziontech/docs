@@ -17,6 +17,9 @@ export interface MenuNode {
 	target?: '_self' | '_blank';
 	tagValue?: string;
 	children?: MenuNode[];
+	/** `drill` pushes `groups` as a level of its own instead of expanding `children` in place. */
+	kind?: 'inline' | 'drill';
+	groups?: MenuGroupNode[];
 }
 
 export interface MenuGroupNode {
@@ -32,23 +35,19 @@ export interface NavData {
 	pages: PageIndex;
 }
 
-export interface SidebarHeader {
-	title: string;
-	href?: string;
-	backHref: string;
-	backLabel: string;
-}
-
 export interface SidebarModel {
 	groups: MenuGroupNode[];
 	activeId: string;
 	expandedIds: string[];
 	treeId: string | null;
-	header: SidebarHeader | null;
+	/** Drill stack the menu opens on: the catalog row of the tree the page belongs to. */
+	path: string[];
+	/** Text of the Back row that heads the drilled level; `null` at the catalog itself. */
+	backLabel: string | null;
 }
 
 export interface SidebarLabels {
-	allProducts: string;
+	back: string;
 }
 
 export interface NavLocation {
@@ -222,12 +221,19 @@ export function buildNavIndex(data: NavData, lang: Lang): NavIndex {
 	return byPermalink;
 }
 
+interface MenuContext {
+	activePath: string;
+	activeId: string;
+	expanded: string[];
+	comingSoonHref?: string;
+}
+
 function toMenuNodes(
 	data: NavData,
 	nodes: NavNode[],
 	lang: Lang,
 	parentId: string,
-	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string },
+	ctx: MenuContext,
 	ancestors: string[],
 ): MenuNode[] {
 	const out: MenuNode[] = [];
@@ -288,7 +294,7 @@ function groupsToMenu(
 	groups: NavGroup[],
 	lang: Lang,
 	idPrefix: string,
-	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string },
+	ctx: MenuContext,
 ): MenuGroupNode[] {
 	return groups
 		.map((group) => ({
@@ -307,10 +313,10 @@ export function resolveSidebar(
 ): SidebarModel {
 	const activePath = normalize(pathname);
 	const location = index.get(activePath);
-	const ctx = {
+	const ctx: MenuContext = {
 		activePath,
 		activeId: '',
-		expanded: [] as string[],
+		expanded: [],
 		comingSoonHref: pageHref(data, COMING_SOON, lang),
 	};
 
@@ -318,47 +324,46 @@ export function resolveSidebar(
 
 	if (!tree) {
 		const groups = groupsToMenu(data, data.root.groups, lang, 'root', ctx);
-		return { groups, activeId: ctx.activeId, expandedIds: unique(ctx.expanded), treeId: null, header: null };
+		return { groups, activeId: ctx.activeId, expandedIds: unique(ctx.expanded), treeId: null, path: [], backLabel: null };
 	}
 
-	const back = backRow(data, tree, lang, labels);
-	const groups = groupsToMenu(data, tree.groups, lang, tree.id, ctx);
+	// The catalog the tree is listed in stays the menu's root, and the tree is a level drilled
+	// from a placeholder row appended to it (hidden by `DocsSidebarMenu`), so the Back row pops
+	// to a catalog whose product rows are all still plain links — no row turns into a trigger.
+	const catalog = catalogOf(data, tree, lang, labels);
+	const treeGroups = groupsToMenu(data, tree.groups, lang, tree.id, ctx);
+	const groups = groupsToMenu(data, catalog.groups, lang, catalog.idPrefix, ctx);
+	const level: MenuNode = {
+		id: `${catalog.idPrefix}/${LEVEL_ROW}${tree.id}`,
+		label: text(tree.title, lang) ?? tree.id,
+		kind: 'drill',
+		groups: treeGroups,
+	};
+	groups.push({ items: [level] });
 
 	return {
 		groups,
 		activeId: ctx.activeId,
 		expandedIds: unique(ctx.expanded),
 		treeId: tree.id,
-		header: {
-			title: text(tree.title, lang) ?? tree.id,
-			href: tree.root ? pageHref(data, tree.root, lang) : undefined,
-			backHref: back?.href ?? `/${lang}/${DOCS_BASE[lang]}/`,
-			backLabel: back?.label ?? labels.allProducts,
-		},
+		path: [level.id],
+		backLabel: catalog.backLabel,
 	};
 }
 
-function backRow(data: NavData, tree: NavTree, lang: Lang, labels: SidebarLabels): MenuNode | undefined {
-	const parentId = tree.parent || 'root';
-	if (parentId === 'root') {
-		return {
-			id: `${tree.id}#back`,
-			label: labels.allProducts,
-			icon: 'pi pi-arrow-left',
-			href: `/${lang}/${DOCS_BASE[lang]}/`,
-			target: '_self',
-		};
-	}
-	const parent = data.trees.get(parentId);
-	if (!parent) return undefined;
-	const href = parent.root ? pageHref(data, parent.root, lang) : pageHref(data, COMING_SOON, lang);
-	return {
-		id: `${tree.id}#back`,
-		label: text(parent.title, lang) ?? parentId,
-		icon: 'pi pi-arrow-left',
-		href,
-		target: '_self',
-	};
+/** Id prefix of the placeholder row that carries a drilled tree; `DocsSidebarMenu` hides it by this. */
+export const LEVEL_ROW = 'level:';
+
+/** Where a tree's row lives: the root catalog, or its parent tree's groups for a nested tree. */
+function catalogOf(
+	data: NavData,
+	tree: NavTree,
+	lang: Lang,
+	labels: SidebarLabels,
+): { groups: NavGroup[]; idPrefix: string; backLabel: string } {
+	const parent = tree.parent && tree.parent !== 'root' ? data.trees.get(tree.parent) : undefined;
+	if (parent) return { groups: parent.groups, idPrefix: parent.id, backLabel: text(parent.title, lang) ?? parent.id };
+	return { groups: data.root.groups, idPrefix: 'root', backLabel: labels.back };
 }
 
 function unique(values: string[]): string[] {

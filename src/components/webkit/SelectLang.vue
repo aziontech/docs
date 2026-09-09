@@ -1,37 +1,37 @@
 <template>
-	<span class="inline-flex h-8 items-center">
-		<Dropdown v-if="i18nPages" placement="auto" @select="onSelect">
-			<DropdownTrigger>
-				<span
-					class="flex h-8 items-center gap-2 rounded-[var(--shape-button)] border border-default bg-surface px-4 text-sm text-default transition-colors hover:bg-hover"
-				>
-					<span v-if="activeLang">{{ activeLang.lang }}</span>
-					<i class="pi pi-chevron-down text-xs" aria-hidden="true" />
-				</span>
-			</DropdownTrigger>
-
-			<DropdownGroup>
-				<DropdownOption
+	<!-- The reference footer's language control: webkit's Select at its 7rem measure, a globe
+	     leading the trigger, and the locale shown as its short code. -->
+	<div class="w-28">
+		<Select
+			v-if="i18nPages"
+			:model-value="current"
+			:display-value="code"
+			placeholder="Language"
+			@update:model-value="onSelect"
+		>
+			<Select.Trigger aria-label="Language">
+				<template #iconLeft>
+					<i
+						class="pi pi-globe text-(--text-muted)"
+						aria-hidden="true"
+					/>
+				</template>
+			</Select.Trigger>
+			<Select.Content>
+				<Select.Option
 					v-for="option in i18nPages"
 					:key="option.langPrefix"
-					:value="option.slug"
-					:selected="option.langPrefix === activeLang?.langPrefix"
+					:value="option.langPrefix"
 				>
-					<a :href="option.slug" class="block w-full text-inherit no-underline">{{
-						option.lang
-					}}</a>
-				</DropdownOption>
-			</DropdownGroup>
-		</Dropdown>
-	</span>
+					{{ code(option.langPrefix) }}
+				</Select.Option>
+			</Select.Content>
+		</Select>
+	</div>
 </template>
 
 <script setup>
-import Dropdown, {
-	DropdownGroup,
-	DropdownOption,
-	DropdownTrigger,
-} from '@aziontech/webkit/dropdown';
+import Select from '@aziontech/webkit/select';
 
 const props = defineProps({
 	i18nPages: {
@@ -45,11 +45,13 @@ const props = defineProps({
 	},
 });
 
-const activeLang = props.i18nPages
-	? props.i18nPages.find((p) => p.langPrefix === props.lang.toLowerCase())
-	: null;
+const current = props.lang.toLowerCase();
 
-function onSelect(_event, slug) {
-	window.location.assign(slug);
+/** `en` reads as `EN`, `pt-br` as `PT-BR`. */
+const code = (value) => String(value).toUpperCase();
+
+function onSelect(value) {
+	const page = props.i18nPages?.find((option) => option.langPrefix === value);
+	if (page && value !== current) window.location.assign(page.slug);
 }
 </script>

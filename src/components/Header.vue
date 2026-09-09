@@ -1,10 +1,16 @@
 <template>
+  <!-- The shell (BaseLayout) keeps the header in place — nothing sticks. `px` is forced past
+       the component's own `--spacing-md`: the reference header insets by `--spacing-lg`. -->
   <GlobalHeader
     aria-label="Azion documentation"
-    class="@container sticky top-0 z-50"
+    class="@container px-(--spacing-lg)!"
   >
     <GlobalHeader.Left class="justify-start!">
-      <slot name="mobile-nav" />
+      <!-- Boxed and dropped at `lg`: the drawer leaves an empty root element in the row, and as a
+           bare flex item it would take a gap of its own and push the brand off the header's inset. -->
+      <div class="flex items-center lg:hidden">
+        <slot name="mobile-nav" />
+      </div>
 
       <GlobalHeader.Brand>
         <a
@@ -31,7 +37,11 @@
     <GlobalHeader.Nav />
 
     <GlobalHeader.Right>
-      <slot name="dialog" />
+      <!-- Boxed for the same reason as the drawer: the command menu leaves an empty root element
+           beside the search trigger, which as a bare flex item would take a gap of its own. -->
+      <div class="flex items-center">
+        <slot name="dialog" />
+      </div>
 
       <div class="hidden sm:contents">
         <IconButton
@@ -53,17 +63,6 @@
         target="_blank"
         class="shrink-0"
       />
-
-      <div class="hidden md:contents">
-        <Button
-          :label="signInLabel"
-          kind="primary"
-          size="medium"
-          href="https://console.azion.com/login"
-          target="_blank"
-          class="shrink-0"
-        />
-      </div>
     </GlobalHeader.Right>
   </GlobalHeader>
 </template>
@@ -78,10 +77,6 @@
     homeHref: {
       type: String,
       default: '/'
-    },
-    signInLabel: {
-      type: String,
-      default: 'Sign in'
     }
   })
 </script>

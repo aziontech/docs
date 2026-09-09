@@ -6,14 +6,14 @@
 		resizable
 		collapsible
 		:aria-label="ariaLabel"
-		class="h-full w-(--rail-w)"
+		class="docs-sidebar h-full w-(--rail-w)"
 		:style="railWidthStyle"
 	>
+		<!-- The filter is ours, not the reference's: it stays by decision (Sep 9 2026). -->
 		<template #header>
 			<SidebarHeader class="pt-(--spacing-sm)">
 				<DocsSidebarFilter
 					v-model="filter"
-					:header="header"
 					:placeholder="filterPlaceholder"
 					:hotkey="isRail"
 				/>
@@ -25,9 +25,15 @@
 			:groups="groups"
 			:active-id="activeId"
 			:initial-expanded="initialExpanded"
+			:initial-path="initialPath"
+			:back-label="backLabel"
 			:filter="filter"
 			:no-matches-label="noMatchesLabel"
 		/>
+
+		<template #footer>
+			<ThemeSwitcher />
+		</template>
 	</Sidebar>
 </template>
 
@@ -38,12 +44,14 @@
 
 	import DocsSidebarFilter from './DocsSidebarFilter.vue';
 	import DocsSidebarMenu from './DocsSidebarMenu.vue';
+	import ThemeSwitcher from './DropdownThemeSwitcher.vue';
 
 	defineProps({
 		groups: { type: Array, required: true },
 		activeId: { type: String, default: '' },
 		initialExpanded: { type: Array, default: () => [] },
-		header: { type: Object, default: null },
+		initialPath: { type: Array, default: () => [] },
+		backLabel: { type: String, default: '' },
 		ariaLabel: { type: String, default: 'Sidebar' },
 		filterPlaceholder: { type: String, default: 'Filter sidebar' },
 		noMatchesLabel: { type: String, default: 'No rows match.' }
@@ -63,11 +71,12 @@
 			? '0px'
 			: width.value != null
 				? `${width.value}px`
-				: 'var(--container-xs)'
+				: 'var(--container-2xs)'
 	}));
 
 	const railQuery =
 		typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)') : null;
+	/** Whether this rail is the one on screen, so only it answers the `/` hotkey. */
 	const isRail = ref(false);
 	const remeasure = () => {
 		isRail.value = Boolean(railQuery?.matches);
@@ -108,3 +117,22 @@
 		}
 	});
 </script>
+
+<style>
+	/* The reference rail closes with one 56px band — theme switcher, then the collapse control —
+	   flush with the rail's edges. webkit 4.4.0 pads the footer region and stacks a bordered band
+	   inside it; these two rules flatten that to the reference geometry. Drop when webkit is bumped.
+	   main.css imports Tailwind with `important`, and an important declaration in an EARLIER layer
+	   outranks one in a later layer — hence `components` (before `utilities`) plus `!important`. */
+	@layer components {
+		.docs-sidebar [data-testid='layout-sidebar__footer'] {
+			padding: 0 var(--spacing-md) !important;
+		}
+
+		.docs-sidebar [data-testid='layout-sidebar__footer'] > div {
+			height: var(--size-14) !important;
+			padding-top: 0 !important;
+			border-color: var(--border-default) !important;
+		}
+	}
+</style>

@@ -210,7 +210,6 @@ export type {
 	NavLocation,
 	Neighbour,
 	PageFacts,
-	SidebarHeader,
 	SidebarLabels,
 	SidebarModel,
 	TopNavModel,

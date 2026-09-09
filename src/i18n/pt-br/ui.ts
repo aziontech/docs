@@ -38,7 +38,7 @@ export default UIDictionary({
 	'leftSidebar.filter': 'Filtrar menu',
 	'leftSidebar.noMatches': 'Nenhuma linha corresponde.',
 	'leftSidebar.a11yTitle': 'Primária',
-	'leftSidebar.allProducts': 'Todos os produtos',
+	'leftSidebar.back': 'Voltar para Docs',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Última atualização',
 	'pageHeader.copy': 'Copiar como Markdown',
@@ -50,6 +50,11 @@ export default UIDictionary({
 	'pageHeader.agentsTip': 'Conecte seu agente de código à Azion: CLI, servidor MCP e prompts.',
 	// Right Sidebar
 	'rightSidebar.onThisPage': 'Nesta página',
+	// `<DocCta>` at the foot of the rail
+	'rightSidebar.ctaTitle': 'Pronto para construir?',
+	'rightSidebar.ctaLabel': 'Implante sua primeira aplicação gratuitamente e escale conforme seu tráfego cresce. Sem cartão de crédito.',
+	'rightSidebar.ctaPrimary': 'Comece grátis',
+	'rightSidebar.ctaSecondary': 'Veja nossos planos',
 	'rightSidebar.overview': 'Visão geral',
 	'rightSidebar.community': 'Comunidade',
 	'rightSidebar.joinDiscord': 'Junte-se a nós no Discord',

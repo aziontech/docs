@@ -36,7 +36,7 @@ export default {
 	'leftSidebar.filter': 'Filter sidebar',
 	'leftSidebar.noMatches': 'No rows match.',
 	'leftSidebar.a11yTitle': 'Primary',
-	'leftSidebar.allProducts': 'All products',
+	'leftSidebar.back': 'Back to Docs',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Last updated',
 	'pageHeader.copy': 'Copy as Markdown',
@@ -49,6 +49,11 @@ export default {
 	// Right Sidebar
 	'rightSidebar.a11yTitle': 'Secondary',
 	'rightSidebar.onThisPage': 'On this page',
+	// `<DocCta>` at the foot of the rail
+	'rightSidebar.ctaTitle': 'Ready to build?',
+	'rightSidebar.ctaLabel': 'Deploy your first application for free and scale as your traffic grows. No credit card required.',
+	'rightSidebar.ctaPrimary': 'Start for free',
+	'rightSidebar.ctaSecondary': 'See our plans',
 	'rightSidebar.overview': 'Overview',
 	'rightSidebar.community': 'Community',
 	'rightSidebar.joinDiscord': 'Join us on Discord',

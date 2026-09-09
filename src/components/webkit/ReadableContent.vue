@@ -13,13 +13,10 @@
 		navigator.clipboard.writeText(window.location.href);
 	};
 
-	const controlScroll = (e) => {
-		const getOffsetTop = e.target.offsetTop - 96;
-
-		window.scrollTo({
-			top: getOffsetTop,
-			behavior: 'smooth'
-		});
+	// The content column scrolls, not the window; the heading's scroll-margin sets the offset.
+	const controlScroll = (anchor) => {
+		const heading = anchor.closest('h1, h2, h3, h4, h5, h6') ?? anchor;
+		heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	};
 
 	const onClickEvent = (e, parentElement) => {
@@ -27,7 +24,7 @@
 		window.history.pushState({}, '', parentElement.href);
 
 		copyToClipboard();
-		controlScroll(e);
+		controlScroll(parentElement);
 	};
 
 	onMounted(() => {

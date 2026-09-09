@@ -296,8 +296,8 @@
 	async function goTo(next: number) {
 		await loadCatalog()
 		page.value = Math.min(Math.max(1, next), pageCount.value)
-		const top = results.value?.getBoundingClientRect().top
-		if (top !== undefined) window.scrollTo({ top: top + window.scrollY - 80, behavior: 'smooth' })
+		// The content column scrolls, not the window.
+		results.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 	}
 
 	function overline(entry: Entry) {

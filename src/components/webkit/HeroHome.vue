@@ -3,7 +3,7 @@
 		data-doc-chrome
 		:title="title"
 		:description="description"
-		class="mt-(--spacing-xl)"
+		class="hero-home mb-12 sm:mb-16"
 	>
 		<template
 			v-if="buttons.length || note || prompt"
@@ -93,3 +93,29 @@
 		}
 	});
 </script>
+
+<style>
+	/* The reference hero (a newer webkit HeroTitle) spaces its rows by margin — description
+	   `mt-(--spacing-lg)`, actions `mt-(--spacing-xl)`, relaxed description leading — where 4.4.0
+	   uses a fixed 16px gap plus 8px. Same layer trick as the sidebar overrides: main.css imports
+	   Tailwind with `important`, so this sits in `components` with `!important`. Drop on bump. */
+	@layer components {
+		.hero-home {
+			gap: 0 !important;
+		}
+
+		.hero-home > h1 {
+			max-width: var(--container-2xl) !important;
+		}
+
+		.hero-home > p {
+			margin-top: var(--spacing-lg) !important;
+			line-height: 1.625 !important;
+			max-width: var(--container-xl) !important;
+		}
+
+		.hero-home > div:last-child {
+			margin-top: var(--spacing-xl) !important;
+		}
+	}
+</style>

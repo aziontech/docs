@@ -1,7 +1,7 @@
 <template>
 	<NavigationMenu
 		:aria-label="ariaLabel"
-		class="hidden lg:flex"
+		class="hidden lg:flex lg:ml-(--spacing-xs)"
 	>
 		<NavigationMenu.List class="items-center gap-(--spacing-xxs)">
 			<template

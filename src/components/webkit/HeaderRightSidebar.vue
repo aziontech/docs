@@ -25,7 +25,6 @@
 					<DocsSidebarFilter
 						v-model="filter"
 						class="mb-(--spacing-sm)"
-						:header="menuHeader"
 						:placeholder="menuFilterPlaceholder"
 						:hotkey="open"
 					/>
@@ -35,6 +34,8 @@
 						:groups="menuGroups"
 						:active-id="menuActiveId"
 						:initial-expanded="menuExpanded"
+						:initial-path="menuPath"
+						:back-label="menuBackLabel"
 						:aria-label="menuAriaLabel"
 						:filter="filter"
 						:no-matches-label="menuNoMatchesLabel"
@@ -151,7 +152,8 @@
 		menuActiveId: { type: String, default: '' },
 		menuExpanded: { type: Array, default: () => [] },
 		menuAriaLabel: { type: String, default: 'Menu' },
-		menuHeader: { type: Object, default: null },
+		menuPath: { type: Array, default: () => [] },
+		menuBackLabel: { type: String, default: '' },
 		menuFilterPlaceholder: { type: String, default: 'Filter sidebar' },
 		menuNoMatchesLabel: { type: String, default: 'No rows match.' },
 		directoryGroups: { type: Array, default: null },

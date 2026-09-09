@@ -1,14 +1,12 @@
 <template>
-	<WkScrollArea class='h-full'>
-		<WkDocOnThisPage
-			:items='items'
-			:active-id='activeId'
-			:title='title'
-			:groups='groups'
-			@select='onSelect'
-			@click='onLinkClick'
-		/>
-	</WkScrollArea>
+	<WkDocOnThisPage
+		:items='items'
+		:active-id='activeId'
+		:title='title'
+		:groups='groups'
+		@select='onSelect'
+		@click='onLinkClick'
+	/>
 </template>
 
 <script setup lang="ts">
@@ -18,7 +16,6 @@
 		type DocTocItem,
 		type DocTocLink
 	} from '@aziontech/webkit/doc-on-this-page'
-	import WkScrollArea from '@aziontech/webkit/scroll-area'
 
 	type Heading = { depth: number; slug: string; text: string }
 
@@ -29,28 +26,24 @@
 		defineProps<{
 			headings?: Heading[]
 			title?: string
-			initialHeadingTitle?: string
 			groups?: TrackedGroup[]
 		}>(),
 		{
 			headings: () => [],
 			title: 'On this page',
-			initialHeadingTitle: 'Overview',
 			groups: () => []
 		}
 	)
 
-	const items = computed<DocTocItem[]>(() => {
-		if (!props.headings.length) return []
-		return [
-			{ id: 'overview', text: props.initialHeadingTitle, depth: 2 },
-			...props.headings
-				.filter(({ depth }) => depth > 1 && depth < 4)
-				.map(({ slug, text, depth }) => ({ id: slug, text, depth }))
-		]
-	})
+	// The page's own headings only — the reference rail opens on the first section, with no
+	// synthetic "Overview" entry for the masthead.
+	const items = computed<DocTocItem[]>(() =>
+		props.headings
+			.filter(({ depth }) => depth > 1 && depth < 4)
+			.map(({ slug, text, depth }) => ({ id: slug, text, depth }))
+	)
 
-	const activeId = ref('overview')
+	const activeId = ref(items.value[0]?.id ?? '')
 
 	const onSelect = (event: MouseEvent, item: DocTocItem) => {
 		event.preventDefault()
@@ -58,10 +51,8 @@
 		const target = document.getElementById(item.id)
 		if (!target) return
 
-		window.scrollTo({
-			top: target.offsetTop - 96,
-			behavior: 'smooth'
-		})
+		// The content column scrolls, not the window; the heading's scroll-margin sets the offset.
+		target.scrollIntoView({ behavior: 'smooth', block: 'start' })
 		activeId.value = item.id
 	}
 
