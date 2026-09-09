@@ -9,6 +9,7 @@
 		:markdown-href="markdownHref"
 		:locale="locale"
 		:labels="labels"
+		:last-updated="lastUpdated"
 	>
 		<template #title>
 			<div class="flex min-w-0 flex-col items-start gap-(--spacing-sm) sm:flex-1 sm:flex-row sm:items-center sm:gap-(--spacing-md)">
@@ -83,6 +84,7 @@
 		markdownHref: string
 		locale: string
 		labels: DocPageHeaderLabels
+		lastUpdated?: string
 		links: AgentLink[]
 	}>()
 

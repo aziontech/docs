@@ -85,7 +85,7 @@ function lastUpdated(filePath?: string): string | undefined {
 		const dates = new Map<string, string>();
 		const sweeps = new Map<string, string>();
 		try {
-			const log = execFileSync('git', ['log', '--format=%cI', '--name-only', '--diff-filter=AMR', '--', 'src/content/docs'], {
+			const log = execFileSync('git', ['log', '--format=%cI', '--name-only', '--diff-filter=AMR', '--', 'src/content/docs', 'src/data'], {
 				encoding: 'utf8',
 				maxBuffer: 64 * 1024 * 1024,
 			});
@@ -183,6 +183,10 @@ export async function getPageFacts(pathname: string, lang: Lang): Promise<PageFa
 		cachedFacts.set(lang, byHref);
 	}
 	return byHref.get(withSlashes(pathname.split('?')[0].split('#')[0]));
+}
+
+export function getLastChange(filePath: string): string | undefined {
+	return lastUpdated(filePath);
 }
 
 export async function getPageHref(namespace: string, lang: Lang): Promise<string | undefined> {

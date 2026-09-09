@@ -1,5 +1,5 @@
 import raw from '~/data/agent-setup.json'
-import { getPageHref, getTreeHref, type Lang } from '~/nav/index'
+import { getLastChange, getPageFacts, getPageHref, getTreeHref, type Lang } from '~/nav/index'
 
 import { agents } from './data'
 import { agentSetup } from './schema'
@@ -15,6 +15,14 @@ export async function agentHrefs(lang: Lang): Promise<Record<string, string>> {
 		if (href) hrefs[agent.slug] = href
 	}
 	return hrefs
+}
+
+export async function agentPageUpdated(pathname: string, lang: Lang): Promise<string | undefined> {
+	const dates = [(await getPageFacts(pathname, lang))?.updated, getLastChange('src/data/agent-setup.json')].filter(
+		(date): date is string => Boolean(date),
+	)
+	if (!dates.length) return undefined
+	return dates.sort((a, b) => Date.parse(a) - Date.parse(b)).pop()?.slice(0, 10)
 }
 
 /** The landing pages the agent header links to, as the navigation resolves them for `lang`. */
