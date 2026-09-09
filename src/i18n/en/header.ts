@@ -1,44 +1,3 @@
-const menuData = {
-  items: [
-		{
-      label: 'Documentation',
-      href: '/en/documentation/',
-      items: []
-    },
-		{
-      label: 'Guides',
-      href: '/en/documentation/products/guides/',
-      items: []
-    },
-		{
-      label: 'DevTools',
-      href: '/en/documentation/devtools/',
-      items: []
-    }
-  ]
-};
-
-const menuSecondary = [
-  {
-    text: "Contact",
-    title: "Contact Sales",
-    link: "/en/contact/",
-    destak: false,
-  },
-  {
-    text: "Sign in",
-    title: "Azion SSO Login",
-    link: "https://console.azion.com/login",
-    destak: false,
-  },
-  {
-    text: "Free account",
-    title: "Azion Free Account",
-    link: "https://console.azion.com/signup",
-    destak: true,
-  }
-];
-
 const menuSecondaryMobile = [
   {
     // label: 'Documents',
@@ -122,8 +81,6 @@ const algoliaModel = [
 const algoliaInputPlaceholder = "Type to search"
 
 export default {
-  menuData,
-  menuSecondary,
   menuSecondaryMobile,
   bottomButtonsMobile,
   algoliaIndex,

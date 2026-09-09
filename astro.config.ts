@@ -46,19 +46,12 @@ export default defineConfig({
 		astroAsides(),
 		astroCodeBlocks(),
 		mdx(),
-		// No appEntrypoint: the only global Vue plugin was vue-instantsearch,
-		// gone with the Algolia dialog (the palette talks to Algolia directly).
 		vue()
 	],
 	markdown: {
-		// Astro 7 defaults to the Sätteri (Rust) markdown pipeline, which does not
-		// run remark/rehype plugins. Keep the unified() processor until the custom
-		// plugins below are ported to Sätteri (planned as a follow-up).
 		processor: unified() as unknown as MarkdownConfig['processor'],
 		// Override with our own config
 		smartypants: false,
-		// The plugins below were written against unified 10 typings; they run
-		// fine on the unified() processor but Astro 7's plugin types reject them.
 		remarkPlugins: [
 			[remarkSmartypants, { dashes: false }],
 			// Add our custom plugin that marks links to fallback language pages
@@ -88,21 +81,11 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		{
-			// Astro 7 renders static pages in a dedicated `prerender` Vite
-			// environment that does not inherit the legacy `ssr.noExternal`
-			// list (and Astro overwrites `environments.prerender` wholesale in
-			// its build config).
 			name: 'azion:server-noexternal',
 			configEnvironment(name: string) {
 				if (name === 'client') return null;
 				return {
 					resolve: {
-						// `@aziontech/webkit` has to be bundled, not externalised:
-						// its `navigation-menu` entry is an `index.js` that imports
-						// `.vue` files, and Node cannot load those on its own
-						// ("Unknown file extension .vue"). Components whose entry is
-						// itself a `.vue` or a `.ts` happen to work either way, which
-						// is why this only surfaced when NavigationMenu was adopted.
 						noExternal: ['@astrojs/vue', '@aziontech/theme', '@aziontech/webkit'],
 						external: ['vue']
 					}

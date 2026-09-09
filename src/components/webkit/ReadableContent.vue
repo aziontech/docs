@@ -1,20 +1,4 @@
 <template>
-	<!--
-		Adapter over @aziontech/webkit's DocProse — the design system's
-		typography contract for documentation prose. Headings, paragraphs,
-		lists, links, inline code chips, blockquotes and rules all take their
-		size, spacing and color from the contract; nothing here restates it.
-
-		What this wrapper adds is the docs site's own surface, the parts the
-		contract deliberately does not cover:
-
-		- data tables (the old prose-table treatment, restated as plain CSS
-		  over the same tokens — DocProse ships no table rules);
-		- the aside/callout chrome Aside.astro renders (marked
-		  `data-doc-chrome` there, so the contract stops at its boundary);
-		- the heading anchor behavior: clicking the appended anchor icon
-		  copies the URL and smooth-scrolls under the fixed header.
-	-->
 	<DocProse class="readable-content">
 		<slot />
 	</DocProse>
@@ -58,15 +42,6 @@
 </script>
 
 <style>
-	/*
-		Global on purpose: the article body is slotted in by Astro, so scoped
-		styles would never reach it. Everything below is docs-only surface —
-		DocProse owns the flowing prose and these rules stay off it.
-	*/
-
-	/* Tables. The markdown pipeline wraps every table in a
-	   div.overflow-x-auto (rehype-scrollable-tables); the block spacing goes
-	   on that wrapper so the scroll area does not clip it. */
 	.readable-content div:has(> table) {
 		margin-top: var(--spacing-lg);
 	}

@@ -1,15 +1,4 @@
 <template>
-	<!--
-		The dot and its label come from @aziontech/webkit's StatusIndicator, so
-		the severity colors are theme tokens instead of the inline hex this
-		component used to paint the dot with.
-
-		The clickable pill around it stays a plain anchor: the webkit Button
-		takes its content through a `label` string prop and exposes no default
-		slot, so wrapping the indicator in one is not possible — it would render
-		the text and drop the dot. The classes below are only the outlined-button
-		surface, all of it from the same tokens Button uses.
-	-->
 	<a
 		href="https://status.azion.com/"
 		:title="label"
@@ -62,9 +51,6 @@ const TRANSLATIONS = {
 	},
 };
 
-// statuspage.io's five indicators, mapped onto the design system's severity
-// scale. `minor` and `major` share `warning` because the DS offers a single
-// degraded step between healthy and down.
 const STATUS_PAGE_SEVERITIES = {
 	none: 'success',
 	minor: 'warning',

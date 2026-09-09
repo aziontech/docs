@@ -1,43 +1,10 @@
 <script setup>
-  // The bar's search affordance, ported from the design system's docs sample
-  // (webkit repo, feat/doc-masthead-action-belt:
-  // apps/webkit-sample/src/shared/ui/HeaderSearch.vue). Two controls, one job,
-  // never both on screen:
-  //
-  // · The wide shape is a BUTTON, not a field — the palette owns the typing. A
-  //   readonly input that opens something else lies about what typing into it
-  //   does. It wears `InputText size="medium"`'s chrome value for value
-  //   (surface fill, default border, `--shape-elements` radius, `h-8`, the
-  //   muted 12px label — `text-label-sm`, the input's own placeholder size,
-  //   not `md`), with the field's hover/focus behaviours translated to a
-  //   button: border strengthens on hover only while NOT focused, and the
-  //   focus ring offsets against `--bg-surface` because the control sits on
-  //   the bar, not the canvas. `cursor-pointer` stays — parity with the field
-  //   ends where it would lie about the interaction.
-  //
-  // · Given less room, the DS's own IconButton (outlined/medium), so it IS one
-  //   of the bar's icon controls rather than this bar squeezed into a square.
-  //
-  // The switch is a CONTAINER QUERY on the bar (the consumer marks its
-  // GlobalHeader `@container`), not a viewport breakpoint — bars in different
-  // shells run out of room at different viewports. `@min-[47rem]` is measured
-  // against the bar's CONTENT box (48px narrower than its visible width, the
-  // page boundary padding), and spelled literally because the theme declares
-  // its `--container-*` ladder in `:root` rather than `@theme`, so Tailwind's
-  // named rungs (`@xs`…) would resolve to Tailwind's own defaults.
-  //
-  // Rendering both and hiding one with `display: none` is the only way a CSS
-  // query can choose between two different components; the hidden one leaves
-  // the accessibility tree too.
   import IconButton from '@aziontech/webkit/icon-button'
   import Kbd from '@aziontech/webkit/kbd'
 
-  // Two roots, so there is no single element for a consumer's attributes to
-  // land on. Both call sites pass none; anything either shape needs lives here.
   defineOptions({ inheritAttrs: false })
 
   defineProps({
-    // The visible text in the wide shape, and the accessible name of BOTH.
     label: { type: String, default: 'Search' }
   })
 
@@ -45,9 +12,6 @@
 </script>
 
 <template>
-  <!-- Narrow: the DS control, hidden the moment the bar fits. `@min-[47rem]:hidden`
-       beats IconButton's own `inline-flex` because a variant is emitted after the
-       plain utility it fights. -->
   <IconButton
     icon="pi pi-search"
     kind="outlined"
@@ -58,8 +22,6 @@
     @click="$emit('click', $event)"
   />
 
-  <!-- Wide: the search bar — a button in the DS field's chrome, 224px (`w-56`,
-       a control that sits with the other controls, not a band across the bar). -->
   <button
     type="button"
     :aria-label="label"

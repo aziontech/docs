@@ -23,10 +23,6 @@
 </template>
 
 <script setup>
-	/*
-		Not webkit's Link, same reason as EditButton.astro: it puts the icon
-		after the label and these rows are icon-first.
-	*/
 	const props = defineProps({
 		lang: {
 			type: String,

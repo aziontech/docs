@@ -1,21 +1,3 @@
-/**
- * This file was automatically generated based on your preset configuration.
- *
- * For better type checking and IntelliSense:
- * 1. Install azion config as dev dependency:
- *    npm install -D @aziontech/config
- *
- * 2. Use defineConfig:
- *    import { defineConfig } from '@aziontech/config'
- *
- * 3. Replace the configuration with defineConfig:
- *    export default defineConfig({
- *      // Your configuration here
- *    })
- *
- * For more configuration options, visit:
- * https://github.com/aziontech/lib/tree/main/packages/config
- */
 
 export default {
   build: {

@@ -1,44 +1,3 @@
-const menuData = {
-  items: [
-		{
-      label: 'Documentação',
-      href: '/pt-br/documentacao/',
-      items: []
-    },
-		{
-      label: 'Guias',
-      href: '/pt-br/documentacao/produtos/guias/',
-      items: []
-    },
-		{
-      label: 'DevTools',
-      href: '/pt-br/documentacao/produtos/devtools/',
-      items: []
-    }
-  ]
-};
-
-const menuSecondary = [
-  {
-    text: "Contato",
-    title: "Contact Sales",
-    link: "/pt-br/contato/",
-    destak: false,
-  },
-  {
-    text: "Sign in",
-    title: "Azion SSO Login",
-    link: "https://console.azion.com/login",
-    destak: false,
-  },
-  {
-    text: "Conta Gratuita",
-    title: "Crie sua Conta Gratuita",
-    link: "https://console.azion.com/signup",
-    destak: true,
-  }
-];
-
 const menuSecondaryMobile = [
   {
     // label: 'Documents',
@@ -122,8 +81,6 @@ const algoliaModel = [
 const algoliaInputPlaceholder = "Digite sua busca"
 
 export default {
-  menuData,
-  menuSecondary,
   menuSecondaryMobile,
   bottomButtonsMobile,
   algoliaIndex,

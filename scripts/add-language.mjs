@@ -268,16 +268,6 @@ class LanguageScaffolder {
 	`,
 		},
 		{
-			getPath: (tag) => `../src/i18n/${tag}/nav.ts`,
-			getStub: () => `import { NavDictionary } from '../translation-checkers';
-
-export default NavDictionary({
-	startHere: 'START-HERE-TRANSLATION',
-	'getting-started': 'GETTING-STARTED-TRANSLATION',
-});
-`,
-		},
-		{
 			getPath: (tag) => `../src/i18n/${tag}/docsearch.ts`,
 			getStub: () => `import { DocSearchDictionary } from '../translation-checkers';
 

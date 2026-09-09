@@ -1,5 +1,4 @@
 <template>
-	<!-- open sidebar button -->
 	<IconButton
 		icon="pi pi-bars"
 		aria-label="Open documentation navigation"
@@ -9,10 +8,6 @@
 		@click="open = true"
 	/>
 
-	<!-- The DS Drawer owns what the old Teleport/mask/aside did by hand: the
-	     portal, the backdrop, Escape and backdrop-click dismissal, scroll lock
-	     and focus return. `side="left"`/`size="small"` as in the webkit docs
-	     sample (DocsLayout.vue). -->
 	<Drawer
 		v-model:open="open"
 		side="left"
@@ -21,30 +16,37 @@
 		<DrawerPortal>
 			<DrawerOverlay />
 			<DrawerContent>
-				<!-- No header on a phone: closing happens by tapping the backdrop,
-				     pressing Escape, or picking a page. `hidden` rather than
-				     removed — DrawerContent names the dialog via `aria-labelledby`
-				     pointing at this title, so the sheet keeps its accessible name
-				     even while the title itself is visually hidden. -->
 				<PanelHeader class="hidden w-full md:flex">
 					<DrawerTitle>Documentation</DrawerTitle>
 					<DrawerClose />
 				</PanelHeader>
 
 				<div class="min-h-0 w-full grow overflow-y-auto p-(--spacing-md) text-sm">
-					<!-- The docs navigation tree, as a direct Vue child rather than
-					     slotted Astro content: an astro-island nested inside this
-					     island's slot arrives through <template>/innerHTML and never
-					     hydrates, so the drawer menu is passed in as data instead. -->
+					<DocsSidebarFilter
+						v-model="filter"
+						class="mb-(--spacing-sm)"
+						:header="menuHeader"
+						:placeholder="menuFilterPlaceholder"
+						:hotkey="open"
+					/>
+
 					<DocsSidebarMenu
 						v-if="menuGroups?.length"
 						:groups="menuGroups"
 						:active-id="menuActiveId"
 						:initial-expanded="menuExpanded"
 						:aria-label="menuAriaLabel"
+						:filter="filter"
+						:no-matches-label="menuNoMatchesLabel"
 					/>
 
-					<!-- slot to receive custom menu -->
+					<DocsSidebarMenu
+						v-if="directoryGroups?.length"
+						:groups="directoryGroups"
+						:aria-label="directoryAriaLabel"
+						class="mt-(--spacing-md)"
+					/>
+
 					<slot name="main-content" />
 
 					<template v-if="menuSecondary">
@@ -100,12 +102,6 @@
 				</div>
 
 				<template v-if="bottomButtons">
-					<!--
-						`flex-wrap` and the `small` size below keep the three CTAs
-						inside the drawer: webkit's `medium` Button carries a
-						`min-w-16` that the hand-styled anchors did not have, which
-						pushed the row past the drawer on mobile.
-					-->
 					<PanelFooter class="w-full flex-wrap gap-2">
 						<Button
 							v-for="(button, index) in bottomButtons"
@@ -138,14 +134,10 @@
 	import PanelFooter from '@aziontech/webkit/panel-footer'
 	import PanelHeader from '@aziontech/webkit/panel-header'
 
+	import DocsSidebarFilter from '~/components/webkit/DocsSidebarFilter.vue'
 	import DocsSidebarMenu from '~/components/webkit/DocsSidebarMenu.vue'
 	import Tag from '~/components/webkit/Tag.vue'
 
-	/*
-		`severity: 'info'` has no counterpart among webkit's kinds (theme@4's
-		`--info` is a tinted surface, not a button kind), so it falls back to
-		`outlined` like everywhere else in this repo.
-	*/
 	function bottomButtonKind(button) {
 		if (button.severity === 'info') return 'outlined'
 
@@ -153,22 +145,23 @@
 	}
 
 	let props = defineProps({
-		menuData: Object,
 		menuSecondary: Array,
 		bottomButtons: Array,
 		menuGroups: { type: Array, default: null },
 		menuActiveId: { type: String, default: '' },
 		menuExpanded: { type: Array, default: () => [] },
-		menuAriaLabel: { type: String, default: 'Menu' }
+		menuAriaLabel: { type: String, default: 'Menu' },
+		menuHeader: { type: Object, default: null },
+		menuFilterPlaceholder: { type: String, default: 'Filter sidebar' },
+		menuNoMatchesLabel: { type: String, default: 'No rows match.' },
+		directoryGroups: { type: Array, default: null },
+		directoryAriaLabel: { type: String, default: 'Directory' }
 	})
 
 	const { menuSecondary, bottomButtons } = props
 	const open = ref(false)
+	const filter = ref('')
 
-	// The search palette is a separate island; when it opens, this drawer must
-	// close — two stacked overlays would trap focus in the bottom one. The
-	// sample expresses this as a watch inside one SPA; across islands it is a
-	// window event (dispatched by webkit/HeaderSearchDialog.vue).
 	function onPaletteOpen() {
 		open.value = false
 	}

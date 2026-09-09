@@ -1,18 +1,4 @@
 <template>
-	<!--
-		Adapter over @aziontech/webkit's DocOnThisPage. The rail itself (the
-		outline, the traveling marker, the complementary groups) is the design
-		system's; what this wrapper adds is the docs site's own behavior:
-
-		- the "Overview" entry, anchored to the masthead's `id="overview"` h1;
-		- the scroll-spy that decides which heading is active (the rail is
-		  presentation only — the page owns the scroll container);
-		- smooth scrolling with the fixed header's offset on activation;
-		- analytics tracking for the group links that declare a `tracking` type;
-		- the scroll container itself: the rail lives inside the design system's
-		  ScrollArea (thin, themed scrollbar) instead of the sidebar's native
-		  `overflow: auto`, which painted a white scrollbar over the dark canvas.
-	-->
 	<WkScrollArea class='h-full'>
 		<WkDocOnThisPage
 			:items='items'
@@ -36,7 +22,6 @@
 
 	type Heading = { depth: number; slug: string; text: string }
 
-	/** A group link that may carry an analytics tracking type. */
 	type TrackedLink = DocTocLink & { tracking?: string }
 	type TrackedGroup = { label: string; links: TrackedLink[] }
 
