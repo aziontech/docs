@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { LANGS, type Lang } from '../../src/nav/schema';
-import { DOCS_BASE, withSlashes } from '../../src/nav/resolve';
-import { loadNav, readCorpus, REPO_ROOT, type CorpusPage } from './lib/load';
+import { DOCS_BASE, text, walkTree, withSlashes } from '../../src/nav/resolve';
+import { loadNav, REPO_ROOT } from './lib/load';
 import { readField } from './lib/frontmatter';
 
 const SITE = 'https://www.azion.com';
@@ -27,15 +27,7 @@ function baselinePermalink(relative: string): string | null {
 	}
 }
 
-const { data, redirects } = loadNav();
-const corpus = readCorpus();
-
-const byNamespace = new Map<string, Partial<Record<Lang, CorpusPage>>>();
-for (const page of corpus) {
-	const entry = byNamespace.get(page.namespace) ?? {};
-	entry[page.lang] = page;
-	byNamespace.set(page.namespace, entry);
-}
+const { data, redirects, corpus } = loadNav();
 
 interface Move {
 	lang: Lang;
@@ -47,17 +39,9 @@ interface Move {
 
 const treeOf = new Map<string, string>();
 for (const tree of data.trees.values()) {
-	const seen = new Set<string>();
-	const visit = (nodes: typeof tree.groups[number]['items']) => {
-		for (const node of nodes) {
-			if (node.page && !node.linkOnly && !node.placeholder && !seen.has(node.page)) {
-				seen.add(node.page);
-				treeOf.set(node.page, tree.id);
-			}
-			if (node.items?.length) visit(node.items);
-		}
-	};
-	for (const group of tree.groups) visit(group.items);
+	for (const { node } of walkTree(tree, 'en')) {
+		if (node.page && !node.linkOnly && !node.placeholder && !treeOf.has(node.page)) treeOf.set(node.page, tree.id);
+	}
 }
 
 interface Kept {
@@ -83,23 +67,17 @@ for (const page of corpus) {
 	});
 }
 
-const landing = new Map<string, Partial<Record<Lang, string>>>();
-for (const page of corpus) {
-	const spot = landing.get(page.namespace) ?? {};
-	spot[page.lang] = page.permalink;
-	landing.set(page.namespace, spot);
-}
+const landing = (namespace: string, lang: Lang) => data.pages.get(namespace)?.[lang]?.permalink;
 
 function replacementFor(namespace: string, lang: Lang): string | undefined {
 	const target = redirects[namespace];
 	if (!target) return undefined;
-	if (target.page) return landing.get(target.page)?.[lang];
+	if (target.page) return landing(target.page, lang);
 	if (target.tree) {
 		const tree = data.trees.get(target.tree);
 		if (!tree) return undefined;
-		if (tree.root) return landing.get(tree.root)?.[lang];
-		const treePath = lang === 'en' ? tree.path.en : tree.path['pt-br'] ?? tree.path.en;
-		return `/${DOCS_BASE[lang]}/${treePath}/`;
+		if (tree.root) return landing(tree.root, lang);
+		return `/${DOCS_BASE[lang]}/${text(tree.path, lang) ?? tree.id}/`;
 	}
 	if (target.path) return target.path.replace('/documentation/', `/${DOCS_BASE[lang]}/`);
 	return undefined;
@@ -116,14 +94,14 @@ interface Removal {
 const removals: Removal[] = [];
 for (const namespace of Object.keys(redirects)) {
 	for (const lang of LANGS) {
-		const page = byNamespace.get(namespace)?.[lang];
-		if (!page) continue;
+		const page = data.pages.get(namespace)?.[lang];
+		if (!page?.permalink) continue;
 		const to = replacementFor(namespace, lang);
 		if (!to) {
 			console.error(`no replacement URL for retired page "${namespace}" (${lang})`);
 			continue;
 		}
-		removals.push({ lang, title: page.title, from: page.permalink, to, reason: redirects[namespace].reason });
+		removals.push({ lang, title: page.title ?? '', from: page.permalink, to, reason: redirects[namespace].reason });
 	}
 }
 
@@ -133,8 +111,7 @@ const csvField = (value: string) => (/[",\n]/.test(value) ? `"${value.replace(/"
 
 function moveReason(move: Move): string {
 	const tree = data.trees.get(move.tree);
-	const treePath = tree ? (move.lang === 'en' ? tree.path.en : tree.path['pt-br'] ?? tree.path.en) : undefined;
-	const where = tree ? `now under /${treePath}/ (${tree.title.en})` : 'moved with its section';
+	const where = tree ? `now under /${text(tree.path, move.lang) ?? tree.id}/ (${tree.title.en})` : 'moved with its section';
 	return lastSegment(move.from) === lastSegment(move.to) ? where : `${where}; slug renamed`;
 }
 

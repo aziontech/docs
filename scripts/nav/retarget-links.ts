@@ -11,22 +11,6 @@ const apply = process.argv.includes('--apply');
 
 const SCAN = ['src/content/docs', 'src/includes', 'src/i18n', 'src/components', 'src/layouts', 'src/pages', 'src/data'];
 const EXTENSIONS = new Set(['.mdx', '.md', '.ts', '.js', '.astro', '.vue', '.json']);
-const LEGACY_MENUS = new Set([
-	'nav.ts',
-	'headerMenu.ts',
-	'buildMenu.ts',
-	'storeMenu.ts',
-	'secureMenu.ts',
-	'observeMenu.ts',
-	'deployMenu.ts',
-	'cliMenu.ts',
-	'cliMenuAlpha.ts',
-	'devtoolsMenu.ts',
-	'graphqlMenu.ts',
-	'libMenu.ts',
-	'mcpMenu.ts',
-	'runtimeMenu.ts',
-]);
 
 interface Row {
 	from: string;
@@ -60,7 +44,7 @@ function walk(dir: string, out: string[] = []): string[] {
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		const full = path.join(dir, entry.name);
 		if (entry.isDirectory()) walk(full, out);
-		else if (EXTENSIONS.has(path.extname(entry.name)) && !LEGACY_MENUS.has(entry.name)) out.push(full);
+		else if (EXTENSIONS.has(path.extname(entry.name))) out.push(full);
 	}
 	return out;
 }

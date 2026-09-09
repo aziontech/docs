@@ -15,9 +15,9 @@
 	import DocCardGroup from '@aziontech/webkit/doc-card-group'
 	import { computed } from 'vue'
 
-	import { data, t, type Lang, type Localized } from './data'
+	import { data, t, type Lang } from './data'
 
 	const props = defineProps<{ group: 'workflows' | 'concepts' | 'tradeoffs'; lang: Lang }>()
 
-	const items = computed(() => data[props.group] as { title: Localized; icon: string; description: Localized }[])
+	const items = computed(() => data[props.group])
 </script>

@@ -32,7 +32,7 @@
 	import Accordion from '@aziontech/webkit/accordion'
 	import { computed } from 'vue'
 
-	import { agentBySlug, data, fill, t, type Lang, type Localized } from './data'
+	import { agentBySlug, data, fill, t, type Lang } from './data'
 	import InlineText from './InlineText.vue'
 
 	const props = defineProps<{ agent: string; group: 'faq' | 'troubleshooting'; lang: Lang }>()
@@ -42,10 +42,9 @@
 		if (!agent) return []
 		const lang = props.lang
 		const surfaceKey = agent.workflows.includes('Terminal') ? 'terminal' : 'editor'
-		const surface = t((data.surface as Record<string, Localized>)[surfaceKey], lang)
+		const surface = t(data.surface[surfaceKey], lang)
 		const vars: Record<string, string> = { name: agent.name, surface, surfaceDe: surface }
-		const entries = data[props.group] as { question: Localized; answer: Localized; fallbackNote?: Localized }[]
-		return entries.map((entry) => ({
+		return data[props.group].map((entry) => ({
 			question: fill(t(entry.question, lang), vars),
 			answer: fill(t(entry.answer, lang), {
 				...vars,

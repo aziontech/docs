@@ -34,12 +34,12 @@
 	import Table from '@aziontech/webkit/table'
 	import { computed } from 'vue'
 
-	import { data, label, t, type Lang, type Localized } from './data'
+	import { data, label, t, type Lang } from './data'
 
 	const props = defineProps<{ lang: Lang }>()
 
 	const rows = computed(() =>
-		(data.tools as { id: string; description: Localized }[]).map((tool) => ({
+		data.tools.map((tool) => ({
 			id: tool.id,
 			description: t(tool.description, props.lang)
 		}))

@@ -134,6 +134,10 @@
 	</div>
 </template>
 
+<script lang="ts">
+	export const PAGE_SIZE = 24
+</script>
+
 <script setup lang="ts">
 	import Button from '@aziontech/webkit/button'
 	import Checkbox from '@aziontech/webkit/checkbox'
@@ -143,8 +147,6 @@
 	import InputText from '@aziontech/webkit/input-text'
 	import Paginator from '@aziontech/webkit/paginator'
 	import { computed, onMounted, ref, watch } from 'vue'
-
-	const PAGE_SIZE = 24
 
 	type Kind = 'learning-path' | 'tutorial' | 'reference-architecture' | 'video'
 
@@ -160,7 +162,11 @@
 
 	const props = withDefaults(
 		defineProps<{
-			entries?: Entry[]
+			/** The first page, rendered on the server; the rest of the catalog is fetched from `catalogHref` after mount. */
+			initial?: Entry[]
+			total?: number
+			totals?: { kinds: Partial<Record<Kind, number>>; products: Record<string, number> }
+			catalogHref?: string
 			kinds?: Kind[]
 			products?: { id: string; label: string }[]
 			labels?: {
@@ -180,7 +186,10 @@
 			}
 		}>(),
 		{
-			entries: () => [],
+			initial: () => [],
+			total: 0,
+			totals: () => ({ kinds: {}, products: {} }),
+			catalogHref: '',
 			kinds: () => [],
 			products: () => [],
 			labels: () => ({
@@ -207,12 +216,30 @@
 	const page = ref(1)
 	const results = ref<HTMLElement | null>(null)
 
+	const catalog = ref<Entry[] | null>(null)
+	let loading: Promise<void> | null = null
+
+	function loadCatalog(): Promise<void> {
+		loading ??= fetch(props.catalogHref)
+			.then((response) => response.json())
+			.then((rows: Entry[]) => {
+				catalog.value = rows
+			})
+			.catch(() => {
+				loading = null
+			})
+		return loading
+	}
+
+	const entries = computed(() => catalog.value ?? props.initial)
+	const totals = computed(() => props.totals)
+
 	const fold = (value: string) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-	const haystacks = computed(() => props.entries.map((entry) => fold(`${entry.label} ${entry.description ?? ''}`)))
+	const haystacks = computed(() => entries.value.map((entry) => fold(`${entry.label} ${entry.description ?? ''}`)))
 
 	const visible = computed(() => {
 		const needle = fold(query.value.trim())
-		return props.entries.filter(
+		return entries.value.filter(
 			(entry, index) =>
 				kindsOn.value.includes(entry.kind) &&
 				(!productsOn.value.length || entry.products.some((product) => productsOn.value.includes(product))) &&
@@ -220,36 +247,29 @@
 		)
 	})
 
-	const totals = computed(() => {
-		const kinds: Partial<Record<Kind, number>> = {}
-		const products: Record<string, number> = {}
-		for (const entry of props.entries) {
-			kinds[entry.kind] = (kinds[entry.kind] ?? 0) + 1
-			for (const product of entry.products) products[product] = (products[product] ?? 0) + 1
-		}
-		return { kinds, products }
-	})
-
 	const filtered = computed(
 		() => query.value !== '' || productsOn.value.length > 0 || kindsOn.value.length !== props.kinds.length
 	)
 
+	// Until the catalog arrives only the first page is here, so an unfiltered count comes from the server.
+	const resultCount = computed(() => (catalog.value || filtered.value ? visible.value.length : props.total))
+
 	const countLabel = computed(() =>
-		(visible.value.length === 1 ? props.labels.countOne : props.labels.countMany).replace(
+		(resultCount.value === 1 ? props.labels.countOne : props.labels.countMany).replace(
 			'{count}',
-			String(visible.value.length)
+			String(resultCount.value)
 		)
 	)
 
-	const pageCount = computed(() => Math.max(1, Math.ceil(visible.value.length / PAGE_SIZE)))
+	const pageCount = computed(() => Math.max(1, Math.ceil(resultCount.value / PAGE_SIZE)))
 
 	const paged = computed(() => visible.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
 
 	const rangeLabel = computed(() =>
 		props.labels.range
 			.replace('{start}', String((page.value - 1) * PAGE_SIZE + 1))
-			.replace('{end}', String(Math.min(page.value * PAGE_SIZE, visible.value.length)))
-			.replace('{total}', String(visible.value.length))
+			.replace('{end}', String(Math.min(page.value * PAGE_SIZE, resultCount.value)))
+			.replace('{total}', String(resultCount.value))
 	)
 
 	type PageItem = { type: 'page'; value: number; key: string } | { type: 'more'; key: string }
@@ -273,7 +293,8 @@
 		]
 	})
 
-	function goTo(next: number) {
+	async function goTo(next: number) {
+		await loadCatalog()
 		page.value = Math.min(Math.max(1, next), pageCount.value)
 		const top = results.value?.getBoundingClientRect().top
 		if (top !== undefined) window.scrollTo({ top: top + window.scrollY - 80, behavior: 'smooth' })
@@ -323,7 +344,9 @@
 		window.history.replaceState({}, '', url)
 	}
 
-	onMounted(() => {
+	onMounted(async () => {
+		const load = loadCatalog()
+		if (window.location.search) await load
 		readUrl()
 		watch([query, kindsOn, productsOn], () => {
 			page.value = 1

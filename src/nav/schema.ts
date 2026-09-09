@@ -12,6 +12,8 @@ export type Localized = z.infer<typeof localized>;
 
 const segmentString = z.string().regex(/^[a-z0-9-]+$/);
 
+const httpUrl = z.url({ protocol: /^https?$/ });
+
 const localizedSegment = z.union([
 	segmentString,
 	z.object({ en: segmentString, 'pt-br': segmentString.optional() }),
@@ -22,7 +24,7 @@ export type LocalizedSegment = z.infer<typeof localizedSegment>;
 const baseNode = z.object({
 	page: z.string().min(1).optional(),
 	tree: z.string().min(1).optional(),
-	href: z.url().optional(),
+	href: httpUrl.optional(),
 	query: z.string().min(1).optional(),
 	label: localized.optional(),
 	slug: localized.optional(),
@@ -58,27 +60,13 @@ export const navGroup = z.object({
 
 export type NavGroup = z.infer<typeof navGroup>;
 
-export const CATEGORIES = [
-	'fundamentals',
-	'platform',
-	'build',
-	'store',
-	'secure',
-	'observe',
-	'devtools',
-	'guides',
-	'other',
-] as const;
-
 export const navTree = z.object({
 	id: z.string().regex(/^[a-z0-9-]+$/),
 	title: localized,
 	description: localized.optional(),
-	category: z.enum(CATEGORIES),
 	parent: z.string().min(1).default('root'),
 	path: localized,
 	root: z.string().min(1).optional(),
-	unlisted: z.boolean().optional(),
 	groups: z.array(navGroup).min(1),
 });
 
@@ -103,7 +91,7 @@ export type TopNav = z.infer<typeof topNav>;
 
 export const navVideos = z.array(
 	z.object({
-		href: z.url(),
+		href: httpUrl,
 		title: localized,
 		description: localized.optional(),
 		products: z.array(z.string().min(1)).optional(),
@@ -123,3 +111,7 @@ export const navRedirects = z.record(
 );
 
 export type NavRedirects = z.infer<typeof navRedirects>;
+
+export const navExempt = z.record(z.string(), z.string().min(1));
+
+export type NavExempt = z.infer<typeof navExempt>;

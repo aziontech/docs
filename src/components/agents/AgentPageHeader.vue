@@ -7,7 +7,8 @@
 		:description="description"
 		:breadcrumb="breadcrumb"
 		:markdown-href="markdownHref"
-		:lang="lang"
+		:locale="locale"
+		:labels="labels"
 	>
 		<template #title>
 			<div class="flex min-w-0 flex-col items-start gap-(--spacing-sm) sm:flex-1 sm:flex-row sm:items-center sm:gap-(--spacing-md)">
@@ -71,15 +72,18 @@
 	import { computed } from 'vue'
 
 	import AgentMark from '~/components/webkit/AgentMark.vue'
-	import DocPageHeader from '~/components/webkit/DocPageHeader.vue'
+	import DocPageHeader, { type DocPageHeaderLabels } from '~/components/webkit/DocPageHeader.vue'
 
-	import { agentBySlug, agentLinks, agentTags, data, fill, t, type Lang } from './data'
+	import { agentBySlug, agentTags, data, fill, t, type AgentLink, type Lang } from './data'
 
 	const props = defineProps<{
 		agent: string
 		lang: Lang
 		breadcrumb: { label: string; href?: string }[]
 		markdownHref: string
+		locale: string
+		labels: DocPageHeaderLabels
+		links: AgentLink[]
 	}>()
 
 	const agent = computed(() => agentBySlug(props.agent))
@@ -88,5 +92,4 @@
 		agent.value ? `${t(agent.value.description, props.lang)} ${fill(t(data.labels.madeBy, props.lang), { vendor: agent.value.vendor })}` : ''
 	)
 	const tags = computed(() => (agent.value ? agentTags(agent.value, props.lang) : []))
-	const links = computed(() => (agent.value ? agentLinks(agent.value, props.lang) : []))
 </script>

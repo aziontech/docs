@@ -22,7 +22,7 @@
 
 	const source = computed<Sample[]>(() => {
 		if (props.samples) return props.samples
-		if (props.group === 'cli') return data.cli as Sample[]
+		if (props.group === 'cli') return data.cli
 		if (props.group === 'context') {
 			const agent = props.agent ? agentBySlug(props.agent) : undefined
 			return [{ label: agent?.contextFile ?? 'AGENTS.md', language: 'markdown', fileName: agent?.contextFile ?? 'AGENTS.md', code: data.contextPrimer }]

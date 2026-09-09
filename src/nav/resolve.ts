@@ -47,15 +47,18 @@ export interface SidebarModel {
 	header: SidebarHeader | null;
 }
 
+export interface SidebarLabels {
+	allProducts: string;
+}
+
 export interface NavLocation {
 	treeId: string;
 	nodeId: string;
 	ancestors: string[];
-	groupIndex: number;
-	segments: string[];
-	target: string;
 	node: NavNode;
 }
+
+export type NavIndex = Map<string, NavLocation>;
 
 export interface WalkEntry {
 	tree: NavTree;
@@ -155,6 +158,11 @@ export function pageHref(data: NavData, namespace: string, lang: Lang): string |
 	return undefined;
 }
 
+export function treeHref(data: NavData, tree: NavTree, lang: Lang): string | undefined {
+	if (tree.root) return pageHref(data, tree.root, lang);
+	return `/${lang}/${DOCS_BASE[lang]}/${trimSlashes(text(tree.path, lang) ?? tree.id)}/`;
+}
+
 function nodeIdentity(node: NavNode, lang: Lang, index: number): string {
 	if (node.page) return node.page;
 	if (node.tree) return `tree:${node.tree}`;
@@ -198,8 +206,8 @@ export function targetPermalink(data: NavData, entry: WalkEntry, lang: Lang): st
 	return `/${[DOCS_BASE[lang], treePath, ...segments, slug].filter(Boolean).join('/')}/`;
 }
 
-export function buildNavIndex(data: NavData, lang: Lang): Map<string, NavLocation> {
-	const byPermalink = new Map<string, NavLocation>();
+export function buildNavIndex(data: NavData, lang: Lang): NavIndex {
+	const byPermalink: NavIndex = new Map();
 
 	for (const tree of data.trees.values()) {
 		for (const entry of walkTree(tree, lang)) {
@@ -207,15 +215,7 @@ export function buildNavIndex(data: NavData, lang: Lang): Map<string, NavLocatio
 			if (!node.page || node.placeholder || node.linkOnly) continue;
 			const href = pageHref(data, node.page, lang);
 			if (!href || byPermalink.has(href)) continue;
-			byPermalink.set(href, {
-				treeId: tree.id,
-				nodeId: entry.nodeId,
-				ancestors: entry.ancestors,
-				groupIndex: entry.groupIndex,
-				segments: entry.segments,
-				target: targetPermalink(data, entry, lang) ?? href,
-				node,
-			});
+			byPermalink.set(href, { treeId: tree.id, nodeId: entry.nodeId, ancestors: entry.ancestors, node });
 		}
 	}
 
@@ -298,9 +298,14 @@ function groupsToMenu(
 		.filter((group) => group.items.length > 0);
 }
 
-export function resolveSidebar(data: NavData, pathname: string, lang: Lang): SidebarModel {
+export function resolveSidebar(
+	data: NavData,
+	index: NavIndex,
+	pathname: string,
+	lang: Lang,
+	labels: SidebarLabels,
+): SidebarModel {
 	const activePath = normalize(pathname);
-	const index = buildNavIndex(data, lang);
 	const location = index.get(activePath);
 	const ctx = {
 		activePath,
@@ -316,7 +321,7 @@ export function resolveSidebar(data: NavData, pathname: string, lang: Lang): Sid
 		return { groups, activeId: ctx.activeId, expandedIds: unique(ctx.expanded), treeId: null, header: null };
 	}
 
-	const back = backRow(data, tree, lang);
+	const back = backRow(data, tree, lang, labels);
 	const groups = groupsToMenu(data, tree.groups, lang, tree.id, ctx);
 
 	return {
@@ -328,17 +333,17 @@ export function resolveSidebar(data: NavData, pathname: string, lang: Lang): Sid
 			title: text(tree.title, lang) ?? tree.id,
 			href: tree.root ? pageHref(data, tree.root, lang) : undefined,
 			backHref: back?.href ?? `/${lang}/${DOCS_BASE[lang]}/`,
-			backLabel: back?.label ?? 'All products',
+			backLabel: back?.label ?? labels.allProducts,
 		},
 	};
 }
 
-function backRow(data: NavData, tree: NavTree, lang: Lang): MenuNode | undefined {
+function backRow(data: NavData, tree: NavTree, lang: Lang, labels: SidebarLabels): MenuNode | undefined {
 	const parentId = tree.parent || 'root';
 	if (parentId === 'root') {
 		return {
 			id: `${tree.id}#back`,
-			label: text({ en: 'All products', 'pt-br': 'Todos os produtos' }, lang) ?? 'All products',
+			label: labels.allProducts,
 			icon: 'pi pi-arrow-left',
 			href: `/${lang}/${DOCS_BASE[lang]}/`,
 			target: '_self',
@@ -386,9 +391,7 @@ export function buildTopNav(data: NavData, lang: Lang): TopNavModel | null {
 		if (!tree) return undefined;
 		return {
 			label: text(tree.title, lang) ?? treeId,
-			href: tree.root
-				? pageHref(data, tree.root, lang)
-				: `/${lang}/${DOCS_BASE[lang]}/${trimSlashes(text(tree.path, lang) ?? tree.id)}/`,
+			href: treeHref(data, tree, lang),
 			description: text(tree.description, lang),
 		};
 	};
@@ -411,9 +414,9 @@ export interface Crumb {
 	url?: string;
 }
 
-export function resolveBreadcrumb(data: NavData, pathname: string, lang: Lang): Crumb[] {
+export function resolveBreadcrumb(data: NavData, index: NavIndex, pathname: string, lang: Lang): Crumb[] {
 	const activePath = normalize(pathname);
-	const location = buildNavIndex(data, lang).get(activePath);
+	const location = index.get(activePath);
 	if (!location) return [];
 
 	const tree = data.trees.get(location.treeId);
@@ -426,9 +429,9 @@ export function resolveBreadcrumb(data: NavData, pathname: string, lang: Lang): 
 		},
 	];
 
-	const entries = walkTree(tree, lang);
+	const byId = new Map(walkTree(tree, lang).map((entry) => [entry.nodeId, entry]));
 	for (const ancestorId of location.ancestors) {
-		const ancestor = entries.find((entry) => entry.nodeId === ancestorId);
+		const ancestor = byId.get(ancestorId);
 		if (!ancestor) continue;
 		crumbs.push({
 			label: nodeLabel(data, ancestor.node, lang),
@@ -436,7 +439,7 @@ export function resolveBreadcrumb(data: NavData, pathname: string, lang: Lang): 
 		});
 	}
 
-	const self = entries.find((entry) => entry.nodeId === location.nodeId);
+	const self = byId.get(location.nodeId);
 	if (self) crumbs.push({ label: nodeLabel(data, self.node, lang), url: activePath });
 
 	return crumbs;
@@ -449,11 +452,12 @@ export interface Neighbour {
 
 export function resolveNeighbours(
 	data: NavData,
+	index: NavIndex,
 	pathname: string,
 	lang: Lang,
 ): { previous?: Neighbour; next?: Neighbour } {
 	const activePath = normalize(pathname);
-	const location = buildNavIndex(data, lang).get(activePath);
+	const location = index.get(activePath);
 	if (!location) return {};
 
 	const tree = data.trees.get(location.treeId);

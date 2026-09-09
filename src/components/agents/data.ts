@@ -1,66 +1,34 @@
 import raw from '~/data/agent-setup.json'
+import { text } from '~/nav/resolve'
+import type { Lang } from '~/nav/schema'
 
-export type Lang = 'en' | 'pt-br'
-export type Localized = string | { en: string; 'pt-br'?: string }
+import type { Agent, AgentSetup, Localized, Sample } from './schema'
 
-export interface Sample {
-	label: Localized
-	language: string
-	code: string
-	fileName?: string
-}
+export type { Agent, Lang, Localized, Sample }
 
-export interface Agent {
-	slug: string
-	name: string
-	vendor: string
-	mark: 'claude' | 'cursor' | 'copilot' | 'windsurf' | 'codex' | 'gemini' | 'opencode'
-	workflows: string[]
-	pricing: string
-	model: string
-	context: string
-	openSource: boolean
-	docsUrl: string
-	contextFile: string
-	description: Localized
-	install: { body: Localized; samples?: Sample[]; link?: { label: Localized; href: string } }
-	connect: { body: Localized; samples?: Sample[]; note?: Localized }
-	verify: { body: Localized; samples?: Sample[] }
-	tips: { en: string[]; 'pt-br': string[] }
-}
+// server.ts parses this file against `agentSetup` on every build; the islands read it under that type.
+export const data = raw as AgentSetup
 
-export const data = raw as unknown as Omit<typeof raw, 'agents'> & { agents: Agent[] }
-
-export const DOCS_BASE: Record<Lang, string> = { en: 'documentation', 'pt-br': 'documentacao' }
+export const agents = data.agents
 
 export function t(value: Localized | undefined, lang: Lang): string {
 	if (value === undefined) return ''
 	if (typeof value === 'string') return value
-	return value[lang] ?? value.en
+	return text(value, lang) ?? ''
 }
 
 export function fill(text: string, vars: Record<string, string>): string {
 	return text.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? `{${key}}`)
 }
 
-export const agents = data.agents
-
 export function agentBySlug(slug: string): Agent | undefined {
 	return agents.find((agent) => agent.slug === slug)
 }
 
-export function agentUrl(slug: string, lang: Lang): string {
-	return `/${lang}/${DOCS_BASE[lang]}/agent-setup/${slug}/`
-}
+type LabelGroup = 'filters' | 'values' | 'columns' | 'links'
 
-export function docsUrl(path: string, lang: Lang): string {
-	return `/${lang}/${DOCS_BASE[lang]}/${path}`
-}
-
-const labels = data.labels as Record<string, Record<string, Localized>>
-
-export function label(group: string, key: string, lang: Lang): string {
-	return t(labels[group]?.[key] ?? key, lang)
+export function label(group: LabelGroup, key: string, lang: Lang): string {
+	return t(data.labels[group][key] ?? key, lang)
 }
 
 export function agentTags(agent: Agent, lang: Lang): string[] {
@@ -73,16 +41,21 @@ export function agentTags(agent: Agent, lang: Lang): string[] {
 	]
 }
 
-export function agentLinks(agent: Agent, lang: Lang): { label: string; href: string }[] {
+export interface AgentLink {
+	label: string
+	href: string
+}
+
+export function agentLinks(agent: Agent, lang: Lang, hrefs: { mcp?: string; cli?: string }): AgentLink[] {
 	return [
-		{ label: label('links', 'mcp', lang), href: docsUrl('devtools/mcp/', lang) },
-		{ label: label('links', 'cli', lang), href: docsUrl('devtools/cli/', lang) },
+		{ label: label('links', 'mcp', lang), href: hrefs.mcp },
+		{ label: label('links', 'cli', lang), href: hrefs.cli },
 		{ label: fill(label('links', 'docs', lang), { name: agent.name }), href: agent.docsUrl }
-	]
+	].filter((link): link is AgentLink => Boolean(link.href))
 }
 
 export function tooltip(key: string, lang: Lang) {
-	const entry = (data.tooltips as Record<string, { headline: string; tip: Localized; cta: Localized; href: Localized }>)[key]
+	const entry = data.tooltips[key]
 	if (!entry) return undefined
 	return { headline: entry.headline, tip: t(entry.tip, lang), cta: t(entry.cta, lang), href: t(entry.href, lang) }
 }

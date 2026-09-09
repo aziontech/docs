@@ -50,7 +50,7 @@
 							:class="[agent[key] ? 'pi-check text-(--primary)' : 'pi-minus text-(--text-muted)', 'pi text-label-md leading-none']"
 							aria-hidden="true"
 						/>
-						<span class="sr-only">{{ agent[key] ? label('yes', 'yes', lang) : label('no', 'no', lang) }}</span>
+						<span class="sr-only">{{ agent[key] ? t(data.labels.yes, lang) : t(data.labels.no, lang) }}</span>
 					</Table.Cell>
 					<Table.Cell
 						v-for="key in TAG_COLUMNS"
@@ -75,9 +75,9 @@
 
 	import AgentMark from '~/components/webkit/AgentMark.vue'
 
-	import { agents, agentUrl, label, type Lang } from './data'
+	import { agents, data, label, t, type Lang } from './data'
 
-	const props = defineProps<{ lang: Lang }>()
+	const props = defineProps<{ lang: Lang; hrefs: Record<string, string> }>()
 
 	const BOOLEAN_COLUMNS = ['terminal', 'ide', 'extension', 'openSource'] as const
 	const TAG_COLUMNS = ['pricing', 'model', 'context'] as const
@@ -87,7 +87,7 @@
 			id: agent.slug,
 			name: agent.name,
 			mark: agent.mark,
-			href: agentUrl(agent.slug, props.lang),
+			href: props.hrefs[agent.slug],
 			terminal: agent.workflows.includes('Terminal'),
 			ide: agent.workflows.includes('IDE'),
 			extension: agent.workflows.includes('Extension'),

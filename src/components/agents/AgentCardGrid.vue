@@ -5,7 +5,7 @@
 			:key="agent.slug"
 			:title="agent.name"
 			:overline="agent.vendor"
-			:href="agentUrl(agent.slug, lang)"
+			:href="hrefs[agent.slug]"
 		>
 			<template #icon>
 				<AgentMark :name="agent.mark" />
@@ -22,9 +22,9 @@
 
 	import AgentMark from '~/components/webkit/AgentMark.vue'
 
-	import { agents, agentUrl, t, type Lang } from './data'
+	import { agents, t, type Lang } from './data'
 
-	const props = defineProps<{ agent: string; lang: Lang }>()
+	const props = defineProps<{ agent: string; lang: Lang; hrefs: Record<string, string> }>()
 
 	const others = computed(() => agents.filter((agent) => agent.slug !== props.agent))
 </script>

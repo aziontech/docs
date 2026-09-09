@@ -22,43 +22,13 @@
 				</PanelHeader>
 
 				<div class="min-h-0 w-full grow overflow-y-auto p-(--spacing-md) text-sm">
-					<div class="mb-(--spacing-sm) flex flex-col gap-(--spacing-sm)">
-						<div
-							v-if="menuHeader"
-							class="flex items-center gap-(--spacing-xs)"
-						>
-							<IconButton
-								icon="pi pi-arrow-left"
-								kind="outlined"
-								size="small"
-								:aria-label="menuHeader.backLabel"
-								:href="menuHeader.backHref"
-							/>
-							<a
-								:href="menuHeader.href"
-								class="truncate text-label-md text-(--text-default) no-underline"
-							>
-								{{ menuHeader.title }}
-							</a>
-						</div>
-						<div ref="filterWrap">
-							<InputText
-								v-model="filter"
-								:placeholder="menuFilterPlaceholder"
-								:aria-label="menuFilterPlaceholder"
-								size="medium"
-							>
-								<template #iconRight>
-									<Kbd
-										size="small"
-										class="hidden sm:inline-flex"
-									>
-										/
-									</Kbd>
-								</template>
-							</InputText>
-						</div>
-					</div>
+					<DocsSidebarFilter
+						v-model="filter"
+						class="mb-(--spacing-sm)"
+						:header="menuHeader"
+						:placeholder="menuFilterPlaceholder"
+						:hotkey="open"
+					/>
 
 					<DocsSidebarMenu
 						v-if="menuGroups?.length"
@@ -161,11 +131,10 @@
 	import DrawerPortal from '@aziontech/webkit/drawer-portal'
 	import DrawerTitle from '@aziontech/webkit/drawer-title'
 	import IconButton from '@aziontech/webkit/icon-button'
-	import InputText from '@aziontech/webkit/input-text'
-	import Kbd from '@aziontech/webkit/kbd'
 	import PanelFooter from '@aziontech/webkit/panel-footer'
 	import PanelHeader from '@aziontech/webkit/panel-header'
 
+	import DocsSidebarFilter from '~/components/webkit/DocsSidebarFilter.vue'
 	import DocsSidebarMenu from '~/components/webkit/DocsSidebarMenu.vue'
 	import Tag from '~/components/webkit/Tag.vue'
 
@@ -192,17 +161,6 @@
 	const { menuSecondary, bottomButtons } = props
 	const open = ref(false)
 	const filter = ref('')
-	const filterWrap = ref(null)
-
-	function onSlash(event) {
-		if (!open.value || event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return
-		const target = event.target
-		if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
-		const input = filterWrap.value?.querySelector('input')
-		if (!input) return
-		event.preventDefault()
-		input.focus()
-	}
 
 	function onPaletteOpen() {
 		open.value = false
@@ -210,11 +168,9 @@
 
 	onMounted(() => {
 		window.addEventListener('docs:palette-open', onPaletteOpen)
-		window.addEventListener('keydown', onSlash, true)
 	})
 
 	onBeforeUnmount(() => {
 		window.removeEventListener('docs:palette-open', onPaletteOpen)
-		window.removeEventListener('keydown', onSlash, true)
 	})
 </script>

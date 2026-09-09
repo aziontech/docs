@@ -13,14 +13,16 @@ import {
 	resolveBreadcrumb,
 	resolveNeighbours,
 	resolveSidebar,
+	treeHref,
 	type NavData,
-	type NavLocation,
+	type NavIndex,
 	type Crumb,
 	type PageFacts,
 	type GuidesHomeModel,
 	type MenuGroupNode,
 	type Neighbour,
 	type PageIndex,
+	type SidebarLabels,
 	type SidebarModel,
 	type TopNavModel,
 	withSlashes,
@@ -33,7 +35,7 @@ const treeModules = import.meta.glob<{ default: unknown }>('./trees/*.json', { e
 
 let cachedTrees: Map<string, NavTree> | null = null;
 let cachedPages: PageIndex | null = null;
-const cachedIndex = new Map<Lang, Map<string, NavLocation>>();
+const cachedIndex = new Map<Lang, NavIndex>();
 
 function loadTrees(): Map<string, NavTree> {
 	if (cachedTrees) return cachedTrees;
@@ -126,8 +128,8 @@ export async function getNavData(): Promise<NavData> {
 	return { root, trees: loadTrees(), topnav: config, videos, pages: await loadPages() };
 }
 
-export async function getSidebar(pathname: string, lang: Lang): Promise<SidebarModel> {
-	return resolveSidebar(await getNavData(), pathname, lang);
+export async function getSidebar(pathname: string, lang: Lang, labels: SidebarLabels): Promise<SidebarModel> {
+	return resolveSidebar(await getNavData(), await getNavIndex(lang), pathname, lang, labels);
 }
 
 export async function getTopNav(lang: Lang): Promise<TopNavModel | null> {
@@ -146,17 +148,17 @@ export async function getGuidesHome(treeId: string, lang: Lang): Promise<GuidesH
 }
 
 export async function getBreadcrumb(pathname: string, lang: Lang): Promise<Crumb[]> {
-	return resolveBreadcrumb(await getNavData(), pathname, lang);
+	return resolveBreadcrumb(await getNavData(), await getNavIndex(lang), pathname, lang);
 }
 
 export async function getNeighbours(
 	pathname: string,
 	lang: Lang,
 ): Promise<{ previous?: Neighbour; next?: Neighbour }> {
-	return resolveNeighbours(await getNavData(), pathname, lang);
+	return resolveNeighbours(await getNavData(), await getNavIndex(lang), pathname, lang);
 }
 
-export async function getNavIndex(lang: Lang): Promise<Map<string, NavLocation>> {
+export async function getNavIndex(lang: Lang): Promise<NavIndex> {
 	const hit = cachedIndex.get(lang);
 	if (hit) return hit;
 	const index = buildNavIndex(await getNavData(), lang);
@@ -187,6 +189,12 @@ export async function getPageHref(namespace: string, lang: Lang): Promise<string
 	return pageHref(await getNavData(), namespace, lang);
 }
 
+export async function getTreeHref(treeId: string, lang: Lang): Promise<string | undefined> {
+	const data = await getNavData();
+	const tree = data.trees.get(treeId);
+	return tree ? treeHref(data, tree, lang) : undefined;
+}
+
 export type { Lang } from './schema';
 export type {
 	Crumb,
@@ -194,10 +202,12 @@ export type {
 	GuidesHomeModel,
 	MenuGroupNode,
 	MenuNode,
+	NavIndex,
 	NavLocation,
 	Neighbour,
 	PageFacts,
 	SidebarHeader,
+	SidebarLabels,
 	SidebarModel,
 	TopNavModel,
 } from './resolve';

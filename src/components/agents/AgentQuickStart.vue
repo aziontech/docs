@@ -109,7 +109,7 @@
 				title: t(data.steps.verify, lang),
 				body: t(agent.verify.body, lang),
 				samples: agent.verify.samples,
-				prompt: (data.prompts as Record<Lang, string[]>)[lang][1]
+				prompt: data.prompts[lang][1]
 			}
 		]
 	})

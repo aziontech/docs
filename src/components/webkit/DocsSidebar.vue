@@ -10,37 +10,13 @@
 		:style="railWidthStyle"
 	>
 		<template #header>
-			<SidebarHeader class="flex flex-col gap-(--spacing-sm) pt-(--spacing-sm)">
-				<div
-					v-if="header"
-					class="flex items-center gap-(--spacing-xs)"
-				>
-					<IconButton
-						icon="pi pi-arrow-left"
-						kind="outlined"
-						size="small"
-						:aria-label="header.backLabel"
-						:href="header.backHref"
-					/>
-					<a
-						:href="header.href"
-						class="truncate text-label-md text-(--text-default) no-underline"
-					>
-						{{ header.title }}
-					</a>
-				</div>
-				<div ref="filterWrap">
-					<InputText
+			<SidebarHeader class="pt-(--spacing-sm)">
+				<DocsSidebarFilter
 					v-model="filter"
+					:header="header"
 					:placeholder="filterPlaceholder"
-					:aria-label="filterPlaceholder"
-					size="medium"
-				>
-					<template #iconRight>
-						<Kbd size="small">/</Kbd>
-					</template>
-					</InputText>
-				</div>
+					:hotkey="isRail"
+				/>
 			</SidebarHeader>
 		</template>
 
@@ -56,13 +32,11 @@
 </template>
 
 <script setup>
-	import IconButton from '@aziontech/webkit/icon-button';
-	import InputText from '@aziontech/webkit/input-text';
-	import Kbd from '@aziontech/webkit/kbd';
 	import Sidebar from '@aziontech/webkit/sidebar';
 	import SidebarHeader from '@aziontech/webkit/sidebar-header';
 	import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
+	import DocsSidebarFilter from './DocsSidebarFilter.vue';
 	import DocsSidebarMenu from './DocsSidebarMenu.vue';
 
 	defineProps({
@@ -76,18 +50,6 @@
 	});
 
 	const filter = ref('');
-	const filterWrap = ref(null);
-
-	function onSlash(event) {
-		if (!railQuery?.matches) return;
-		if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
-		const target = event.target;
-		if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
-		const input = filterWrap.value?.querySelector('input');
-		if (!input) return;
-		event.preventDefault();
-		input.focus();
-	}
 
 	const COLLAPSED_KEY = 'docs-sidebar-collapsed';
 	const WIDTH_KEY = 'docs-sidebar-width';
@@ -106,7 +68,9 @@
 
 	const railQuery =
 		typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)') : null;
+	const isRail = ref(false);
 	const remeasure = () => {
+		isRail.value = Boolean(railQuery?.matches);
 		if (width.value != null) return;
 		nextTick(() => sidebarRef.value?.measure?.());
 	};
@@ -121,12 +85,10 @@
 		}
 		remeasure();
 		railQuery?.addEventListener('change', remeasure);
-		window.addEventListener('keydown', onSlash);
 	});
 
 	onBeforeUnmount(() => {
 		railQuery?.removeEventListener('change', remeasure);
-		window.removeEventListener('keydown', onSlash);
 	});
 
 	watch(collapsed, (value) => {

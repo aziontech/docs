@@ -3,7 +3,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import matter from 'gray-matter';
 
-import { navRedirects, navRoot, navTree, navVideos, topNav, type Lang, type NavRedirects, type NavTree } from '../../../src/nav/schema';
+import {
+	navExempt,
+	navRedirects,
+	navRoot,
+	navTree,
+	navVideos,
+	topNav,
+	type Lang,
+	type NavExempt,
+	type NavRedirects,
+	type NavTree,
+} from '../../../src/nav/schema';
 import type { NavData, PageIndex } from '../../../src/nav/resolve';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -21,6 +32,14 @@ export interface CorpusPage {
 	menuNamespace: string;
 }
 
+const MATTER_OPTIONS = {
+	engines: {
+		javascript: () => {
+			throw new Error('frontmatter must be YAML');
+		},
+	},
+};
+
 function walk(dir: string, out: string[] = []): string[] {
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		const full = path.join(dir, entry.name);
@@ -36,7 +55,7 @@ export function readCorpus(): CorpusPage[] {
 		const rel = path.relative(CONTENT_DIR, file);
 		const lang = rel.split(path.sep)[0] as Lang;
 		if (lang !== 'en' && lang !== 'pt-br') continue;
-		const data = matter.read(file).data as Record<string, unknown>;
+		const data = matter.read(file, MATTER_OPTIONS).data as Record<string, unknown>;
 		pages.push({
 			lang,
 			file: rel,
@@ -69,7 +88,7 @@ function readJson(file: string): unknown {
 export interface LoadResult {
 	data: NavData;
 	redirects: NavRedirects;
-	exempt: Record<string, string>;
+	exempt: NavExempt;
 	corpus: CorpusPage[];
 	issues: string[];
 }
@@ -114,7 +133,10 @@ export function loadNav(): LoadResult {
 	}
 
 	const exemptPath = path.join(NAV_DIR, 'exempt.json');
-	const exempt = fs.existsSync(exemptPath) ? (readJson(exemptPath) as Record<string, string>) : {};
+	const exemptParsed = navExempt.safeParse(fs.existsSync(exemptPath) ? readJson(exemptPath) : {});
+	if (!exemptParsed.success) {
+		for (const issue of exemptParsed.error.issues) issues.push(`exempt.json: ${issue.path.join('.')} ${issue.message}`);
+	}
 
 	const corpus = readCorpus();
 
@@ -127,7 +149,7 @@ export function loadNav(): LoadResult {
 			pages: toPageIndex(corpus),
 		},
 		redirects: redirectsParsed.success ? redirectsParsed.data : {},
-		exempt,
+		exempt: exemptParsed.success ? exemptParsed.data : {},
 		corpus,
 		issues,
 	};

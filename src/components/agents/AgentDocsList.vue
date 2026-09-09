@@ -21,12 +21,12 @@
 	import ItemList from '@aziontech/webkit/item-list'
 	import { computed } from 'vue'
 
-	import { data, t, type Lang, type Localized } from './data'
+	import { data, t, type Lang } from './data'
 
 	const props = defineProps<{ lang: Lang }>()
 
 	const items = computed(() =>
-		(data.docs as { title: Localized; icon: string; href: Localized; target?: '_self' | '_blank'; description: Localized }[]).map((item) => ({
+		data.docs.map((item) => ({
 			title: t(item.title, props.lang),
 			icon: item.icon,
 			href: t(item.href, props.lang),
