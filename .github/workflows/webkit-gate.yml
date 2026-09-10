@@ -1,0 +1,150 @@
+name: Webkit gate
+
+# The design-system gate, in four stages that are deliberately not equally strict.
+#
+#   wiring   — the toolkit is wired (catalog resolves, lint configs exist, MCP registered,
+#              nothing pinned to `latest`). Reports for now; see the note on the job.
+#   canary   — fixtures that violate a rule on purpose must still be flagged by that exact
+#              rule. BLOCKS: it is the only stage that fails when the measurement itself
+#              stops working, and every way of losing the rules is otherwise silent.
+#   adoption — the score and the tables, written to the run Summary. Reports. Flip it to a
+#              ratchet by adding `--fail-on new` once .webkit-baseline.json is committed.
+#   style    — the shipped stylelint config over CSS/SCSS/Vue/Astro. Reports.
+#
+# `Webkit gate` is the one check to mark required: it passes when every stage succeeded or
+# was cleanly skipped.
+#
+# These stages run local scripts because the equivalent commands (`webkit report`,
+# `webkit canary`) are being added to @aziontech/webkit itself — aziontech/webkit#964 — and
+# only reach a consumer through an npm release. When that release lands, this whole file is
+# replaced by one `uses:` of the design system's reusable workflow.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release/new-azion-docs
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: webkit-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  wiring:
+    name: Wiring
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Not blocking yet, and for a specific reason: `webkit doctor` decides whether webkit
+      # is registered with Tailwind by looking only at `src/webkit.css`. This project does
+      # it correctly in `src/styles/main.css`, so the check reports a false FAIL. It becomes
+      # blocking as soon as the doctor reads the project's real CSS entry.
+      - name: Check the toolkit wiring
+        continue-on-error: true
+        run: pnpm doctor:webkit
+
+  canary:
+    name: Canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Blocking. If this goes red the adoption number below is meaningless, not merely
+      # worse — the rules are not reaching the code at all.
+      - name: The rules still reach this project
+        run: pnpm canary:webkit
+
+  adoption:
+    name: Adoption report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Measure and write the report
+        if: always()
+        run: pnpm --silent report:webkit-adoption >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the numbers as an artifact
+        if: always()
+        run: pnpm --silent report:webkit-adoption --format json > webkit-adoption.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: webkit-adoption
+          path: webkit-adoption.json
+          if-no-files-found: warn
+
+  style:
+    name: Tokens in CSS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Lint the stylesheets
+        continue-on-error: true
+        run: pnpm lint:style
+
+  webkit-gate:
+    name: Webkit gate
+    needs: [wiring, canary, adoption, style]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # `skipped` counts as OK, so a stage can be disabled without changing which check is
+      # required.
+      - name: Check every stage passed or was skipped
+        run: |
+          declare -A results=(
+            [wiring]="${{ needs.wiring.result }}"
+            [canary]="${{ needs.canary.result }}"
+            [adoption]="${{ needs.adoption.result }}"
+            [style]="${{ needs.style.result }}"
+          )
+          failed=0
+          for stage in "${!results[@]}"; do
+            result="${results[$stage]}"
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "FAIL  $stage: $result"
+              failed=1
+            else
+              echo "ok    $stage: $result"
+            fi
+          done
+          if [[ $failed -eq 1 ]]; then
+            echo "The webkit gate did not pass. The adoption stage's Summary says where the project stands."
+            exit 1
+          fi
+          echo "Webkit gate passed."
