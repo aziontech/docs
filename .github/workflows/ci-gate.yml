@@ -1,0 +1,287 @@
+name: CI gate
+
+# The PR gate, in the shape of aziontech/webkit's governance.yml: a `changes` job with path
+# filters, every job conditioned on one of its outputs, and one aggregator at the end.
+#
+# `CI gate` is the one check to mark required. It passes when every job succeeded or was
+# cleanly skipped, so a job can be added or switched off without touching branch protection.
+#
+# This workflow never deploys. Deploys live in their own workflows, with their own secrets
+# and the opposite concurrency (a deploy is never cancelled mid-flight).
+
+on:
+  pull_request:
+    branches:
+      - main
+      # The new-docs work lands here first, so PRs to it get the same gate.
+      - release/new-azion-docs
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      content: ${{ steps.filter.outputs.content }}
+      platform: ${{ steps.filter.outputs.platform }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            # Touching the gate itself, or any config it enforces, re-runs everything —
+            # otherwise a PR that breaks the gate is the one PR the gate never sees.
+            gate: &gate
+              - '.github/workflows/ci-gate.yml'
+              - '.github/actions/setup/**'
+              - 'ci/baselines.json'
+              - 'scripts/ci/**'
+              - 'eslint.config.mjs'
+              - '.prettierrc*'
+              - '.prettierignore'
+              - '.stylelintrc*'
+              - '.nvmrc'
+            content:
+              - 'src/content/**'
+              - 'src/i18n/**'
+              - 'src/nav/**'
+              - 'cicd/massive-redirect/**'
+              - *gate
+            platform:
+              - 'src/**'
+              - 'plugins/**'
+              - 'integrations/**'
+              - 'scripts/**'
+              - 'astro.config.ts'
+              - 'tsconfig.json'
+              - 'postcss.config.js'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - *gate
+
+  security:
+    name: Security scans
+    needs: changes
+    if: needs.changes.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
+
+      - name: Secret detection
+        uses: trufflesecurity/trufflehog@20652fbbdefffcdaa493a5bf57ab2ac6b1db715b # main
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          extra_args: --only-verified
+
+  content:
+    name: Content integrity
+    needs: changes
+    if: ${{ needs.changes.outputs.content == 'true' || needs.changes.outputs.platform == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      # Blocking: the navigation tree is the one structure a broken entry takes down for
+      # every page at once.
+      - name: Navigation tree
+        run: pnpm lint:navcheck
+
+      # Ratchet. 745 translations already carry a slug that does not match the English
+      # page; this fails only on one this branch adds.
+      - name: Translation slugs (ratchet)
+        run: pnpm ci:ratchet slugcheck
+
+  lint:
+    name: Lint & format
+    needs: changes
+    if: needs.changes.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+
+      # Changed files only, on purpose. Running Prettier over the whole tree takes three
+      # minutes and reports 502 files; ESLint reports 97 errors across 46. Neither number
+      # is this branch's fault, and neither is worth reformatting the repository to reach.
+      # Scoping to the diff is the ratchet: what you touch, you leave clean.
+      - name: Collect changed files
+        id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" > changed.txt
+          grep -E '\.(js|mjs|cjs|ts|tsx|vue|astro)$' changed.txt > changed-code.txt || true
+          grep -E '\.(css|scss|vue|astro)$' changed.txt > changed-style.txt || true
+          grep -E '\.(js|mjs|cjs|ts|tsx|vue|astro|json|md|mdx|yml|yaml|css|scss)$' changed.txt > changed-fmt.txt || true
+          echo "code=$(wc -l < changed-code.txt)" >> "$GITHUB_OUTPUT"
+          echo "style=$(wc -l < changed-style.txt)" >> "$GITHUB_OUTPUT"
+          echo "fmt=$(wc -l < changed-fmt.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: ESLint (zero warnings on changed files)
+        if: steps.diff.outputs.code != '0'
+        run: tr '\n' '\0' < changed-code.txt | xargs -0 pnpm exec eslint --max-warnings 0
+
+      - name: Prettier (changed files)
+        if: steps.diff.outputs.fmt != '0'
+        run: tr '\n' '\0' < changed-fmt.txt | xargs -0 pnpm exec prettier --check
+
+      - name: Stylelint (changed files)
+        if: steps.diff.outputs.style != '0'
+        run: tr '\n' '\0' < changed-style.txt | xargs -0 pnpm exec stylelint
+
+  types:
+    name: Types
+    needs: changes
+    if: needs.changes.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      # Ratchet, for the same reason as the slugs: 54 type errors are already here. This is
+      # the class of bug that reaches production silently — DocFrame rendered an empty slot
+      # with a build reporting zero errors.
+      - name: astro check (ratchet)
+        run: pnpm ci:ratchet astro-check
+
+  webkit:
+    name: Design system adoption
+    needs: changes
+    if: needs.changes.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      # Measured, not enforced — for now. The four-stage gate (wiring · canary · adoption
+      # ratchet · style) lives on chore/webkit-gate and replaces this step when it lands.
+      - name: Adoption report
+        if: always()
+        continue-on-error: true
+        run: |
+          pnpm lint:webkit
+          pnpm --silent report:webkit-adoption >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build
+    needs: changes
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      # `build:local` ends in test:frontmatter, so namespaces and unique permalinks are
+      # asserted here.
+      - name: Build and validate frontmatter
+        run: pnpm build:local
+        env:
+          NODE_OPTIONS: --max-old-space-size=8120
+
+      # The link checker reads only the sitemaps and the HTML — not the 97 MB of assets.
+      # 730 MB of HTML packs down to ~94 MB, which is cheaper than a second five-minute
+      # build, and it is what a11y will consume next.
+      - name: Pack the HTML for the jobs that consume it
+        run: |
+          find dist \( -name '*.html' -o -name 'sitemap-*.xml' \) -type f > dist-files.txt
+          tar -czf dist-html.tar.gz -T dist-files.txt
+          ls -lh dist-html.tar.gz
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-html
+          path: dist-html.tar.gz
+          retention-days: 1
+          compression-level: 0
+
+  linkcheck:
+    name: Internal links
+    needs: [changes, build]
+    # The fan-out guard: with the build red there is nothing to check, so skip cleanly
+    # instead of burning a runner.
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-html
+
+      - name: Unpack the build output
+        run: tar -xzf dist-html.tar.gz
+
+      # Ratchet. The checker had been pointed at the wrong base URL since the Astro fork,
+      # so it parsed zero pages and always said "no link issues". With the URL fixed it
+      # reports real numbers, and most of them are links to www.azion.com pages that live
+      # in the site repo, not here — which is a configuration job, not this branch's.
+      - name: Link check (ratchet)
+        run: pnpm ci:ratchet linkcheck
+
+  ci-gate:
+    name: CI gate
+    needs: [changes, security, content, lint, types, webkit, build, linkcheck]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # `skipped` counts as OK, so a job the path filter did not select — or one switched
+      # off — never blocks a merge.
+      - name: Every job passed or was skipped
+        run: |
+          declare -A results=(
+            [changes]="${{ needs.changes.result }}"
+            [security]="${{ needs.security.result }}"
+            [content]="${{ needs.content.result }}"
+            [lint]="${{ needs.lint.result }}"
+            [types]="${{ needs.types.result }}"
+            [webkit]="${{ needs.webkit.result }}"
+            [build]="${{ needs.build.result }}"
+            [linkcheck]="${{ needs.linkcheck.result }}"
+          )
+          failed=0
+          for job in "${!results[@]}"; do
+            result="${results[$job]}"
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "FAIL  $job: $result"
+              failed=1
+            else
+              echo "ok    $job: $result"
+            fi
+          done
+          if [[ $failed -eq 1 ]]; then
+            echo "The CI gate did not pass."
+            exit 1
+          fi
+          echo "CI gate passed."
