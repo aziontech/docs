@@ -12,7 +12,7 @@ const listData = [
       },
       {
         title: "Careers",
-        link: "/en/careers/",
+        link: "/en/careers/"
       },
       {
         title: "Compliance",
@@ -43,6 +43,10 @@ const listData = [
         title: "Marketplace",
         link: "/en/marketplace/"
       },
+      {
+        title: "Recognition and Awards",
+        link: "/en/recognitions/"
+      },
     ]
   },
   {
@@ -53,8 +57,8 @@ const listData = [
         link: "https://console.azion.com/signup"
       },
       {
-        title: "Documentation",
-        link: "/en/documentation/"
+        title: "How to start",
+        link: "/en/documentation/products/azion-platform-overview/"
       },
       {
         title: "Pricing",
@@ -70,41 +74,61 @@ const listData = [
       },
     ]
   },
+  {
+    title: "Developer",
+    list: [
+      {
+        title: "Documentation",
+        link: "/en/documentation/"
+      },
+      {
+        title: "API",
+        link: "https://api.azion.com/v4"
+      },
+      {
+        title: "Release Notes",
+        link: "/en/documentation/products/release-notes/"
+      },
+      {
+        title: "Our Community",
+        link: "https://discord.com/invite/pM8ANzztuB"
+      },
+    ]
+  },
 ]
-
 const socialButtons = [
   {
-    title: "GitHub",
+    title: "Azion on GitHub",
     target: "_blank",
     link: "https://github.com/aziontech",
     icon: "pi pi-github"
   },
   {
-    title: "Linkedin",
+    title: "Azion on LinkedIn",
     link: "https://www.linkedin.com/company/aziontech",
     target: "_blank",
     icon: "pi pi-linkedin"
   },
   {
-    title: "YouTube",
+    title: "Azion on YouTube",
     link: "https://www.youtube.com/aziontech",
     target: "_blank",
     icon: "pi pi-youtube"
   },
   {
-    title: "X",
+    title: "Azion on X",
     link: "https://x.com/aziontech",
     target: "_blank",
-    icon: "pi pi-twitter"
+    icon: "ai ai-x"
   },
   {
-    title: "Instagram",
+    title: "Azion on Instagram",
     link: "https://www.instagram.com/aziontech",
     target: "_blank",
     icon: "pi pi-instagram"
   },
   {
-    title: "Discord",
+    title: "Azion on Discord",
     target: "_blank",
     link: "https://discord.gg/Yp9N7RMVZy",
     icon: "pi pi-discord"

@@ -1,22 +1,20 @@
 <template>
 	<div class="docs-footer w-full border-t border-(--border-default)">
-		<Footer aria-label="Footer">
+		<!-- `content`: the bands run full bleed and the footer draws no frame. `site` is for a
+		     marketing page whose hero and sections resolve to one measure — this reading zone
+		     is not a framed column. The `border-t` above is not frame apparatus. -->
+		<Footer kind="content" aria-label="Footer">
 			<Footer.Column v-for="column in listData" :key="column.title" :title="column.title">
 				<Footer.Link v-for="item in column.list" :key="item.title" :href="item.link">
 					{{ item.title }}
 				</Footer.Link>
 			</Footer.Column>
 
+			<!-- Icons alone. The marketing footer leads this row with the mark, but its row spans
+			     the viewport; this one is half a column between two rails — 322px of content at
+			     1440 against the 344px a mark plus six 40px buttons need — so the mark orphaned
+			     a glyph on a second line. It keeps the signature band at every width instead. -->
 			<template #social>
-				<a
-					:href="`/${lang}/`"
-					aria-label="Azion home"
-					:class="BRAND_LINK_CLASS"
-					class="mr-(--spacing-xs) hidden lg:inline-flex"
-				>
-					<Brand size="small" aria-hidden="true" />
-				</a>
-
 				<IconButton
 					v-for="({ icon, link, title, target }, index) in socialButtons"
 					:key="index"
@@ -36,13 +34,12 @@
 				<slot name="action" />
 				<slot name="theme-switch" />
 			</template>
+
+			<!-- `mx-auto` centres the mark on both axes of a band that is `flex-col items-start`
+			     below `md` and `flex-row justify-between` from it: an auto inline margin absorbs
+			     the free space in both, where `self-center` would only cover the stack. -->
 			<template #brand>
-				<a
-					:href="`/${lang}/`"
-					aria-label="Azion home"
-					:class="BRAND_LINK_CLASS"
-					class="mx-auto inline-flex"
-				>
+				<a :href="`/${lang}/`" aria-label="Azion home" :class="BRAND_LINK_CLASS">
 					<Brand size="small" aria-hidden="true" />
 				</a>
 			</template>
@@ -95,26 +92,14 @@ defineSlots<{
 	'theme-switch'(): unknown;
 }>();
 
-// The mark's treatment, shared by both placements. Display stays out: the social row's
-// anchor is `hidden` below `lg`, and two display utilities on one element resolve by the
-// order Tailwind emitted them, not the order written.
+// The treatment every other brand redirect in the app carries: hover opacity, focus ring.
 const BRAND_LINK_CLASS =
-	'w-fit items-center rounded-(--shape-elements) transition-opacity duration-fast-02 ease-productive-entrance hover:opacity-80 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-canvas)';
+	'mx-auto inline-flex w-fit items-center rounded-(--shape-elements) transition-opacity duration-fast-02 ease-productive-entrance hover:opacity-80 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-canvas)';
 </script>
 
 <style>
-/* From `lg` the `#social` slot leads with the mark, so the DS Footer's own signature is
-   hidden. A stylesheet rule, not a utility: the element belongs to the DS Footer, so only
-   its `data-testid` reaches it from here. Below `lg` the row is too narrow for both. */
-@media (min-width: 1024px) {
-	.docs-footer [data-testid='layout-footer__signature'] {
-		display: none;
-	}
-}
-
-/* The status band wraps here, unlike in the DS: docs puts a third control (the theme
-   switcher) in a band built for two, and at 375px the `flex-row-reverse` overflow falls
-   off the LEFT edge, leaving that control clipped and unreachable on a phone. */
+/* Docs puts a third control (the theme switcher) in a band the DS built for two, and at
+   375px the `flex-row-reverse` overflow falls off the LEFT edge — clipped, unreachable. */
 .docs-footer [data-testid='layout-footer__status'] {
 	flex-wrap: wrap;
 }
