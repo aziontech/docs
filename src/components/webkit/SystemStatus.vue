@@ -1,10 +1,18 @@
 <template>
+	<!-- The indicator is BARE — dot and label, no pill. It reads as a line of status
+	     text in the footer's own status row, which is what the DS `Footer` and the
+	     marketing site's footer both put there; a bordered chip made it look like a
+	     button that could be pressed for something other than the status page.
+
+	     It is still a link (the status page is what a reader wants next), so it keeps
+	     the treatment every other quiet link in these shells carries: one opacity
+	     transition on hover and a focus ring. -->
 	<a
 		href="https://status.azion.com/"
 		:title="label"
 		target="_blank"
 		rel="noopener noreferrer"
-		class="flex h-8 w-fit items-center whitespace-nowrap rounded-[var(--shape-button)] border border-default bg-surface px-4 no-underline transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring-color)]"
+		class="inline-flex w-fit items-center rounded-(--shape-elements) no-underline transition-opacity duration-fast-02 ease-productive-entrance hover:opacity-80 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-canvas)"
 	>
 		<StatusIndicator :severity="severity" :label="capitalizeLetter(String(label).trim())" />
 	</a>
