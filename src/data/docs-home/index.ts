@@ -1,6 +1,6 @@
 import { en } from './en';
 import { ptBr } from './pt-br';
-import type { DocsHomeContent, Heading, Lang, Section } from './types';
+import type { DocsHomeContent, Lang, Section } from './types';
 
 export type { Card, DocLink, DocsHomeContent, Heading, Lang, Section } from './types';
 
@@ -10,16 +10,6 @@ export const docsHome: Record<Lang, DocsHomeContent> = {
 };
 
 export const docsHomeLangs = Object.keys(docsHome) as Lang[];
-
-/**
- * The docs home is no longer an MDX file, so nothing generates its table of
- * contents. Only the `##` sections used to reach `OnThisPage` — the `<h3>` in
- * the agent block is hand-written markup and never was a markdown heading —
- * so the rail keeps exactly the entries it had.
- */
-export function docsHomeHeadings(content: DocsHomeContent): Heading[] {
-	return [content.interfaceSection.heading, ...content.sections.map((section) => section.heading)];
-}
 
 function cardLines(section: Pick<Section, 'cards'>): string {
 	return section.cards

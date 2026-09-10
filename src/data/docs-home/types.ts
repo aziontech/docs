@@ -42,7 +42,7 @@ export interface Section {
 	footer?: SectionFooter;
 }
 
-/** Mirrors Astro's `MarkdownHeading`, which is what `OnThisPage` consumes. */
+/** A section heading: `slug` is the anchor id, `text` the visible label. */
 export interface Heading {
 	depth: number;
 	slug: string;
