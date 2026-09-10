@@ -49,8 +49,12 @@ function remarkAsides(): unified.Plugin<[], mdast.Root> {
 			let title: string | undefined;
 			remove(node, (child) => {
 				if (child.data?.directiveLabel) {
-					if ('children' in child && 'value' in child.children[0]) {
-						title = child.children[0].value;
+					// The label arrives as a paragraph whose first child is a text node;
+					// `in` alone leaves `children` as `unknown`, so narrow it for real.
+					const children = 'children' in child ? child.children : undefined;
+					const first = Array.isArray(children) ? children[0] : undefined;
+					if (first && typeof first === 'object' && 'value' in first && typeof first.value === 'string') {
+						title = first.value;
 					}
 					return true;
 				}
