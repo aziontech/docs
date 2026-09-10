@@ -47,6 +47,7 @@ export const en: DocsHomeContent = {
 			prompt: AGENT_PROMPT,
 		},
 		guided: {
+			id: 'agent-setup',
 			title: 'Prefer the guided route?',
 			buttonLabel: 'Agent setup',
 			buttonHref: '/en/documentation/agent-setup/',
@@ -124,11 +125,11 @@ export const en: DocsHomeContent = {
 			cols: 4,
 			mobileCols: 2,
 			cards: [
-				{ icon: 'ai ai-react', title: 'React', href: '/en/documentation/guides/application-development/frameworks/react-boilerplate/' },
-				{ icon: 'ai ai-next', title: 'Next.js', href: '/en/documentation/guides/application-development/frameworks/nextjs-static-boilerplate/' },
+				{ icon: 'ai-cor ai-react', title: 'React', href: '/en/documentation/guides/application-development/frameworks/react-boilerplate/' },
+				{ icon: 'ai-cor ai-next', title: 'Next.js', href: '/en/documentation/guides/application-development/frameworks/nextjs-static-boilerplate/' },
 				{ icon: 'ai ai-astro', title: 'Astro', href: '/en/documentation/guides/application-development/frameworks/astro-boilerplate/' },
-				{ icon: 'ai ai-vue', title: 'Vue.js', href: '/en/documentation/guides/application-development/frameworks/vue-vite-boilerplate/' },
-				{ icon: 'ai ai-angular', title: 'Angular', href: '/en/documentation/guides/application-development/frameworks/angular-boilerplate/' },
+				{ icon: 'ai-cor ai-vue', title: 'Vue.js', href: '/en/documentation/guides/application-development/frameworks/vue-vite-boilerplate/' },
+				{ icon: 'ai-cor ai-angular', title: 'Angular', href: '/en/documentation/guides/application-development/frameworks/angular-boilerplate/' },
 				{ icon: 'ai ai-gatsby', title: 'Gatsby Blog', href: '/en/documentation/guides/application-development/frameworks/gatsby/' },
 				{ icon: 'ai ai-hono', title: 'Hono', href: '/en/documentation/guides/application-development/frameworks/hono/' },
 				{ icon: 'ai ai-hugo', title: 'Hugo', href: '/en/documentation/guides/application-development/frameworks/hugo-boilerplate/' },
@@ -310,4 +311,9 @@ export const en: DocsHomeContent = {
 			],
 		},
 	],
+
+	pagination: {
+		nextTitle: 'Agent setup',
+		nextHref: '/en/documentation/agent-setup/',
+	},
 };

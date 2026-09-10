@@ -46,6 +46,7 @@ export const ptBr: DocsHomeContent = {
 			prompt: AGENT_PROMPT,
 		},
 		guided: {
+			id: 'agent-setup',
 			title: 'Prefere o caminho guiado?',
 			buttonLabel: 'Configurar agente',
 			buttonHref: '/pt-br/documentacao/agent-setup/',
@@ -123,11 +124,11 @@ export const ptBr: DocsHomeContent = {
 			cols: 4,
 			mobileCols: 2,
 			cards: [
-				{ icon: 'ai ai-react', title: 'React', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/react-boilerplate/' },
-				{ icon: 'ai ai-next', title: 'Next.js', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/nextjs-static-boilerplate/' },
+				{ icon: 'ai-cor ai-react', title: 'React', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/react-boilerplate/' },
+				{ icon: 'ai-cor ai-next', title: 'Next.js', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/nextjs-static-boilerplate/' },
 				{ icon: 'ai ai-astro', title: 'Astro', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/astro-boilerplate/' },
-				{ icon: 'ai ai-vue', title: 'Vue.js', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/vue-vite-boilerplate/' },
-				{ icon: 'ai ai-angular', title: 'Angular', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/angular-boilerplate/' },
+				{ icon: 'ai-cor ai-vue', title: 'Vue.js', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/vue-vite-boilerplate/' },
+				{ icon: 'ai-cor ai-angular', title: 'Angular', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/angular-boilerplate/' },
 				{ icon: 'ai ai-gatsby', title: 'Gatsby Blog', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/gatsby/' },
 				{ icon: 'ai ai-hono', title: 'Hono', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/hono/' },
 				{ icon: 'ai ai-hugo', title: 'Hugo', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/hugo-boilerplate/' },
@@ -309,4 +310,9 @@ export const ptBr: DocsHomeContent = {
 			],
 		},
 	],
+
+	pagination: {
+		nextTitle: 'Configurar agente',
+		nextHref: '/pt-br/documentacao/agent-setup/',
+	},
 };

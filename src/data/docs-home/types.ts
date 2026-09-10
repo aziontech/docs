@@ -78,6 +78,8 @@ export interface InterfaceSection {
 		prompt: string;
 	};
 	guided: {
+		/** Anchor id: the rail and the agent-setup links target this cell. */
+		id: string;
 		title: string;
 		buttonLabel: string;
 		buttonHref: string;
@@ -103,6 +105,15 @@ export interface DocsHomeMeta {
 	meta_tag_robots_no_index: false;
 }
 
+/**
+ * The trailing previous/next pair, the same one that closes every reading page.
+ * The home has nothing before it, so only the `next` half is filled.
+ */
+export interface DocsHomePagination {
+	nextTitle: string;
+	nextHref: string;
+}
+
 export interface DocsHomeContent {
 	lang: Lang;
 	/** Collection id the deleted MDX used to have; endpoints still key off it. */
@@ -113,4 +124,5 @@ export interface DocsHomeContent {
 	hero: Hero;
 	interfaceSection: InterfaceSection;
 	sections: Section[];
+	pagination: DocsHomePagination;
 }
