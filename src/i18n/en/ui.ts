@@ -68,8 +68,8 @@ export default {
 	'themeToggle.useLight': 'Light theme',
 	'themeToggle.useDark': 'Dark theme',
 	// Used in previous/next page links at the bottom of pages
-	'articleNav.nextPage': 'Next Page',
-	'articleNav.prevPage': 'Back',
+	'articleNav.nextPage': 'Next page',
+	'articleNav.prevPage': 'Previous page',
 	// Installation Guide
 	'install.autoTab': 'Automatic CLI',
 	'install.manualTab': 'Manual Setup',
