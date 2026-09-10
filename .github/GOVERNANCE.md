@@ -68,6 +68,8 @@ AI-assisted PRs follow the same rules as any other. The author, not the agent, i
 
 On every PR: the site builds, frontmatter namespaces and permalinks are present and unique, and the PR title matches the convention. A broken build or a duplicate permalink blocks the merge.
 
+On every PR, informational only: a **webkit adoption report** runs the design-system ESLint rules over the UI and writes the result to the run Summary — how many `webkit/*` violations there are, which rules, which files, and what the check did *not* look at. It never blocks the merge. It exists so the distance between this codebase and the design system is a number someone can watch, instead of something noticed in review.
+
 Weekly: a link check crawls the built site for broken internal links and opens an issue when it finds them.
 
 Everything else in this document is a convention that reviewers uphold, which is how most of it will always work.

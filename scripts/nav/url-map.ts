@@ -11,6 +11,10 @@ const SITE = 'https://www.azion.com';
 const OUT_DIR = path.join(REPO_ROOT, 'redirects');
 const CONTENT = 'src/content/docs';
 
+function escapeMarkdownTableCell(value: string): string {
+	return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+}
+
 const refArg = process.argv.find((arg) => arg.startsWith('--baseline='));
 const baselineRef = refArg ? refArg.split('=')[1] : 'HEAD';
 
@@ -162,7 +166,7 @@ for (const treeId of [...data.trees.keys(), 'other']) {
 		lines.push('| Page | Old URL | New URL |');
 		lines.push('| --- | --- | --- |');
 		for (const row of rows.sort((a, b) => a.to.localeCompare(b.to))) {
-			lines.push(`| ${row.title.replace(/\|/g, '\\|')} | \`${row.from}\` | \`${row.to}\` |`);
+			lines.push(`| ${escapeMarkdownTableCell(row.title)} | \`${row.from}\` | \`${row.to}\` |`);
 		}
 		lines.push('');
 	}
@@ -178,7 +182,7 @@ for (const lang of LANGS) {
 	lines.push('| Page | URL | Replaced by | Why |');
 	lines.push('| --- | --- | --- | --- |');
 	for (const row of rows.sort((a, b) => a.from.localeCompare(b.from))) {
-		lines.push(`| ${row.title.replace(/\|/g, '\\|')} | \`${row.from}\` | \`${row.to}\` | ${row.reason} |`);
+		lines.push(`| ${escapeMarkdownTableCell(row.title)} | \`${row.from}\` | \`${row.to}\` | ${row.reason} |`);
 	}
 	lines.push('');
 }
