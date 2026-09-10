@@ -24,22 +24,6 @@ function readJsonFile(filePath) {
   return json;
 }
 
-function jsonToFile(jsonObj, filePath) {
-  const jsonString = JSON.stringify(jsonObj, null, 2);
-
-  fs.writeFile(filePath, jsonString, 'utf8', (err) => {
-    if (err) {
-      console.error('An error occurred while writing JSON to file:', err);
-    } else {
-      console.log('JSON has been written successfully to', filePath);
-    }
-  });
-};
-
-async function touchJsonFileResult(data, fileDist) {
-  await jsonToFile(data, fileDist);
-};
-
 //////////////////
 // end utils.js //
 //////////////////

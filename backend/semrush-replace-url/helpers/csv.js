@@ -23,6 +23,6 @@ export async function read(filepath) {
 
     return redirects;
   } catch (error) {
-    throw new Error(`Error loading redirects: ${error.message}`);
+    throw new Error(`Error loading redirects: ${error.message}`, { cause: error });
   }
 }

@@ -48,7 +48,7 @@ export async function run() {
 
 	// Get all `@docs` JSDoc comments in the file.
 	const allComments = [
-		...inputBuffer.matchAll(/\/\*\*\s*\n([^\*]|\*[^\/])*@docs([^\*]|\*[^\/])*\*\//g),
+		...inputBuffer.matchAll(/\/\*\*\s*\n([^*]|\*[^/])*@docs([^*]|\*[^/])*\*\//g),
 	];
 	const allCommentsInput = allComments
 		.map((m) => m[0])
