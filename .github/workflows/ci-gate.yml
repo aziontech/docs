@@ -3,13 +3,14 @@ name: CI gate
 # The PR gate, in the shape of aziontech/webkit's governance.yml: a `changes` job with path
 # filters, every job conditioned on one of its outputs, and one aggregator at the end.
 #
-# `CI gate` is the one check to mark required. It passes when every job succeeded or was
-# cleanly skipped, so a job can be added or switched off without touching branch protection.
+# `CI gate` aggregates the jobs in this file: it passes when every one succeeded or was
+# cleanly skipped, so a job can be added or switched off without touching branch
+# protection.
 #
-# Two checks live in their own files and are called from here: `internal-links.yml` and
-# `design-system-adoption.yml`. Both are `on: workflow_call`, so they run inside this run
-# — which is what lets Internal links download the artifact the build produced — while
-# staying movable on their own.
+# Two checks are deliberately NOT in here — `internal-links.yml` and
+# `design-system-adoption.yml` are standalone workflows with their own triggers and their
+# own status checks, so branch protection needs all three names. Internal links pays for
+# that independence by building the site itself; see the note in its own file.
 #
 # This workflow never deploys. Deploys live in their own workflows, with their own secrets
 # and the opposite concurrency (a deploy is never cancelled mid-flight).
@@ -180,11 +181,6 @@ jobs:
       - name: astro check (ratchet)
         run: pnpm ci:ratchet astro-check
 
-  design-system-adoption:
-    needs: changes
-    if: needs.changes.outputs.platform == 'true'
-    uses: ./.github/workflows/design-system-adoption.yml
-
   build:
     name: Build
     needs: changes
@@ -202,42 +198,10 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=8120
 
-      # The link checker reads only the sitemaps and the HTML — not the 97 MB of assets.
-      # 730 MB of HTML packs down to ~94 MB, which is cheaper than a second five-minute
-      # build, and it is what a11y will consume next.
-      - name: Pack the HTML for the jobs that consume it
-        run: |
-          find dist \( -name '*.html' -o -name 'sitemap-*.xml' \) -type f > dist-files.txt
-          tar -czf dist-html.tar.gz -T dist-files.txt
-          ls -lh dist-html.tar.gz
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: dist-html
-          path: dist-html.tar.gz
-          retention-days: 1
-          compression-level: 0
-
-  internal-links:
-    needs: [changes, build]
-    # The fan-out guard: with the build red there is nothing to check, so skip cleanly
-    # instead of burning a runner.
-    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
-    uses: ./.github/workflows/internal-links.yml
 
   ci-gate:
     name: CI gate
-    needs:
-      [
-        changes,
-        security,
-        content,
-        lint,
-        types,
-        design-system-adoption,
-        build,
-        internal-links
-      ]
+    needs: [changes, security, content, lint, types, build]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -252,9 +216,7 @@ jobs:
             [content]="${{ needs.content.result }}"
             [lint]="${{ needs.lint.result }}"
             [types]="${{ needs.types.result }}"
-            [design-system-adoption]="${{ needs['design-system-adoption'].result }}"
             [build]="${{ needs.build.result }}"
-            [internal-links]="${{ needs['internal-links'].result }}"
           )
           failed=0
           for job in "${!results[@]}"; do
