@@ -3,7 +3,11 @@
 		data-doc-block
 		data-doc-chrome
 	>
-		<CodeBlock :tabs="tabs" />
+		<!-- Plain command samples, no line gutter — as the reference renders them. -->
+		<CodeBlock
+			:tabs="tabs"
+			:show-line-numbers="false"
+		/>
 	</div>
 </template>
 

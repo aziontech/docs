@@ -2,6 +2,7 @@
 	<div
 		data-doc-block
 		data-doc-chrome
+		class="agent-tools"
 	>
 		<Table border>
 			<Table.Header>
@@ -20,7 +21,7 @@
 					</Table.Cell>
 					<Table.Cell
 						:grow="2"
-						class="whitespace-normal text-(--text-muted)"
+						class="whitespace-normal"
 					>
 						{{ tool.description }}
 					</Table.Cell>
@@ -45,3 +46,16 @@
 		}))
 	)
 </script>
+
+<style>
+	/* The reference measures the tool column to its widest chip (244px on the current tool set) and
+	   hands the rest to the description; webkit 4.4.0 splits the row by grow weight, and each row
+	   is its own flex line, so the column has to be a fixed basis to stay aligned. Same layer
+	   trick as the other 4.4.0 bridges. */
+	@layer components {
+		.agent-tools [data-testid='data-table__head-cell']:first-child,
+		.agent-tools [data-testid='data-table__cell']:first-child {
+			flex: 0 0 15.25rem !important;
+		}
+	}
+</style>

@@ -1,8 +1,7 @@
 <template>
 	<DocPageHeader
 		v-if="agent"
-		data-doc-chrome
-		class="mb-8 mt-2"
+		class="px-container border-b-0"
 		:title="title"
 		:description="description"
 		:breadcrumb="breadcrumb"
@@ -10,6 +9,7 @@
 		:locale="locale"
 		:labels="labels"
 		:last-updated="lastUpdated"
+		:agent-setup-href="agentSetupHref"
 	>
 		<template #title>
 			<div class="flex min-w-0 flex-col items-start gap-(--spacing-sm) sm:flex-1 sm:flex-row sm:items-center sm:gap-(--spacing-md)">
@@ -85,6 +85,7 @@
 		locale: string
 		labels: DocPageHeaderLabels
 		lastUpdated?: string
+		agentSetupHref?: string
 		links: AgentLink[]
 	}>()
 

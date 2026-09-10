@@ -7,7 +7,6 @@
 		<Accordion
 			type="single"
 			size="large"
-			default-value="0"
 		>
 			<Accordion.Item
 				v-for="(item, index) in items"

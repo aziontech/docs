@@ -15,6 +15,8 @@ export const baseSchema = z.object({
 	githubURL: z.url().optional(),
 	hasREADME: z.boolean().optional(),
 	page_header: z.boolean().default(true),
+	/** Agent Setup pages: the agent's slug, which swaps the masthead for the agent masthead. */
+	agent: z.string().optional(),
 })
 
 export const homeSchema = baseSchema.extend({

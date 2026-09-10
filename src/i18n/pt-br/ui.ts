@@ -75,8 +75,8 @@ export default UIDictionary({
 	'themeToggle.useLight': 'Usar tema claro',
 	'themeToggle.useDark': 'Usar tema escuro',
 	// Used in previous/next page links at the bottom of pages
-	'articleNav.nextPage': 'Próxima página',
-	'articleNav.prevPage': 'Página anterior',
+	'articleNav.nextPage': 'Próxima',
+	'articleNav.prevPage': 'Anterior',
 	// Installation Guide
 	'install.autoTab': 'Interface de Linha de Comando Automática',
 	'install.manualTab': 'Instalação Manual',
