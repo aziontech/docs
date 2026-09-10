@@ -42,7 +42,7 @@
 	</CommandMenu>
 </template>
 
-<script setup>
+<script setup lang="ts">
 	import { ref, watch } from 'vue'
 
 	import CommandMenu from '@aziontech/webkit/command-menu'
@@ -51,24 +51,25 @@
 
 	import HeaderSearch from './HeaderSearch.vue'
 
-	const props = defineProps({
-		algoliaAppId: {
-			type: String
-		},
-		algoliaApiKey: {
-			type: String
-		},
-		algoliaIndex: {
-			type: Array
-		},
-		algoliaModel: {
-			type: Array
-		},
-		inputPlaceholder: {
-			type: String,
-			required: false,
-			default: 'Search Azion'
-		}
+	interface Props {
+		/** Algolia application id. */
+		algoliaAppId?: string
+		/** Algolia search-only API key. */
+		algoliaApiKey?: string
+		/** Index names to query, in order. */
+		algoliaIndex?: string[]
+		/** Result models paired with `algoliaIndex`. */
+		algoliaModel?: string[]
+		/** Placeholder for the search field. */
+		inputPlaceholder?: string
+	}
+
+	const props = withDefaults(defineProps<Props>(), {
+		algoliaAppId: undefined,
+		algoliaApiKey: undefined,
+		algoliaIndex: undefined,
+		algoliaModel: undefined,
+		inputPlaceholder: 'Search Azion',
 	})
 
 	const open = ref(false)

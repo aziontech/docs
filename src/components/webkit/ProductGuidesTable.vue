@@ -12,10 +12,13 @@
 				v-for="row in rows"
 				:key="row.href"
 			>
+				<!-- eslint-disable webkit/no-style-override -- `py-` is the row's own
+				     height; an inner span pads its text, not the cell. -->
 				<Table.Cell
 					principal
 					class="whitespace-normal py-(--spacing-sm)"
 				>
+				<!-- eslint-enable webkit/no-style-override -->
 					<a
 						:href="row.href"
 						:target="row.external ? '_blank' : undefined"
@@ -25,8 +28,8 @@
 						{{ row.label }}
 					</a>
 				</Table.Cell>
-				<Table.Cell class="text-(--text-muted)">{{ row.kind }}</Table.Cell>
-				<Table.Cell class="text-(--text-muted)">{{ row.updated }}</Table.Cell>
+				<Table.Cell><span class="text-(--text-muted)">{{ row.kind }}</span></Table.Cell>
+				<Table.Cell><span class="text-(--text-muted)">{{ row.updated }}</span></Table.Cell>
 			</Table.Row>
 		</Table.Body>
 	</Table>

@@ -18,11 +18,8 @@
 					<Table.Cell principal>
 						<code class="rounded-(--shape-elements) border border-(--border-default) bg-(--bg-hover) px-(--spacing-xs) py-0.5 text-label-code-sm text-(--text-default)">{{ tool.id }}</code>
 					</Table.Cell>
-					<Table.Cell
-						:grow="2"
-						class="whitespace-normal text-(--text-muted)"
-					>
-						{{ tool.description }}
+					<Table.Cell :grow="2">
+						<span class="whitespace-normal text-(--text-muted)">{{ tool.description }}</span>
 					</Table.Cell>
 				</Table.Row>
 			</Table.Body>

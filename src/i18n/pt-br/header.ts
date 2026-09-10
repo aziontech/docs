@@ -43,7 +43,7 @@ const bottomButtonsMobile = [
     label: 'Contato',
     url: '/pt-br/contato/',
     urlTitle: 'Contact Page',
-    icon: 'pi pi-chevron-right text-xs'
+    icon: 'pi pi-chevron-right text-body-xs'
   }
 ];
 

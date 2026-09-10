@@ -1,20 +1,25 @@
 <template>
-	<DocProse class="readable-content">
+	<DocProse>
 		<slot />
 	</DocProse>
 </template>
 
-<script setup>
+<script setup lang="ts">
 	import { onMounted } from 'vue';
 
 	import DocProse from '@aziontech/webkit/doc-prose';
+
+	defineSlots<{
+		/** The rendered page body. */
+		default(): unknown;
+	}>();
 
 	const copyToClipboard = () => {
 		navigator.clipboard.writeText(window.location.href);
 	};
 
-	const controlScroll = (e) => {
-		const getOffsetTop = e.target.offsetTop - 96;
+	const controlScroll = (e: Event) => {
+		const getOffsetTop = (e.target as HTMLElement).offsetTop - 96;
 
 		window.scrollTo({
 			top: getOffsetTop,
@@ -22,7 +27,7 @@
 		});
 	};
 
-	const onClickEvent = (e, parentElement) => {
+	const onClickEvent = (e: Event, parentElement: HTMLAnchorElement) => {
 		e.preventDefault();
 		window.history.pushState({}, '', parentElement.href);
 
@@ -34,7 +39,7 @@
 		const iconElements = document.querySelectorAll('i[data-icon]');
 		iconElements.forEach((iconElement) => {
 			const parentElement = iconElement.parentElement;
-			if (parentElement.tagName.toLowerCase() === 'a') {
+			if (parentElement instanceof HTMLAnchorElement) {
 				parentElement.addEventListener('click', (e) => onClickEvent(e, parentElement));
 			}
 		});

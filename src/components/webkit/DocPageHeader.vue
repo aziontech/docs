@@ -34,6 +34,13 @@
 		type DocPageAction
 	} from '@aziontech/webkit/doc-page-header'
 
+	defineSlots<{
+		/** Replaces the rendered title. */
+		title(): unknown
+		/** Extra detail rows under the header. */
+		details(): unknown
+	}>()
+
 	export interface DocPageHeaderLabels {
 		lastUpdated: string
 		copy: string

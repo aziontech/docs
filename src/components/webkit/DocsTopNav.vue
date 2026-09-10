@@ -1,9 +1,13 @@
 <template>
+	<!-- eslint-disable webkit/no-style-override -- placement and box geometry the
+	     header owns: the bar only exists from `lg` up, and the row's alignment and
+	     pitch are the shell's, not the menu's own appearance. -->
 	<NavigationMenu
 		:aria-label="ariaLabel"
 		class="hidden lg:flex"
 	>
 		<NavigationMenu.List class="items-center gap-(--spacing-xxs)">
+		<!-- eslint-enable webkit/no-style-override -->
 			<template
 				v-for="item in items"
 				:key="item.value"
@@ -32,7 +36,10 @@
 							</svg>
 						</NavigationMenu.Icon>
 					</NavigationMenu.Trigger>
+					<!-- eslint-disable webkit/no-style-override -- the panel sizes to its grid
+					     and hands padding to the grid inside it. -->
 					<NavigationMenu.Content class="w-max p-0">
+					<!-- eslint-enable webkit/no-style-override -->
 						<div
 							class="grid gap-(--spacing-lg) p-(--spacing-md)"
 							:style="{ gridTemplateColumns: `repeat(${item.columns.length}, 18rem)` }"
@@ -80,8 +87,7 @@
 
 <script setup lang="ts">
 	import NavigationMenu from '@aziontech/webkit/navigation-menu'
-	import { useMounted } from '@aziontech/webkit/use-mounted'
-	import { computed } from 'vue'
+	import { computed, onMounted, ref } from 'vue'
 
 	interface Entry {
 		label: string
@@ -121,5 +127,10 @@
 		...(props.devtools.length ? [{ value: 'devtools', label: props.labels.devtools, columns: props.devtools }] : [])
 	])
 
-	const isMounted = useMounted()
+	// `NavigationMenu.Portal` may only mount client-side; webkit publishes no
+	// `use-mounted` composable, so guard it with the plain Vue equivalent.
+	const isMounted = ref(false)
+	onMounted(() => {
+		isMounted.value = true
+	})
 </script>

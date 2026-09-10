@@ -1,6 +1,11 @@
 <template>
+	<!-- eslint-disable webkit/no-style-override -- page chrome, not restyling: the
+	     shell decides that its header sticks to the top and owns a stacking context,
+	     and that the left cluster packs from the start. Wrapping the header in a
+	     sticky box instead would change the layout every page is built on. -->
 	<GlobalHeader aria-label="Azion documentation" class="@container sticky top-0 z-50">
 		<GlobalHeader.Left class="justify-start!">
+		<!-- eslint-enable webkit/no-style-override -->
 			<slot name="mobile-nav" />
 
 			<GlobalHeader.Brand>
@@ -27,6 +32,8 @@
 			<slot name="dialog" />
 
 			<div class="hidden sm:contents">
+				<!-- eslint-disable webkit/no-style-override -- flex sizing in the
+				     header row; the button's own appearance is untouched. -->
 				<IconButton
 					icon="pi pi-github"
 					kind="outlined"
@@ -38,6 +45,8 @@
 				/>
 			</div>
 
+			<!-- eslint-disable-next-line webkit/no-style-override -- flex sizing in the
+			     header row; the button's own appearance is untouched. -->
 			<Button
 				label="Console"
 				kind="secondary"
@@ -46,24 +55,35 @@
 				target="_blank"
 				class="shrink-0"
 			/>
+				<!-- eslint-enable webkit/no-style-override -->
 		</GlobalHeader.Right>
 	</GlobalHeader>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Brand from '@aziontech/webkit/brand';
 import Button from '@aziontech/webkit/button';
 import GlobalHeader from '@aziontech/webkit/global-header';
 import IconButton from '@aziontech/webkit/icon-button';
 
-defineProps({
-	homeHref: {
-		type: String,
-		default: '/',
-	},
-	signInLabel: {
-		type: String,
-		default: 'Sign in',
-	},
+interface Props {
+	/** Destination of the brand mark. */
+	homeHref?: string;
+	/** Kept for callers; the header's call to action now points at the Console. */
+	signInLabel?: string;
+}
+
+withDefaults(defineProps<Props>(), {
+	homeHref: '/',
+	signInLabel: 'Sign in',
 });
+
+defineSlots<{
+	/** The mobile navigation drawer's trigger. */
+	'mobile-nav'(): unknown;
+	/** The primary navigation. */
+	nav(): unknown;
+	/** The search dialog. */
+	dialog(): unknown;
+}>();
 </script>

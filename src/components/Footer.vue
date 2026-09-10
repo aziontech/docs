@@ -50,25 +50,50 @@
 	</div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Brand from '@aziontech/webkit/brand';
 import Footer from '@aziontech/webkit/footer';
 import IconButton from '@aziontech/webkit/icon-button';
 
-defineProps({
-	lang: {
-		type: String,
-		required: true,
-	},
-	listData: {
-		type: Array,
-		required: true,
-	},
-	socialButtons: {
-		type: Array,
-		required: false,
-	},
-});
+/** One link inside a footer column. */
+interface FooterLink {
+	title: string;
+	link: string;
+}
+
+/** One column of the footer's link grid. */
+interface FooterColumn {
+	title: string;
+	list: FooterLink[];
+}
+
+/** One glyph in the footer's social row. */
+interface SocialButton {
+	icon: string;
+	link: string;
+	title?: string;
+	target?: string;
+}
+
+interface Props {
+	/** Language the footer is rendered for; also the brand link's destination. */
+	lang: string;
+	/** The footer's link columns. */
+	listData: FooterColumn[];
+	/** Social glyphs shown at the left of the status row. */
+	socialButtons?: SocialButton[];
+}
+
+withDefaults(defineProps<Props>(), { socialButtons: () => [] });
+
+defineSlots<{
+	/** The system-status indicator. */
+	'system-status'(): unknown;
+	/** The language switcher. */
+	action(): unknown;
+	/** The light/dark control. */
+	'theme-switch'(): unknown;
+}>();
 
 // The mark's treatment, in one place because it is rendered in two: the same one every
 // other brand redirect carries — one opacity transition on hover, and a focus ring.

@@ -1,6 +1,6 @@
 <template>
 	<div class="flex flex-col gap-2">
-		<p class="font-medium text-base">{{ setTranslations.title }}</p>
+		<p class="font-medium text-body-md">{{ setTranslations.title }}</p>
 		<ul class="flex flex-col gap-2">
 			<li
 				v-for="({ label, icon, href }, index) in setTranslations.communities"
@@ -9,7 +9,7 @@
 			>
 				<a
 					:href="href"
-					class="text-muted text-sm"
+					class="text-muted text-body-sm"
 				>
 					<i
 						:class="icon"
@@ -22,14 +22,13 @@
 	</div>
 </template>
 
-<script setup>
-	const props = defineProps({
-		lang: {
-			type: String,
-			required: false,
-			default: 'en'
-		}
-	})
+<script setup lang="ts">
+	interface Props {
+		/** Language whose community links to show; falls back to English. */
+		lang?: string;
+	}
+
+	const props = withDefaults(defineProps<Props>(), { lang: 'en' })
 
 	const TRANSLATIONS = {
 		en: {

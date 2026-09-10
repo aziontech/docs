@@ -44,6 +44,12 @@ const props = defineProps<{
 	sharedStore?: string;
 }>();
 
+/**
+ * Slots are named by the consumer — `tab.<key>` pairs with `panel.<key>` — so the
+ * declaration is an index signature rather than a fixed list.
+ */
+defineSlots<Record<string, () => unknown>>();
+
 const TAB_PREFIX = 'tab.';
 const PANEL_PREFIX = 'panel.';
 

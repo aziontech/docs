@@ -18,17 +18,17 @@
 	</a>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onBeforeMount, ref } from 'vue';
 
 import StatusIndicator from '@aziontech/webkit/status-indicator';
 
-const props = defineProps({
-	lang: {
-		type: String,
-		required: true,
-	},
-});
+interface Props {
+	/** Language the status label is translated into. */
+	lang: string;
+}
+
+const props = defineProps<Props>();
 
 const { lang } = props;
 

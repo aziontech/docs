@@ -23,25 +23,43 @@
 	</section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 	import { computed } from 'vue';
 
 	import Button from '@aziontech/webkit/button';
 
-	const props = defineProps({
-		description: {
-			type: String,
-			default: () => ''
-		},
-		buttons: {
-			type: Array,
-			default: () => []
-		}
+	/** A call to action. `textLink`/`text`/`outlined`/`severity` are legacy spellings. */
+	interface SectionButton {
+		label?: string;
+		link?: string;
+		target?: string;
+		icon?: string;
+		textLink?: boolean;
+		text?: boolean;
+		outlined?: boolean;
+		severity?: string;
+	}
+
+	interface Props {
+		/** Body copy for the section. */
+		description?: string;
+		/** Calls to action; entries without a link are dropped. */
+		buttons?: SectionButton[];
+	}
+
+	const props = withDefaults(defineProps<Props>(), {
+		description: '',
+		buttons: () => [],
 	});
+
+	defineSlots<{
+		/** The section's body, when richer than `description`. */
+		content(): unknown;
+	}>();
 
 	const actionable = computed(() => props.buttons.filter((button) => button.link));
 
-	const toButtonProps = (button) => ({
+	const toButtonProps = (button: SectionButton) => ({
 		label: button.label,
 		href: button.link,
 		target: button.target,

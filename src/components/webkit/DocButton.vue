@@ -4,9 +4,12 @@
 	</span>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Button from '@aziontech/webkit/button';
 
 defineOptions({ inheritAttrs: false });
-defineEmits(['click']);
+defineEmits<{
+	/** Forwarded from the underlying button. */
+	click: [event: MouseEvent];
+}>();
 </script>

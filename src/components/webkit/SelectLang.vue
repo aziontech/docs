@@ -34,19 +34,26 @@
 	</div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Select from '@aziontech/webkit/select';
 
-const props = defineProps({
-	i18nPages: {
-		type: Array,
-		required: false,
-	},
-	lang: {
-		type: String,
-		required: true,
-		default: 'en',
-	},
+/** One translation of the current page. */
+interface I18nPage {
+	langPrefix: string;
+	slug: string;
+	lang: string;
+}
+
+interface Props {
+	/** Every language this page exists in. */
+	i18nPages?: I18nPage[];
+	/** The language currently being read. */
+	lang?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+	i18nPages: undefined,
+	lang: 'en',
 });
 
 const LANGUAGE_LABEL = 'Language';
@@ -61,7 +68,8 @@ const LANGUAGE_CODES = {
 	es: 'ES',
 };
 
-const codeFor = (langPrefix) => LANGUAGE_CODES[langPrefix] ?? langPrefix.toUpperCase();
+const codeFor = (langPrefix: string) =>
+	LANGUAGE_CODES[langPrefix as keyof typeof LANGUAGE_CODES] ?? langPrefix.toUpperCase();
 
 // The VALUE is the target page's own slug — this control navigates, so what it carries
 // has to be a destination, not a label. `displayValue` is how the trigger still reads as
@@ -69,7 +77,7 @@ const codeFor = (langPrefix) => LANGUAGE_CODES[langPrefix] ?? langPrefix.toUpper
 const activePage = props.i18nPages?.find((page) => page.langPrefix === props.lang.toLowerCase());
 const activeSlug = activePage?.slug;
 
-const displayValue = (slug) => {
+const displayValue = (slug: string) => {
 	const page = props.i18nPages?.find((option) => option.slug === slug);
 	return page ? codeFor(page.langPrefix) : '';
 };
