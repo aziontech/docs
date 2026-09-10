@@ -65,10 +65,14 @@ function check(name, entry, update) {
 	}
 
 	if (count > entry.baseline) {
+		// A baseline of zero is not frozen debt, it is "none tolerated" — saying the branch
+		// "adds" all of them would be a lie.
 		console.error(
-			`FAIL  ${name}: ${count} ${entry.label} — the baseline is ${
-				entry.baseline
-			}, so this branch adds ${count - entry.baseline}.`
+			entry.baseline === 0
+				? `FAIL  ${name}: ${count} ${entry.label}. The baseline is zero — none are tolerated.`
+				: `FAIL  ${name}: ${count} ${entry.label} — the baseline is ${
+						entry.baseline
+				  }, so this branch adds ${count - entry.baseline}.`
 		);
 		console.error(output.split('\n').slice(-40).join('\n'));
 		summary(`| ${name} | **${count}** | ${entry.baseline} | +${count - entry.baseline} |`);
