@@ -11,27 +11,8 @@ export const asideAutoImport: Record<string, [string, string][]> = {
 	'~/components/Aside.astro': [['default', AsideTagname]],
 };
 
-/**
- * remark plugin that converts blocks delimited with `:::` into instances of
- * the `<Aside>` component. Depends on the `remark-directive` module for the
- * core parsing logic.
- *
- * For example, this Markdown
- *
- * ```md
- * :::tip[Did you know?]
- * Astro helps you build faster websites with “Islands Architecture”.
- * :::
- * ```
- *
- * will produce this output
- *
- * ```astro
- * <Aside type="tip" title="Did you know?">
- *   <p>Astro helps you build faster websites with “Islands Architecture”.</p>
- * </Aside>
- * ```
- */
+/** remark plugin turning `:::tip[Did you know?]` blocks into `<Aside type title>`. */
+// The `:::` parsing itself comes from `remark-directive`; this only rewrites its nodes.
 function remarkAsides(): unified.Plugin<[], mdast.Root> {
 	const variants = new Set(['note', 'tip', 'caution', 'danger']);
 
@@ -42,15 +23,12 @@ function remarkAsides(): unified.Plugin<[], mdast.Root> {
 			const type = node.name;
 			if (!variants.has(type)) return;
 
-			// remark-directive converts a container’s “label” to a paragraph in
-			// its children, but we want to pass it as the title prop to <Aside>, so
-			// we iterate over the children, find a directive label, store it for the
-			// title prop, and remove the paragraph from children.
+			// remark-directive turns a container’s “label” into a child paragraph; lift it
+			// to the `title` prop and drop the paragraph.
 			let title: string | undefined;
 			remove(node, (child) => {
 				if (child.data?.directiveLabel) {
-					// The label arrives as a paragraph whose first child is a text node;
-					// `in` alone leaves `children` as `unknown`, so narrow it for real.
+					// `in` alone leaves `children` as `unknown`, so narrow to the text node.
 					const children = 'children' in child ? child.children : undefined;
 					const first = Array.isArray(children) ? children[0] : undefined;
 					if (first && typeof first === 'object' && 'value' in first && typeof first.value === 'string') {
@@ -60,7 +38,6 @@ function remarkAsides(): unified.Plugin<[], mdast.Root> {
 				}
 			});
 
-			// Replace this node with the aside component it represents.
 			parent.children[index] = makeComponentNode(
 				AsideTagname,
 				{ attributes: { type, title } },
@@ -74,9 +51,7 @@ function remarkAsides(): unified.Plugin<[], mdast.Root> {
 	};
 }
 
-/**
- * Astro integration that sets up the remark plugin and auto-imports the `<Aside>` component everywhere.
- */
+/** Registers the remark plugin and auto-imports `<Aside>` everywhere. */
 export function astroAsides(): AstroIntegration {
 	return {
 		name: '@astrojs/asides',

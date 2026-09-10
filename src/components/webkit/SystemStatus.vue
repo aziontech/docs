@@ -1,12 +1,7 @@
 <template>
-	<!-- The indicator is BARE — dot and label, no pill. It reads as a line of status
-	     text in the footer's own status row, which is what the DS `Footer` and the
-	     marketing site's footer both put there; a bordered chip made it look like a
-	     button that could be pressed for something other than the status page.
-
-	     It is still a link (the status page is what a reader wants next), so it keeps
-	     the treatment every other quiet link in these shells carries: one opacity
-	     transition on hover and a focus ring. -->
+	<!-- Bare dot and label, no pill: it reads as status text in the footer's status row,
+	     where a bordered chip looked like a button. Still a link to the status page, so it
+	     carries the quiet-link treatment: opacity transition on hover plus a focus ring. -->
 	<a
 		href="https://status.azion.com/"
 		:title="label"

@@ -1,9 +1,6 @@
-/**
- * The docs home used to be an MDX entry in the `docs` collection. It is now a
- * pair of real Astro pages, so its copy lives here as structured data: one
- * module per language, one component rendering both, and one synthetic
- * collection entry keeping the JSON/llms/canonical/sitemap endpoints whole.
- */
+// The docs home was an MDX entry in the `docs` collection; it is now a pair of Astro pages,
+// so its copy lives here as structured data — one module per language, one component
+// rendering both, and one synthetic collection entry keeping the endpoints whole.
 
 import type { DocCardGroupCols, DocCardGroupMobileCols } from '@aziontech/webkit/doc-card-group';
 

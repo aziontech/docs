@@ -1,11 +1,7 @@
 <template>
-	<!-- `w-28` (112px), the width the marketing site's footer gives this control: the
-	     Select's trigger is `w-full`, so the wrapper is what sizes it, and a control
-	     that sized itself to its content would change width between EN and PT-BR.
-
-	     `shrink-0` because the footer's status band is a flex row: without it the
-	     control gives up its width to the status text beside it at narrow widths and
-	     lands at ~83px, which is the one thing a fixed width was for. -->
+	<!-- `w-28` (112px) matches the marketing footer, and the wrapper is what sizes the
+	     control: the Select's trigger is `w-full`, and content-sizing would change width
+	     between EN and PT-BR. `shrink-0` keeps the flex band from squeezing it to ~83px. -->
 	<div v-if="i18nPages?.length" class="w-28 shrink-0">
 		<Select
 			:model-value="activeSlug"
@@ -14,12 +10,9 @@
 			@update:model-value="onSelect"
 		>
 			<Select.Trigger :aria-label="LANGUAGE_LABEL">
-				<!-- THE GLOBE NAMES THE CONTROL WITHOUT SPENDING A WORD ON IT. A bare
-				     `EN` in a footer row reads as a label until you click it; the glyph
-				     is what says this is the language switch. It rides the trigger's own
-				     `iconLeft` slot rather than a wrapper, so it sits inside the
-				     control's border and on its `--spacing-xs` gap, and `aria-hidden`
-				     keeps it out of the accessible name the `aria-label` already carries. -->
+				<!-- The globe names the control: a bare `EN` reads as a label, not a switch.
+				     It rides the trigger's `iconLeft` slot so it sits inside the border on
+				     the control's own gap; `aria-hidden` leaves the name to `aria-label`. -->
 				<template #iconLeft>
 					<i class="pi pi-globe text-(--text-muted)" aria-hidden="true" />
 				</template>
@@ -58,10 +51,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const LANGUAGE_LABEL = 'Language';
 
-// THE OPTION LABEL IS THE LANGUAGE CODE, not its name in its own language: the control
-// is 112px wide with a glyph and a chevron inside it, which fits `PT-BR` and truncates
-// `Português`. The codes are also what the marketing site's footer shows, so a reader
-// crossing from azion.com into the docs sees the same switch.
+// Options are language codes, not endonyms: 112px with a glyph and chevron fits `PT-BR`
+// but truncates `Português`, and codes are what the marketing footer shows.
 const LANGUAGE_CODES = {
 	en: 'EN',
 	'pt-br': 'PT-BR',
@@ -71,9 +62,8 @@ const LANGUAGE_CODES = {
 const codeFor = (langPrefix: string) =>
 	LANGUAGE_CODES[langPrefix as keyof typeof LANGUAGE_CODES] ?? langPrefix.toUpperCase();
 
-// The VALUE is the target page's own slug — this control navigates, so what it carries
-// has to be a destination, not a label. `displayValue` is how the trigger still reads as
-// a code: it maps the selected slug back to the language it belongs to.
+// The value is the target page's slug, since this control navigates; `displayValue` maps
+// the selected slug back to its language so the trigger still reads as a code.
 const activePage = props.i18nPages?.find((page) => page.langPrefix === props.lang.toLowerCase());
 const activeSlug = activePage?.slug;
 

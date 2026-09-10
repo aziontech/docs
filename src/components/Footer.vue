@@ -95,39 +95,26 @@ defineSlots<{
 	'theme-switch'(): unknown;
 }>();
 
-// The mark's treatment, in one place because it is rendered in two: the same one every
-// other brand redirect carries — one opacity transition on hover, and a focus ring.
-// DISPLAY IS NOT IN HERE, deliberately: the two placements need different ones (the
-// social row's anchor is `hidden` below `lg`), and two display utilities on one element
-// resolve by the order Tailwind emitted them, not by the order they are written.
+// The mark's treatment, shared by both placements. Display stays out: the social row's
+// anchor is `hidden` below `lg`, and two display utilities on one element resolve by the
+// order Tailwind emitted them, not the order written.
 const BRAND_LINK_CLASS =
 	'w-fit items-center rounded-(--shape-elements) transition-opacity duration-fast-02 ease-productive-entrance hover:opacity-80 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-canvas)';
 </script>
 
 <style>
-/* WHERE THE MARK SITS, by width — the `lg` half of the pair the `#social` and `#brand`
-   slots set up above. It is a stylesheet rule rather than a utility class because the
-   element it removes belongs to the DS Footer, not to this template: only the band's
-   own `data-testid` (the hook webkit provides for it) reaches it from out here.
-
-   `lg` = 1024px, Tailwind's own breakpoint, matching where the mark starts leading the
-   social row: from `md` that row is only half the footer — it shares its grid row with
-   the status pair — and is too narrow to hold the mark and the icon buttons on one
-   line. */
+/* From `lg` the `#social` slot leads with the mark, so the DS Footer's own signature is
+   hidden. A stylesheet rule, not a utility: the element belongs to the DS Footer, so only
+   its `data-testid` reaches it from here. Below `lg` the row is too narrow for both. */
 @media (min-width: 1024px) {
 	.docs-footer [data-testid='layout-footer__signature'] {
 		display: none;
 	}
 }
 
-/* THE STATUS BAND WRAPS HERE, which it does not in the DS. The band is built for the
-   two controls the marketing footer puts in it — a status indicator and a language
-   select — and docs puts a third one there, the theme switcher, which has nowhere else
-   to live in this shell. At 375px those three overflow the band by ~95px, and because
-   it is a `flex-row-reverse` row the overflow falls off the LEFT edge: the theme
-   switcher was clipped and unreachable on a phone.
-
-   One property, and only where it is needed — a row that fits does not wrap. */
+/* The status band wraps here, unlike in the DS: docs puts a third control (the theme
+   switcher) in a band built for two, and at 375px the `flex-row-reverse` overflow falls
+   off the LEFT edge, leaving that control clipped and unreachable on a phone. */
 .docs-footer [data-testid='layout-footer__status'] {
 	flex-wrap: wrap;
 }

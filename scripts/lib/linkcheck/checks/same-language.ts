@@ -5,13 +5,8 @@ import type { CheckHtmlPageContext } from '../base/check';
 import { IssueType } from '../base/issue';
 
 export interface SameLanguageOptions {
-	/**
-	 * A list of link pathnames that are allowed to point to a different language
-	 * than the page that the link was found on.
-	 *
-	 * Subpaths of the given pathnames are automatically ignored as well,
-	 * so adding `/example/` will also ignore `/example/some-subpath/`.
-	 * */
+	/** Link pathnames allowed to point at a language other than the page's own. */
+	// Subpaths are ignored too: `/example/` also covers `/example/some-subpath/`.
 	ignoredLinkPathnames?: string[];
 }
 
@@ -31,26 +26,21 @@ export class SameLanguage extends CheckBase {
 	}
 
 	checkHtmlPage(context: CheckHtmlPageContext) {
-		// Skip all checks if the current page is a language fallback page
-		// to avoid reporting duplicates for all missing translations
+		// A fallback page would report one duplicate per missing translation.
 		if (context.page.isLanguageFallback) return;
 
-		// Also skip checking if the current page does not have a language prefix
 		if (!context.page.pathnameLang) return;
 
 		this.forEachLocalLink(context, (linkHref, url) => {
 			const linkedPage = this.findPageByPathname(context, url.pathname);
 			if (!linkedPage) return;
 
-			// Skip paths found in the ignore list
 			if (this.ignoredLinkPathnames.some((ignoredPath) => url.pathname.startsWith(ignoredPath)))
 				return;
 
-			// Skip links to redirect pages
 			if (linkedPage.isRedirect) return;
 
-			// It's an error if the pathname-based language of the target page
-			// does not match the current page's pathname-based language
+			// Target and source must share the pathname-based language.
 			const linkedLang = linkedPage.pathnameLang;
 			if (linkedLang !== context.page.pathnameLang) {
 				const expectedPathname = linkedPage.getExpectedLinkPathname(context.page.pathnameLang);

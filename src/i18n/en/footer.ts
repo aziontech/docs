@@ -109,12 +109,6 @@ const socialButtons = [
     link: "https://discord.gg/Yp9N7RMVZy",
     icon: "pi pi-discord"
   },
-  // {
-  //   title: "Medium",
-  //   link: "https://medium.com/aziontech",
-  //   target: "_blank",
-  //   icon: "pi pi-medium"
-  // },
 ]
 
 const tagline = 'The web platform for modern workloads';

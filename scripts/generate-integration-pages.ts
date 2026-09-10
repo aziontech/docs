@@ -95,13 +95,9 @@ class IntegrationPagesBuilder {
 		);
 	}
 
-	/**
-	 * Process the raw README markdown:
-	 * - Add frontmatter including a layout
-	 * - Move the README title into frontmatter
-	 * - Add the correct base to any relative links
-	 * - _Remove_ the base from any docs links
-	 */
+	/** Rewrites the raw README markdown into a docs page. */
+	// Adds frontmatter with a layout, lifts the README title into it, prefixes relative
+	// links with the base and strips the base from docs links.
 	async #processReadme({
 		name,
 		readme,

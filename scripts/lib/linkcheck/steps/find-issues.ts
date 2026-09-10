@@ -6,10 +6,7 @@ import type { LinkCheckerOptions } from '../base/base';
 import type { LinkIssue } from '../base/issue';
 import type { AllPagesByPathname, HtmlPage } from '../base/page';
 
-/**
- * Goes through all pre-parsed and indexed pages, runs all configured checks,
- * and returns an array containing all link issues (if any).
- */
+/** Runs every configured check across all indexed pages and returns the link issues. */
 export function findLinkIssues(
 	allPages: AllPagesByPathname,
 	options: LinkCheckerOptions,
@@ -40,8 +37,7 @@ function findLinkIssuesOnPage(
 			page,
 			checkSingleLinkHref,
 			report: (issueData) => {
-				// Do not add the issue found in the HTML build output
-				// if it was just autofixed in the source file
+				// The build output still shows an issue already autofixed in the source.
 				if (state.autofixedCount > 0) {
 					const wasAutofixedInSource = state.autofixedPathnameHrefs.has(
 						`${page.pathname},${issueData.linkHref}`
@@ -49,8 +45,7 @@ function findLinkIssuesOnPage(
 					if (wasAutofixedInSource) return;
 				}
 
-				// If the report contains an autofix suggestion, perform a recursive call
-				// limited to this suggestion to ensure that it doesn't cause new issues
+				// Re-check the page against the suggestion alone: a fix must not add issues.
 				if (issueData.autofixHref && !checkSingleLinkHref) {
 					const autofixLinkIssues = findLinkIssuesOnPage(
 						page,
@@ -59,7 +54,6 @@ function findLinkIssuesOnPage(
 						state,
 						issueData.autofixHref
 					);
-					// Remove the autofix suggestion if it would still cause issues
 					if (autofixLinkIssues.length > 0) {
 						issueData.autofixHref = undefined;
 					}
@@ -78,29 +72,19 @@ function findLinkIssuesOnPage(
 	return linkIssues;
 }
 
-/**
- * Attempts to locate the source file lines that caused the given link issues,
- * creates annotations for those lines, and adds them to the issues.
- */
+/** Annotates each link issue with the source file line and column that caused it. */
 export function addSourceFileAnnotations(linkIssues: LinkIssue[], options: LinkCheckerOptions) {
-	// Collect all unique pathnames that had link issues
 	const pathnames = new Set(linkIssues.map((linkIssue) => linkIssue.page.pathname));
 
-	// Go through the collected pathnames
 	pathnames.forEach((pathname) => {
-		// Try to find the Markdown source file for the current pathname
 		let sourceFilePath = tryFindSourceFileForPathname(pathname, options.pageSourceDir) || '';
 
-		// If we could not find the source file, we can't create annotations for it
 		if (!sourceFilePath) return;
 
-		// Load the source file
 		sourceFilePath = sourceFilePath.replace(/\\/g, '/');
 		const sourceFileContents = fs.readFileSync(sourceFilePath, 'utf8');
 		const lines = sourceFileContents.split(/\r?\n/);
 
-		// Try to locate all link issues in the source file and output error annotations
-		// including line and column numbers
 		const linkIssuesOnCurrentPage = linkIssues.filter(
 			(linkIssue) => linkIssue.page.pathname === pathname
 		);
@@ -110,7 +94,6 @@ export function addSourceFileAnnotations(linkIssues: LinkIssue[], options: LinkC
 				const startColumn = indexOfHref(line, linkIssue.linkHref);
 				if (startColumn === -1) return;
 
-				// Add the source file annotation
 				let message = dedentMd`${linkIssue.type.formatTitle()}
 					in ${sourceFilePath}, line ${lineNumber}:
 					${linkIssue.annotationText || linkIssue.linkHref}`;
@@ -131,17 +114,7 @@ export function addSourceFileAnnotations(linkIssues: LinkIssue[], options: LinkC
 	});
 }
 
-/**
- * Attempts to find a Markdown source file for the given `pathname`.
- *
- * Example: Given a pathname of `/en/some-page` or `/en/some-page/`,
- * searches for the source file in the following locations
- * and returns the first matching path:
- * - `${this.pageSourceDir}/en/some-page.md`
- * - `${this.pageSourceDir}/en/some-page/index.md`
- *
- * If no existing file is found, returns `undefined`.
- */
+/** First existing `.md` source file for a pathname (`page.md`, then `page/index.md`). */
 export function tryFindSourceFileForPathname(pathname: string, pageSourceDir: string) {
 	const possibleSourceFilePaths = [
 		path.join(pageSourceDir, pathname, '.') + '.md',

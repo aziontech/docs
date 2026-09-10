@@ -54,12 +54,10 @@ export function docsHomeMarkdown(content: DocsHomeContent): string {
 	return [head, first, rest].join('\n\n');
 }
 
-/**
- * A stand-in for the collection entry the docs home used to be. The page moved
- * to `src/pages`, but every docs endpoint still derives its output from the
- * `docs` collection, so each one concatenates these entries to keep the home
- * present in the search index, llms.txt, canonicals, path map and sitemap.
- */
+/** A stand-in for the collection entry the docs home used to be. */
+// Every docs endpoint still derives its output from the `docs` collection, so each
+// concatenates these entries to keep the home in the search index, llms.txt,
+// canonicals, path map and sitemap.
 export interface DocsHomeEntry {
 	id: string;
 	collection: 'docs';
