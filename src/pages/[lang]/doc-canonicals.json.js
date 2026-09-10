@@ -4,9 +4,12 @@ import { groupPagesByLang } from '~/util/groupPagesByLang.ts'
 import { removeTrailingLeadingSlashs } from '~/util/removeSlashs'
 import { mapi18nByNamespace } from '~/util/mapi18n'
 import { getHreflangDefault } from '~/util/getHreflangDefault'
+import { docsHomeEntries } from '~/data/docs-home'
 
 const collections = {
-  docs: await getCollection('docs', ({ data }) => data.draft !== true)
+  // `docsHomeEntries` stands in for the docs home, which is a page in
+  // `src/pages` now and so no longer comes back from the collection.
+  docs: [...(await getCollection('docs', ({ data }) => data.draft !== true)), ...docsHomeEntries]
 };
 
 function getAlternateFromUrl(i18nPages) {

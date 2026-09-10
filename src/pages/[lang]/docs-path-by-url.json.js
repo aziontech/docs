@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content';
 import { SITE_URL } from '~/consts';
 import { groupPagesByLang }  from '~/util/groupPagesByLang';
 import { removeTrailingLeadingSlashs } from '~/util/removeSlashs';
+import { withDocsHome } from '~/data/docs-home';
 
 
 const paths = {
@@ -11,7 +12,7 @@ const paths = {
 const pages = {
   docs: await getCollection('docs', ({ data }) => data.draft !== true)
 };
-const docsByLang = groupPagesByLang(pages.docs);
+const docsByLang = withDocsHome(groupPagesByLang(pages.docs));
 
 export async function getStaticPaths() {
   return ['en', 'pt-br'].map((lang) => ({
@@ -29,12 +30,6 @@ export async function GET({ params, props }) {
   } = props;
 
   const docsData = docs.map(({ data: page, collection, id, filePath }) => {
-    const docsSlug = {
-      'en': 'documentation',
-      'pt-br': 'documentacao',
-    };
-    const lang = id.split('/')[0];
-    const slug = docsSlug[lang];
 		const permalink = `${params.lang}/${removeTrailingLeadingSlashs(page.permalink)}`;
     const namespace = page.namespace
 

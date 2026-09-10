@@ -1,5 +1,6 @@
 import { allPages } from '~/content';
 import { getLangFromSlug, stripLangFromSlug, getSlugFromPermalink } from '~/util';
+import { docsHomeEntries } from '~/data/docs-home';
 
 function removeFrontMatter(body) {
 	return body.replace(/^---[\s\S]*?---\n?/, '');
@@ -64,7 +65,7 @@ function getMarkdownBasedOnCards(title, description, productCards) {
 }
 
 export async function getStaticPaths() {
-	return allPages.map((page) => {
+	return [...allPages, ...docsHomeEntries].map((page) => {
 		const permalink = getSlugFromPermalink(page);
 		const lang = getLangFromSlug(page.id);
 		const slug = typeof permalink === 'string' ? permalink : stripLangFromSlug(page.id);
