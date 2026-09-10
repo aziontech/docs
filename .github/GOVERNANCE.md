@@ -70,7 +70,7 @@ On every PR: the site builds, frontmatter namespaces and permalinks are present 
 
 On every PR, the **Webkit gate** runs the design system's checks in four stages. Two of them block: the wiring must be sound, and a set of deliberately-broken fixtures must still be caught by the rules that guard them — that second one is what fails when the checks themselves stop working, which is otherwise silent. The other two report: an **adoption report** in the run Summary (how many `webkit/*` violations, which rules, which files, and what the check did *not* look at) and stylelint over the stylesheets. `Webkit gate` is the single check that aggregates them.
 
-The adoption report never blocks on its own. It exists so the distance between this codebase and the design system is a number someone can watch, instead of something noticed in review. It becomes a ratchet — failing only on violations a PR *introduces* — once `.webkit-baseline.json` is committed.
+The adoption report never fails on the count it inherits. The violations that already exist are frozen in `.webkit-baseline.json`, and the stage fails only on one a PR **introduces** — naming the file and the rule. Fixing a frozen violation is reported, never punished; `pnpm report:webkit-adoption --update` prunes it from the baseline. So the number can only go down, and the gate never asks anyone to clean up the past before shipping.
 
 Weekly: a link check crawls the built site for broken internal links and opens an issue when it finds them.
 
