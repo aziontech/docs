@@ -279,9 +279,12 @@ function githubVideos() {
 function removeTOC() {
 	return function transform(tree: Root) {
 		remove(tree, (node) => {
+			// `remove` hands back a bare `Node`, so checking `type` narrows nothing:
+			// reach for the list's own children only after asserting the shape.
 			if (node.type !== 'list') return;
-			const firstItemContent = node.children[0].children[0];
-			if (firstItemContent.type !== 'paragraph') return;
+			const [firstItem] = (node as { children?: ListContent[] }).children ?? [];
+			const firstItemContent = firstItem?.children?.[0];
+			if (!firstItemContent || firstItemContent.type !== 'paragraph') return;
 			return firstItemContent.children.some(
 				(child: PhrasingContent) =>
 					child.type === 'link' &&
