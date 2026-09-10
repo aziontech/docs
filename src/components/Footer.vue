@@ -1,5 +1,5 @@
 <template>
-	<div class="docs-footer w-full border-t border-(--border-default)">
+	<div class="docs-footer @container w-full border-t border-(--border-default)">
 		<!-- `content`: the bands run full bleed and the footer draws no frame. `site` is for a
 		     marketing page whose hero and sections resolve to one measure — this reading zone
 		     is not a framed column. The `border-t` above is not frame apparatus. -->
@@ -10,11 +10,21 @@
 				</Footer.Link>
 			</Footer.Column>
 
-			<!-- Icons alone. The marketing footer leads this row with the mark, but its row spans
-			     the viewport; this one is half a column between two rails — 322px of content at
-			     1440 against the 344px a mark plus six 40px buttons need — so the mark orphaned
-			     a glyph on a second line. It keeps the signature band at every width instead. -->
+			<!-- The brand leads this row and there is no signature band. It steps out below a
+			     footer width of 800: from `md` the band is half the footer less `--spacing-lg`
+			     either side, and a mark plus six 40px buttons need 352 — under that the row is
+			     the six glyphs alone rather than a mark with two orphaned on a second line.
+			     Gated on the FOOTER, not the viewport: this one sits between two rails. -->
 			<template #social>
+				<a
+					:href="`/${lang}/`"
+					aria-label="Azion home"
+					:class="BRAND_LINK_CLASS"
+					class="mr-(--spacing-xs) hidden @min-[800px]:inline-flex"
+				>
+					<Brand size="small" aria-hidden="true" />
+				</a>
+
 				<IconButton
 					v-for="({ icon, link, title, target }, index) in socialButtons"
 					:key="index"
@@ -33,15 +43,6 @@
 			<template #language>
 				<slot name="action" />
 				<slot name="theme-switch" />
-			</template>
-
-			<!-- `mx-auto` centres the mark on both axes of a band that is `flex-col items-start`
-			     below `md` and `flex-row justify-between` from it: an auto inline margin absorbs
-			     the free space in both, where `self-center` would only cover the stack. -->
-			<template #brand>
-				<a :href="`/${lang}/`" aria-label="Azion home" :class="BRAND_LINK_CLASS">
-					<Brand size="small" aria-hidden="true" />
-				</a>
 			</template>
 		</Footer>
 	</div>
@@ -94,7 +95,7 @@ defineSlots<{
 
 // The treatment every other brand redirect in the app carries: hover opacity, focus ring.
 const BRAND_LINK_CLASS =
-	'mx-auto inline-flex w-fit items-center rounded-(--shape-elements) transition-opacity duration-fast-02 ease-productive-entrance hover:opacity-80 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-canvas)';
+	'w-fit items-center rounded-(--shape-elements) transition-opacity duration-fast-02 ease-productive-entrance hover:opacity-80 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-canvas)';
 </script>
 
 <style>
