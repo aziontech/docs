@@ -6,7 +6,7 @@
 
 import { execSync } from 'node:child_process';
 
-let raw = '';
+let raw;
 try {
 	raw = execSync('pnpm audit --json', { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 } catch (error) {
