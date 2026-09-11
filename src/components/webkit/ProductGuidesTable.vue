@@ -8,17 +8,11 @@
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			<Table.Row
-				v-for="row in rows"
-				:key="row.href"
-			>
+			<Table.Row v-for="row in rows" :key="row.href">
 				<!-- eslint-disable webkit/no-style-override -- `py-` is the row's own
 				     height; an inner span pads its text, not the cell. -->
-				<Table.Cell
-					principal
-					class="whitespace-normal py-(--spacing-sm)"
-				>
-				<!-- eslint-enable webkit/no-style-override -->
+				<Table.Cell principal class="whitespace-normal py-(--spacing-sm)">
+					<!-- eslint-enable webkit/no-style-override -->
 					<a
 						:href="row.href"
 						:target="row.external ? '_blank' : undefined"
@@ -28,18 +22,22 @@
 						{{ row.label }}
 					</a>
 				</Table.Cell>
-				<Table.Cell><span class="text-(--text-muted)">{{ row.kind }}</span></Table.Cell>
-				<Table.Cell><span class="text-(--text-muted)">{{ row.updated }}</span></Table.Cell>
+				<Table.Cell>
+					<span class="text-(--text-muted)">{{ row.kind }}</span>
+				</Table.Cell>
+				<Table.Cell>
+					<span class="text-(--text-muted)">{{ row.updated }}</span>
+				</Table.Cell>
 			</Table.Row>
 		</Table.Body>
 	</Table>
 </template>
 
 <script setup lang="ts">
-	import Table from '@aziontech/webkit/table'
+import Table from '@aziontech/webkit/table';
 
-	defineProps<{
-		rows: { label: string; href: string; external?: boolean; kind: string; updated: string }[]
-		labels: { name: string; type: string; updated: string }
-	}>()
+defineProps<{
+	rows: { label: string; href: string; external?: boolean; kind: string; updated: string }[];
+	labels: { name: string; type: string; updated: string };
+}>();
 </script>
