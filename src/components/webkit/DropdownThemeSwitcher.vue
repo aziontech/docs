@@ -1,7 +1,5 @@
 <template>
-	<span class="inline-flex h-8 items-center">
-		<ThemeSwitcher v-model:value="mode" aria-label="Theme" />
-	</span>
+	<ThemeSwitcher v-model:value="mode" aria-label="Theme" />
 </template>
 
 <script setup>
