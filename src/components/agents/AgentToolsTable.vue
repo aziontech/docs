@@ -1,8 +1,5 @@
 <template>
-	<div
-		data-doc-block
-		data-doc-chrome
-	>
+	<div data-doc-block data-doc-chrome>
 		<Table border>
 			<Table.Header>
 				<Table.Row>
@@ -11,12 +8,12 @@
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
-				<Table.Row
-					v-for="tool in rows"
-					:key="tool.id"
-				>
+				<Table.Row v-for="tool in rows" :key="tool.id">
 					<Table.Cell principal>
-						<code class="rounded-(--shape-elements) border border-(--border-default) bg-(--bg-hover) px-(--spacing-xs) py-0.5 text-label-code-sm text-(--text-default)">{{ tool.id }}</code>
+						<code
+							class="rounded-(--shape-elements) border border-(--border-default) bg-(--bg-hover) px-(--spacing-xs) py-0.5 text-label-code-sm text-(--text-default)"
+							>{{ tool.id }}</code
+						>
 					</Table.Cell>
 					<Table.Cell :grow="2">
 						<span class="whitespace-normal text-(--text-muted)">{{ tool.description }}</span>
@@ -28,17 +25,17 @@
 </template>
 
 <script setup lang="ts">
-	import Table from '@aziontech/webkit/table'
-	import { computed } from 'vue'
+import Table from '@aziontech/webkit/table';
+import { computed } from 'vue';
 
-	import { data, label, t, type Lang } from './data'
+import { data, label, t, type Lang } from './data';
 
-	const props = defineProps<{ lang: Lang }>()
+const props = defineProps<{ lang: Lang }>();
 
-	const rows = computed(() =>
-		data.tools.map((tool) => ({
-			id: tool.id,
-			description: t(tool.description, props.lang)
-		}))
-	)
+const rows = computed(() =>
+	data.tools.map((tool) => ({
+		id: tool.id,
+		description: t(tool.description, props.lang),
+	}))
+);
 </script>

@@ -1,4 +1,14 @@
-import type { Lang, Localized, LocalizedSegment, NavGroup, NavNode, NavRoot, NavTree, NavVideos, TopNav } from './schema';
+import type {
+	Lang,
+	Localized,
+	LocalizedSegment,
+	NavGroup,
+	NavNode,
+	NavRoot,
+	NavTree,
+	NavVideos,
+	TopNav,
+} from './schema';
 
 export interface PageFacts {
 	permalink?: string;
@@ -175,13 +185,25 @@ export function walkTree(tree: NavTree, lang: Lang): WalkEntry[] {
 	const out: WalkEntry[] = [];
 
 	tree.groups.forEach((group, groupIndex) => {
-		const visit = (nodes: NavNode[], ancestors: string[], parentId: string, segments: string[], depth: number) => {
+		const visit = (
+			nodes: NavNode[],
+			ancestors: string[],
+			parentId: string,
+			segments: string[],
+			depth: number
+		) => {
 			nodes.forEach((node, index) => {
 				const nodeId = `${parentId}/${nodeIdentity(node, lang, index)}`;
 				out.push({ tree, group, groupIndex, node, nodeId, ancestors, segments, depth });
 				if (node.items?.length) {
 					const own = segmentText(node.segment, lang);
-					visit(node.items, [...ancestors, nodeId], nodeId, own ? [...segments, own] : segments, depth + 1);
+					visit(
+						node.items,
+						[...ancestors, nodeId],
+						nodeId,
+						own ? [...segments, own] : segments,
+						depth + 1
+					);
 				}
 			});
 		};
@@ -200,8 +222,12 @@ export function targetPermalink(data: NavData, entry: WalkEntry, lang: Lang): st
 	if (tree.root && node.page === tree.root) return `/${DOCS_BASE[lang]}/${treePath}/`;
 
 	const explicit = text(node.slug, lang);
-	const current = data.pages.get(node.page)?.[lang]?.permalink ?? data.pages.get(node.page)?.en?.permalink;
-	const slug = segmentText(node.segment, lang) ?? explicit ?? (current ? lastSegment(current) : slugify(nodeLabel(data, node, lang)));
+	const current =
+		data.pages.get(node.page)?.[lang]?.permalink ?? data.pages.get(node.page)?.en?.permalink;
+	const slug =
+		segmentText(node.segment, lang) ??
+		explicit ??
+		(current ? lastSegment(current) : slugify(nodeLabel(data, node, lang)));
 
 	return `/${[DOCS_BASE[lang], treePath, ...segments, slug].filter(Boolean).join('/')}/`;
 }
@@ -215,7 +241,12 @@ export function buildNavIndex(data: NavData, lang: Lang): NavIndex {
 			if (!node.page || node.placeholder || node.linkOnly) continue;
 			const href = pageHref(data, node.page, lang);
 			if (!href || byPermalink.has(href)) continue;
-			byPermalink.set(href, { treeId: tree.id, nodeId: entry.nodeId, ancestors: entry.ancestors, node });
+			byPermalink.set(href, {
+				treeId: tree.id,
+				nodeId: entry.nodeId,
+				ancestors: entry.ancestors,
+				node,
+			});
 		}
 	}
 
@@ -228,7 +259,7 @@ function toMenuNodes(
 	lang: Lang,
 	parentId: string,
 	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string },
-	ancestors: string[],
+	ancestors: string[]
 ): MenuNode[] {
 	const out: MenuNode[] = [];
 
@@ -250,7 +281,8 @@ function toMenuNodes(
 		}
 
 		const tagValue =
-			node.tag ?? (node.page && !hasOwnLanguage(data, node.page, lang) && lang !== 'en' ? 'EN' : undefined);
+			node.tag ??
+			(node.page && !hasOwnLanguage(data, node.page, lang) && lang !== 'en' ? 'EN' : undefined);
 
 		if (children?.length) {
 			if (href) {
@@ -288,7 +320,7 @@ function groupsToMenu(
 	groups: NavGroup[],
 	lang: Lang,
 	idPrefix: string,
-	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string },
+	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string }
 ): MenuGroupNode[] {
 	return groups
 		.map((group) => ({
@@ -303,7 +335,7 @@ export function resolveSidebar(
 	index: NavIndex,
 	pathname: string,
 	lang: Lang,
-	labels: SidebarLabels,
+	labels: SidebarLabels
 ): SidebarModel {
 	const activePath = normalize(pathname);
 	const location = index.get(activePath);
@@ -318,7 +350,13 @@ export function resolveSidebar(
 
 	if (!tree) {
 		const groups = groupsToMenu(data, data.root.groups, lang, 'root', ctx);
-		return { groups, activeId: ctx.activeId, expandedIds: unique(ctx.expanded), treeId: null, header: null };
+		return {
+			groups,
+			activeId: ctx.activeId,
+			expandedIds: unique(ctx.expanded),
+			treeId: null,
+			header: null,
+		};
 	}
 
 	const back = backRow(data, tree, lang, labels);
@@ -338,7 +376,12 @@ export function resolveSidebar(
 	};
 }
 
-function backRow(data: NavData, tree: NavTree, lang: Lang, labels: SidebarLabels): MenuNode | undefined {
+function backRow(
+	data: NavData,
+	tree: NavTree,
+	lang: Lang,
+	labels: SidebarLabels
+): MenuNode | undefined {
 	const parentId = tree.parent || 'root';
 	if (parentId === 'root') {
 		return {
@@ -414,7 +457,12 @@ export interface Crumb {
 	url?: string;
 }
 
-export function resolveBreadcrumb(data: NavData, index: NavIndex, pathname: string, lang: Lang): Crumb[] {
+export function resolveBreadcrumb(
+	data: NavData,
+	index: NavIndex,
+	pathname: string,
+	lang: Lang
+): Crumb[] {
 	const activePath = normalize(pathname);
 	const location = index.get(activePath);
 	if (!location) return [];
@@ -454,7 +502,7 @@ export function resolveNeighbours(
 	data: NavData,
 	index: NavIndex,
 	pathname: string,
-	lang: Lang,
+	lang: Lang
 ): { previous?: Neighbour; next?: Neighbour } {
 	const activePath = normalize(pathname);
 	const location = index.get(activePath);
@@ -476,7 +524,9 @@ export function resolveNeighbours(
 	if (at === -1) return {};
 
 	const pick = (index: number) =>
-		index >= 0 && index < leaves.length ? { text: leaves[index].text, link: leaves[index].link } : undefined;
+		index >= 0 && index < leaves.length
+			? { text: leaves[index].text, link: leaves[index].link }
+			: undefined;
 
 	return { previous: pick(at - 1), next: pick(at + 1) };
 }
@@ -484,7 +534,7 @@ export function resolveNeighbours(
 export function buildDirectory(
 	data: NavData,
 	lang: Lang,
-	labels: { products: string; guides: string; devtools: string },
+	labels: { products: string; guides: string; devtools: string }
 ): MenuGroupNode[] {
 	const model = buildTopNav(data, lang);
 	if (!model) return [];
@@ -505,7 +555,7 @@ export function buildDirectory(
 				id: `directory/products/${columnIndex}`,
 				label: column.label,
 				children: column.items.map((entry, index) =>
-					entryNode(entry, `directory/products/${columnIndex}/${index}`),
+					entryNode(entry, `directory/products/${columnIndex}/${index}`)
 				),
 			})),
 		});
@@ -513,7 +563,12 @@ export function buildDirectory(
 
 	const rest: MenuNode[] = [];
 	if (model.guides?.href) {
-		rest.push({ id: 'directory/guides', label: labels.guides, href: model.guides.href, target: '_self' });
+		rest.push({
+			id: 'directory/guides',
+			label: labels.guides,
+			href: model.guides.href,
+			target: '_self',
+		});
 	}
 	if (model.devtools.length) {
 		const tools = model.devtools.flatMap((column) => column.items);

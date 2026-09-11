@@ -36,7 +36,8 @@ export const en: DocsHomeContent = {
 
 	interfaceSection: {
 		heading: { depth: 2, slug: 'start-by-interface', text: 'Start by interface' },
-		intro: 'Hand the Console to a coding agent, or drive it yourself: visually, from the terminal, or over the API.',
+		intro:
+			'Hand the Console to a coding agent, or drive it yourself: visually, from the terminal, or over the API.',
 		agent: {
 			id: 'your-ai-agent-fluent-in-azion',
 			title: 'Your AI agent, fluent in Azion',
@@ -125,14 +126,46 @@ export const en: DocsHomeContent = {
 			cols: 4,
 			mobileCols: 2,
 			cards: [
-				{ icon: 'ai-cor ai-react', title: 'React', href: '/en/documentation/guides/application-development/frameworks/react-boilerplate/' },
-				{ icon: 'ai-cor ai-next', title: 'Next.js', href: '/en/documentation/guides/application-development/frameworks/nextjs-static-boilerplate/' },
-				{ icon: 'ai ai-astro', title: 'Astro', href: '/en/documentation/guides/application-development/frameworks/astro-boilerplate/' },
-				{ icon: 'ai-cor ai-vue', title: 'Vue.js', href: '/en/documentation/guides/application-development/frameworks/vue-vite-boilerplate/' },
-				{ icon: 'ai-cor ai-angular', title: 'Angular', href: '/en/documentation/guides/application-development/frameworks/angular-boilerplate/' },
-				{ icon: 'ai ai-gatsby', title: 'Gatsby Blog', href: '/en/documentation/guides/application-development/frameworks/gatsby/' },
-				{ icon: 'ai ai-hono', title: 'Hono', href: '/en/documentation/guides/application-development/frameworks/hono/' },
-				{ icon: 'ai ai-hugo', title: 'Hugo', href: '/en/documentation/guides/application-development/frameworks/hugo-boilerplate/' },
+				{
+					icon: 'ai-cor ai-react',
+					title: 'React',
+					href: '/en/documentation/guides/application-development/frameworks/react-boilerplate/',
+				},
+				{
+					icon: 'ai-cor ai-next',
+					title: 'Next.js',
+					href: '/en/documentation/guides/application-development/frameworks/nextjs-static-boilerplate/',
+				},
+				{
+					icon: 'ai ai-astro',
+					title: 'Astro',
+					href: '/en/documentation/guides/application-development/frameworks/astro-boilerplate/',
+				},
+				{
+					icon: 'ai-cor ai-vue',
+					title: 'Vue.js',
+					href: '/en/documentation/guides/application-development/frameworks/vue-vite-boilerplate/',
+				},
+				{
+					icon: 'ai-cor ai-angular',
+					title: 'Angular',
+					href: '/en/documentation/guides/application-development/frameworks/angular-boilerplate/',
+				},
+				{
+					icon: 'ai ai-gatsby',
+					title: 'Gatsby Blog',
+					href: '/en/documentation/guides/application-development/frameworks/gatsby/',
+				},
+				{
+					icon: 'ai ai-hono',
+					title: 'Hono',
+					href: '/en/documentation/guides/application-development/frameworks/hono/',
+				},
+				{
+					icon: 'ai ai-hugo',
+					title: 'Hugo',
+					href: '/en/documentation/guides/application-development/frameworks/hugo-boilerplate/',
+				},
 			],
 			footer: {
 				prefix: 'Also useful:',
@@ -148,7 +181,8 @@ export const en: DocsHomeContent = {
 
 		{
 			heading: { depth: 2, slug: 'stop-attacks', text: 'Stop attacks' },
-			intro: 'Everything you need to protect applications, APIs, and the traffic that reaches them.',
+			intro:
+				'Everything you need to protect applications, APIs, and the traffic that reaches them.',
 			cols: 3,
 			cards: [
 				{
@@ -212,7 +246,8 @@ export const en: DocsHomeContent = {
 				slug: 'assess-risk-and-prove-compliance',
 				text: 'Assess risk and prove compliance',
 			},
-			intro: 'What the platform covers, what stays with you, and where the evidence lives when an auditor asks for it.',
+			intro:
+				'What the platform covers, what stays with you, and where the evidence lives when an auditor asks for it.',
 			cols: 3,
 			cards: [
 				{
@@ -256,7 +291,10 @@ export const en: DocsHomeContent = {
 				prefix: 'Access governance:',
 				links: [
 					{ label: 'Single Sign-On', href: '/en/documentation/fundamentals/single-sign-on/' },
-					{ label: 'Multi-Factor Authentication', href: '/en/documentation/fundamentals/multi-factor-authentication/' },
+					{
+						label: 'Multi-Factor Authentication',
+						href: '/en/documentation/fundamentals/multi-factor-authentication/',
+					},
 					{ label: 'Teams Permissions', href: '/en/documentation/fundamentals/teams-permissions/' },
 					{
 						label: 'Conditional Access',
@@ -268,7 +306,8 @@ export const en: DocsHomeContent = {
 
 		{
 			heading: { depth: 2, slug: 'follow-along', text: 'Follow along' },
-			intro: 'Release notes as things ship, plus the blog, the YouTube channel, and the Discord where questions get answered.',
+			intro:
+				'Release notes as things ship, plus the blog, the YouTube channel, and the Discord where questions get answered.',
 			cols: 3,
 			cards: [
 				{

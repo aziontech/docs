@@ -16,12 +16,12 @@ function getMarkdownBasedOnCards(title, description, productCards) {
 	}
 
 	let content = '';
-	
+
 	// Adicionar título principal e descrição
 	if (title) {
 		content += `# ${title}\n\n`;
 	}
-	
+
 	if (description) {
 		content += `${description}\n\n`;
 	}

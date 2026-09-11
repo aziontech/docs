@@ -18,11 +18,11 @@ import { astroCodeBlocks, codeBlockAutoImport } from './integrations/astro-code-
 import { sitemap } from './integrations/sitemap';
 import { autoLinks } from './plugins/rehype-autolink-config';
 
-import rehypeSlug from './plugins/rehype-slug-config'
+import rehypeSlug from './plugins/rehype-slug-config';
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
-import rehypeDocTable from './plugins/rehype-doc-table'
+import rehypeDocTable from './plugins/rehype-doc-table';
 
 type MarkdownConfig = NonNullable<AstroUserConfig['markdown']>;
 
@@ -32,7 +32,7 @@ export default defineConfig({
 	site: SITE_URL,
 	build: {
 		inlineStylesheets: 'always',
-		assets: '_astro_docs'
+		assets: '_astro_docs',
 	},
 	integrations: [
 		AutoImport({
@@ -46,7 +46,7 @@ export default defineConfig({
 		astroAsides(),
 		astroCodeBlocks(),
 		mdx(),
-		vue()
+		vue(),
 	],
 	markdown: {
 		processor: unified() as unknown as MarkdownConfig['processor'],
@@ -74,39 +74,40 @@ export default defineConfig({
 	trailingSlash: 'always', // for server
 	vite: {
 		server: {
-      fs: {
-        allow: ['..']
-      }
-    },
-	plugins: [
-		tailwindcss(),
-		{
-			name: 'azion:server-noexternal',
-			configEnvironment(name: string) {
-				if (name === 'client') return null;
-				return {
-					resolve: {
-						noExternal: ['@astrojs/vue', '@aziontech/theme', '@aziontech/webkit'],
-						external: ['vue']
-					}
-				};
-			}
+			fs: {
+				allow: ['..'],
+			},
 		},
-		cssnano({
-			preset: [
-			'default', {
-				discardComments: { removeAll: true },
-				minifyFontValues: { removeQuotes: false }
-			}
-			]
-		})
-	],
-	ssr: {
-      noExternal: ['@astrojs/vue', '@aziontech/theme', '@aziontech/webkit'],
-      external: ['vue']
-    },
+		plugins: [
+			tailwindcss(),
+			{
+				name: 'azion:server-noexternal',
+				configEnvironment(name: string) {
+					if (name === 'client') return null;
+					return {
+						resolve: {
+							noExternal: ['@astrojs/vue', '@aziontech/theme', '@aziontech/webkit'],
+							external: ['vue'],
+						},
+					};
+				},
+			},
+			cssnano({
+				preset: [
+					'default',
+					{
+						discardComments: { removeAll: true },
+						minifyFontValues: { removeQuotes: false },
+					},
+				],
+			}),
+		],
+		ssr: {
+			noExternal: ['@astrojs/vue', '@aziontech/theme', '@aziontech/webkit'],
+			external: ['vue'],
+		},
 		optimizeDeps: {
-			include: ['vue']
-		}
-	}
+			include: ['vue'],
+		},
+	},
 });

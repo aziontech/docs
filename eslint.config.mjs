@@ -7,14 +7,7 @@ import webkit from '@aziontech/webkit/eslint-plugin';
 
 export default tseslint.config(
 	{
-		ignores: [
-			'dist/**',
-			'.astro/**',
-			'.edge/**',
-			'node_modules/**',
-			'.github/**',
-			'.changeset/**',
-		],
+		ignores: ['dist/**', '.astro/**', '.edge/**', 'node_modules/**', '.github/**', '.changeset/**'],
 	},
 
 	js.configs.recommended,

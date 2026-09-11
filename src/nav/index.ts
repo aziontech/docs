@@ -43,9 +43,14 @@ function loadTrees(): Map<string, NavTree> {
 	for (const [file, mod] of Object.entries(treeModules)) {
 		const parsed = navTree.safeParse(mod.default);
 		if (!parsed.success) {
-			throw new Error(`Invalid nav tree ${file}: ${parsed.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+			throw new Error(
+				`Invalid nav tree ${file}: ${parsed.error.issues
+					.map((i) => `${i.path.join('.')} ${i.message}`)
+					.join('; ')}`
+			);
 		}
-		if (trees.has(parsed.data.id)) throw new Error(`Duplicate nav tree id "${parsed.data.id}" (${file})`);
+		if (trees.has(parsed.data.id))
+			throw new Error(`Duplicate nav tree id "${parsed.data.id}" (${file})`);
 		trees.set(parsed.data.id, parsed.data);
 	}
 	cachedTrees = trees;
@@ -85,10 +90,22 @@ function lastUpdated(filePath?: string): string | undefined {
 		const dates = new Map<string, string>();
 		const sweeps = new Map<string, string>();
 		try {
-			const log = execFileSync('git', ['log', '--format=%cI', '--name-only', '--diff-filter=AMR', '--', 'src/content/docs', 'src/data'], {
-				encoding: 'utf8',
-				maxBuffer: 64 * 1024 * 1024,
-			});
+			const log = execFileSync(
+				'git',
+				[
+					'log',
+					'--format=%cI',
+					'--name-only',
+					'--diff-filter=AMR',
+					'--',
+					'src/content/docs',
+					'src/data',
+				],
+				{
+					encoding: 'utf8',
+					maxBuffer: 64 * 1024 * 1024,
+				}
+			);
 			let date = '';
 			let files: string[] = [];
 			const flush = () => {
@@ -128,7 +145,11 @@ export async function getNavData(): Promise<NavData> {
 	return { root, trees: loadTrees(), topnav: config, videos, pages: await loadPages() };
 }
 
-export async function getSidebar(pathname: string, lang: Lang, labels: SidebarLabels): Promise<SidebarModel> {
+export async function getSidebar(
+	pathname: string,
+	lang: Lang,
+	labels: SidebarLabels
+): Promise<SidebarModel> {
 	return resolveSidebar(await getNavData(), await getNavIndex(lang), pathname, lang, labels);
 }
 
@@ -138,7 +159,7 @@ export async function getTopNav(lang: Lang): Promise<TopNavModel | null> {
 
 export async function getDirectory(
 	lang: Lang,
-	labels: { products: string; guides: string; devtools: string },
+	labels: { products: string; guides: string; devtools: string }
 ): Promise<MenuGroupNode[]> {
 	return buildDirectory(await getNavData(), lang, labels);
 }
@@ -153,7 +174,7 @@ export async function getBreadcrumb(pathname: string, lang: Lang): Promise<Crumb
 
 export async function getNeighbours(
 	pathname: string,
-	lang: Lang,
+	lang: Lang
 ): Promise<{ previous?: Neighbour; next?: Neighbour }> {
 	return resolveNeighbours(await getNavData(), await getNavIndex(lang), pathname, lang);
 }

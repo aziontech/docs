@@ -31,7 +31,12 @@ function remarkAsides(): unified.Plugin<[], mdast.Root> {
 					// `in` alone leaves `children` as `unknown`, so narrow to the text node.
 					const children = 'children' in child ? child.children : undefined;
 					const first = Array.isArray(children) ? children[0] : undefined;
-					if (first && typeof first === 'object' && 'value' in first && typeof first.value === 'string') {
+					if (
+						first &&
+						typeof first === 'object' &&
+						'value' in first &&
+						typeof first.value === 'string'
+					) {
 						title = first.value;
 					}
 					return true;

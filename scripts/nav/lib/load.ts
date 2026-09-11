@@ -75,7 +75,11 @@ export function toPageIndex(corpus: CorpusPage[]): PageIndex {
 	for (const page of corpus) {
 		if (!page.namespace) continue;
 		const existing = pages.get(page.namespace) ?? {};
-		existing[page.lang] = { permalink: page.permalink, title: page.title, description: page.description };
+		existing[page.lang] = {
+			permalink: page.permalink,
+			title: page.title,
+			description: page.description,
+		};
 		pages.set(page.namespace, existing);
 	}
 	return pages;
@@ -98,44 +102,59 @@ export function loadNav(): LoadResult {
 
 	const rootParsed = navRoot.safeParse(readJson(path.join(NAV_DIR, 'root.json')));
 	if (!rootParsed.success) {
-		for (const issue of rootParsed.error.issues) issues.push(`root.json: ${issue.path.join('.')} ${issue.message}`);
+		for (const issue of rootParsed.error.issues)
+			issues.push(`root.json: ${issue.path.join('.')} ${issue.message}`);
 	}
 
 	const topParsed = topNav.safeParse(readJson(path.join(NAV_DIR, 'topnav.json')));
 	if (!topParsed.success) {
-		for (const issue of topParsed.error.issues) issues.push(`topnav.json: ${issue.path.join('.')} ${issue.message}`);
+		for (const issue of topParsed.error.issues)
+			issues.push(`topnav.json: ${issue.path.join('.')} ${issue.message}`);
 	}
 
 	const redirectsPath = path.join(NAV_DIR, 'redirects.json');
-	const redirectsParsed = navRedirects.safeParse(fs.existsSync(redirectsPath) ? readJson(redirectsPath) : {});
+	const redirectsParsed = navRedirects.safeParse(
+		fs.existsSync(redirectsPath) ? readJson(redirectsPath) : {}
+	);
 	if (!redirectsParsed.success) {
-		for (const issue of redirectsParsed.error.issues) issues.push(`redirects.json: ${issue.path.join('.')} ${issue.message}`);
+		for (const issue of redirectsParsed.error.issues)
+			issues.push(`redirects.json: ${issue.path.join('.')} ${issue.message}`);
 	}
 
 	const videosPath = path.join(NAV_DIR, 'videos.json');
 	const videosParsed = navVideos.safeParse(fs.existsSync(videosPath) ? readJson(videosPath) : []);
 	if (!videosParsed.success) {
-		for (const issue of videosParsed.error.issues) issues.push(`videos.json: ${issue.path.join('.')} ${issue.message}`);
+		for (const issue of videosParsed.error.issues)
+			issues.push(`videos.json: ${issue.path.join('.')} ${issue.message}`);
 	}
 
 	const trees = new Map<string, NavTree>();
 	const treeDir = path.join(NAV_DIR, 'trees');
-	const treeFiles = fs.existsSync(treeDir) ? fs.readdirSync(treeDir).filter((f) => f.endsWith('.json')).sort() : [];
+	const treeFiles = fs.existsSync(treeDir)
+		? fs
+				.readdirSync(treeDir)
+				.filter((f) => f.endsWith('.json'))
+				.sort()
+		: [];
 	for (const file of treeFiles) {
 		const parsed = navTree.safeParse(readJson(path.join(treeDir, file)));
 		if (!parsed.success) {
-			for (const issue of parsed.error.issues) issues.push(`trees/${file}: ${issue.path.join('.')} ${issue.message}`);
+			for (const issue of parsed.error.issues)
+				issues.push(`trees/${file}: ${issue.path.join('.')} ${issue.message}`);
 			continue;
 		}
-		if (trees.has(parsed.data.id)) issues.push(`trees/${file}: duplicate tree id "${parsed.data.id}"`);
+		if (trees.has(parsed.data.id))
+			issues.push(`trees/${file}: duplicate tree id "${parsed.data.id}"`);
 		trees.set(parsed.data.id, parsed.data);
-		if (file !== `${parsed.data.id}.json`) issues.push(`trees/${file}: file should be named ${parsed.data.id}.json`);
+		if (file !== `${parsed.data.id}.json`)
+			issues.push(`trees/${file}: file should be named ${parsed.data.id}.json`);
 	}
 
 	const exemptPath = path.join(NAV_DIR, 'exempt.json');
 	const exemptParsed = navExempt.safeParse(fs.existsSync(exemptPath) ? readJson(exemptPath) : {});
 	if (!exemptParsed.success) {
-		for (const issue of exemptParsed.error.issues) issues.push(`exempt.json: ${issue.path.join('.')} ${issue.message}`);
+		for (const issue of exemptParsed.error.issues)
+			issues.push(`exempt.json: ${issue.path.join('.')} ${issue.message}`);
 	}
 
 	const corpus = readCorpus();

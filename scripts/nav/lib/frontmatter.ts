@@ -1,4 +1,3 @@
-
 const FENCE = /^---[ \t]*$/;
 
 interface Block {

@@ -11,13 +11,13 @@
 </template>
 
 <script setup lang="ts">
-	import DocCard from '@aziontech/webkit/doc-card'
-	import DocCardGroup from '@aziontech/webkit/doc-card-group'
-	import { computed } from 'vue'
+import DocCard from '@aziontech/webkit/doc-card';
+import DocCardGroup from '@aziontech/webkit/doc-card-group';
+import { computed } from 'vue';
 
-	import { data, t, type Lang } from './data'
+import { data, t, type Lang } from './data';
 
-	const props = defineProps<{ group: 'workflows' | 'concepts' | 'tradeoffs'; lang: Lang }>()
+const props = defineProps<{ group: 'workflows' | 'concepts' | 'tradeoffs'; lang: Lang }>();
 
-	const items = computed(() => data[props.group])
+const items = computed(() => data[props.group]);
 </script>

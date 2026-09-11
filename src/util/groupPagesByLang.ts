@@ -6,6 +6,4 @@ export const groupPagesByLang = <T extends CollectionEntry<'docs'>>(pages: T[]) 
 		if (!pages[lang]) pages[lang] = [];
 		pages[lang].push(page);
 		return pages;
-	},
-	{} as { [lang: string]: T[] }
-);
+	}, {} as { [lang: string]: T[] });

@@ -1,7 +1,7 @@
 import { UIDictionary } from '../translation-checkers';
 
 export default UIDictionary({
-	'lang': 'Português',
+	lang: 'Português',
 	'a11y.skipLink': 'Pular para o Conteúdo',
 	'a11y.sectionLink': 'Seção intitulada',
 	'navbar.a11yTitle': 'Superior',
@@ -62,13 +62,15 @@ export default UIDictionary({
 	'rightSidebar.translatePage': 'Traduza esta página',
 	'rightSidebar.a11yTitle': 'Secundária',
 	'rightSidebar.ctaTitle': 'Pronto para construir?',
-	'rightSidebar.ctaDescription': 'Faça o deploy da sua primeira aplicação gratuitamente e escale conforme seu tráfego crescer. Sem cartão de crédito.',
+	'rightSidebar.ctaDescription':
+		'Faça o deploy da sua primeira aplicação gratuitamente e escale conforme seu tráfego crescer. Sem cartão de crédito.',
 	'rightSidebar.ctaPrimary': 'Comece gratuitamente',
 	'rightSidebar.ctaPrimaryLink': 'https://console.azion.com/signup',
 	'rightSidebar.ctaSecondary': 'Veja nossos planos',
 	'rightSidebar.ctaSecondaryLink': '/pt-br/precos/',
 	// Footer
-	'footer.copyright': 'Copyright © 2024, Azion Technologies, Inc. ou suas afiliadas. Todos os direitos reservados.',
+	'footer.copyright':
+		'Copyright © 2024, Azion Technologies, Inc. ou suas afiliadas. Todos os direitos reservados.',
 	'footer.contactInformation': 'Para vendas e suporte, entre em contato no',
 	'footer.phone': '0800 883 6313',
 	'footer.langSelector': 'Idioma: ',
@@ -145,7 +147,8 @@ export default UIDictionary({
 	'recipesLink.plural': 'Receitas relacionadas',
 	'breadcrumb.home': 'Documentação',
 	// top bar message
-	'topbar.message': 'Azion ganha o Prêmio Norte-Americano de Inovação de Novos Produtos 2023 da Frost & Sullivan na categoria edge serverless.',
+	'topbar.message':
+		'Azion ganha o Prêmio Norte-Americano de Inovação de Novos Produtos 2023 da Frost & Sullivan na categoria edge serverless.',
 	'topbar.cta': 'Confira!',
 	'topbar.link': 'https://www.azion.com/pt-br/blog/azion-premio-frost-sullivan/',
 });

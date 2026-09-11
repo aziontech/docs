@@ -64,7 +64,7 @@ function parsePage(pathname: string, options: LinkCheckerOptions): HtmlPage {
 		throw new Error(
 			dedentMd`Error parsing HTML file "${htmlFilePath}"
 			referenced by sitemap: ${err instanceof Error ? err.message : err}`,
-			{ cause: err },
+			{ cause: err }
 		);
 	}
 }

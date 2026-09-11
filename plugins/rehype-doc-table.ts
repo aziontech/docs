@@ -20,7 +20,9 @@ const addClass = (node: Element, className: string) => {
 };
 
 const children = (node: Element, tagName: string) =>
-	node.children.filter((child): child is Element => child.type === 'element' && child.tagName === tagName);
+	node.children.filter(
+		(child): child is Element => child.type === 'element' && child.tagName === tagName
+	);
 
 const style = (table: Element) => {
 	addClass(table, TABLE_CLASS);
@@ -55,7 +57,7 @@ export default function rehypeDocTable() {
 				tagName: 'div',
 				properties: { 'data-doc-block': '', className: 'w-full overflow-x-auto' },
 				children: [node],
-				position: node.position
+				position: node.position,
 			};
 
 			return SKIP;

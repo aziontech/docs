@@ -1,18 +1,18 @@
-import { allPages } from "~/content";
-import { removeTrailingSlash, removeLeadingSlash } from "~/util";
-import { groupPagesByLang } from "~/util/groupPagesByLang";
-import { withDocsHome } from "~/data/docs-home";
+import { allPages } from '~/content';
+import { removeTrailingSlash, removeLeadingSlash } from '~/util';
+import { groupPagesByLang } from '~/util/groupPagesByLang';
+import { withDocsHome } from '~/data/docs-home';
 
-const langs = ['en', 'pt-br']
-const data = {}
+const langs = ['en', 'pt-br'];
+const data = {};
 // The docs home is a page in `src/pages`, not a collection entry, so it is
 // merged back in here to keep it in the feed.
-const pagesData = withDocsHome(groupPagesByLang(allPages))
+const pagesData = withDocsHome(groupPagesByLang(allPages));
 
 langs.forEach((lang) => {
-	if (!pagesData[lang]) return
-	
-	data[lang] = pagesData[lang].map(page => {
+	if (!pagesData[lang]) return;
+
+	data[lang] = pagesData[lang].map((page) => {
 		return {
 			repository: 'docs',
 			title: page.data.title || '',
@@ -21,23 +21,20 @@ langs.forEach((lang) => {
 			og_image: page.data.og_image || '',
 			body: page.body || '',
 			noindex: false,
-			url: `https://www.azion.com/${lang}/${removeTrailingSlash(removeLeadingSlash(page.data.permalink))}/`
-		}
-	})
-})
+			url: `https://www.azion.com/${lang}/${removeTrailingSlash(
+				removeLeadingSlash(page.data.permalink)
+			)}/`,
+		};
+	});
+});
 
 export function getStaticPaths() {
-	return [
-		{ params: { lang: "en" } },
-		{ params: { lang: "pt-br" } }
-	]
+	return [{ params: { lang: 'en' } }, { params: { lang: 'pt-br' } }];
 }
 
 export async function GET({ params }) {
 	const lang = params.lang;
 	const jsonStr = JSON.stringify(data[lang]);
-	
-	return new Response(jsonStr)
+
+	return new Response(jsonStr);
 }
-
-

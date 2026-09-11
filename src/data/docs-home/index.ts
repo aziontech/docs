@@ -13,7 +13,11 @@ export const docsHomeLangs = Object.keys(docsHome) as Lang[];
 
 function cardLines(section: Pick<Section, 'cards'>): string {
 	return section.cards
-		.map((card) => (card.body ? `- [${card.title}](${card.href}): ${card.body}` : `- [${card.title}](${card.href})`))
+		.map((card) =>
+			card.body
+				? `- [${card.title}](${card.href}): ${card.body}`
+				: `- [${card.title}](${card.href})`
+		)
 		.join('\n');
 }
 
@@ -46,8 +50,10 @@ export function docsHomeMarkdown(content: DocsHomeContent): string {
 	].join('\n');
 
 	const rest = content.sections
-		.map((section) =>
-			[`## ${section.heading.text}`, '', section.intro, '', cardLines(section)].join('\n') + footerLine(section),
+		.map(
+			(section) =>
+				[`## ${section.heading.text}`, '', section.intro, '', cardLines(section)].join('\n') +
+				footerLine(section)
 		)
 		.join('\n\n');
 
@@ -76,7 +82,7 @@ export const docsHomeEntries: DocsHomeEntry[] = docsHomeLangs.map((lang) => ({
 
 /** The same entries keyed by language, for the endpoints that group by lang. */
 export const docsHomeEntryByLang = Object.fromEntries(
-	docsHomeEntries.map((entry) => [entry.id.split('/')[0] as Lang, entry]),
+	docsHomeEntries.map((entry) => [entry.id.split('/')[0] as Lang, entry])
 ) as Record<Lang, DocsHomeEntry>;
 
 /**
