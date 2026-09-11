@@ -42,7 +42,6 @@
 
 			<template #language>
 				<slot name="action" />
-				<slot name="theme-switch" />
 			</template>
 		</Footer>
 	</div>
@@ -89,8 +88,6 @@ defineSlots<{
 	'system-status'(): unknown;
 	/** The language switcher. */
 	action(): unknown;
-	/** The light/dark control. */
-	'theme-switch'(): unknown;
 }>();
 
 // The treatment every other brand redirect in the app carries: hover opacity, focus ring.
