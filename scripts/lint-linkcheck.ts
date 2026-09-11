@@ -28,6 +28,16 @@ class LinkChecker {
 
 		const pagePathnames = getPagePathnamesFromSitemap(options);
 
+		// A checker that parsed no pages is broken, not clean — and it would print
+		// "Found no link issues. Great job!", which is exactly how this tool spent its whole
+		// life green while matching a base URL that appears in no sitemap.
+		if (pagePathnames.length === 0) {
+			throw new Error(
+				`No pages found in the sitemaps under ${options.buildOutputDir} for base URL ${options.baseUrl}. ` +
+					'Either the build output is missing, or the base URL does not match the <loc> entries.'
+			);
+		}
+
 		const allPages = parsePages(pagePathnames, options);
 
 		const linkIssues = findLinkIssues(allPages, options, state);

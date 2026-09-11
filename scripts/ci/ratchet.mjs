@@ -56,6 +56,13 @@ function check(name, entry, update) {
 	}
 
 	// A pattern may match a "none found" phrasing with no digits — that is a real zero.
+	// `count > undefined` is false, so a missing or mistyped baseline would silently
+	// disable the check instead of failing it.
+	if (typeof entry.baseline !== 'number' || !Number.isFinite(entry.baseline)) {
+		console.error(`FAIL  ${name}: baseline is not a number (${JSON.stringify(entry.baseline)}).`);
+		return false;
+	}
+
 	const count = match[1] === undefined ? 0 : Number(match[1]);
 
 	if (update) {
