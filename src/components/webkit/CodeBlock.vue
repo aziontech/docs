@@ -4,15 +4,25 @@
 	</div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 	import WebkitCodeBlock from '@aziontech/webkit/code-block';
 	import { computed } from 'vue';
 
-	const props = defineProps({
-		code: { type: String, required: true },
-		lang: { type: String, default: undefined },
-		fileName: { type: String, default: undefined },
-		showLineNumbers: { type: Boolean, default: false }
+	interface Props {
+		/** Source to render. */
+		code: string;
+		/** Highlighting language; also the tab label. */
+		lang?: string;
+		/** Shown as the block's file name. */
+		fileName?: string;
+		/** Numbers each line. */
+		showLineNumbers?: boolean;
+	}
+
+	const props = withDefaults(defineProps<Props>(), {
+		lang: undefined,
+		fileName: undefined,
+		showLineNumbers: false,
 	});
 
 	const tabs = computed(() => [

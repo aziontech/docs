@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path'
 
 import { read as readcsv } from './helpers/csv.js';
-import { removeHostFromUrl, removeHostAndLangFromUrl, wwwazioncom, isFromRoot } from './helpers/url.js';
+import { removeHostFromUrl, wwwazioncom, isFromRoot } from './helpers/url.js';
 
 let counterFoundLinks = 0
 let PATH = {
@@ -40,10 +40,10 @@ async function processFile(filePath, redirects) {
 			fileModified = true
 			
 			if(contentMatchMdLinkAnchor.length)
-				newContent = findReplace(newContent, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgxMdLink, `(${url200})`)
+				newContent = findReplace(newContent, isRoot ? /\\(https:\/\/www\.azion\.com\/\\)/ : rgxMdLink, `(${url200})`)
 
 			if(contentMatchMdLinkAnchor.length)
-				newContent = findReplace(newContent, isRoot ? /\\(https\:\/\/www\.azion\.com\/\\)/ : rgxMdLinkAnchor, `(${url200}#`)
+				newContent = findReplace(newContent, isRoot ? /\\(https:\/\/www\.azion\.com\/\\)/ : rgxMdLinkAnchor, `(${url200}#`)
 
 			console.log(`{
 			isRoot: ${isRoot},

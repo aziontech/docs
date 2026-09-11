@@ -6,89 +6,48 @@ export interface AllPagesByPathname {
 }
 
 export class HtmlPage {
-	/**
-	 * The full page URL.
-	 *
-	 * Example: `https://docs.astro.build/en/getting-started/`
-	 */
+	/** The full page URL, e.g. `https://docs.astro.build/en/getting-started/`. */
 	readonly href: string;
-	/**
-	 * The `pathname` part of the page's URL.
-	 *
-	 * Example: `/en/getting-started/`
-	 */
+	/** The `pathname` part of the page's URL, e.g. `/en/getting-started/`. */
 	readonly pathname: string;
 
 	readonly dom: Document;
 
 	readonly anchors: Element[];
-	/**
-	 * A list of unique link hrefs on the page.
-	 */
+	/** Every link href on the page, deduplicated. */
 	readonly uniqueLinkHrefs: string[];
-	/**
-	 * A list of hashes that can be used as URL fragments to jump to specific parts of the page.
-	 */
+	/** Hashes usable as URL fragments to jump within the page. */
 	readonly hashes: string[];
-	/**
-	 * Contains the unique absolute page URL as declared by the
-	 * `<link rel="canonical" href="...">` element (if any).
-	 */
+	/** Absolute page URL declared by `<link rel="canonical">`, if any. */
 	readonly canonicalUrl: URL | null;
-	/**
-	 * The target URL of a `<meta http-equiv="refresh" content="...">` element
-	 * contained on the page (if any).
-	 */
+	/** Target URL of a `<meta http-equiv="refresh">` element, if any. */
 	readonly redirectTargetUrl: URL | null;
-	/**
-	 * Determines if the page redirects to another URL because it contains a
-	 * meta refresh element with a valid URL.
-	 */
+	/** Whether a meta refresh element points the page at a valid URL. */
 	readonly isRedirect: boolean;
-	/**
-	 * The element containing the page's main content.
-	 *
-	 * Prefers the first `<article>` element, with a fallback to `<body>` if no article was found,
-	 * and finally `null` if the page even doesn't have a body.
-	 */
+	/** The main content element: first `<article>`, else `<body>`, else `null`. */
 	readonly mainContent: Element | null;
-	/**
-	 * The language of the page's main content.
-	 *
-	 * Searches for the first `lang` attribute in the tree, starting at `mainContent` (if any)
-	 * and traversing its parents. Can be `null` if no such attribute is found.
-	 */
+	/** Nearest `lang` at or above `mainContent`; `null` when nothing declares one. */
 	readonly mainContentLang: string | null;
-	/**
-	 * The language defined by the page's pathname prefix (if any).
-	 */
+	/** The language declared by the pathname prefix, if any. */
 	readonly pathnameLang: string | null;
-	/**
-	 * Determines if the page is a language fallback page
-	 * for content that has not been translated yet.
-	 */
+	/** Whether the page serves untranslated English content under a non-English path. */
 	readonly isLanguageFallback: boolean;
 
 	constructor({ html, href, pathname }: { html: string; href: string; pathname: string }) {
-		// Attempt to read the HTML file and parse its DOM
 		this.dom = htmlparser2.parseDocument(html);
 		this.href = href;
 		this.pathname = pathname;
 
-		// Provide commonly used data as properties
 		this.anchors = htmlparser2.DomUtils.getElementsByTagName('a', this.dom, true);
 
-		// Build a list of unique link hrefs on the page
 		this.uniqueLinkHrefs = [...new Set(this.anchors.map((el) => decodeURI(el.attribs.href)))];
 
-		// Build a list of hashes that can be used as URL fragments to jump to parts of the page
 		const anchorNames = this.anchors
 			.map((el) => el.attribs.name)
 			.filter((name) => name !== undefined);
 		const ids = this.findAll((el) => Boolean(el.attribs.id)).map((el) => el.attribs.id);
 		this.hashes = [...anchorNames, ...ids].map((name) => `#${name}`);
 
-		// Check if the page redirects somewhere else using meta refresh
 		const metaRefreshElement = this.findFirst(
 			(el) =>
 				el.tagName.toLowerCase() === 'meta' && el.attribs['http-equiv']?.toLowerCase() === 'refresh'
@@ -98,7 +57,6 @@ export class HtmlPage {
 		this.redirectTargetUrl = metaRefreshMatches ? new URL(metaRefreshMatches[2], this.href) : null;
 		this.isRedirect = Boolean(this.redirectTargetUrl);
 
-		// Get the page's canonical URL (if any)
 		const linkCanonicalElement = this.findFirst(
 			(el) =>
 				el.tagName.toLowerCase() === 'link' && el.attribs['rel']?.toLowerCase() === 'canonical'
@@ -106,21 +64,17 @@ export class HtmlPage {
 		this.canonicalUrl =
 			(linkCanonicalElement && new URL(linkCanonicalElement.attribs['href'])) || null;
 
-		// Attempt to find the page's main content element
 		this.mainContent =
 			this.findFirst((el) => el.tagName.toLowerCase() === 'article') ||
 			this.findFirst((el) => el.tagName.toLowerCase() === 'body');
 
-		// Attempt to determine the main content language by traversing the tree upwards
-		// until we find an element with a `lang` attribute
+		// Traverse upwards from the main content for the nearest `lang` attribute.
 		const mainContentParentWithLang =
 			this.mainContent && this.findParent(this.mainContent, (el) => Boolean(el.attribs?.lang));
 		this.mainContentLang = mainContentParentWithLang?.attribs.lang || null;
 
-		// Attempt to determine the page's pathname-based language
 		this.pathnameLang = this.getLanguageCodeFromPathname(this.pathname) || null;
 
-		// Detect if this is a language fallback page
 		this.isLanguageFallback =
 			Boolean(this.pathnameLang) && this.pathnameLang !== 'en' && this.mainContentLang === 'en';
 	}
@@ -142,10 +96,7 @@ export class HtmlPage {
 		return null;
 	}
 
-	/**
-	 * Determines the URL pathname that should be used to link to this page
-	 * from a page with the given source language.
-	 */
+	/** The pathname a page in `sourceLang` should use to link here. */
 	getExpectedLinkPathname(sourceLang: string | null) {
 		let pathname = this.canonicalUrl?.pathname || this.pathname;
 		if (sourceLang && (this.isLanguageFallback || pathname.startsWith('/en/'))) {
@@ -155,11 +106,8 @@ export class HtmlPage {
 	}
 
 	private getLanguageCodeFromPathname(pathname: string) {
-		// Assuming that `pathname` always starts with a `/`, retrieve the first path part,
-		// which is usually the language code
+		// `pathname` always starts with `/`, so the first part is the language code, if any.
 		const firstPathPart = pathname.split('/')[1];
-		// Only return parts that look like a two-letter language code
-		// with optional two-letter country code
 		if (firstPathPart.match(/^[a-z]{2}(-[a-zA-Z]{2})?$/)) return firstPathPart;
 	}
 }

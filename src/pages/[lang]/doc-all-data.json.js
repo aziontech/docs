@@ -1,10 +1,13 @@
 import { allPages } from "~/content";
 import { removeTrailingSlash, removeLeadingSlash } from "~/util";
 import { groupPagesByLang } from "~/util/groupPagesByLang";
+import { withDocsHome } from "~/data/docs-home";
 
 const langs = ['en', 'pt-br']
 const data = {}
-const pagesData = groupPagesByLang(allPages)
+// The docs home is a page in `src/pages`, not a collection entry, so it is
+// merged back in here to keep it in the feed.
+const pagesData = withDocsHome(groupPagesByLang(allPages))
 
 langs.forEach((lang) => {
 	if (!pagesData[lang]) return

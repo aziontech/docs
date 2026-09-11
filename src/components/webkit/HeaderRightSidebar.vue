@@ -1,4 +1,6 @@
 <template>
+	<!-- eslint-disable webkit/no-style-override -- placement in the header's flex
+	     row (hidden from `lg` up), not a restyle of the button. -->
 	<IconButton
 		icon="pi pi-bars"
 		aria-label="Open documentation navigation"
@@ -7,6 +9,7 @@
 		class="lg:hidden flex-none"
 		@click="open = true"
 	/>
+	<!-- eslint-enable webkit/no-style-override -->
 
 	<Drawer
 		v-model:open="open"
@@ -16,12 +19,15 @@
 		<DrawerPortal>
 			<DrawerOverlay />
 			<DrawerContent>
+				<!-- eslint-disable webkit/no-style-override -- the drawer owns whether its
+				     header shows at this width; that is layout, not styling. -->
 				<PanelHeader class="hidden w-full md:flex">
+				<!-- eslint-enable webkit/no-style-override -->
 					<DrawerTitle>Documentation</DrawerTitle>
 					<DrawerClose />
 				</PanelHeader>
 
-				<div class="min-h-0 w-full grow overflow-y-auto p-(--spacing-md) text-sm">
+				<div class="min-h-0 w-full grow overflow-y-auto p-(--spacing-md) text-body-sm">
 					<DocsSidebarFilter
 						v-model="filter"
 						class="mb-(--spacing-sm)"
@@ -65,7 +71,7 @@
 								>
 									<li
 										v-if="entry.items && entry.label"
-										class="px-2 py-2 text-xs font-medium uppercase tracking-wider text-muted"
+										class="px-2 py-2 text-label-sm font-medium uppercase tracking-wider text-muted"
 									>
 										{{ entry.label }}
 									</li>
@@ -84,7 +90,7 @@
 												v-if="item.icon"
 												:class="item.icon"
 											></span>
-											<span class="ml-2 font-medium text-sm">
+											<span class="ml-2 font-medium text-label-md">
 												{{ item.label }}
 											</span>
 											<Tag
@@ -102,7 +108,10 @@
 				</div>
 
 				<template v-if="bottomButtons">
+					<!-- eslint-disable webkit/no-style-override -- lets the footer's own
+					     buttons wrap onto a second row on a narrow drawer. -->
 					<PanelFooter class="w-full flex-wrap gap-2">
+					<!-- eslint-enable webkit/no-style-override -->
 						<Button
 							v-for="(button, index) in bottomButtons"
 							:key="index"
@@ -120,7 +129,7 @@
 	</Drawer>
 </template>
 
-<script setup>
+<script setup lang="ts">
 	import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 	import Button from '@aziontech/webkit/button'
@@ -138,25 +147,68 @@
 	import DocsSidebarMenu from '~/components/webkit/DocsSidebarMenu.vue'
 	import Tag from '~/components/webkit/Tag.vue'
 
-	function bottomButtonKind(button) {
+	import type { MenuGroupNode, SidebarHeader as SidebarHeaderModel } from '~/nav/resolve'
+
+	/** A link row in the secondary menu, or a group heading that owns rows. */
+	interface MenuEntry {
+		label?: string
+		url?: string
+		urlTitle?: string
+		target?: string
+		icon?: string
+		tags?: string[]
+		items?: MenuEntry[]
+	}
+
+	/** A call to action in the drawer footer. `destak` is the legacy emphasis flag. */
+	interface BottomButton {
+		label?: string
+		url?: string
+		urlTitle?: string
+		icon?: string
+		severity?: string
+		destak?: boolean
+	}
+
+	function bottomButtonKind(button: BottomButton) {
 		if (button.severity === 'info') return 'outlined'
 
 		return button.destak ? 'primary' : 'outlined'
 	}
 
-	let props = defineProps({
-		menuSecondary: Array,
-		bottomButtons: Array,
-		menuGroups: { type: Array, default: null },
-		menuActiveId: { type: String, default: '' },
-		menuExpanded: { type: Array, default: () => [] },
-		menuAriaLabel: { type: String, default: 'Menu' },
-		menuHeader: { type: Object, default: null },
-		menuFilterPlaceholder: { type: String, default: 'Filter sidebar' },
-		menuNoMatchesLabel: { type: String, default: 'No rows match.' },
-		directoryGroups: { type: Array, default: null },
-		directoryAriaLabel: { type: String, default: 'Directory' }
-	})
+	defineSlots<{
+		/** The drawer's scrolling body, above the secondary menu. */
+		'main-content'(): unknown
+	}>()
+
+	const props = withDefaults(
+		defineProps<{
+			menuSecondary?: MenuEntry[]
+			bottomButtons?: BottomButton[]
+			menuGroups?: MenuGroupNode[] | null
+			menuActiveId?: string
+			menuExpanded?: string[]
+			menuAriaLabel?: string
+			menuHeader?: SidebarHeaderModel | null
+			menuFilterPlaceholder?: string
+			menuNoMatchesLabel?: string
+			directoryGroups?: MenuGroupNode[] | null
+			directoryAriaLabel?: string
+		}>(),
+		{
+			menuSecondary: undefined,
+			bottomButtons: undefined,
+			menuGroups: null,
+			menuActiveId: '',
+			menuExpanded: () => [],
+			menuAriaLabel: 'Menu',
+			menuHeader: null,
+			menuFilterPlaceholder: 'Filter sidebar',
+			menuNoMatchesLabel: 'No rows match.',
+			directoryGroups: null,
+			directoryAriaLabel: 'Directory',
+		},
+	)
 
 	const { menuSecondary, bottomButtons } = props
 	const open = ref(false)

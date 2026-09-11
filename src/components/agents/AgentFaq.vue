@@ -15,7 +15,10 @@
 				:value="String(index)"
 			>
 				<Accordion.Trigger>{{ item.question }}</Accordion.Trigger>
+				<!-- eslint-disable webkit/no-style-override -- replaces the panel's own
+				     inset; an inner box would add to it rather than set it. -->
 				<Accordion.Content class="px-[var(--accordion-inset,var(--spacing-md))] pt-(--spacing-sm) pb-(--spacing-md)">
+				<!-- eslint-enable webkit/no-style-override -->
 					<p class="m-0">
 						<InlineText
 							:text="item.answer"

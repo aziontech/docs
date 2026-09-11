@@ -1,55 +1,78 @@
 <template>
-	<span class="inline-flex h-8 items-center">
-		<Dropdown v-if="i18nPages" placement="auto" @select="onSelect">
-			<DropdownTrigger>
-				<span
-					class="flex h-8 items-center gap-2 rounded-[var(--shape-button)] border border-default bg-surface px-4 text-sm text-default transition-colors hover:bg-hover"
-				>
-					<span v-if="activeLang">{{ activeLang.lang }}</span>
-					<i class="pi pi-chevron-down text-xs" aria-hidden="true" />
-				</span>
-			</DropdownTrigger>
+	<!-- `w-28` (112px) matches the marketing footer, and the wrapper is what sizes the
+	     control: the Select's trigger is `w-full`, and content-sizing would change width
+	     between EN and PT-BR. `shrink-0` keeps the flex band from squeezing it to ~83px. -->
+	<div v-if="i18nPages?.length" class="w-28 shrink-0">
+		<Select
+			:model-value="activeSlug"
+			:display-value="displayValue"
+			:placeholder="LANGUAGE_LABEL"
+			@update:model-value="onSelect"
+		>
+			<Select.Trigger :aria-label="LANGUAGE_LABEL">
+				<!-- The globe names the control: a bare `EN` reads as a label, not a switch.
+				     It rides the trigger's `iconLeft` slot so it sits inside the border on
+				     the control's own gap; `aria-hidden` leaves the name to `aria-label`. -->
+				<template #iconLeft>
+					<i class="pi pi-globe text-(--text-muted)" aria-hidden="true" />
+				</template>
+			</Select.Trigger>
 
-			<DropdownGroup>
-				<DropdownOption
-					v-for="option in i18nPages"
-					:key="option.langPrefix"
-					:value="option.slug"
-					:selected="option.langPrefix === activeLang?.langPrefix"
-				>
-					<a :href="option.slug" class="block w-full text-inherit no-underline">{{
-						option.lang
-					}}</a>
-				</DropdownOption>
-			</DropdownGroup>
-		</Dropdown>
-	</span>
+			<Select.Content>
+				<Select.Option v-for="option in i18nPages" :key="option.langPrefix" :value="option.slug">
+					{{ codeFor(option.langPrefix) }}
+				</Select.Option>
+			</Select.Content>
+		</Select>
+	</div>
 </template>
 
-<script setup>
-import Dropdown, {
-	DropdownGroup,
-	DropdownOption,
-	DropdownTrigger,
-} from '@aziontech/webkit/dropdown';
+<script setup lang="ts">
+import Select from '@aziontech/webkit/select';
 
-const props = defineProps({
-	i18nPages: {
-		type: Array,
-		required: false,
-	},
-	lang: {
-		type: String,
-		required: true,
-		default: 'en',
-	},
+/** One translation of the current page. */
+interface I18nPage {
+	langPrefix: string;
+	slug: string;
+	lang: string;
+}
+
+interface Props {
+	/** Every language this page exists in. */
+	i18nPages?: I18nPage[];
+	/** The language currently being read. */
+	lang?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+	i18nPages: undefined,
+	lang: 'en',
 });
 
-const activeLang = props.i18nPages
-	? props.i18nPages.find((p) => p.langPrefix === props.lang.toLowerCase())
-	: null;
+const LANGUAGE_LABEL = 'Language';
 
-function onSelect(_event, slug) {
-	window.location.assign(slug);
+// Options are language codes, not endonyms: 112px with a glyph and chevron fits `PT-BR`
+// but truncates `Português`, and codes are what the marketing footer shows.
+const LANGUAGE_CODES = {
+	en: 'EN',
+	'pt-br': 'PT-BR',
+	es: 'ES',
+};
+
+const codeFor = (langPrefix: string) =>
+	LANGUAGE_CODES[langPrefix as keyof typeof LANGUAGE_CODES] ?? langPrefix.toUpperCase();
+
+// The value is the target page's slug, since this control navigates; `displayValue` maps
+// the selected slug back to its language so the trigger still reads as a code.
+const activePage = props.i18nPages?.find((page) => page.langPrefix === props.lang.toLowerCase());
+const activeSlug = activePage?.slug;
+
+const displayValue = (slug: string) => {
+	const page = props.i18nPages?.find((option) => option.slug === slug);
+	return page ? codeFor(page.langPrefix) : '';
+};
+
+function onSelect(slug) {
+	if (slug && slug !== activeSlug) window.location.assign(slug);
 }
 </script>

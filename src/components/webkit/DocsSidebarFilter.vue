@@ -26,35 +26,44 @@
 				size="medium"
 			>
 				<template #iconRight>
-					<Kbd
-						size="small"
-						class="hidden sm:inline-flex"
-					>
-						/
-					</Kbd>
+					<span class="hidden sm:inline-flex">
+						<Kbd size="small">
+							/
+						</Kbd>
+					</span>
 				</template>
 			</InputText>
 		</div>
 	</div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 	import IconButton from '@aziontech/webkit/icon-button';
 	import InputText from '@aziontech/webkit/input-text';
 	import Kbd from '@aziontech/webkit/kbd';
 	import { onBeforeUnmount, onMounted, ref } from 'vue';
 
-	const props = defineProps({
-		header: { type: Object, default: null },
-		placeholder: { type: String, default: 'Filter sidebar' },
+	import type { SidebarHeader } from '~/nav/resolve';
+
+	interface Props {
+		/** The rail's header row, when the host shows one. */
+		header?: SidebarHeader | null;
+		/** Placeholder for the filter input. */
+		placeholder?: string;
 		/** Whether the `/` key should focus this filter right now (the host that is on screen says yes). */
-		hotkey: { type: Boolean, default: true }
+		hotkey?: boolean;
+	}
+
+	const props = withDefaults(defineProps<Props>(), {
+		header: null,
+		placeholder: 'Filter sidebar',
+		hotkey: true,
 	});
 
-	const filter = defineModel({ type: String, default: '' });
-	const filterWrap = ref(null);
+	const filter = defineModel<string>({ default: '' });
+	const filterWrap = ref<HTMLElement | null>(null);
 
-	function onSlash(event) {
+	function onSlash(event: KeyboardEvent) {
 		if (!props.hotkey || event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
 		const target = event.target;
 		if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;

@@ -1,17 +1,25 @@
-<script setup>
+<script setup lang="ts">
   import IconButton from '@aziontech/webkit/icon-button'
   import Kbd from '@aziontech/webkit/kbd'
 
   defineOptions({ inheritAttrs: false })
 
-  defineProps({
-    label: { type: String, default: 'Search' }
-  })
+  interface Props {
+    /** Accessible name and tooltip for the search trigger. */
+    label?: string
+  }
 
-  defineEmits(['click'])
+  withDefaults(defineProps<Props>(), { label: 'Search' })
+
+  defineEmits<{
+    /** Opens the search dialog. */
+    click: [event: MouseEvent]
+  }>()
 </script>
 
 <template>
+  <!-- eslint-disable webkit/no-style-override -- which of the two search
+       affordances is on screen at this width; placement, not restyling. -->
   <IconButton
     icon="pi pi-search"
     kind="outlined"
@@ -21,6 +29,7 @@
     class="@min-[47rem]:hidden"
     @click="$emit('click', $event)"
   />
+  <!-- eslint-enable webkit/no-style-override -->
 
   <button
     type="button"
@@ -36,11 +45,14 @@
       <i class="pi pi-search" />
     </span>
     <span class="min-w-0 flex-1 truncate text-label-sm text-(--text-muted)">{{ label }}</span>
+    <!-- eslint-disable webkit/no-style-override -- flex sizing inside our own
+         trigger button. -->
     <Kbd
       meta
       size="small"
       class="shrink-0"
       >K</Kbd
     >
+    <!-- eslint-enable webkit/no-style-override -->
   </button>
 </template>

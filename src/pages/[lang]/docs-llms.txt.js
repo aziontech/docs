@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content'
 import { groupPagesByLang } from '~/util/groupPagesByLang'
 import { removeTrailingLeadingSlashs } from '~/util/removeSlashs'
 import { SITE_URL } from '~/consts'
+import { withDocsHome } from '~/data/docs-home'
 
 function buildLinks(collection, lang) {
   let content = ''
@@ -23,7 +24,7 @@ export async function getStaticPaths() {
         lang: lang
       },
       props: {
-        docs: groupPagesByLang(docs)
+        docs: withDocsHome(groupPagesByLang(docs))
       }
     }
   })

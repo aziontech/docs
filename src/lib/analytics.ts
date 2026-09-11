@@ -1,13 +1,6 @@
-/**
- * Analytics Tracker for Azion Docs
- *
- * This module provides server-side tracking via proxy to avoid ad-blockers.
- * Implements:
- * - Anonymous ID management (cookie shared with Console on .azion.com domain)
- * - Session ID and first_session_url tracking (following Google's session definition)
- * - User ID validation
- * - Page, track, and identify calls
- */
+/** Page, track and identify calls for the docs, proxied server-side. */
+// The proxy is what keeps ad-blockers from dropping the events. Anonymous id and session
+// id live in cookies on `.azion.com`, so Console and the docs share one identity.
 
 import { ANALYTICS_PROXY_URL, ANALYTICS_WRITE_KEY } from '../consts';
 
@@ -21,12 +14,7 @@ const USER_ID_COOKIE_NAME = 'ajs_user_id';
 // Session timeout in milliseconds (30 minutes - following Google Analytics)
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
-/**
- * Validates if a userId is valid
- * - Must not be an email
- * - Must not be undefined
- * - Must not start with 'anon_' (anonymous ID pattern)
- */
+/** A valid userId is defined, not an email, and not an `anon_` id. */
 export function isValidUserId(userId: string | undefined | null): userId is string {
     if (!userId) return false;
     if (typeof userId !== 'string') return false;
@@ -42,9 +30,7 @@ export function isValidUserId(userId: string | undefined | null): userId is stri
     return true;
 }
 
-/**
- * Generates a cryptographically secure random string
- */
+/** Generates a cryptographically secure random string */
 function secureRandomString(length: number = 13): string {
     const array = new Uint8Array(length);
     crypto.getRandomValues(array);
@@ -53,18 +39,14 @@ function secureRandomString(length: number = 13): string {
         .substring(0, length);
 }
 
-/**
- * Generates a unique ID with optional prefix using cryptographically secure random
- */
+/** Generates a unique ID with optional prefix using cryptographically secure random */
 function generateId(prefix: string = ''): string {
     const timestamp = Date.now().toString(36);
     const randomPart = secureRandomString(13);
     return prefix ? `${prefix}_${timestamp}${randomPart}` : `${timestamp}${randomPart}`;
 }
 
-/**
- * Gets a cookie value by name
- */
+/** Gets a cookie value by name */
 function getCookie(name: string): string | undefined {
     if (typeof document === 'undefined') return undefined;
 
@@ -78,9 +60,7 @@ function getCookie(name: string): string | undefined {
     return undefined;
 }
 
-/**
- * Sets a cookie with domain and path for cross-subdomain sharing
- */
+/** Sets a cookie with domain and path for cross-subdomain sharing */
 function setCookie(
     name: string,
     value: string,
@@ -189,17 +169,13 @@ export function setUserId(userId: string): void {
     }
 }
 
-/**
- * Clears the user ID from cookie (called on logout)
- */
+/** Clears the user ID from cookie (called on logout) */
 export function clearUserId(): void {
     if (typeof document === 'undefined') return;
     document.cookie = `${USER_ID_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${COOKIE_DOMAIN}`;
 }
 
-/**
- * Gets page context information
- */
+/** Gets page context information */
 function getPageContext() {
     if (typeof window === 'undefined') {
         return {
@@ -218,9 +194,7 @@ function getPageContext() {
     };
 }
 
-/**
- * Event types
- */
+/** Event types */
 export type EventType = 'page' | 'track' | 'identify';
 
 export interface PagePayload {
@@ -269,9 +243,7 @@ export type EventPayload =
     | { type: 'track'; data: TrackPayload }
     | { type: 'identify'; data: IdentifyPayload };
 
-/**
- * Sends events to the proxy
- */
+/** Sends events to the proxy */
 async function sendEvents(events: EventPayload[]): Promise<boolean> {
     try {
         const response = await fetch(ANALYTICS_PROXY_URL, {
@@ -291,9 +263,7 @@ async function sendEvents(events: EventPayload[]): Promise<boolean> {
     }
 }
 
-/**
- * Sends a page call
- */
+/** Sends a page call */
 export async function trackPageView(): Promise<boolean> {
     const anonymousId = getAnonymousId();
     const userId = getUserId();
@@ -319,9 +289,7 @@ export async function trackPageView(): Promise<boolean> {
     return sendEvents([{ type: 'page', data: payload }]);
 }
 
-/**
- * Sends a track call for click events (CTA, header, footer, sidebar)
- */
+/** Sends a track call for click events (CTA, header, footer, sidebar) */
 export async function trackClick(
     location: 'cta' | 'header' | 'footer' | 'sidebar' | 'docs_navigation',
     targetOrProperties: string | { href?: string; target?: string; [key: string]: unknown }
@@ -359,9 +327,7 @@ export async function trackClick(
     return sendEvents([{ type: 'track', data: payload }]);
 }
 
-/**
- * Sends a track call for form submit events
- */
+/** Sends a track call for form submit events */
 export async function trackFormSubmit(
     action: string,
     formData: Record<string, unknown>
@@ -393,9 +359,7 @@ export async function trackFormSubmit(
     return sendEvents([{ type: 'track', data: payload }]);
 }
 
-/**
- * Sends an identify call with user traits from form data
- */
+/** Sends an identify call with user traits from form data */
 export async function identifyUser(
     traits: Record<string, unknown>
 ): Promise<boolean> {

@@ -1,5 +1,5 @@
 <template>
-	<Menu
+	<MenuRoot
 		v-if="visibleGroups.length"
 		ref="menuRef"
 		v-model:expanded="expanded"
@@ -17,23 +17,41 @@
 	</p>
 </template>
 
-<script setup>
-	import Menu from '@aziontech/webkit/menu';
+<script setup lang="ts">
+	import MenuRoot from '@aziontech/webkit/menu-root';
 	import { computed, onMounted, ref, watch } from 'vue';
 
-	const props = defineProps({
-		groups: { type: Array, required: true },
-		activeId: { type: String, default: '' },
-		initialExpanded: { type: Array, default: () => [] },
-		ariaLabel: { type: String, default: 'Menu' },
-		presentation: { type: Boolean, default: false },
-		filter: { type: String, default: '' },
-		noMatchesLabel: { type: String, default: 'No rows match.' }
+	import type { MenuGroupNode, MenuNode } from '~/nav/resolve';
+
+	interface Props {
+		/** The menu's groups, already resolved for this language. */
+		groups: MenuGroupNode[];
+		/** Id of the row for the page being read. */
+		activeId?: string;
+		/** Rows expanded on first render. */
+		initialExpanded?: string[];
+		/** Accessible name for the menu. */
+		ariaLabel?: string;
+		/** Renders as presentation, for a host that owns the landmark. */
+		presentation?: boolean;
+		/** Free-text filter applied to row labels. */
+		filter?: string;
+		/** Shown when the filter matches nothing. */
+		noMatchesLabel?: string;
+	}
+
+	const props = withDefaults(defineProps<Props>(), {
+		activeId: '',
+		initialExpanded: () => [],
+		ariaLabel: 'Menu',
+		presentation: false,
+		filter: '',
+		noMatchesLabel: 'No rows match.',
 	});
 
 	const query = computed(() => props.filter.trim().toLowerCase());
 
-	function prune(nodes) {
+	function prune(nodes: MenuNode[]): MenuNode[] {
 		return nodes.flatMap((node) => {
 			const own = node.label.toLowerCase().includes(query.value);
 			const kids = node.children ? prune(node.children) : [];
@@ -50,7 +68,7 @@
 			.filter((group) => group.items.length > 0);
 	});
 
-	function foldIds(nodes, out = []) {
+	function foldIds(nodes: MenuNode[], out: string[] = []): string[] {
 		for (const node of nodes) {
 			if (node.children?.length) {
 				out.push(node.id);
@@ -62,8 +80,8 @@
 
 	const EXPANDED_KEY = 'docs-sidebar-expanded';
 
-	const menuRef = ref(null);
-	const expanded = ref([...props.initialExpanded]);
+	const menuRef = ref<{ $el?: HTMLElement } | null>(null);
+	const expanded = ref<string[]>([...props.initialExpanded]);
 
 	onMounted(() => {
 		try {
@@ -91,7 +109,7 @@
 		}
 	});
 
-	let restore = null;
+	let restore: string[] | null = null;
 	watch(query, (value, previous) => {
 		if (value && !previous) restore = [...expanded.value];
 		if (value) {
@@ -104,7 +122,7 @@
 		}
 	});
 
-	function onNavigate(event, node) {
+	function onNavigate(event: Event, node: MenuNode) {
 		if (typeof window === 'undefined' || !window.AzAnalytics?.trackClick) return;
 		window.AzAnalytics.trackClick('sidebar', {
 			text: node.label,

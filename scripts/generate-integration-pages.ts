@@ -95,13 +95,9 @@ class IntegrationPagesBuilder {
 		);
 	}
 
-	/**
-	 * Process the raw README markdown:
-	 * - Add frontmatter including a layout
-	 * - Move the README title into frontmatter
-	 * - Add the correct base to any relative links
-	 * - _Remove_ the base from any docs links
-	 */
+	/** Rewrites the raw README markdown into a docs page. */
+	// Adds frontmatter with a layout, lifts the README title into it, prefixes relative
+	// links with the base and strips the base from docs links.
 	async #processReadme({
 		name,
 		readme,
@@ -279,9 +275,12 @@ function githubVideos() {
 function removeTOC() {
 	return function transform(tree: Root) {
 		remove(tree, (node) => {
+			// `remove` hands back a bare `Node`, so checking `type` narrows nothing:
+			// reach for the list's own children only after asserting the shape.
 			if (node.type !== 'list') return;
-			const firstItemContent = node.children[0].children[0];
-			if (firstItemContent.type !== 'paragraph') return;
+			const [firstItem] = (node as { children?: ListContent[] }).children ?? [];
+			const firstItemContent = firstItem?.children?.[0];
+			if (!firstItemContent || firstItemContent.type !== 'paragraph') return;
 			return firstItemContent.children.some(
 				(child: PhrasingContent) =>
 					child.type === 'link' &&

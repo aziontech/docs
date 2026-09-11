@@ -40,20 +40,20 @@ async function processFile(filePath, redirects) {
         rgxDoubleQuote: rgxDoubleQuote.toString(),
         url30x,
         url200,
-        contentMatchCount: contentMatch.length,
+        contentMatchCount: (contentMatchSingleQuote?.length ?? 0) + (contentMatchDoubleQuote?.length ?? 0),
         processedCount: counterFoundLinks
       });
 
 			if(contentMatchSingleQuote.length) {
 				newContent = newContent.replace(
-					isRoot ? /'https\:\/\/www\.azion\.com\/'/ : rgxSingleQuote,
+					isRoot ? /'https:\/\/www\.azion\.com\/'/ : rgxSingleQuote,
 					`'${url200}'`
 				);
 			}
 
 			if(contentMatchDoubleQuote.length) {
 				newContent = newContent.replace(
-					isRoot ? /"https\:\/\/www\.azion\.com\/"/ : rgxDoubleQuote,
+					isRoot ? /"https:\/\/www\.azion\.com\/"/ : rgxDoubleQuote,
 					`'${url200}'`
 				);
 			}

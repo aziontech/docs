@@ -50,8 +50,12 @@ export default {
                   variable: '${uri}',
                   conditional: 'if',
                   operator: 'matches',
+                  // NOTE: this is a string, not a regex literal, so the original
+                  // `\.` was already collapsing to a bare `.` (any character) before
+                  // reaching the edge. Kept as-is to preserve routing; to match a
+                  // literal dot the escape has to be doubled (`\\.`).
                   argument:
-                    '\.(jpg|jpeg|png|gif|bmp|webp|svg|ico|ttf|otf|woff|woff2|eot|pdf|doc|docx|xls|xlsx|ppt|pptx|mp4|webm|mp3|wav|ogg|css|js|json|xml|html|txt|csv|zip|rar|7z|tar|gz|webmanifest|map|md|yaml|yml)$'
+                    '.(jpg|jpeg|png|gif|bmp|webp|svg|ico|ttf|otf|woff|woff2|eot|pdf|doc|docx|xls|xlsx|ppt|pptx|mp4|webm|mp3|wav|ogg|css|js|json|xml|html|txt|csv|zip|rar|7z|tar|gz|webmanifest|map|md|yaml|yml)$'
                 }
               ]
             ],
@@ -112,7 +116,11 @@ export default {
                   variable: '${uri}',
                   conditional: 'if',
                   operator: 'matches',
-                  argument: '^(?!.*\/$)(?![\s\S]*\.[a-zA-Z0-9]+$).*'
+                  // NOTE: a string, not a regex literal — `\s\S` collapsed to `sS`
+                  // and `\.` to `.` before the edge saw them, so the second lookahead
+                  // has never excluded file-like URIs. Kept verbatim to preserve
+                  // routing; doubling the escapes (`[\\s\\S]`, `\\.`) is the real fix.
+                  argument: '^(?!.*/$)(?![sS]*.[a-zA-Z0-9]+$).*'
                 }
               ]
             ],

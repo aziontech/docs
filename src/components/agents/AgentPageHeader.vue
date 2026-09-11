@@ -20,7 +20,7 @@
 					<span class="block text-overline-sm uppercase text-(--primary)">{{ agent.vendor }}</span>
 					<h1
 						id="overview"
-						class="m-0 text-heading-xl text-(--text-default) max-sm:[font-size:var(--text-2xl)]"
+						class="m-0 text-heading-xl text-(--text-default)"
 					>
 						{{ title }}
 					</h1>

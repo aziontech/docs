@@ -1,26 +1,29 @@
 <template>
+	<!-- Bare dot and label, no pill: it reads as status text in the footer's status row,
+	     where a bordered chip looked like a button. Still a link to the status page, so it
+	     carries the quiet-link treatment: opacity transition on hover plus a focus ring. -->
 	<a
 		href="https://status.azion.com/"
 		:title="label"
 		target="_blank"
 		rel="noopener noreferrer"
-		class="flex h-8 w-fit items-center whitespace-nowrap rounded-[var(--shape-button)] border border-default bg-surface px-4 no-underline transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring-color)]"
+		class="inline-flex w-fit items-center rounded-(--shape-elements) no-underline transition-opacity duration-fast-02 ease-productive-entrance hover:opacity-80 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-canvas)"
 	>
 		<StatusIndicator :severity="severity" :label="capitalizeLetter(String(label).trim())" />
 	</a>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onBeforeMount, ref } from 'vue';
 
 import StatusIndicator from '@aziontech/webkit/status-indicator';
 
-const props = defineProps({
-	lang: {
-		type: String,
-		required: true,
-	},
-});
+interface Props {
+	/** Language the status label is translated into. */
+	lang: string;
+}
+
+const props = defineProps<Props>();
 
 const { lang } = props;
 

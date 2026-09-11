@@ -59,6 +59,12 @@ export default {
 	'rightSidebar.contributorGuides': 'Contributor Guides',
 	'rightSidebar.editPage': 'Contribute to this page',
 	'rightSidebar.translatePage': 'Translate this page',
+	'rightSidebar.ctaTitle': 'Ready to build?',
+	'rightSidebar.ctaDescription': 'Deploy your first application for free and scale as your traffic grows. No credit card required.',
+	'rightSidebar.ctaPrimary': 'Start for free',
+	'rightSidebar.ctaPrimaryLink': 'https://console.azion.com/signup',
+	'rightSidebar.ctaSecondary': 'See our plans',
+	'rightSidebar.ctaSecondaryLink': '/en/pricing/',
 	// Footer
 	'footer.copyright': 'Copyright © 2024, Azion Technologies, Inc. or its affiliates. All rights reserved.',
 	'footer.contactInformation': 'For support and sales, please call',
@@ -68,8 +74,8 @@ export default {
 	'themeToggle.useLight': 'Light theme',
 	'themeToggle.useDark': 'Dark theme',
 	// Used in previous/next page links at the bottom of pages
-	'articleNav.nextPage': 'Next Page',
-	'articleNav.prevPage': 'Back',
+	'articleNav.nextPage': 'Next page',
+	'articleNav.prevPage': 'Previous page',
 	// Installation Guide
 	'install.autoTab': 'Automatic CLI',
 	'install.manualTab': 'Manual Setup',
