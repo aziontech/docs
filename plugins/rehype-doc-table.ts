@@ -19,6 +19,25 @@ const addClass = (node: Element, className: string) => {
 	node.properties = { ...node.properties, className };
 };
 
+/*
+ * GFM column alignment arrives as the cell's `align` property (serialized as an
+ * inline `text-align`) and would fight the important `text-start` in the cell
+ * classes — so it moves into the class and the `align`/style carriers go.
+ */
+const addCellClass = (cell: Element, baseClass: string) => {
+	const inline = String(cell.properties?.style ?? '');
+	const align = cell.properties?.align ?? /text-align:\s*([a-z]+)\b/.exec(inline)?.[1];
+	const className =
+		align === 'center' || align === 'right'
+			? baseClass.replace('text-start', align === 'center' ? 'text-center' : 'text-end')
+			: baseClass;
+	const rest = inline.replace(/text-align:\s*[a-z]+;?\s*/, '').trim();
+	cell.properties = { ...cell.properties, className };
+	delete cell.properties.align;
+	if (rest) cell.properties.style = rest;
+	else delete cell.properties.style;
+};
+
 const children = (node: Element, tagName: string) =>
 	node.children.filter(
 		(child): child is Element => child.type === 'element' && child.tagName === tagName
@@ -31,7 +50,7 @@ const style = (table: Element) => {
 		for (const row of children(head, 'tr')) {
 			addClass(row, THEAD_ROW_CLASS);
 			for (const cell of children(row, 'th')) {
-				addClass(cell, TH_CLASS);
+				addCellClass(cell, TH_CLASS);
 				cell.properties.scope = 'col';
 			}
 		}
@@ -40,7 +59,7 @@ const style = (table: Element) => {
 	for (const body of children(table, 'tbody')) {
 		addClass(body, TBODY_CLASS);
 		for (const row of children(body, 'tr')) {
-			for (const cell of children(row, 'td')) addClass(cell, TD_CLASS);
+			for (const cell of children(row, 'td')) addCellClass(cell, TD_CLASS);
 		}
 	}
 };
