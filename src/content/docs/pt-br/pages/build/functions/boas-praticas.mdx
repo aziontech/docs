@@ -1,0 +1,112 @@
+---
+title: Boas práticas de Functions
+description: >-
+  Dimensione, configure e instrumente uma função para que ela permaneça dentro
+  dos limites de CPU, de sub-requisições e de Args de cada invocação.
+meta_tags: 'functions, best practices, args, environment variables, sub-requests, cpu time, rules engine, observability'
+namespace: documentation_products_functions_best_practices
+permalink: /documentacao/build/functions/boas-praticas/
+---
+import Code from '~/components/Code/Code.astro'
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Uma função roda uma vez para cada requisição que atende à regra que aponta para ela, e toda execução é limitada. Um teto restringe o tempo de CPU que uma execução pode consumir. Outro restringe as chamadas que ela pode fazer para outros serviços. A maior parte do que mantém uma função dentro desses limites é decidida antes de o código ser escrito. Três perguntas resolvem isso: quais requisições chegam à função, o que ela calcula enquanto a requisição aguarda e de onde vêm os seus dados.
+
+As práticas desta página trazem o raciocínio por trás de cada uma dessas decisões. Os valores em si estão em [Limites](/pt-br/documentacao/build/functions/limites/), e os sintomas de ultrapassar um deles estão em [Solução de problemas](/pt-br/documentacao/build/functions/solucao-de-problemas/). As seções seguem a ordem em que as decisões aparecem: o padrão de handler, a regra que invoca a função, os dois tetos de execução e o orçamento de sub-requisições. As três últimas tratam de onde vêm os dados, de como uma instância é configurada e de como a saída é observada.
+
+---
+
+## ES Modules como padrão de handler
+
+[Functions](/pt-br/documentacao/build/functions/) suporta dois padrões de handler, e código novo usa ES Modules. Uma função escrita dessa forma exporta um objeto default cujo método `fetch` recebe a requisição, as variáveis de ambiente e os bindings, e o contexto de execução:
+
+<Code lang="javascript" code={`
+export default {
+  async fetch(request, env, ctx) {
+    return new Response('Hello World!');
+  },
+};
+`} />
+
+A assinatura é o que torna o restante destas práticas alcançável a partir do handler. Variáveis de ambiente e bindings chegam em `env`. O objeto de contexto carrega `ctx.waitUntil(promise)`, que estende a duração da função, e em um handler `firewall` ele carrega `ctx.deny()`, que bloqueia a requisição imediatamente.
+
+O padrão Service Worker registra um listener com `addEventListener('fetch', ...)` e lê os mesmos valores de um objeto de evento. A Azion o mantém por compatibilidade retroativa e recomenda migrar as funções que ainda o usam. O código Service Worker existente continua rodando, então a migração é um trabalho a agendar, e não uma quebra a reparar. Código que não segue nenhum dos dois padrões não é suportado. Para o antes e o depois de cada handler, consulte [Migrando padrões de handler em Functions](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/migrar-padroes-de-handler/).
+
+---
+
+## Critérios do Rules Engine
+
+Criar uma função não a executa. Uma função roda quando uma requisição recebida atende a uma regra do [Rules Engine](/pt-br/documentacao/plataforma/applications/rules-engine/) cujo comportamento **Run Function** seleciona a instância de função. Os critérios dessa regra decidem quais requisições são essas. Critérios que atendem a qualquer path, como uma URI que começa com `/`, invocam a função em toda requisição que a aplicação recebe.
+
+Restringir os critérios às requisições para as quais a função tem trabalho muda o que a função custa. Functions é cobrado por duas métricas, invocações e tempo de compute, então as requisições que os critérios excluem são requisições que não são invocadas nem computadas. A [página de preços](/pt-br/documentacao/fundamentos/precos/) carrega as duas métricas.
+
+A mesma regra fixa a fase de execução. Uma regra na Request Phase roda antes de a resposta ter sido processada, então as variáveis que descrevem o conteúdo a ser entregue não estão disponíveis para ela. Uma regra na Response Phase roda enquanto a aplicação entrega o conteúdo ao usuário.
+
+Regras e comportamentos rodam na ordem em que são organizados, e essa ordem tem um custo. Um comportamento que encerra a sequência, como **Deny**, interrompe todas as regras depois dele, então um **Run Function** posicionado mais adiante nunca é executado.
+
+---
+
+## Tempo de CPU e tempo de relógio
+
+Dois tetos delimitam uma única invocação, e eles medem coisas diferentes. O tempo de CPU tem teto de 2 segundos e conta apenas a computação ativa. O tempo de relógio tem teto de 5 minutos e inclui espera de I/O, chamadas `fetch()` e operações assíncronas. Uma função que ultrapassa o teto de CPU é encerrada. Os dois tetos são valores default. Para aumentar um deles no seu plano, entre em contato com o time de [suporte técnico](/pt-br/documentacao/suporte/).
+
+A distinção diz onde está a pressão. Uma função que passa a execução esperando por uma origem fica longe do teto de CPU, por mais longa que seja a requisição. Uma função que analisa ou transforma um corpo grande a cada requisição gasta esse orçamento.
+
+O trabalho de que a resposta não precisa é entregue a `ctx.waitUntil()`, que estende a duração da função para além da resposta. Isso tira o trabalho do caminho da resposta sem tirá-lo da invocação. O tempo de relógio de 5 minutos continua a delimitá-lo.
+
+---
+
+## O orçamento de sub-requisições
+
+Uma única invocação pode fazer no máximo 50 chamadas `fetch()` de saída. O teto é por invocação, e não por segundo, então ele restringe o formato do código e não o tráfego que a aplicação recebe. Um design cuja contagem de chamadas cresce com a entrada, uma requisição por item de uma lista, ultrapassa o teto assim que a lista passa de 50 itens. Esse teto também é um valor default. Para aumentá-lo no seu plano, entre em contato com o time de [suporte técnico](/pt-br/documentacao/suporte/).
+
+A correção é consolidar, substituindo uma chamada por membro por uma chamada que retorna o conjunto. Essa troca tem o seu próprio limite. O corpo que uma função pode processar é limitado por plano: 100 MB no Hobby, 200 MB no Pro e 500 MB no Enterprise. Uma resposta grande demais para processar troca uma falha por outra.
+
+---
+
+## Armazenamento alcançado a partir do runtime
+
+[Azion Runtime](/pt-br/documentacao/devtools/runtime/) alcança três stores de dentro de uma função. `Azion.KV` lê e escreve pares chave-valor. `Database.open()`, de `azion:sql`, abre uma conexão com um SQL Database, e a classe `Storage`, de `azion:storage`, lê e escreve objetos em um bucket. A API do KV Store existe para que uma função possa persistir e recuperar dados sem uma chamada de API externa.
+
+Essa propriedade é o que conecta essa decisão à anterior. Os dados de que uma função precisa a cada requisição podem vir de um store que o runtime alcança diretamente, em vez de uma ida e volta a uma origem.
+
+Cada interface carrega uma restrição que vale conhecer antes que o código dependa dela. `Database.open()` conecta à réplica de leitura do banco de dados. Um bucket do Object Storage é criado durante o deploy de uma aplicação estática, com Azion CLI ou pela Azion API. A função lê e escreve objetos em um bucket que já existe.
+
+---
+
+## A divisão entre Args e variáveis de ambiente
+
+O código de uma função não pode ser modificado enquanto ela é instanciada. O que a instância define, em vez disso, são os **Args**, um objeto JSON passado para o contexto de execução dessa instância. Uma mesma função pode, portanto, sustentar várias instâncias que se comportam de formas diferentes, sem alteração no código e sem uma segunda cópia dele.
+
+Args e variáveis de ambiente respondem a perguntas diferentes. Os Args declaram como uma instância se comporta e pertencem à instância que os carrega. As variáveis de ambiente guardam os valores que não podem ficar fixos na base de código, como chaves de API, credenciais de banco de dados e tokens de acesso. Uma função lê uma delas com `Azion.env.get('API_SERVICE_TOKEN')`. Cada variável carrega um campo `secret`, um booleano que declara se o valor é confidencial. A flag `--secret` do [Azion CLI](/pt-br/documentacao/devtools/cli/) define esse campo, e o default dela é `true`.
+
+O objeto Args tem teto de 100 KB, e uma instância cujos Args excedem esse valor falha na instanciação. Esse teto é o motivo de os Args carregarem configuração, e não os dados sobre os quais a função opera. Um payload que cresce com a carga de trabalho acaba impedindo que a instância seja criada. Esse teto também é um default. Para aumentá-lo no seu plano, entre em contato com o time de [suporte técnico](/pt-br/documentacao/suporte/).
+
+---
+
+## A saída de log e o seu destino
+
+Uma função escreve mensagens de log com `console.log`, do mesmo jeito que um script de browser faz. A mensagem se torna observável fora da plataforma quando um [Data Stream](/pt-br/documentacao/observe/data-stream/) é configurado com **Functions** como fonte e o template **Functions Event Collector**. Cada registro carrega o identificador da função, o identificador da requisição, a mensagem e um nível de log, entre `ERROR`, `WARN`, `INFO`, `DEBUG` e `TRACE`.
+
+[Real-Time Events](/pt-br/documentacao/observe/real-time-events/) mostra a mesma saída na aba **Functions Console**, e os campos do registro são o que os seus filtros usam. Uma invocação passada só pode responder ao que os seus logs já carregam. É por isso que os níveis e os identificadores são uma decisão de design, e não algo deixado para depois.
+
+A instrumentação tem um preço próprio. Data Stream é cobrado por requisições e por transferência de dados, então o nível em que uma função registra logs é tanto uma decisão de custo quanto de diagnóstico.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Limites" href="/pt-br/documentacao/build/functions/limites/">O conjunto completo de tetos dentro dos quais uma única invocação roda, com os valores que variam conforme o plano.</DocItem>
+  <DocItem title="Como Functions funciona" href="/pt-br/documentacao/build/functions/como-funciona/">A cadeia que vai de uma função à sua instância e à regra que a invoca.</DocItem>
+  <DocItem title="Primeiros passos" href="/pt-br/documentacao/build/functions/primeiros-passos/">Crie, instancie e invoque uma primeira função.</DocItem>
+  <DocItem title="Solução de problemas" href="/pt-br/documentacao/build/functions/solucao-de-problemas/">Como um teto ultrapassado ou um handler não suportado aparece de fora.</DocItem>
+  <DocItem title="Migrando padrões de handler em Functions" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/migrar-padroes-de-handler/">O antes e o depois de cada handler ao sair do Service Worker.</DocItem>
+  <DocItem title="Rules Engine" href="/pt-br/documentacao/plataforma/applications/rules-engine/">Os critérios, as fases e os comportamentos que decidem quando uma função roda.</DocItem>
+  <DocItem title="Variáveis de ambiente" href="/pt-br/documentacao/build/functions/environment-variables/">Como as variáveis são armazenadas e lidas de dentro de uma função.</DocItem>
+  <DocItem title="Como fazer o debug de functions no Data Stream" href="/pt-br/documentacao/guias/plataforma/observabilidade/debugging-functions-data-stream/">Os passos que conectam a saída de log a um endpoint que você controla.</DocItem>
+</ItemList>
+</FrameBox>
