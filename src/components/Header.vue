@@ -5,7 +5,7 @@
 	     sticky box instead would change the layout every page is built on. -->
 	<GlobalHeader aria-label="Azion documentation" class="@container sticky top-0 z-50">
 		<GlobalHeader.Left class="justify-start!">
-		<!-- eslint-enable webkit/no-style-override -->
+			<!-- eslint-enable webkit/no-style-override -->
 			<slot name="mobile-nav" />
 
 			<GlobalHeader.Brand>
@@ -31,22 +31,18 @@
 		<GlobalHeader.Right>
 			<slot name="dialog" />
 
-			<div class="hidden sm:contents">
-				<!-- eslint-disable webkit/no-style-override -- flex sizing in the
-				     header row; the button's own appearance is untouched. -->
-				<IconButton
-					icon="pi pi-github"
-					kind="outlined"
-					size="medium"
-					aria-label="Azion on GitHub"
-					href="https://github.com/aziontech"
-					target="_blank"
-					class="shrink-0"
-				/>
-			</div>
+			<!-- eslint-disable webkit/no-style-override -- flex sizing in the
+			     header row; the buttons' own appearance is untouched. -->
+			<IconButton
+				icon="pi pi-github"
+				kind="outlined"
+				size="medium"
+				aria-label="Azion on GitHub"
+				href="https://github.com/aziontech"
+				target="_blank"
+				class="shrink-0"
+			/>
 
-			<!-- eslint-disable-next-line webkit/no-style-override -- flex sizing in the
-			     header row; the button's own appearance is untouched. -->
 			<Button
 				label="Console"
 				kind="secondary"
@@ -55,7 +51,7 @@
 				target="_blank"
 				class="shrink-0"
 			/>
-				<!-- eslint-enable webkit/no-style-override -->
+			<!-- eslint-enable webkit/no-style-override -->
 		</GlobalHeader.Right>
 	</GlobalHeader>
 </template>
