@@ -1,18 +1,12 @@
 <template>
-	<!-- eslint-disable webkit/no-style-override -- `h-full` is the rail's height
-	     chain: BaseLayout sets `.wrap-nav--island astro-island { display: contents }`
-	     precisely so this ScrollArea can inherit the rail's height and scroll. -->
-	<WkScrollArea class="h-full">
-	<!-- eslint-enable webkit/no-style-override -->
-		<WkDocOnThisPage
-			:items="items"
-			:active-id="activeId"
-			:title="title"
-			:groups="groups"
-			@select="onSelect"
-			@click="onLinkClick"
-		/>
-	</WkScrollArea>
+	<WkDocOnThisPage
+		:items="items"
+		:active-id="activeId"
+		:title="title"
+		:groups="groups"
+		@select="onSelect"
+		@click="onLinkClick"
+	/>
 </template>
 
 <script setup lang="ts">
@@ -22,7 +16,6 @@ import WkDocOnThisPage, {
 	type DocTocItem,
 	type DocTocLink,
 } from '@aziontech/webkit/doc-on-this-page';
-import WkScrollArea from '@aziontech/webkit/scroll-area';
 
 type Heading = { depth: number; slug: string; text: string };
 
