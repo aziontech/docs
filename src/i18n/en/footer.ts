@@ -58,7 +58,7 @@ const listData = [
 			},
 			{
 				title: 'How to start',
-				link: '/en/documentation/products/azion-platform-overview/',
+				link: '/en/documentation/fundamentals/',
 			},
 			{
 				title: 'Pricing',
@@ -87,7 +87,7 @@ const listData = [
 			},
 			{
 				title: 'Release Notes',
-				link: '/en/documentation/products/release-notes/',
+				link: '/en/documentation/changelog/',
 			},
 			{
 				title: 'Our Community',
