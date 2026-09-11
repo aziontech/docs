@@ -41,7 +41,7 @@ function parseArgs(argv) {
 	const format = formatIndex === -1 ? 'markdown' : args[formatIndex + 1];
 	if (!file) {
 		process.stderr.write(
-			'usage: node scripts/webkit-adoption-report.mjs <eslint-report.json> [--format markdown|json]\n',
+			'usage: node scripts/webkit-adoption-report.mjs <eslint-report.json> [--format markdown|json]\n'
 		);
 		process.exit(1);
 	}
@@ -95,11 +95,20 @@ function collect(results, cwd) {
 		}
 	}
 
+	// Seeing no UI files at all means the lint never reached the components — a stale or
+	// empty report, a changed layout, a crashed ESLint swallowed by `|| true`. Reporting
+	// "100%, zero violations" from that is the same lie the link checker used to tell.
+	if (uiFiles.size === 0) {
+		throw new Error(
+			'No UI files appear in the ESLint report. The lint did not reach the components; ' +
+				're-run `pnpm lint:webkit` and check that it produced findings.'
+		);
+	}
+
 	const dirtyUiFiles = [...byFile.keys()].filter((f) => UI_EXTENSIONS.has(extensionOf(f)));
 	// Same shape as the architecture report in azion-console-kit: share of files that are
 	// clean, not of violations. One file with 20 findings weighs the same as one with 1.
-	const score =
-		uiFiles.size === 0 ? 100 : Math.round((1 - dirtyUiFiles.length / uiFiles.size) * 100);
+	const score = Math.round((1 - dirtyUiFiles.length / uiFiles.size) * 100);
 
 	return {
 		total,
@@ -133,7 +142,7 @@ function renderMarkdown(report, catalog) {
 		push(
 			'> **The webkit catalog could not be resolved, so 8 of the 12 rules silently did nothing.** ' +
 				'This report is not a clean bill of health — install `@aziontech/webkit` or set ' +
-				'`WEBKIT_CATALOG_PATH`, then run it again.',
+				'`WEBKIT_CATALOG_PATH`, then run it again.'
 		);
 		push();
 	}
@@ -146,7 +155,9 @@ function renderMarkdown(report, catalog) {
 	push(`| Violations | **${report.total}** |`);
 	push(`| Files affected | ${report.filesAffected} |`);
 	push(
-		`| UI files clean | ${report.uiFilesClean} of ${report.uiFilesTotal} — **${report.score}%** (${statusFor(report.score)}) |`,
+		`| UI files clean | ${report.uiFilesClean} of ${report.uiFilesTotal} — **${
+			report.score
+		}%** (${statusFor(report.score)}) |`
 	);
 	push();
 
@@ -186,18 +197,19 @@ function renderMarkdown(report, catalog) {
 		: 'none';
 	push(`- Violations found in: ${extensions}.`);
 	push(
-		`- The adoption score counts ${[...UI_EXTENSIONS].map((e) => `\`.${e}\``).join(' and ')} files only — ` +
-			'those are the ones the design system governs.',
+		`- The adoption score counts ${[...UI_EXTENSIONS]
+			.map((e) => `\`.${e}\``)
+			.join(' and ')} files only — ` + 'those are the ones the design system governs.'
 	);
 	push(
-		'- `no-style-override` does **not** run on `.astro`: it needs vue-eslint-parser\'s template ' +
+		"- `no-style-override` does **not** run on `.astro`: it needs vue-eslint-parser's template " +
 			'visitor, which astro-eslint-parser does not provide. Restyled webkit components inside ' +
-			'Astro files are invisible here.',
+			'Astro files are invisible here.'
 	);
 	push(
 		'- Raw HTML where a webkit component exists (`<button>`, `<input>`, a hand-rolled modal) is ' +
 			'caught by **no rule at all** — `prefer-webkit-component` only matches imports from a ' +
-			'foreign package. That gap is tracked in the design system.',
+			'foreign package. That gap is tracked in the design system.'
 	);
 	push();
 	push('This check never fails the build. It measures.');
@@ -226,19 +238,19 @@ function main() {
 	if (!catalog.available) {
 		process.stderr.write(
 			'WARNING: could not resolve @aziontech/webkit/catalog.json — the catalog-backed rules ' +
-				'were disabled during the lint, so this report undercounts.\n',
+				'were disabled during the lint, so this report undercounts.\n'
 		);
 	}
 
 	const report = collect(results, process.cwd());
 	process.stderr.write(
-		`${report.total} webkit/* violation(s) in ${report.filesAffected} file(s); adoption ${report.score}%.\n`,
+		`${report.total} webkit/* violation(s) in ${report.filesAffected} file(s); adoption ${report.score}%.\n`
 	);
 
 	process.stdout.write(
 		format === 'json'
 			? JSON.stringify({ webkitVersion: catalog.version, ...report }, null, 2) + '\n'
-			: renderMarkdown(report, catalog),
+			: renderMarkdown(report, catalog)
 	);
 }
 
