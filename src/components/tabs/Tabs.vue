@@ -1,9 +1,9 @@
 <template>
-	<div class="doc-tabs">
+	<div class="relative py-(--spacing-md)">
 		<div
 			ref="tablistRef"
 			data-doc-chrome
-			class="doc-tabs__list"
+			class="flex items-end gap-(--spacing-xs) overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 			role="tablist"
 			@keydown="onKeydown"
 		>
@@ -22,7 +22,7 @@
 		<div
 			v-for="panel in panels"
 			:key="panel.key"
-			class="doc-tabs__panel"
+			class="pt-(--spacing-md)"
 			role="tabpanel"
 			:aria-labelledby="panel.labelledBy"
 			:hidden="curr !== panel.key"
@@ -114,25 +114,3 @@ const onKeydown = (event: KeyboardEvent) => {
 };
 </script>
 
-<style scoped>
-.doc-tabs {
-	padding-block: 1rem;
-	position: relative;
-}
-
-.doc-tabs__list {
-	display: flex;
-	align-items: flex-end;
-	gap: var(--spacing-xs, 0.25rem);
-	overflow-x: auto;
-	scrollbar-width: none;
-}
-
-.doc-tabs__list::-webkit-scrollbar {
-	display: none;
-}
-
-.doc-tabs__panel {
-	padding-block-start: 1rem;
-}
-</style>
