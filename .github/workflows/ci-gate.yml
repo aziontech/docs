@@ -123,22 +123,26 @@ jobs:
       - name: Translation slugs (ratchet)
         run: pnpm ci:ratchet slugcheck
 
-  lint:
-    name: Lint & format
+  code-quality:
+    name: Code quality
     needs: changes
     if: needs.changes.outputs.platform == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
 
-      # Changed files only, on purpose. Running Prettier over the whole tree takes three
-      # minutes and reports 502 files; ESLint reports 97 errors across 46. Neither number
-      # is this branch's fault, and neither is worth reformatting the repository to reach.
-      # Scoping to the diff is the ratchet: what you touch, you leave clean.
+      # Every check below carries `if: always()`, so one failure does not hide the other
+      # three. Splitting these into separate jobs bought exactly that, and cost a second
+      # checkout and install (~24 s of runner) to buy it.
+      #
+      # ESLint, Prettier and Stylelint run over the changed files only. Over the whole tree
+      # ESLint reports 97 errors across 46 files — debt that is no branch's fault, and not
+      # worth reformatting the repository to clear. Scoping to the diff is the ratchet:
+      # what you touch, you leave clean.
       - name: Collect changed files
         id: diff
         env:
@@ -154,31 +158,22 @@ jobs:
           echo "fmt=$(wc -l < changed-fmt.txt)" >> "$GITHUB_OUTPUT"
 
       - name: ESLint (zero warnings on changed files)
-        if: steps.diff.outputs.code != '0'
+        if: ${{ always() && steps.diff.outcome == 'success' && steps.diff.outputs.code != '0' }}
         run: tr '\n' '\0' < changed-code.txt | xargs -0 pnpm exec eslint --max-warnings 0
 
       - name: Prettier (changed files)
-        if: steps.diff.outputs.fmt != '0'
+        if: ${{ always() && steps.diff.outcome == 'success' && steps.diff.outputs.fmt != '0' }}
         run: tr '\n' '\0' < changed-fmt.txt | xargs -0 pnpm exec prettier --check
 
       - name: Stylelint (changed files)
-        if: steps.diff.outputs.style != '0'
+        if: ${{ always() && steps.diff.outcome == 'success' && steps.diff.outputs.style != '0' }}
         run: tr '\n' '\0' < changed-style.txt | xargs -0 pnpm exec stylelint
 
-  types:
-    name: Types
-    needs: changes
-    if: needs.changes.outputs.platform == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-
-      # Ratchet, for the same reason as the slugs: 54 type errors are already here. This is
-      # the class of bug that reaches production silently — DocFrame rendered an empty slot
-      # with a build reporting zero errors.
+      # Ratchet, for the same reason as the slugs: the type errors already here are not
+      # this branch's. This is the class of bug that reaches production silently — DocFrame
+      # rendered an empty slot with a build reporting zero errors.
       - name: astro check (ratchet)
+        if: always()
         run: pnpm ci:ratchet astro-check
 
   build:
@@ -201,7 +196,7 @@ jobs:
 
   ci-gate:
     name: CI gate
-    needs: [changes, security, content, lint, types, build]
+    needs: [changes, security, content, code-quality, build]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -214,8 +209,7 @@ jobs:
             [changes]="${{ needs.changes.result }}"
             [security]="${{ needs.security.result }}"
             [content]="${{ needs.content.result }}"
-            [lint]="${{ needs.lint.result }}"
-            [types]="${{ needs.types.result }}"
+            [code-quality]="${{ needs['code-quality'].result }}"
             [build]="${{ needs.build.result }}"
           )
           failed=0
