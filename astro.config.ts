@@ -22,7 +22,7 @@ import rehypeSlug from './plugins/rehype-slug-config'
 import { rehypei18nAutolinkHeadings } from './plugins/rehype-i18n-autolink-headings';
 import { rehypeOptimizeStatic } from './plugins/rehype-optimize-static';
 import { rehypeTasklistEnhancer } from './plugins/rehype-tasklist-enhancer';
-import rehypeScrollableTables from './plugins/rehype-scrollable-tables.js'
+import rehypeDocTable from './plugins/rehype-doc-table'
 
 type MarkdownConfig = NonNullable<AstroUserConfig['markdown']>;
 
@@ -58,7 +58,7 @@ export default defineConfig({
 		] as MarkdownConfig['remarkPlugins'],
 		rehypePlugins: [
 			rehypeSlug,
-			rehypeScrollableTables,
+			rehypeDocTable,
 			// This adds links to headings
 			// rehypeLinks, // disabling target Blank
 			[rehypeAutolinkHeadings, autoLinks],
