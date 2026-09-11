@@ -41,10 +41,9 @@ export type NavNode = z.infer<typeof baseNode> & { items?: NavNode[] };
 
 export const navNode: z.ZodType<NavNode> = baseNode
 	.extend({ items: z.lazy(() => z.array(navNode)).optional() })
-	.refine(
-		(n) => [n.page, n.tree, n.href].filter(Boolean).length <= 1,
-		{ message: 'a row points at a page, a tree or an href — never more than one' },
-	)
+	.refine((n) => [n.page, n.tree, n.href].filter(Boolean).length <= 1, {
+		message: 'a row points at a page, a tree or an href — never more than one',
+	})
 	.refine((n) => Boolean(n.page || n.tree || n.href || n.items?.length || n.placeholder), {
 		message: 'a row needs a destination or children',
 	})
@@ -95,7 +94,7 @@ export const navVideos = z.array(
 		title: localized,
 		description: localized.optional(),
 		products: z.array(z.string().min(1)).optional(),
-	}),
+	})
 );
 
 export type NavVideos = z.infer<typeof navVideos>;
@@ -107,7 +106,7 @@ export const navRedirects = z.record(
 		tree: z.string().min(1).optional(),
 		path: z.string().min(1).optional(),
 		reason: z.string().min(1),
-	}),
+	})
 );
 
 export type NavRedirects = z.infer<typeof navRedirects>;

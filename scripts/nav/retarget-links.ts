@@ -9,7 +9,15 @@ const MAP_DIR = path.join(REPO_ROOT, 'redirects');
 const SITE = 'https://www.azion.com';
 const apply = process.argv.includes('--apply');
 
-const SCAN = ['src/content/docs', 'src/includes', 'src/i18n', 'src/components', 'src/layouts', 'src/pages', 'src/data'];
+const SCAN = [
+	'src/content/docs',
+	'src/includes',
+	'src/i18n',
+	'src/components',
+	'src/layouts',
+	'src/pages',
+	'src/data',
+];
 const EXTENSIONS = new Set(['.mdx', '.md', '.ts', '.js', '.astro', '.vue', '.json']);
 
 interface Row {
@@ -35,7 +43,10 @@ for (const lang of LANGS) {
 
 const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const keys = [...replacements.keys()].sort((a, b) => b.length - a.length);
-const pattern = new RegExp(`(${keys.map((key) => escape(key.replace(/\/$/, ''))).join('|')})(\\/?)(?![A-Za-z0-9_\\-/])`, 'g');
+const pattern = new RegExp(
+	`(${keys.map((key) => escape(key.replace(/\/$/, ''))).join('|')})(\\/?)(?![A-Za-z0-9_\\-/])`,
+	'g'
+);
 
 const lookup = new Map<string, string>();
 for (const [from, moved] of replacements) lookup.set(from.replace(/\/$/, ''), moved);
@@ -90,7 +101,10 @@ for (const dir of SCAN) {
 }
 
 perFile.sort((a, b) => b.count - a.count);
-console.log(`${apply ? 'rewrote' : 'would rewrite'} ${linksChanged} links across ${filesChanged} files`);
-for (const entry of perFile.slice(0, 12)) console.log(`  ${String(entry.count).padStart(4)}  ${entry.file}`);
+console.log(
+	`${apply ? 'rewrote' : 'would rewrite'} ${linksChanged} links across ${filesChanged} files`
+);
+for (const entry of perFile.slice(0, 12))
+	console.log(`  ${String(entry.count).padStart(4)}  ${entry.file}`);
 if (perFile.length > 12) console.log(`  ... and ${perFile.length - 12} more files`);
 if (!apply) console.log('\ndry run: pass --apply to write');

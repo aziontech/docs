@@ -1,8 +1,5 @@
 <template>
-	<Tooltip
-		:text="tooltip"
-		placement="top"
-	>
+	<Tooltip :text="tooltip" placement="top">
 		<button
 			type="button"
 			:data-state="copied ? 'copied' : 'default'"
@@ -21,11 +18,10 @@
 				aria-hidden="true"
 				class="pointer-events-none absolute inset-px rounded-[inherit] bg-(--bg-backdrop) transition-opacity duration-300 ease-out group-hover/highlight:opacity-25 motion-reduce:transition-none"
 			/>
-			<span class="relative z-1 flex h-full w-full min-w-0 items-center justify-center gap-(--spacing-xs) px-(--spacing-md) text-label-md text-(--color-base-white) sm:gap-(--spacing-sm)">
-				<span
-					aria-live="polite"
-					class="min-w-0 truncate sm:whitespace-nowrap"
-				>
+			<span
+				class="relative z-1 flex h-full w-full min-w-0 items-center justify-center gap-(--spacing-xs) px-(--spacing-md) text-label-md text-(--color-base-white) sm:gap-(--spacing-sm)"
+			>
+				<span aria-live="polite" class="min-w-0 truncate sm:whitespace-nowrap">
 					{{ copied ? copiedLabel : label }}
 				</span>
 				<span
@@ -46,45 +42,45 @@
 </template>
 
 <script setup lang="ts">
-	import Tooltip from '@aziontech/webkit/tooltip'
-	import { onBeforeUnmount, ref } from 'vue'
+import Tooltip from '@aziontech/webkit/tooltip';
+import { onBeforeUnmount, ref } from 'vue';
 
-	import AgentMark, { type AgentName } from './AgentMark.vue'
+import AgentMark, { type AgentName } from './AgentMark.vue';
 
-	const props = withDefaults(
-		defineProps<{
-			prompt: string
-			label?: string
-			copiedLabel?: string
-			tooltip?: string
-			agents?: AgentName[]
-		}>(),
-		{
-			label: 'Copy prompt',
-			copiedLabel: 'Prompt copied!',
-			tooltip: 'Copies a setup prompt for your AI coding tool',
-			agents: () => ['claude', 'codex', 'gemini', 'cursor']
-		}
-	)
-
-	const copied = ref(false)
-	let timer: ReturnType<typeof setTimeout> | null = null
-
-	async function copy() {
-		try {
-			await navigator.clipboard.writeText(props.prompt)
-		} catch {
-			return
-		}
-		copied.value = true
-		if (timer) clearTimeout(timer)
-		timer = setTimeout(() => {
-			copied.value = false
-			timer = null
-		}, 2000)
+const props = withDefaults(
+	defineProps<{
+		prompt: string;
+		label?: string;
+		copiedLabel?: string;
+		tooltip?: string;
+		agents?: AgentName[];
+	}>(),
+	{
+		label: 'Copy prompt',
+		copiedLabel: 'Prompt copied!',
+		tooltip: 'Copies a setup prompt for your AI coding tool',
+		agents: () => ['claude', 'codex', 'gemini', 'cursor'],
 	}
+);
 
-	onBeforeUnmount(() => {
-		if (timer) clearTimeout(timer)
-	})
+const copied = ref(false);
+let timer: ReturnType<typeof setTimeout> | null = null;
+
+async function copy() {
+	try {
+		await navigator.clipboard.writeText(props.prompt);
+	} catch {
+		return;
+	}
+	copied.value = true;
+	if (timer) clearTimeout(timer);
+	timer = setTimeout(() => {
+		copied.value = false;
+		timer = null;
+	}, 2000);
+}
+
+onBeforeUnmount(() => {
+	if (timer) clearTimeout(timer);
+});
 </script>

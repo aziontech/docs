@@ -5,7 +5,7 @@ import type {
 	UIDictionaryKeys,
 	UILanguageKeys,
 	FooterTranslations,
-	SearchMenuTranslation
+	SearchMenuTranslation,
 } from './translation-checkers';
 
 /** Maps `import.meta.glob` modules to the language code in each filepath. */
@@ -19,7 +19,9 @@ function mapDefaultExports<T>(modules: Record<string, { default: T }>) {
 	return exportMap;
 }
 
-export const translations = mapDefaultExports<UIDict>(import.meta.glob('./*/ui.ts', { eager: true }));
+export const translations = mapDefaultExports<UIDict>(
+	import.meta.glob('./*/ui.ts', { eager: true })
+);
 
 export const footerTranslations = mapDefaultExports<FooterTranslations>(
 	import.meta.glob('./*/footer.ts', { eager: true })
@@ -56,17 +58,16 @@ export function useTranslationsForLang(lang: UILanguageKeys): (key: UIDictionary
 		if (str === undefined) {
 			const jsonKeys = Object.keys(translations[lang]) as UIDictionaryKeys[];
 
-			jsonKeys.map(jsonKey => {
-				if(translations[lang][jsonKey] === key) {
+			jsonKeys.map((jsonKey) => {
+				if (translations[lang][jsonKey] === key) {
 					str = key;
 				}
 			});
 
 			if (str === undefined) {
-				throw new Error(`Missing translation for “${key}” in “${lang}”.`)
+				throw new Error(`Missing translation for “${key}” in “${lang}”.`);
 			}
-
-		};
+		}
 		return str;
 	};
 }

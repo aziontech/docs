@@ -35,7 +35,8 @@ export const ptBr: DocsHomeContent = {
 
 	interfaceSection: {
 		heading: { depth: 2, slug: 'comece-pela-interface', text: 'Comece pela interface' },
-		intro: 'Entregue o Console a um agente de código, ou conduza você mesmo: visualmente, pelo terminal ou pela API.',
+		intro:
+			'Entregue o Console a um agente de código, ou conduza você mesmo: visualmente, pelo terminal ou pela API.',
 		agent: {
 			id: 'your-ai-agent-fluent-in-azion',
 			title: 'Seu agente de IA, fluente em Azion',
@@ -124,14 +125,46 @@ export const ptBr: DocsHomeContent = {
 			cols: 4,
 			mobileCols: 2,
 			cards: [
-				{ icon: 'ai-cor ai-react', title: 'React', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/react-boilerplate/' },
-				{ icon: 'ai-cor ai-next', title: 'Next.js', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/nextjs-static-boilerplate/' },
-				{ icon: 'ai ai-astro', title: 'Astro', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/astro-boilerplate/' },
-				{ icon: 'ai-cor ai-vue', title: 'Vue.js', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/vue-vite-boilerplate/' },
-				{ icon: 'ai-cor ai-angular', title: 'Angular', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/angular-boilerplate/' },
-				{ icon: 'ai ai-gatsby', title: 'Gatsby Blog', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/gatsby/' },
-				{ icon: 'ai ai-hono', title: 'Hono', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/hono/' },
-				{ icon: 'ai ai-hugo', title: 'Hugo', href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/hugo-boilerplate/' },
+				{
+					icon: 'ai-cor ai-react',
+					title: 'React',
+					href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/react-boilerplate/',
+				},
+				{
+					icon: 'ai-cor ai-next',
+					title: 'Next.js',
+					href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/nextjs-static-boilerplate/',
+				},
+				{
+					icon: 'ai ai-astro',
+					title: 'Astro',
+					href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/astro-boilerplate/',
+				},
+				{
+					icon: 'ai-cor ai-vue',
+					title: 'Vue.js',
+					href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/vue-vite-boilerplate/',
+				},
+				{
+					icon: 'ai-cor ai-angular',
+					title: 'Angular',
+					href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/angular-boilerplate/',
+				},
+				{
+					icon: 'ai ai-gatsby',
+					title: 'Gatsby Blog',
+					href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/gatsby/',
+				},
+				{
+					icon: 'ai ai-hono',
+					title: 'Hono',
+					href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/hono/',
+				},
+				{
+					icon: 'ai ai-hugo',
+					title: 'Hugo',
+					href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/hugo-boilerplate/',
+				},
 			],
 			footer: {
 				prefix: 'Também útil:',
@@ -147,7 +180,8 @@ export const ptBr: DocsHomeContent = {
 
 		{
 			heading: { depth: 2, slug: 'pare-ataques', text: 'Pare ataques' },
-			intro: 'Tudo o que você precisa para proteger aplicações, APIs e o tráfego que chega até elas.',
+			intro:
+				'Tudo o que você precisa para proteger aplicações, APIs e o tráfego que chega até elas.',
 			cols: 3,
 			cards: [
 				{
@@ -211,7 +245,8 @@ export const ptBr: DocsHomeContent = {
 				slug: 'avalie-riscos-e-comprove-conformidade',
 				text: 'Avalie riscos e comprove conformidade',
 			},
-			intro: 'O que a plataforma cobre, o que fica com você e onde estão as evidências quando um auditor pedir.',
+			intro:
+				'O que a plataforma cobre, o que fica com você e onde estão as evidências quando um auditor pedir.',
 			cols: 3,
 			cards: [
 				{
@@ -255,8 +290,14 @@ export const ptBr: DocsHomeContent = {
 				prefix: 'Governança de acesso:',
 				links: [
 					{ label: 'Single Sign-On', href: '/pt-br/documentacao/fundamentos/single-sign-on/' },
-					{ label: 'Multi-Factor Authentication', href: '/pt-br/documentacao/fundamentos/multi-factor-authentication/' },
-					{ label: 'Teams Permissions', href: '/pt-br/documentacao/fundamentos/teams-permissions/' },
+					{
+						label: 'Multi-Factor Authentication',
+						href: '/pt-br/documentacao/fundamentos/multi-factor-authentication/',
+					},
+					{
+						label: 'Teams Permissions',
+						href: '/pt-br/documentacao/fundamentos/teams-permissions/',
+					},
 					{
 						label: 'Acesso Condicional',
 						href: '/pt-br/documentacao/guias/seguranca-de-aplicacoes/acesso-e-compliance/conditional-access-by-ip-address/',
@@ -267,7 +308,8 @@ export const ptBr: DocsHomeContent = {
 
 		{
 			heading: { depth: 2, slug: 'acompanhe', text: 'Acompanhe' },
-			intro: 'Notas de release conforme as novidades são lançadas, além do blog, do canal no YouTube e do Discord onde as dúvidas são respondidas.',
+			intro:
+				'Notas de release conforme as novidades são lançadas, além do blog, do canal no YouTube e do Discord onde as dúvidas são respondidas.',
 			cols: 3,
 			cards: [
 				{

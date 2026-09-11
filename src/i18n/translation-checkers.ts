@@ -17,16 +17,15 @@ export interface FooterTranslations {
 			flag?: string;
 			route: string;
 		}>;
-	}>
+	}>;
 }
 
-export const footerDict = (dict: FooterTranslations) => dict
+export const footerDict = (dict: FooterTranslations) => dict;
 
 export interface SearchMenuTranslation {
-	button: string,
-	placeholder: string,
-	shortcutLabel: string,
+	button: string;
+	placeholder: string;
+	shortcutLabel: string;
 }
 
-export const searchMenuDict = (dict: SearchMenuTranslation) => dict
-
+export const searchMenuDict = (dict: SearchMenuTranslation) => dict;

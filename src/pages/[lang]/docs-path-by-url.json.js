@@ -1,55 +1,51 @@
 import { getCollection } from 'astro:content';
 
 import { SITE_URL } from '~/consts';
-import { groupPagesByLang }  from '~/util/groupPagesByLang';
+import { groupPagesByLang } from '~/util/groupPagesByLang';
 import { removeTrailingLeadingSlashs } from '~/util/removeSlashs';
 import { withDocsHome } from '~/data/docs-home';
 
-
 const paths = {
-  collections: 'src/content'
+	collections: 'src/content',
 };
 const pages = {
-  docs: await getCollection('docs', ({ data }) => data.draft !== true)
+	docs: await getCollection('docs', ({ data }) => data.draft !== true),
 };
 const docsByLang = withDocsHome(groupPagesByLang(pages.docs));
 
 export async function getStaticPaths() {
-  return ['en', 'pt-br'].map((lang) => ({
-    params: {
-      lang: lang
-    }, props: {
-			docs: docsByLang[lang]
-    }
-  }));
-};
+	return ['en', 'pt-br'].map((lang) => ({
+		params: {
+			lang: lang,
+		},
+		props: {
+			docs: docsByLang[lang],
+		},
+	}));
+}
 
 export async function GET({ params, props }) {
-  const {
-    docs
-  } = props;
+	const { docs } = props;
 
-  const docsData = docs.map(({ data: page, collection, id, filePath }) => {
+	const docsData = docs.map(({ data: page, collection, id, filePath }) => {
 		const permalink = `${params.lang}/${removeTrailingLeadingSlashs(page.permalink)}`;
-    const namespace = page.namespace
+		const namespace = page.namespace;
 
-    return {
+		return {
 			repository: 'docs',
-      filePath: filePath ?? `${paths.collections}/${collection}/${id}`,
+			filePath: filePath ?? `${paths.collections}/${collection}/${id}`,
 			permalink: `/${permalink}/`,
-      url: `${SITE_URL}/${permalink}/`,
-      namespace
-    };
-  });
+			url: `${SITE_URL}/${permalink}/`,
+			namespace,
+		};
+	});
 
-  const data = [
-    ...docsData
-  ]
+	const data = [...docsData];
 
-  return new Response(JSON.stringify(data), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  });
-};
+	return new Response(JSON.stringify(data), {
+		status: 200,
+		headers: {
+			'Content-Type': 'application/json',
+		},
+	});
+}

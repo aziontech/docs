@@ -1,5 +1,5 @@
 export default {
-	'lang': 'English',
+	lang: 'English',
 	'a11y.skipLink': 'Skip to Content',
 	'a11y.sectionLink': 'Section titled',
 	'navbar.a11yTitle': 'Top',
@@ -60,13 +60,15 @@ export default {
 	'rightSidebar.editPage': 'Contribute to this page',
 	'rightSidebar.translatePage': 'Translate this page',
 	'rightSidebar.ctaTitle': 'Ready to build?',
-	'rightSidebar.ctaDescription': 'Deploy your first application for free and scale as your traffic grows. No credit card required.',
+	'rightSidebar.ctaDescription':
+		'Deploy your first application for free and scale as your traffic grows. No credit card required.',
 	'rightSidebar.ctaPrimary': 'Start for free',
 	'rightSidebar.ctaPrimaryLink': 'https://console.azion.com/signup',
 	'rightSidebar.ctaSecondary': 'See our plans',
 	'rightSidebar.ctaSecondaryLink': '/en/pricing/',
 	// Footer
-	'footer.copyright': 'Copyright © 2024, Azion Technologies, Inc. or its affiliates. All rights reserved.',
+	'footer.copyright':
+		'Copyright © 2024, Azion Technologies, Inc. or its affiliates. All rights reserved.',
 	'footer.contactInformation': 'For support and sales, please call',
 	'footer.phone': '+1 (833) 33-AZION',
 	'footer.langSelector': 'Language: ',
@@ -157,8 +159,8 @@ export default {
 	'breadcrumb.home': 'Documentation',
 
 	// top bar message
-	'topbar.message': 'Azion earns Frost & Sullivan’s 2023 North American New Product Innovation Award in the edge serverless industry.',
+	'topbar.message':
+		'Azion earns Frost & Sullivan’s 2023 North American New Product Innovation Award in the edge serverless industry.',
 	'topbar.link': 'https://www.azion.com/en/blog/azion-frost-sullivan-award/',
 	'topbar.cta': 'Check it out!',
-
 };

@@ -2,30 +2,15 @@
 	<!-- eslint-disable webkit/no-style-override -- placement and box geometry the
 	     header owns: the bar only exists from `lg` up, and the row's alignment and
 	     pitch are the shell's, not the menu's own appearance. -->
-	<NavigationMenu
-		:aria-label="ariaLabel"
-		class="hidden lg:flex"
-	>
+	<NavigationMenu :aria-label="ariaLabel" class="hidden lg:flex">
 		<NavigationMenu.List class="items-center gap-(--spacing-xxs)">
-		<!-- eslint-enable webkit/no-style-override -->
-			<template
-				v-for="item in items"
-				:key="item.value"
-			>
-				<NavigationMenu.Item
-					v-if="item.columns"
-					:value="item.value"
-				>
+			<!-- eslint-enable webkit/no-style-override -->
+			<template v-for="item in items" :key="item.value">
+				<NavigationMenu.Item v-if="item.columns" :value="item.value">
 					<NavigationMenu.Trigger>
 						{{ item.label }}
 						<NavigationMenu.Icon>
-							<svg
-								width="12"
-								height="12"
-								viewBox="0 0 12 12"
-								fill="none"
-								aria-hidden="true"
-							>
+							<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
 								<path
 									d="M3 4.5L6 7.5L9 4.5"
 									stroke="currentColor"
@@ -39,7 +24,7 @@
 					<!-- eslint-disable webkit/no-style-override -- the panel sizes to its grid
 					     and hands padding to the grid inside it. -->
 					<NavigationMenu.Content class="w-max p-0">
-					<!-- eslint-enable webkit/no-style-override -->
+						<!-- eslint-enable webkit/no-style-override -->
 						<div
 							class="grid gap-(--spacing-lg) p-(--spacing-md)"
 							:style="{ gridTemplateColumns: `repeat(${item.columns.length}, 18rem)` }"
@@ -71,11 +56,7 @@
 		</NavigationMenu.List>
 
 		<NavigationMenu.Portal v-if="isMounted">
-			<NavigationMenu.Positioner
-				side="bottom"
-				align="start"
-				:side-offset="12"
-			>
+			<NavigationMenu.Positioner side="bottom" align="start" :side-offset="12">
 				<NavigationMenu.Popup>
 					<NavigationMenu.Arrow />
 					<NavigationMenu.Viewport />
@@ -86,51 +67,57 @@
 </template>
 
 <script setup lang="ts">
-	import NavigationMenu from '@aziontech/webkit/navigation-menu'
-	import { computed, onMounted, ref } from 'vue'
+import NavigationMenu from '@aziontech/webkit/navigation-menu';
+import { computed, onMounted, ref } from 'vue';
 
-	interface Entry {
-		label: string
-		href?: string
-		description?: string
+interface Entry {
+	label: string;
+	href?: string;
+	description?: string;
+}
+
+interface Column {
+	label: string;
+	items: Entry[];
+}
+
+type Item =
+	| { value: string; label: string; columns: Column[]; href?: never }
+	| { value: string; label: string; href?: string; columns?: never };
+
+const props = withDefaults(
+	defineProps<{
+		products?: Column[];
+		devtools?: Column[];
+		guides?: Entry | null;
+		labels?: { products: string; guides: string; devtools: string };
+		ariaLabel?: string;
+	}>(),
+	{
+		products: () => [],
+		devtools: () => [],
+		guides: null,
+		labels: () => ({ products: 'Products', guides: 'Guides', devtools: 'Developer tools' }),
+		ariaLabel: 'Documentation',
 	}
+);
 
-	interface Column {
-		label: string
-		items: Entry[]
-	}
+const items = computed<Item[]>(() => [
+	...(props.products.length
+		? [{ value: 'products', label: props.labels.products, columns: props.products }]
+		: []),
+	...(props.guides
+		? [{ value: 'guides', label: props.labels.guides, href: props.guides.href }]
+		: []),
+	...(props.devtools.length
+		? [{ value: 'devtools', label: props.labels.devtools, columns: props.devtools }]
+		: []),
+]);
 
-	type Item =
-		| { value: string; label: string; columns: Column[]; href?: never }
-		| { value: string; label: string; href?: string; columns?: never }
-
-	const props = withDefaults(
-		defineProps<{
-			products?: Column[]
-			devtools?: Column[]
-			guides?: Entry | null
-			labels?: { products: string; guides: string; devtools: string }
-			ariaLabel?: string
-		}>(),
-		{
-			products: () => [],
-			devtools: () => [],
-			guides: null,
-			labels: () => ({ products: 'Products', guides: 'Guides', devtools: 'Developer tools' }),
-			ariaLabel: 'Documentation'
-		}
-	)
-
-	const items = computed<Item[]>(() => [
-		...(props.products.length ? [{ value: 'products', label: props.labels.products, columns: props.products }] : []),
-		...(props.guides ? [{ value: 'guides', label: props.labels.guides, href: props.guides.href }] : []),
-		...(props.devtools.length ? [{ value: 'devtools', label: props.labels.devtools, columns: props.devtools }] : [])
-	])
-
-	// `NavigationMenu.Portal` may only mount client-side; webkit publishes no
-	// `use-mounted` composable, so guard it with the plain Vue equivalent.
-	const isMounted = ref(false)
-	onMounted(() => {
-		isMounted.value = true
-	})
+// `NavigationMenu.Portal` may only mount client-side; webkit publishes no
+// `use-mounted` composable, so guard it with the plain Vue equivalent.
+const isMounted = ref(false);
+onMounted(() => {
+	isMounted.value = true;
+});
 </script>

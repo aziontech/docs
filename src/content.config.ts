@@ -15,20 +15,24 @@ export const baseSchema = z.object({
 	githubURL: z.url().optional(),
 	hasREADME: z.boolean().optional(),
 	page_header: z.boolean().default(true),
-})
+});
 
 export const homeSchema = baseSchema.extend({
 	type: z.literal('homepage'),
-	product_cards: z.array(z.object({
-		title: z.string(),
-		cards: z.array(z.object({
+	product_cards: z.array(
+		z.object({
 			title: z.string(),
-			description: z.string(),
-			icon: z.string(),
-			link: z.string(),
-		})),
-	}))
-})
+			cards: z.array(
+				z.object({
+					title: z.string(),
+					description: z.string(),
+					icon: z.string(),
+					link: z.string(),
+				})
+			),
+		})
+	),
+});
 
 export type HomepageEntry = CollectionEntry<'docs'> & {
 	data: z.infer<typeof homeSchema>;

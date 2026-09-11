@@ -1,25 +1,36 @@
-import { z } from 'astro/zod'
+import { z } from 'astro/zod';
 
-import { SAFE_HREF } from './inline'
+import { SAFE_HREF } from './inline';
 
-const localized = z.union([z.string(), z.object({ en: z.string(), 'pt-br': z.string().optional() })])
+const localized = z.union([
+	z.string(),
+	z.object({ en: z.string(), 'pt-br': z.string().optional() }),
+]);
 
-export type Localized = z.infer<typeof localized>
+export type Localized = z.infer<typeof localized>;
 
-const href = z.string().regex(SAFE_HREF, 'an href starts with https://, / or #')
+const href = z.string().regex(SAFE_HREF, 'an href starts with https://, / or #');
 
-const localizedHref = z.union([href, z.object({ en: href, 'pt-br': href.optional() })])
+const localizedHref = z.union([href, z.object({ en: href, 'pt-br': href.optional() })]);
 
 const sample = z.object({
 	label: localized,
 	language: z.string(),
 	code: z.string(),
-	fileName: z.string().optional()
-})
+	fileName: z.string().optional(),
+});
 
-export type Sample = z.infer<typeof sample>
+export type Sample = z.infer<typeof sample>;
 
-export const MARKS = ['claude', 'cursor', 'copilot', 'windsurf', 'codex', 'gemini', 'opencode'] as const
+export const MARKS = [
+	'claude',
+	'cursor',
+	'copilot',
+	'windsurf',
+	'codex',
+	'gemini',
+	'opencode',
+] as const;
 
 const agent = z.object({
 	slug: z.string(),
@@ -38,20 +49,28 @@ const agent = z.object({
 	install: z.object({
 		body: localized,
 		samples: z.array(sample).optional(),
-		link: z.object({ label: localized, href }).optional()
+		link: z.object({ label: localized, href }).optional(),
 	}),
-	connect: z.object({ body: localized, samples: z.array(sample).optional(), note: localized.optional() }),
+	connect: z.object({
+		body: localized,
+		samples: z.array(sample).optional(),
+		note: localized.optional(),
+	}),
 	verify: z.object({ body: localized, samples: z.array(sample).optional() }),
-	tips: z.object({ en: z.array(z.string()), 'pt-br': z.array(z.string()) })
-})
+	tips: z.object({ en: z.array(z.string()), 'pt-br': z.array(z.string()) }),
+});
 
-export type Agent = z.infer<typeof agent>
+export type Agent = z.infer<typeof agent>;
 
-const card = z.object({ title: localized, icon: z.string(), description: localized })
+const card = z.object({ title: localized, icon: z.string(), description: localized });
 
-const entry = z.object({ question: localized, answer: localized, fallbackNote: localized.optional() })
+const entry = z.object({
+	question: localized,
+	answer: localized,
+	fallbackNote: localized.optional(),
+});
 
-const labelGroup = z.record(z.string(), localized)
+const labelGroup = z.record(z.string(), localized);
 
 export const agentSetup = z.object({
 	mcpUrl: href,
@@ -66,7 +85,7 @@ export const agentSetup = z.object({
 			icon: z.string(),
 			href: localizedHref,
 			target: z.enum(['_self', '_blank']).optional(),
-			description: localized
+			description: localized,
 		})
 	),
 	primer: localized,
@@ -79,9 +98,12 @@ export const agentSetup = z.object({
 		token: z.object({ title: localized, body: localized, link: localized }),
 		connect: localized,
 		verify: localized,
-		tryIt: localized
+		tryIt: localized,
 	}),
-	tooltips: z.record(z.string(), z.object({ headline: z.string(), tip: localized, cta: localized, href: localizedHref })),
+	tooltips: z.record(
+		z.string(),
+		z.object({ headline: z.string(), tip: localized, cta: localized, href: localizedHref })
+	),
 	faq: z.array(entry),
 	surface: z.object({ terminal: localized, editor: localized }),
 	troubleshooting: z.array(entry),
@@ -93,8 +115,8 @@ export const agentSetup = z.object({
 		yes: localized,
 		no: localized,
 		madeBy: localized,
-		plusAzion: localized
-	})
-})
+		plusAzion: localized,
+	}),
+});
 
-export type AgentSetup = z.infer<typeof agentSetup>
+export type AgentSetup = z.infer<typeof agentSetup>;
