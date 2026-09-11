@@ -1,9 +1,4 @@
 <template>
-	<HeaderSearch
-		label="Search"
-		@click="open = true"
-	/>
-
 	<CommandMenu
 		v-model:open="open"
 		shortcut="meta+k"
@@ -40,6 +35,11 @@
 			</CommandMenu.Empty>
 		</CommandMenu.List>
 	</CommandMenu>
+
+	<HeaderSearch
+		label="Search"
+		@click="open = true"
+	/>
 </template>
 
 <script setup lang="ts">
