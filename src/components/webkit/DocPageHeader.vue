@@ -12,7 +12,7 @@
 			<slot name='title'>
 				<h1
 					id='overview'
-					class='m-0 w-full min-w-0 text-heading-2xl text-[var(--text-default)] sm:w-auto sm:flex-1 sm:text-heading-xl'
+					class='m-0 w-full min-w-0 text-heading-2xl text-(--text-default) sm:w-auto sm:flex-1 sm:text-heading-xl'
 					v-html='title'
 				/>
 			</slot>
