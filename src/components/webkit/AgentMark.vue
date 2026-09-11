@@ -2,6 +2,7 @@
 	<!-- eslint-disable vue/no-v-html -- body is the hardcoded MARKS constant below, never user input -->
 	<svg
 		v-if="body"
+		v-bind="$attrs"
 		:viewBox="mark.viewBox"
 		xmlns="http://www.w3.org/2000/svg"
 		role="img"
@@ -12,6 +13,7 @@
 	<!-- eslint-enable vue/no-v-html -->
 	<svg
 		v-else
+		v-bind="$attrs"
 		:viewBox="mark.viewBox"
 		xmlns="http://www.w3.org/2000/svg"
 		role="img"
@@ -26,6 +28,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+
+/*
+ * Own the root: the template's v-if/v-else pair is wrapped in eslint pragma comments,
+ * which count as root nodes in a dev build and make this a fragment — and Vue drops
+ * automatic attribute inheritance on a fragment, silently discarding a consumer's class.
+ */
+defineOptions({ name: 'AgentMark', inheritAttrs: false });
 
 export type AgentName =
 	| 'claude'
