@@ -6,13 +6,13 @@ import { SKIP, visit } from 'unist-util-visit';
  * the markup, since webkit's Table is a flex tree and this is real `<table>`.
  * Classes stay identical to `doc-markdown.vue` in webkit-docs.
  */
-export const TABLE_CLASS =
+const TABLE_CLASS =
 	'w-full border-separate border-spacing-0 overflow-hidden rounded-(--shape-elements) border-(length:--border-width-default) border-solid border-(--border-default) bg-(--bg-surface) text-(--text-default)';
-export const THEAD_ROW_CLASS = 'h-11';
-export const TBODY_CLASS = '[&>tr:last-child>td]:border-b-0';
-export const TH_CLASS =
+const THEAD_ROW_CLASS = 'h-11';
+const TBODY_CLASS = '[&>tr:last-child>td]:border-b-0';
+const TH_CLASS =
 	'border-b-(length:--border-width-default) border-solid border-(--border-default) bg-(--bg-surface) px-(--spacing-sm) py-(--spacing-xs) text-start align-middle text-label-sm text-(--text-muted)';
-export const TD_CLASS =
+const TD_CLASS =
 	'border-b-(length:--border-width-default) border-solid border-(--border-default) px-(--spacing-sm) py-(--spacing-xs) text-start align-middle text-label-md text-(--text-default)';
 
 const addClass = (node: Element, className: string) => {
