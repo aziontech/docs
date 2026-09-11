@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 import { read as readcsv } from './helpers/csv.js';
-import { removeHostFromUrl, wwwazioncom, isFromRoot } from './helpers/url.js';
+import { escapeRegExp, removeHostFromUrl, wwwazioncom, isFromRoot } from './helpers/url.js';
 
 let counterFoundLinks = 0;
 let PATH = {
@@ -30,10 +30,10 @@ async function processFile(filePath, redirects) {
 			const url200 = removeHostFromUrl(item.destinationUrl);
 			const isRoot = isFromRoot(url30x);
 
-			const rgxMdLink = new RegExp(`\\(${url30x}\\)`, 'g');
+			const rgxMdLink = new RegExp(`\\(${escapeRegExp(url30x)}\\)`, 'g');
 			const contentMatchMdLink = newContent.match(rgxMdLink);
 
-			const rgxMdLinkAnchor = new RegExp(`\\(${url30x}\\#`, 'g');
+			const rgxMdLinkAnchor = new RegExp(`\\(${escapeRegExp(url30x)}\\#`, 'g');
 			const contentMatchMdLinkAnchor = newContent.match(rgxMdLinkAnchor);
 
 			if (!contentMatchMdLink && !contentMatchMdLinkAnchor) continue;

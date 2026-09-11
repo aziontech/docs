@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-import { wwwazioncom, removeHostAndLangFromUrl, isFromRoot } from './helpers/url.js';
+import { escapeRegExp, wwwazioncom, removeHostAndLangFromUrl, isFromRoot } from './helpers/url.js';
 import { read as readcsv } from './helpers/csv.js';
 
 let counterFoundLinks = 0;
@@ -24,10 +24,10 @@ async function processFile(filePath, redirects) {
 			const url200 = removeHostAndLangFromUrl(item.destinationUrl);
 			const isRoot = isFromRoot(url30x);
 
-			const rgxSingleQuote = new RegExp(`'${url30x}'`, 'g');
+			const rgxSingleQuote = new RegExp(`'${escapeRegExp(url30x)}'`, 'g');
 			const contentMatchSingleQuote = newContent.match(rgxSingleQuote);
 
-			const rgxDoubleQuote = new RegExp(`"${url30x}"`, 'g');
+			const rgxDoubleQuote = new RegExp(`"${escapeRegExp(url30x)}"`, 'g');
 			const contentMatchDoubleQuote = newContent.match(rgxDoubleQuote);
 
 			if (!contentMatchSingleQuote && !contentMatchDoubleQuote) continue;
