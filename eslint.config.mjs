@@ -4,6 +4,7 @@ import tseslint from 'typescript-eslint';
 import astro from 'eslint-plugin-astro';
 import vue from 'eslint-plugin-vue';
 import webkit from '@aziontech/webkit/eslint-plugin';
+import * as mdxPlugin from 'eslint-plugin-mdx';
 
 export default tseslint.config(
 	{
@@ -99,6 +100,36 @@ export default tseslint.config(
 			'webkit/no-deprecated-component': 'error',
 			'webkit/prefer-webkit-component': 'error',
 			'webkit/prefer-tree-shakeable-root': 'error',
+		},
+	},
+
+	// Same gap for `.mdx`: the docs content embeds webkit imports and styled JSX, and the
+	// preset's FILES list does not reach it. eslint-mdx parses the file into an ESTree the
+	// AST-based rules can walk. `no-style-override` is absent for the same reason as the
+	// Astro block above: it needs vue-eslint-parser's template visitor.
+	{
+		files: ['**/*.mdx'],
+		plugins: { webkit },
+		languageOptions: {
+			parser: mdxPlugin.flat.languageOptions.parser,
+			globals: { ...globals.browser },
+		},
+		rules: {
+			'webkit/valid-import-path': 'error',
+			'webkit/no-deep-internal-import': 'error',
+			'webkit/no-barrel-import': 'error',
+			'webkit/no-whole-icon-set-import': 'error',
+			'webkit/no-hardcoded-color': 'error',
+			'webkit/no-hardcoded-motion': 'error',
+			'webkit/no-deprecated-component': 'error',
+			'webkit/prefer-webkit-component': 'error',
+			'webkit/prefer-tree-shakeable-root': 'error',
+			// Core rules misread MDX: imports are "unused" because their uses live in the
+			// markdown body, and prose trips the whitespace/escape checks. Only the webkit
+			// rules above are what MDX is linted for.
+			'no-unused-vars': 'off',
+			'no-irregular-whitespace': 'off',
+			'no-useless-escape': 'off',
 		},
 	},
 

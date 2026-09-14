@@ -17,7 +17,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 /** Extensions the design system governs — the denominator of the adoption score. */
-const UI_EXTENSIONS = new Set(['vue', 'astro']);
+const UI_EXTENSIONS = new Set(['vue', 'astro', 'mdx']);
 
 const RULE_PURPOSE = {
 	'webkit/valid-import-path': 'import path that does not exist in the installed version',
