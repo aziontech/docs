@@ -7,8 +7,9 @@
 		<Accordion type="single" size="large" default-value="0">
 			<Accordion.Item v-for="(item, index) in items" :key="index" :value="String(index)">
 				<Accordion.Trigger>{{ item.question }}</Accordion.Trigger>
-				<!-- eslint-disable webkit/no-style-override -- replaces the panel's own
-				     inset; an inner box would add to it rather than set it. -->
+				<!-- eslint-disable webkit/no-style-override -- design-system gap: Content
+				     has no inset prop, and an inner box would add to the panel's own inset
+				     rather than set it. Remove when Accordion.Content grows the seam. -->
 				<Accordion.Content
 					class="px-[var(--accordion-inset,var(--spacing-md))] pt-(--spacing-sm) pb-(--spacing-md)"
 				>

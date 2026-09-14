@@ -1,69 +1,74 @@
 <template>
-	<!-- eslint-disable webkit/no-style-override -- placement and box geometry the
-	     header owns: the bar only exists from `lg` up, and the row's alignment and
-	     pitch are the shell's, not the menu's own appearance. -->
-	<NavigationMenu :aria-label="ariaLabel" class="hidden lg:flex">
-		<NavigationMenu.List class="items-center gap-(--spacing-xxs)">
-			<!-- eslint-enable webkit/no-style-override -->
-			<template v-for="item in items" :key="item.value">
-				<NavigationMenu.Item v-if="item.columns" :value="item.value">
-					<NavigationMenu.Trigger>
-						{{ item.label }}
-						<NavigationMenu.Icon>
-							<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-								<path
-									d="M3 4.5L6 7.5L9 4.5"
-									stroke="currentColor"
-									stroke-width="1.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-							</svg>
-						</NavigationMenu.Icon>
-					</NavigationMenu.Trigger>
-					<!-- eslint-disable webkit/no-style-override -- the panel sizes to its grid
-					     and hands padding to the grid inside it. -->
-					<NavigationMenu.Content class="w-max p-0">
-						<!-- eslint-enable webkit/no-style-override -->
-						<div
-							class="grid gap-(--spacing-lg) p-(--spacing-md)"
-							:style="{ gridTemplateColumns: `repeat(${item.columns.length}, 18rem)` }"
-						>
-							<NavigationMenu.List
-								v-for="column in item.columns"
-								:key="column.label"
-								:label="column.label"
+	<!-- The bar only exists from `lg` up — the header owns that, so the box carries
+	     the visibility and the menu stays untouched. -->
+	<div class="hidden lg:block">
+		<NavigationMenu :aria-label="ariaLabel">
+			<!-- eslint-disable webkit/no-style-override -- design-system gap: the List has
+		     no density/alignment props for a horizontal header row (`items-center` +
+		     the xxs pitch). Remove when NavigationMenu.List grows that seam. -->
+			<NavigationMenu.List class="items-center gap-(--spacing-xxs)">
+				<!-- eslint-enable webkit/no-style-override -->
+				<template v-for="item in items" :key="item.value">
+					<NavigationMenu.Item v-if="item.columns" :value="item.value">
+						<NavigationMenu.Trigger>
+							{{ item.label }}
+							<NavigationMenu.Icon>
+								<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+									<path
+										d="M3 4.5L6 7.5L9 4.5"
+										stroke="currentColor"
+										stroke-width="1.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									/>
+								</svg>
+							</NavigationMenu.Icon>
+						</NavigationMenu.Trigger>
+						<!-- eslint-disable webkit/no-style-override -- design-system gap: Content
+					     has no `inset="none"`/fit-width seam, and the panel must size to its
+					     grid and hand the padding inward. Remove when it ships. -->
+						<NavigationMenu.Content class="w-max p-0">
+							<!-- eslint-enable webkit/no-style-override -->
+							<div
+								class="grid gap-(--spacing-lg) p-(--spacing-md)"
+								:style="{ gridTemplateColumns: `repeat(${item.columns.length}, 18rem)` }"
 							>
-								<NavigationMenu.Item
-									v-for="entry in column.items"
-									:key="entry.href"
-									layout="entry"
-									:href="entry.href"
-									:description="entry.description"
-									close-on-click
+								<NavigationMenu.List
+									v-for="column in item.columns"
+									:key="column.label"
+									:label="column.label"
 								>
-									{{ entry.label }}
-								</NavigationMenu.Item>
-							</NavigationMenu.List>
-						</div>
-					</NavigationMenu.Content>
-				</NavigationMenu.Item>
+									<NavigationMenu.Item
+										v-for="entry in column.items"
+										:key="entry.href"
+										layout="entry"
+										:href="entry.href"
+										:description="entry.description"
+										close-on-click
+									>
+										{{ entry.label }}
+									</NavigationMenu.Item>
+								</NavigationMenu.List>
+							</div>
+						</NavigationMenu.Content>
+					</NavigationMenu.Item>
 
-				<NavigationMenu.Item v-else>
-					<NavigationMenu.Trigger :href="item.href">{{ item.label }}</NavigationMenu.Trigger>
-				</NavigationMenu.Item>
-			</template>
-		</NavigationMenu.List>
+					<NavigationMenu.Item v-else>
+						<NavigationMenu.Trigger :href="item.href">{{ item.label }}</NavigationMenu.Trigger>
+					</NavigationMenu.Item>
+				</template>
+			</NavigationMenu.List>
 
-		<NavigationMenu.Portal v-if="isMounted">
-			<NavigationMenu.Positioner side="bottom" align="start" :side-offset="12">
-				<NavigationMenu.Popup>
-					<NavigationMenu.Arrow />
-					<NavigationMenu.Viewport />
-				</NavigationMenu.Popup>
-			</NavigationMenu.Positioner>
-		</NavigationMenu.Portal>
-	</NavigationMenu>
+			<NavigationMenu.Portal v-if="isMounted">
+				<NavigationMenu.Positioner side="bottom" align="start" :side-offset="12">
+					<NavigationMenu.Popup>
+						<NavigationMenu.Arrow />
+						<NavigationMenu.Viewport />
+					</NavigationMenu.Popup>
+				</NavigationMenu.Positioner>
+			</NavigationMenu.Portal>
+		</NavigationMenu>
+	</div>
 </template>
 
 <script setup lang="ts">

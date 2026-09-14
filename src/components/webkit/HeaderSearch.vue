@@ -18,18 +18,18 @@ defineEmits<{
 </script>
 
 <template>
-	<!-- eslint-disable webkit/no-style-override -- which of the two search
-       affordances is on screen at this width; placement, not restyling. -->
-	<IconButton
-		icon="pi pi-search"
-		kind="outlined"
-		size="medium"
-		:aria-label="label"
-		aria-keyshortcuts="Meta+K"
-		class="@min-[47rem]:hidden"
-		@click="$emit('click', $event)"
-	/>
-	<!-- eslint-enable webkit/no-style-override -->
+	<!-- Which of the two search affordances is on screen at this width is the
+	     header's call — the box owns the visibility, the button stays untouched. -->
+	<div class="@min-[47rem]:hidden">
+		<IconButton
+			icon="pi pi-search"
+			kind="outlined"
+			size="medium"
+			:aria-label="label"
+			aria-keyshortcuts="Meta+K"
+			@click="$emit('click', $event)"
+		/>
+	</div>
 
 	<!-- Design-system gap: webkit ships no search/command-menu TRIGGER (input-lookalike
 	     button with a Kbd hint) — global-header and command-menu have no such part. This
@@ -48,9 +48,8 @@ defineEmits<{
 			<i class="pi pi-search" />
 		</span>
 		<span class="min-w-0 flex-1 truncate text-label-sm text-(--text-muted)">{{ label }}</span>
-		<!-- eslint-disable webkit/no-style-override -- flex sizing inside our own
-         trigger button. -->
-		<Kbd meta size="small" class="shrink-0">K</Kbd>
-		<!-- eslint-enable webkit/no-style-override -->
+		<span class="inline-flex shrink-0">
+			<Kbd meta size="small">K</Kbd>
+		</span>
 	</button>
 </template>

@@ -7,7 +7,25 @@ import webkit from '@aziontech/webkit/eslint-plugin';
 
 export default tseslint.config(
 	{
-		ignores: ['dist/**', '.astro/**', '.edge/**', 'node_modules/**', '.github/**', '.changeset/**'],
+		ignores: [
+			'dist/**',
+			'.astro/**',
+			'.edge/**',
+			'node_modules/**',
+			'.github/**',
+			'.changeset/**',
+			// Claude Code worktrees carry their own build output; linting a stale
+			// worktree's dist would count compiled webkit code as our violations.
+			'.claude/**',
+		],
+	},
+
+	{
+		linterOptions: {
+			// A disable comment that no longer suppresses anything is dead weight —
+			// surface it so migrations actually remove their exemptions.
+			reportUnusedDisableDirectives: 'error',
+		},
 	},
 
 	js.configs.recommended,
