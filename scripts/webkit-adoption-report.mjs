@@ -74,10 +74,7 @@ function collect(results, cwd) {
 	const byFile = new Map();
 	const byExtension = new Map();
 	const uiFiles = new Set();
-	const suppressedByRule = new Map();
-	const suppressedByFile = new Map();
 	let total = 0;
-	let suppressedTotal = 0;
 
 	for (const result of results) {
 		const relative = result.filePath.startsWith(cwd)
@@ -95,18 +92,6 @@ function collect(results, cwd) {
 			entry.count += 1;
 			entry.rules.add(message.ruleId);
 			byFile.set(relative, entry);
-		}
-
-		// A violation silenced by an eslint-disable comment is still a violation the
-		// codebase carries — count it separately so exemptions never hide the debt.
-		for (const message of result.suppressedMessages ?? []) {
-			if (!message.ruleId?.startsWith('webkit/')) continue;
-			suppressedTotal += 1;
-			suppressedByRule.set(message.ruleId, (suppressedByRule.get(message.ruleId) ?? 0) + 1);
-			const entry = suppressedByFile.get(relative) ?? { count: 0, rules: new Set() };
-			entry.count += 1;
-			entry.rules.add(message.ruleId);
-			suppressedByFile.set(relative, entry);
 		}
 	}
 
@@ -127,13 +112,6 @@ function collect(results, cwd) {
 
 	return {
 		total,
-		suppressedTotal,
-		suppressedByRule: [...suppressedByRule.entries()].sort(
-			(a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
-		),
-		suppressedByFile: [...suppressedByFile.entries()]
-			.map(([file, entry]) => ({ file, count: entry.count, rules: [...entry.rules].sort() }))
-			.sort((a, b) => b.count - a.count || a.file.localeCompare(b.file)),
 		filesAffected: byFile.size,
 		uiFilesTotal: uiFiles.size,
 		uiFilesClean: uiFiles.size - dirtyUiFiles.length,
@@ -175,7 +153,6 @@ function renderMarkdown(report, catalog) {
 	push('| | |');
 	push('|---|---|');
 	push(`| Violations | **${report.total}** |`);
-	push(`| Suppressed by \`eslint-disable\` | **${report.suppressedTotal}** |`);
 	push(`| Files affected | ${report.filesAffected} |`);
 	push(
 		`| UI files clean | ${report.uiFilesClean} of ${report.uiFilesTotal} — **${
@@ -213,23 +190,6 @@ function renderMarkdown(report, catalog) {
 		push();
 	}
 
-	if (report.suppressedTotal > 0) {
-		push('### Suppressed — violations an `eslint-disable` comment is hiding');
-		push();
-		push(
-			'Each of these is real webkit debt: either a placement that should move to a wrapper, ' +
-				'or a design-system gap that should be filed and linked from the disable comment.'
-		);
-		push();
-		push('| File | Count | Rules |');
-		push('|---|---:|---|');
-		for (const { file, count, rules } of report.suppressedByFile) {
-			const ruleList = rules.map((r) => `\`${r.replace('webkit/', '')}\``).join(', ');
-			push(`| \`${file}\` | ${count} | ${ruleList} |`);
-		}
-		push();
-	}
-
 	push('### Coverage — what this did and did not look at');
 	push();
 	const extensions = report.byExtension.length
@@ -240,12 +200,6 @@ function renderMarkdown(report, catalog) {
 		`- The adoption score counts ${[...UI_EXTENSIONS]
 			.map((e) => `\`.${e}\``)
 			.join(' and ')} files only — ` + 'those are the ones the design system governs.'
-	);
-	push(
-		'- The suppressed count sees only `eslint-disable` comments in **script/JS** position. ' +
-			'A `<!-- eslint-disable -->` HTML comment inside a Vue template silences the rule ' +
-			'before ESLint records the suppression, so template exemptions are invisible here — ' +
-			'grep for them in review.'
 	);
 	push(
 		"- `no-style-override` does **not** run on `.astro`: it needs vue-eslint-parser's template " +
