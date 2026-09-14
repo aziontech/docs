@@ -9,8 +9,9 @@
 		</Table.Header>
 		<Table.Body>
 			<Table.Row v-for="row in rows" :key="row.href">
-				<!-- eslint-disable webkit/no-style-override -- `py-` is the row's own
-				     height; an inner span pads its text, not the cell. -->
+				<!-- eslint-disable webkit/no-style-override -- design-system gap: Table has
+				     no row density/wrap seam, and `py-`/`whitespace-normal` are the cell's
+				     own box, unreachable from a wrapper. Remove when Table grows it. -->
 				<Table.Cell principal class="whitespace-normal py-(--spacing-sm)">
 					<!-- eslint-enable webkit/no-style-override -->
 					<a

@@ -1,7 +1,7 @@
 <template>
-	<!-- eslint-disable webkit/no-style-override -- keeps a two-word tag on one line;
-	     Tag is a leaf with no slot to carry this, and wrapping it in an inline box
-	     would not constrain the label inside the component. -->
+	<!-- eslint-disable webkit/no-style-override -- design-system gap: Tag wraps a
+	     two-word label and ships no `nowrap` prop; a wrapper box cannot constrain
+	     text inside the leaf. Remove when Tag grows the seam (or defaults nowrap). -->
 	<WebkitTag :label="label" :severity="webkitSeverity" size="medium" class="whitespace-nowrap">
 		<!-- eslint-enable webkit/no-style-override -->
 		<template v-if="$slots['default']" #default>

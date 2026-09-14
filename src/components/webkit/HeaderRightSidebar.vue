@@ -1,27 +1,28 @@
 <template>
-	<!-- eslint-disable webkit/no-style-override -- placement in the header's flex
-	     row (hidden from `lg` up), not a restyle of the button. -->
-	<IconButton
-		icon="pi pi-bars"
-		aria-label="Open documentation navigation"
-		kind="outlined"
-		size="medium"
-		class="lg:hidden flex-none"
-		@click="open = true"
-	/>
-	<!-- eslint-enable webkit/no-style-override -->
+	<!-- Placement in the header's flex row (hidden from `lg` up) lives on this box;
+	     the button itself is untouched. -->
+	<div class="flex-none lg:hidden">
+		<IconButton
+			icon="pi pi-bars"
+			aria-label="Open documentation navigation"
+			kind="outlined"
+			size="medium"
+			@click="open = true"
+		/>
+	</div>
 
 	<Drawer v-model:open="open" side="left" size="small">
 		<DrawerPortal>
 			<DrawerOverlay />
 			<DrawerContent>
-				<!-- eslint-disable webkit/no-style-override -- the drawer owns whether its
-				     header shows at this width; that is layout, not styling. -->
-				<PanelHeader class="hidden w-full md:flex">
-					<!-- eslint-enable webkit/no-style-override -->
-					<DrawerTitle>Documentation</DrawerTitle>
-					<DrawerClose />
-				</PanelHeader>
+				<!-- The drawer owns whether its header shows at this width; the box carries
+				     the visibility, the PanelHeader keeps its own layout. -->
+				<div class="hidden w-full md:block">
+					<PanelHeader>
+						<DrawerTitle>Documentation</DrawerTitle>
+						<DrawerClose />
+					</PanelHeader>
+				</div>
 
 				<div class="min-h-0 w-full grow overflow-y-auto p-(--spacing-md) text-body-sm">
 					<DocsSidebarFilter
@@ -90,9 +91,10 @@
 				</div>
 
 				<template v-if="bottomButtons">
-					<!-- eslint-disable webkit/no-style-override -- lets the footer's own
-					     buttons wrap onto a second row on a narrow drawer. -->
-					<PanelFooter class="w-full flex-wrap gap-2">
+					<!-- eslint-disable webkit/no-style-override -- design-system gap: the
+					     footer's buttons must wrap onto a second row on a narrow drawer and
+					     PanelFooter exposes no `wrap` prop. Remove when it ships. -->
+					<PanelFooter class="w-full flex-wrap gap-(--spacing-xs)">
 						<!-- eslint-enable webkit/no-style-override -->
 						<Button
 							v-for="(button, index) in bottomButtons"
