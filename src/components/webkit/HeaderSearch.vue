@@ -31,6 +31,9 @@ defineEmits<{
 	/>
 	<!-- eslint-enable webkit/no-style-override -->
 
+	<!-- Design-system gap: webkit ships no search/command-menu TRIGGER (input-lookalike
+	     button with a Kbd hint) — global-header and command-menu have no such part. This
+	     stays the smallest token-clean bridge until the DS grows one. -->
 	<button
 		type="button"
 		:aria-label="label"
