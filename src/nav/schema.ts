@@ -26,6 +26,11 @@ const baseNode = z.object({
 	tree: z.string().min(1).optional(),
 	href: httpUrl.optional(),
 	query: z.string().min(1).optional(),
+	hash: z
+		.string()
+		.min(1)
+		.regex(/^[a-z0-9-]+$/)
+		.optional(),
 	label: localized.optional(),
 	slug: localized.optional(),
 	icon: z.string().min(1).optional(),
