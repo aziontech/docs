@@ -590,9 +590,20 @@ export function buildDirectory(
 	return groups;
 }
 
-export type GuideKind = 'learning-path' | 'tutorial' | 'reference-architecture' | 'video';
+export type GuideKind =
+	| 'learning-path'
+	| 'tutorial'
+	| 'how-to-guide'
+	| 'reference-architecture'
+	| 'video';
 
-const GUIDE_KINDS: GuideKind[] = ['learning-path', 'tutorial', 'reference-architecture', 'video'];
+const GUIDE_KINDS: GuideKind[] = [
+	'learning-path',
+	'tutorial',
+	'how-to-guide',
+	'reference-architecture',
+	'video',
+];
 
 export interface CatalogEntry {
 	label: string;

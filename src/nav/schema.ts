@@ -39,7 +39,7 @@ const baseNode = z.object({
 	linkOnly: z.boolean().optional(),
 	placeholder: z.boolean().optional(),
 	products: z.array(z.string().min(1)).optional(),
-	kind: z.enum(['learning-path', 'tutorial', 'reference-architecture']).optional(),
+	kind: z.enum(['learning-path', 'tutorial', 'how-to-guide', 'reference-architecture']).optional(),
 });
 
 export type NavNode = z.infer<typeof baseNode> & { items?: NavNode[] };
