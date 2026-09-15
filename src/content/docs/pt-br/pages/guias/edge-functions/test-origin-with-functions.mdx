@@ -1,317 +1,317 @@
 ---
-title: Como testar uma origem com Functions
+title: Espelhe tráfego de produção para uma origem de teste com Functions
 description: >-
-  Use Functions no Firewall para espelhar tráfego de produção para uma origem de teste. 
-  Valide novo software com requisições reais de usuários antes de implantar em produção.
-meta_tags: 'functions, firewall, teste, origem, espelhamento de tráfego'
+  Construa uma função em um firewall que envia uma cópia de cada requisição
+  correspondente para uma origem de teste e leia as respostas em Real-Time Events.
+meta_tags: 'functions, firewall, traffic mirroring, test origin, real-time events, rules engine'
 namespace: docs_guides_test_origin_functions
 permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/test-origin-with-functions/
 ---
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
 
-
-Testar novo software com dados sintéticos frequentemente perde padrões de uso do mundo real. Functions executando no Firewall podem espelhar tráfego de produção para uma origem de teste, permitindo validar o comportamento do novo software com requisições reais de usuários—sem afetar a experiência do usuário.
-
-## Como funciona
-
-Functions no listener do Firewall podem executar tarefas sem impactar as requisições dos usuários. Quando uma requisição chega ao Firewall, a função cria uma requisição duplicada e a envia para sua origem de teste, enquanto a requisição original continua para sua origem de produção. Isso acontece de forma assíncrona, sem adicionar latência às requisições dos usuários.
-
-Benefícios principais:
-
-- **Validação com tráfego real**: Teste com dados reais de usuários, incluindo casos de borda que testes sintéticos perdem
-- **Zero impacto ao usuário**: Requisições completam normalmente enquanto dados de teste são coletados
-- **Teste em escala de produção**: Verifique se sua nova origem suporta a carga de produção
-- **Monitoramento configurável**: Registre respostas, erros e métricas de latência
+Neste tutorial, você vai construir uma função que copia as requisições de produção para uma origem de teste. A cópia permite que um software novo responda a requisições reais antes de atender os usuários. Você vai criar a função, instanciá-la em um firewall e acioná-la com uma regra do Rules Engine. Depois, você vai ler as respostas espelhadas em [Real-Time Events](/pt-br/documentacao/observe/real-time-events/).
 
 ---
 
 ## Pré-requisitos
 
-Antes de começar, certifique-se de ter:
-
-- Uma [application](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/criar-uma-aplicacao/) com tráfego de produção
-- Um [domínio](/pt-br/documentacao/guias/plataforma/migracao/configurar-dominio/) associado à sua aplicação
-- Uma origem de teste (seu novo software) acessível via HTTPS
-- Um [Firewall](/pt-br/documentacao/plataforma/firewall/) associado ao seu domínio
+- Uma conta Azion. Para criar uma, consulte [Como criar uma conta na Azion](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- A permissão **Edit Functions** na conta. Ela também requer a permissão **View Functions**.
+- A permissão **Edit Firewall** na conta. Ela também requer a permissão **View Firewall**. Consulte [Teams Permissions](/pt-br/documentacao/fundamentos/teams-permissions/).
+- Uma aplicação que recebe tráfego de produção, em um domínio que você controla. Para configurar o domínio, consulte [Como configurar um domínio](/pt-br/documentacao/guias/plataforma/migracao/configurar-dominio/).
+- Um firewall associado a esse domínio. Para criar um, consulte [Como definir as main settings de um firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/firewall-definir-main-settings/).
+- Uma origem de teste que responde por HTTPS.
 
 ---
 
-## Criando a função de espelhamento de tráfego
+## 1. Crie a função de espelhamento de tráfego
 
-### Passo 1: Criar uma nova função
+Uma função é executada em um firewall quando ela exporta um handler `firewall`. Para criar a função:
 
-1. Acesse o [Azion Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/conhecendo-o-azion-console/) > **Functions**.
-2. Clique em **+ Function**.
-3. Nomeie sua função (ex: `Traffic Mirroring`).
-4. Na aba **Code**, adicione o seguinte código:
+<DocSteps>
+  <DocStep title="Abra a página Functions">
 
-```javascript
-const TEST_DOMAIN = "www.your-test-origin.com";
+  Acesse [Azion Console](https://console.azion.com/) > **Products Menu** > **Libraries** > **Functions**.
 
-async function firewallHandler(event) {
-  const originalUrl = new URL(event.request.url);
-  const testUrl = `${originalUrl.protocol}//${TEST_DOMAIN}${originalUrl.pathname}${originalUrl.search}`;
+  </DocStep>
+  <DocStep title="Selecione + Function" />
+  <DocStep title="Nomeie a função">
 
-  let fetchOptions = {
-    method: event.request.method,
-    headers: Object.fromEntries(event.request.headers)
+  Digite um nome para a função. Por exemplo: `traffic-mirroring`.
+
+  </DocStep>
+  <DocStep title="Cole o código na aba Code">
+
+  Na aba **Code**, cole o código a seguir:
+
+  ```javascript
+  const TEST_ORIGIN = 'example.com';
+  const TEST_TIMEOUT = 5000;
+
+  async function mirror(testUrl, options) {
+    try {
+      const start = Date.now();
+      const response = await fetch(testUrl, options);
+      const seconds = (Date.now() - start) / 1000;
+
+      console.log(`[${response.status}, ${seconds}s]`);
+
+      if (response.status > 399) {
+        console.warn(
+          JSON.stringify({
+            request_method: options.method,
+            request_path: new URL(testUrl).pathname,
+            request_headers: options.headers,
+            request_body: options.body,
+            response_status: response.status,
+            response_body: await response.text(),
+            response_time: seconds,
+          })
+        );
+      }
+    } catch (error) {
+      if (error.name === 'TimeoutError') {
+        console.warn('Test origin timeout');
+      } else {
+        console.warn(`Error: ${error.message}`);
+      }
+    }
+  }
+
+  export default {
+    firewall: async (request, env, ctx) => {
+      const originalUrl = new URL(request.url);
+      const testUrl = `${originalUrl.protocol}//${TEST_ORIGIN}${originalUrl.pathname}${originalUrl.search}`;
+
+      const options = {
+        method: request.method,
+        headers: Object.fromEntries(request.headers),
+        signal: AbortSignal.timeout(TEST_TIMEOUT),
+      };
+
+      // O corpo de uma requisição pode ser lido uma vez, portanto leia-o antes de a cópia começar.
+      if (request.body) {
+        options.body = await request.text();
+      }
+
+      // waitUntil mantém a cópia fora do caminho da requisição.
+      ctx.waitUntil(mirror(testUrl, options));
+    },
   };
+  ```
 
-  if (event.request.body) {
-    fetchOptions["body"] = await event.request.text();
-  }
+  </DocStep>
+  <DocStep title="Substitua a origem de teste">
 
-  event.waitUntil(fetch(testUrl, fetchOptions));
-  event.continue();
-}
+  Substitua `example.com` pelo domínio da sua origem de teste.
 
-addEventListener("firewall", (event) => event.waitUntil(firewallHandler(event)));
-```
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
 
-5. Substitua `www.your-test-origin.com` pelo domínio da sua origem de teste.
-6. Clique em **Save**.
+A função é salva e fica disponível para ser instanciada em um firewall.
 
-:::note
-Este código usa `event.waitUntil()` em dois níveis, cada um com uma responsabilidade distinta:
+`ctx.waitUntil()` estende a execução além do ponto em que o handler retorna. A cópia sai do caminho da requisição, e a requisição original chega à origem de produção sem latência adicional. O handler nunca chama `ctx.deny()`, portanto nenhuma requisição é bloqueada. [AbortSignal.timeout()](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static) encerra uma cópia após 5 segundos, e uma origem de teste mais lenta precisa de um valor maior.
 
-- **Nível externo** (`addEventListener`): O `event.waitUntil()` envolvendo `firewallHandler(event)` garante que o runtime aguarde a conclusão do handler assíncrono antes de considerar o evento finalizado.
-- **Nível interno** (dentro do handler): O `event.waitUntil(fetch(...))` garante que o fetch para sua origem de teste execute sem bloquear a requisição do usuário. Combinado com o `event.continue()` imediato, isso torna a função "transparente" para o usuário—zero latência adicionada.
-
-O método `event.continue()` é chamado imediatamente após `event.waitUntil(fetch(...))`, permitindo que a requisição original prossiga para sua origem de produção enquanto o fetch para a origem de teste acontece assincronamente em segundo plano.
+:::tip[dica]
+O exemplo usa o padrão ES Modules. Para migrar uma função do padrão Service Worker para esse padrão, consulte [Migre padrões de handler em Functions](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/migrar-padroes-de-handler/).
 :::
-
-### Passo 2: Configurar a função no Firewall
-
-:::note
-Os passos a seguir descrevem a configuração no Azion Console. Para informações detalhadas sobre essas interfaces, consulte a [referência de Functions](/pt-br/documentacao/build/functions/) e a [documentação do Firewall](/pt-br/documentacao/plataforma/firewall/).
-:::
-
-1. Acesse o [Azion Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/conhecendo-o-azion-console/) > **Firewall**.
-2. Selecione o firewall associado ao seu domínio.
-3. Habilite o módulo **Functions** se ainda não estiver habilitado.
-4. Vá para a aba **Functions Instances**.
-5. Clique em **+ Function Instance**.
-6. Nomeie sua instância (ex: `Traffic Mirroring Instance`).
-7. Selecione a função `Traffic Mirroring`.
-8. Clique em **Save**.
-
-### Passo 3: Criar uma regra para disparar a função
-
-1. No mesmo firewall, vá para a aba **Rules Engine**.
-2. Clique em **+ Rule**.
-3. Nomeie sua regra (ex: `Mirror Traffic to Test Origin`).
-4. Em **Criteria**, configure quando espelhar o tráfego:
-   - **If** `${uri}` **matches regex** `.*` (espelha todas as requisições)
-   - Ou especifique caminhos: **If** `${uri}` **starts with** `/api` (espelha apenas requisições de API)
-5. Em **Behaviors**, selecione **Run Function**.
-6. Escolha a `Traffic Mirroring Instance`.
-7. Clique em **Save**.
-
-Aguarde alguns minutos para a propagação. Sua função agora espelha o tráfego de produção para sua origem de teste.
 
 ---
 
-## Adicionando monitoramento com Real-Time Events
+## 2. Instancie a função no firewall
 
-:::note
-Os recursos descritos nesta seção—`event.console.log()`, `event.console.warn()`, e integração com Real-Time Events—são capacidades da plataforma Azion documentadas separadamente. Para mais informações, consulte [Real-Time Events](/pt-br/documentacao/observe/real-time-events/).
+Uma instância de função vincula a função a um firewall, e um firewall executa uma função apenas com o módulo **Functions** ativado. Para criar a instância:
+
+<DocSteps>
+  <DocStep title="Abra o firewall">
+
+  Em Azion Console, vá para **Products Menu** > **Firewall** > **seu firewall**.
+
+  </DocStep>
+  <DocStep title="Na aba Main Settings, ative o módulo Functions" />
+  <DocStep title="Selecione Save" />
+  <DocStep title="Vá para a aba Functions Instances" />
+  <DocStep title="Selecione + Function Instance" />
+  <DocStep title="Nomeie a instância">
+
+  Digite um nome para a instância. Por exemplo: `traffic-mirroring instance`.
+
+  </DocStep>
+  <DocStep title="Selecione a função">
+
+  Selecione a função `traffic-mirroring`. Apenas as funções com **Initiator Type** definido como _Firewall_ aparecem na lista.
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+A instância aparece na aba **Functions Instances**. Ela não é executada até que uma regra do Rules Engine a selecione.
+
+---
+
+## 3. Adicione a regra que executa a função
+
+Uma regra do Rules Engine define os critérios que acionam a instância. Para espelhar as requisições cuja URI começa com `/api`:
+
+<DocSteps>
+  <DocStep title="Vá para a aba Rules Engine">
+
+  No mesmo firewall, vá para a aba **Rules Engine**.
+
+  </DocStep>
+  <DocStep title="Selecione + Rule" />
+  <DocStep title="Nomeie a regra">
+
+  Digite um nome para a regra. Por exemplo: `Mirror traffic to the test origin`.
+
+  </DocStep>
+  <DocStep title="Selecione a variável na seção Criteria">
+
+  Na seção **Criteria**, selecione a variável `Request URI`.
+
+  </DocStep>
+  <DocStep title="Selecione starts with como operador de comparação" />
+  <DocStep title="Digite o argumento">
+
+  Digite `/api` como argumento.
+
+  </DocStep>
+  <DocStep title="Na seção Behaviors, selecione Run Function" />
+  <DocStep title="Selecione a instância que você criou" />
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+A regra executa a instância em toda requisição cuja URI começa com `/api`. As mudanças podem levar alguns minutos para propagar. Aguarde antes de enviar uma requisição que corresponde aos critérios.
+
+:::caution[Atenção]
+Toda requisição que a regra corresponde produz uma segunda requisição para a origem de teste. Um critério de **matches regex** com `.*` espelha todo o tráfego. Amplie os critérios apenas quando a origem de teste absorve o volume adicional.
 :::
 
-Para entender como sua origem de teste responde, adicione logging que aparece no Real-Time Events.
+---
 
-### Passo 4: Atualizar a função com logging
+## 4. Verifique as requisições espelhadas em Real-Time Events
 
-Substitua o código da sua função por:
+Envie uma requisição que corresponde aos critérios da regra:
+
+```bash
+curl https://<seu-dominio>/api/
+```
+
+O firewall executa a instância nessa requisição, e a função envia uma cópia para a origem de teste. Para ler o que a origem de teste respondeu:
+
+<DocSteps>
+  <DocStep title="Abra Real-Time Events">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Real-Time Events**.
+
+  </DocStep>
+  <DocStep title="Selecione a aba Functions Console" />
+  <DocStep title="Use os filtros para restringir a consulta" />
+  <DocStep title="Selecione uma entrada para ver os detalhes" />
+</DocSteps>
+
+Uma cópia bem-sucedida registra o status da origem de teste e o tempo de resposta:
+
+```
+[200, 0.142s]
+```
+
+Uma resposta acima de `399` registra a requisição e a resposta em JSON, portanto a falha carrega o próprio contexto. Uma cópia que excede o timeout registra `Test origin timeout`.
+
+Leia as entradas a partir de quatro medidas:
+
+- **Tempo de resposta**: como a latência da origem de teste se compara com a de produção.
+- **Taxa de erro**: quantas entradas carregam um status 4xx ou 5xx.
+- **Frequência de timeout**: com que frequência uma cópia excede o timeout.
+- **Cobertura de requisições**: se a origem de teste responde a todos os métodos que a regra corresponde, incluindo `POST`, `PUT` e `DELETE`.
+
+Quando a origem de teste responde ao tráfego de produção dentro do seu orçamento de latência e de erro, ela está pronta para atender produção.
+
+:::caution[Atenção]
+Não use `await` em `mirror()` dentro do handler. Passe a função para `ctx.waitUntil()`. Um handler que aguarda `mirror()` retém toda requisição de usuário até que a origem de teste responda.
+:::
+
+---
+
+## 5. (Opcional) Defina a origem de teste por uma variável de ambiente
+
+Variáveis de ambiente guardam a origem de teste e o timeout fora do código, portanto uma função atende vários testes. Crie as variáveis `TEST_ORIGIN` e `TEST_TIMEOUT` na função, conforme descrito em [Variáveis de ambiente](/pt-br/documentacao/build/functions/environment-variables/). Depois, substitua o código na aba **Code** pelo código a seguir:
 
 ```javascript
-const TEST_DOMAIN = "www.your-test-origin.com";
+const DEFAULT_TIMEOUT = 10000;
 
-async function firewallHandler(event) {
+async function mirror(testUrl, options) {
   try {
-    const originalUrl = new URL(event.request.url);
-    const testUrl = `${originalUrl.protocol}//${TEST_DOMAIN}${originalUrl.pathname}${originalUrl.search}`;
+    const start = Date.now();
+    const response = await fetch(testUrl, options);
+    const seconds = (Date.now() - start) / 1000;
 
-    let fetchOptions = {
-      method: event.request.method,
-      headers: Object.fromEntries(event.request.headers),
-      signal: AbortSignal.timeout(5000) // Timeout menor para fases de diagnóstico; aumente se sua origem de teste for lenta. A versão reutilizável no Passo 6 usa 10000 ms como padrão.
-    };
+    console.log(`[${response.status}, ${seconds}s]`);
 
-    if (event.request.body) {
-      fetchOptions["body"] = await event.request.text();
+    if (response.status > 399) {
+      console.warn(
+        JSON.stringify({
+          request_method: options.method,
+          request_path: new URL(testUrl).pathname,
+          request_headers: options.headers,
+          request_body: options.body,
+          response_status: response.status,
+          response_body: await response.text(),
+          response_time: seconds,
+        })
+      );
     }
-
-    const startTime = Date.now();
-    const testOriginResponse = await fetch(testUrl, fetchOptions);
-    const responseTime = (Date.now() - startTime) / 1000;
-
-    event.console.log(`[${testOriginResponse.status}, ${responseTime}s]`);
-
-    if (testOriginResponse.status > 399) {
-      // Nota: esta estrutura de log estende os campos canônicos da
-      // referência fonte com request_path e response_time
-      // para contexto adicional de observabilidade.
-      event.console.warn(JSON.stringify({
-        request_method: event.request.method,
-        request_body: fetchOptions["body"],
-        request_headers: fetchOptions["headers"],
-        response_body: await testOriginResponse.text(),
-        response_status: testOriginResponse.status,
-        request_path: originalUrl.pathname,   // campo estendido
-        response_time: responseTime           // campo estendido
-      }));
-    }
-  } catch (err) {
-    if (err.name === "TimeoutError") {
-      event.console.warn("Test origin timeout");
+  } catch (error) {
+    if (error.name === 'TimeoutError') {
+      console.warn('Test origin timeout');
     } else {
-      event.console.warn(`Error: ${err.message}`);
+      console.warn(`Error: ${error.message}`);
     }
   }
-
-  // event.continue() está FORA do try/catch intencionalmente.
-  // Isso garante que a requisição do usuário sempre prossiga para a origem de produção,
-  // independentemente de erros na comunicação com a origem de teste.
-  event.continue();
 }
 
-addEventListener("firewall", (event) => event.waitUntil(firewallHandler(event)));
-```
+export default {
+  firewall: async (request, env, ctx) => {
+    const testOrigin = Azion.env.get('TEST_ORIGIN');
+    const testTimeout = Number(Azion.env.get('TEST_TIMEOUT')) || DEFAULT_TIMEOUT;
 
-:::note
-`AbortSignal.timeout()` é uma API Web padrão para definir timeouts de requisições. Para mais informações, consulte a [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static).
-:::
+    const originalUrl = new URL(request.url);
+    const testUrl = `${originalUrl.protocol}//${testOrigin}${originalUrl.pathname}${originalUrl.search}`;
 
-Esta versão atualizada:
-
-- Registra status de resposta e tempo para cada requisição
-- Registra informações detalhadas para respostas de erro (4xx e 5xx)
-- Implementa um timeout de 5 segundos para prevenir requisições de longa duração
-- Trata timeouts e outros erros de forma elegante
-
-:::caution
-**Esta versão quebra o princípio de zero latência.**
-
-Adicionar `await` ao fetch muda fundamentalmente o comportamento da função:
-
-- **Antes (Passo 1)**: A função era "transparente"—`event.continue()` era chamado imediatamente, e o fetch acontecia assincronamente. Zero latência adicionada para os usuários.
-- **Agora (Passo 4)**: A função se torna "bloqueante"—ela aguarda a resposta da origem de teste antes de chamar `event.continue()`. As requisições dos usuários são atrasadas pelo tempo de resposta da origem de teste.
-
-Esta abordagem **abandona o princípio central** do espelhamento de tráfego descrito neste guia. Use-a apenas durante fases curtas de diagnóstico, nunca como padrão operacional. Para monitoramento estendido sem impacto ao usuário, considere usar [Data Stream](/pt-br/documentacao/observe/data-stream/).
-:::
-
-### Passo 5: Visualizar logs no Real-Time Events
-
-1. Acesse o [Azion Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/conhecendo-o-azion-console/) > **Real-Time Events**.
-2. Selecione **Functions** nas opções de filtro.
-3. Filtre pelo nome da sua função ou firewall.
-4. Observe os logs aparecendo conforme as requisições são processadas.
-
-Você verá entradas como:
-
-- `[200, 0.142s]` — Respostas bem-sucedidas com latência
-- Logs de aviso com detalhes da requisição para respostas de erro
-- Avisos de timeout se sua origem de teste for lenta
-
----
-
-## Tornando a função reutilizável
-
-Para múltiplos cenários de teste, use variáveis de ambiente e JSON Args em vez de valores fixos no código.
-
-### Passo 6: Criar uma função reutilizável
-
-Atualize o código da sua função:
-
-```javascript
-async function firewallHandler(event) {
-  try {
-    const testDomain = event.args.url || Azion.env.get("TEST_URL") || "www.default-test.com";
-    const testTimeout = event.args.timeout || Azion.env.get("TEST_TIMEOUT") || 10000;
-
-    const originalUrl = new URL(event.request.url);
-    const testUrl = `${originalUrl.protocol}//${testDomain}${originalUrl.pathname}${originalUrl.search}`;
-
-    let fetchOptions = {
-      method: event.request.method,
-      headers: Object.fromEntries(event.request.headers),
-      signal: AbortSignal.timeout(testTimeout)
+    const options = {
+      method: request.method,
+      headers: Object.fromEntries(request.headers),
+      signal: AbortSignal.timeout(testTimeout),
     };
 
-    if (event.request.body) {
-      fetchOptions["body"] = await event.request.text();
+    // O corpo de uma requisição pode ser lido uma vez, portanto leia-o antes de a cópia começar.
+    if (request.body) {
+      options.body = await request.text();
     }
 
-    const startTime = Date.now();
-    const testOriginResponse = await fetch(testUrl, fetchOptions);
-    const responseTime = (Date.now() - startTime) / 1000;
-
-    event.console.log(`[${testOriginResponse.status}, ${responseTime}s]`);
-
-    if (testOriginResponse.status > 399) {
-      // Nota: esta estrutura de log estende os campos canônicos da
-      // referência fonte com request_path e response_time
-      // para contexto adicional de observabilidade.
-      event.console.warn(JSON.stringify({
-        request_method: event.request.method,
-        request_body: fetchOptions["body"],
-        request_headers: fetchOptions["headers"],
-        response_body: await testOriginResponse.text(),
-        response_status: testOriginResponse.status,
-        request_path: originalUrl.pathname,   // campo estendido
-        response_time: responseTime           // campo estendido
-      }));
-    }
-  } catch (err) {
-    if (err.name === "TimeoutError") {
-      event.console.warn("Test origin timeout");
-    } else {
-      event.console.warn(`Error: ${err.message}`);
-    }
-  }
-
-  // event.continue() está FORA do try/catch intencionalmente.
-  // Isso garante que a requisição do usuário sempre prossiga para a origem de produção,
-  // independentemente de erros na comunicação com a origem de teste.
-  event.continue();
-}
-
-addEventListener("firewall", (event) => event.waitUntil(firewallHandler(event)));
+    // waitUntil mantém a cópia fora do caminho da requisição.
+    ctx.waitUntil(mirror(testUrl, options));
+  },
+};
 ```
 
-:::caution
-Assim como a versão no Passo 4, esta função usa `await` na chamada fetch e, portanto, é bloqueante. As requisições dos usuários serão atrasadas pelo tempo de resposta da origem de teste. De acordo com benchmarks, esta abordagem pode tornar a função até 14x mais lenta que a versão de zero latência no Passo 1, dependendo do tempo de resposta da sua origem de teste.
+`Azion.env.get()` retorna o valor de uma chave em tempo de execução. Quando `TEST_TIMEOUT` não carrega valor, a função usa `10000` ms. Selecione **Save**.
 
-Use esta configuração apenas durante fases ativas de teste.
-:::
-
-Agora você pode configurar a função através de:
-
-- **JSON Args**: Adicione `{"url": "www.test-origin.com", "timeout": 3000}` na instância da função
-- **Variáveis de ambiente**: Defina `TEST_URL` e `TEST_TIMEOUT` no ambiente da sua função
-
-Isso permite criar múltiplas instâncias da função com diferentes origens de teste sem modificar o código.
-
-:::note
-O valor padrão do timeout é 10000 ms (10 segundos). Ajuste este valor com base no tempo de resposta esperado da sua origem de teste. Timeouts menores falham mais rápido, mas podem perder respostas válidas de origens mais lentas.
-:::
+A função lê a origem de teste em tempo de execução, portanto a próxima origem de teste não exige edição de código.
 
 ---
 
-## Analisando os resultados do teste
+## Próximos passos
 
-Após executar o espelhamento de tráfego, analise o comportamento da sua origem de teste:
-
-1. **Tempos de resposta**: Compare a latência entre as origens de produção e teste
-2. **Taxas de erro**: Verifique respostas 4xx e 5xx nos logs do Real-Time Events
-3. **Frequência de timeout**: Monitore com que frequência as requisições excedem seu limite de timeout
-4. **Padrões de requisição**: Verifique se sua origem de teste trata todos os tipos de requisição (GET, POST, PUT, DELETE)
-
-Quando sua origem de teste tratar o tráfego de produção com sucesso, com latência e taxas de erro aceitáveis, ela está pronta para implantação em produção.
-
----
-
-## Recursos relacionados
-
-- [Referência de Functions](/pt-br/documentacao/build/functions/)
-- [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/)
-- [Real-Time Events](/pt-br/documentacao/observe/real-time-events/)
+<DocCardGroup cols={2}>
+  <DocCard title="Execute uma função em um firewall" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/firewall/" label="Os mesmos três objetos para qualquer função de firewall, da função à regra que a aciona." />
+  <DocCard title="Instancie uma função em um firewall" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/instanciar-functions/" label="Crie a instância pela Azion API e passe a configuração dela como Args em JSON." />
+  <DocCard title="Functions no Firewall" href="/pt-br/documentacao/plataforma/firewall/functions/" label="Os desfechos que uma função de firewall retorna e os headers de requisição e resposta que ela adiciona." />
+  <DocCard title="Rules Engine para Firewall" href="/pt-br/documentacao/plataforma/firewall/rules-engine/" label="Todas as variáveis de critério, operadores de comparação e comportamentos que uma regra de firewall aceita." />
+  <DocCard title="Data Stream" href="/pt-br/documentacao/observe/data-stream/" label="Envie a mesma saída de log para um endpoint que você controla, para monitoramento que dura mais que um teste." />
+  <DocCard title="Solução de problemas de execução e logs de funções" href="/pt-br/documentacao/build/functions/solucao-de-problemas/" label="O que verificar quando uma função não produz saída de log ou nunca é executada." />
+</DocCardGroup>
