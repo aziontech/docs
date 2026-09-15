@@ -138,6 +138,16 @@ export default tseslint.config(
 		},
 	},
 
+	// The wrapper folder closes the transitive guarantee: MDX may import these wrappers,
+	// so the wrappers themselves may only reach vue, webkit and each other.
+	{
+		files: ['src/components/webkit/**/*.vue'],
+		plugins: { docs: mdxPolicy },
+		rules: {
+			'docs/webkit-wrapper-imports': 'error',
+		},
+	},
+
 	{
 		files: [
 			'*.{js,mjs,cjs,ts}',

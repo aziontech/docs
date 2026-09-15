@@ -34,6 +34,7 @@ const RULE_PURPOSE = {
 	'webkit/authoring-standards': 'shared authoring standards (typed slots, comments, …)',
 	'docs/mdx-webkit-imports-only': 'MDX import that is not a direct `@aziontech/webkit/*` subpath',
 	'docs/mdx-no-raw-html': 'raw HTML element in MDX instead of prose or a webkit component',
+	'docs/webkit-wrapper-imports': 'webkit wrapper importing beyond vue, webkit and sibling wrappers',
 };
 
 function parseArgs(argv) {
