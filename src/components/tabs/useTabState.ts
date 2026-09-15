@@ -1,28 +1,35 @@
-import { useStore } from '@nanostores/preact';
-import { useState } from 'preact/hooks';
+import { onMounted, onUnmounted, ref, type Ref } from 'vue';
+
 import { tabStore } from './store';
 
-export function useTabState(
-	initialCurr: string,
-	storeKey?: string
-): [string, (curr: string) => void] {
-	const $tabStore = useStore(tabStore);
-	// Use localState when no storeKey is provided
-	// Would be nice to conditionally create this but alas...
-	// hooks can't use conditionals :(
-	const localState = useState(initialCurr);
-	if (!storeKey) return localState;
+export function useSharedTab(storeKey: string | undefined, fallback: string): Ref<string> {
+	const curr = ref(fallback);
 
-	const curr = $tabStore[storeKey]?.curr ?? initialCurr;
-	function setCurr(newCurr: string) {
+	let unsubscribe: (() => void) | undefined;
+
+	onMounted(() => {
+		if (!storeKey) return;
+		unsubscribe = tabStore.subscribe((value) => {
+			const next = value[storeKey]?.curr;
+			if (next) curr.value = next;
+		});
+	});
+
+	onUnmounted(() => unsubscribe?.());
+
+	return curr;
+}
+
+export function useTabState(initial: string, storeKey?: string) {
+	const curr = useSharedTab(storeKey, initial);
+
+	const setCurr = (next: string) => {
 		if (storeKey) {
-			tabStore.setKey(storeKey, { curr: newCurr });
-		} else {
-			throw new Error(
-				'[Tabs] Looks like a sharedStore key is no longer present on your tab view! If your store key is dynamic, consider using a static string value instead.'
-			);
+			tabStore.setKey(storeKey, { curr: next });
+			return;
 		}
-	}
+		curr.value = next;
+	};
 
-	return [curr, setCurr];
+	return { curr, setCurr };
 }

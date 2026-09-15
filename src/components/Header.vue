@@ -1,56 +1,88 @@
 <template>
-  <header
-    class="w-full h-[56px] dark:bg-neutral-950 surface-ground border-b surface-border bg-header text-white py-3 sticky top-0 z-50"
-  >
-    <div class="px-shell h-8 flex justify-between items-center">
-      <div class="flex gap-4 items-center">
-        <slot name="visualid" />
-        <slot name="navigation" />
-      </div>
+	<!-- The shell owns page chrome: this box decides that the header sticks to the
+	     top, holds the stacking context, and anchors the container queries the
+	     header's children respond to. The GlobalHeader itself is untouched. -->
+	<div class="@container sticky top-0 z-50">
+		<GlobalHeader aria-label="Azion documentation">
+			<!-- eslint-disable webkit/no-style-override -- design-system gap: the Left
+			     cluster centers its content and exposes no alignment prop; needs an
+			     `align="start"` seam on GlobalHeader.Left. Remove when it ships. -->
+			<GlobalHeader.Left class="justify-start!">
+				<!-- eslint-enable webkit/no-style-override -->
+				<slot name="mobile-nav" />
 
-      <div class="flex gap-2">
-        <a
-          v-for="(menu, index) in menuSecondary"
-          :key="index"
-          :target="menu.target"
-          :href="menu.link"
-          :title="menu.title"
-          :class="[
-            menu.destak ? menuClasses.destak : menuClasses.default,
-            { 'p-button-info': menu.severity === 'info' },
-            { 'p-button-outlined border-header': menu.outlined === true },
-            menu.minBreakpoint && menu.minBreakpoint === 'sm' && 'block',
-            menu.minBreakpoint && menu.minBreakpoint === 'md' && 'hidden md:block',
-            menu.minBreakpoint && menu.minBreakpoint === 'lg' && 'hidden lg:block',
-            menu.minBreakpoint && menu.minBreakpoint === 'xl' && 'hidden xl:block',
-            menu.minBreakpoint && menu.minBreakpoint === '2xl' && 'hidden 2xl:block'
-          ]"
-        >
-          <span>
-            {{ menu.text }}
-          </span>
-        </a>
+				<GlobalHeader.Brand>
+					<a
+						:href="homeHref"
+						aria-label="Azion Docs — home"
+						class="inline-flex shrink-0 items-center gap-(--spacing-xs) rounded-(--shape-elements) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-surface)"
+					>
+						<Brand kind="default" size="small" aria-hidden="true" />
+						<span
+							class="hidden rounded-(--shape-elements) border border-(--border-muted) px-(--spacing-xxs) py-px text-overline-sm uppercase tracking-widest text-(--text-muted) sm:inline-block"
+						>
+							Docs
+						</span>
+					</a>
+				</GlobalHeader.Brand>
 
-        <div
-          v-if="$slots.dialog"
-          class="min-w-8"
-        >
-          <slot name="dialog" />
-        </div>
+				<slot name="nav" />
+			</GlobalHeader.Left>
 
-        <slot name="mobile-right-sidebar" />
-      </div>
-    </div>
-  </header>
+			<GlobalHeader.Nav />
+
+			<GlobalHeader.Right>
+				<slot name="dialog" />
+
+				<div class="flex shrink-0 items-center">
+					<IconButton
+						icon="pi pi-github"
+						kind="outlined"
+						size="medium"
+						aria-label="Azion on GitHub"
+						href="https://github.com/aziontech"
+						target="_blank"
+					/>
+				</div>
+
+				<div class="flex shrink-0 items-center">
+					<Button
+						label="Console"
+						kind="secondary"
+						size="medium"
+						href="https://console.azion.com"
+						target="_blank"
+					/>
+				</div>
+			</GlobalHeader.Right>
+		</GlobalHeader>
+	</div>
 </template>
 
-<script setup>
-  const props = defineProps({ menuSecondary: Object })
-  const { menuSecondary } = props
-  const menuClasses = {
-    destak:
-      'header-button-destak p-button p-button-secondary !text-[#000000] !bg-[#ffffff] whitespace-nowrap p-button-sm hidden',
-    default:
-      'p-button p-button-primary whitespace-nowrap p-button-text hover:surface-hover p-button-sm'
-  }
+<script setup lang="ts">
+import Brand from '@aziontech/webkit/brand';
+import Button from '@aziontech/webkit/button';
+import GlobalHeader from '@aziontech/webkit/global-header';
+import IconButton from '@aziontech/webkit/icon-button';
+
+interface Props {
+	/** Destination of the brand mark. */
+	homeHref?: string;
+	/** Kept for callers; the header's call to action now points at the Console. */
+	signInLabel?: string;
+}
+
+withDefaults(defineProps<Props>(), {
+	homeHref: '/',
+	signInLabel: 'Sign in',
+});
+
+defineSlots<{
+	/** The mobile navigation drawer's trigger. */
+	'mobile-nav'(): unknown;
+	/** The primary navigation. */
+	nav(): unknown;
+	/** The search dialog. */
+	dialog(): unknown;
+}>();
 </script>
