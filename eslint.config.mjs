@@ -5,6 +5,7 @@ import astro from 'eslint-plugin-astro';
 import vue from 'eslint-plugin-vue';
 import webkit from '@aziontech/webkit/eslint-plugin';
 import * as mdxPlugin from 'eslint-plugin-mdx';
+import mdxPolicy from './scripts/eslint-rules/mdx-policy.mjs';
 
 export default tseslint.config(
 	{
@@ -109,12 +110,16 @@ export default tseslint.config(
 	// Astro block above: it needs vue-eslint-parser's template visitor.
 	{
 		files: ['**/*.mdx'],
-		plugins: { webkit },
+		plugins: { webkit, docs: mdxPolicy },
 		languageOptions: {
 			parser: mdxPlugin.flat.languageOptions.parser,
 			globals: { ...globals.browser },
 		},
 		rules: {
+			// The content policy: an MDX page is prose plus webkit components — imports come
+			// only from `@aziontech/webkit/<component>`, and no raw HTML elements.
+			'docs/mdx-webkit-imports-only': 'error',
+			'docs/mdx-no-raw-html': 'error',
 			'webkit/valid-import-path': 'error',
 			'webkit/no-deep-internal-import': 'error',
 			'webkit/no-barrel-import': 'error',
@@ -130,6 +135,16 @@ export default tseslint.config(
 			'no-unused-vars': 'off',
 			'no-irregular-whitespace': 'off',
 			'no-useless-escape': 'off',
+		},
+	},
+
+	// The wrapper folder closes the transitive guarantee: MDX may import these wrappers,
+	// so the wrappers themselves may only reach vue, webkit and each other.
+	{
+		files: ['src/components/webkit/**/*.vue'],
+		plugins: { docs: mdxPolicy },
+		rules: {
+			'docs/webkit-wrapper-imports': 'error',
 		},
 	},
 

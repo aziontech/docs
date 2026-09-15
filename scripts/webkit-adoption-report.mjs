@@ -32,6 +32,9 @@ const RULE_PURPOSE = {
 	'webkit/prefer-define-model': 'hand-rolled `modelValue` + `update:modelValue` pair',
 	'webkit/no-style-override': '`class`/`style` on a webkit component — restyling it',
 	'webkit/authoring-standards': 'shared authoring standards (typed slots, comments, …)',
+	'docs/mdx-webkit-imports-only': 'MDX import that is not a direct `@aziontech/webkit/*` subpath',
+	'docs/mdx-no-raw-html': 'raw HTML element in MDX instead of prose or a webkit component',
+	'docs/webkit-wrapper-imports': 'webkit wrapper importing beyond vue, webkit and sibling wrappers',
 };
 
 function parseArgs(argv) {
@@ -84,7 +87,7 @@ function collect(results, cwd) {
 		if (UI_EXTENSIONS.has(extension)) uiFiles.add(relative);
 
 		for (const message of result.messages) {
-			if (!message.ruleId?.startsWith('webkit/')) continue;
+			if (!message.ruleId?.startsWith('webkit/') && !message.ruleId?.startsWith('docs/')) continue;
 			total += 1;
 			byRule.set(message.ruleId, (byRule.get(message.ruleId) ?? 0) + 1);
 			byExtension.set(extension, (byExtension.get(extension) ?? 0) + 1);
