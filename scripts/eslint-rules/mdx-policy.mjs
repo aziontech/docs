@@ -53,8 +53,7 @@ export const webkitWrapperImports = {
 	meta: {
 		type: 'problem',
 		docs: {
-			description:
-				'a webkit wrapper imports only vue, @aziontech/webkit/* and sibling wrappers',
+			description: 'a webkit wrapper imports only vue, @aziontech/webkit/* and sibling wrappers',
 		},
 		schema: [],
 		messages: {
