@@ -32,11 +32,74 @@
 	</div>
 </template>
 
+<script lang="ts">
+import { onMounted, onUnmounted, ref, type Ref } from 'vue';
+
+type TabStore = {
+	[key: string]: {
+		curr: string;
+	};
+};
+
+/**
+ * Module scope: one store per module, so every island importing this file shares it —
+ * that is what lets a tab click drive the pricing sidebar in a separate island. A plain
+ * stand-in for the nanostores `map` it replaced; a wrapper imports only vue and webkit.
+ */
+const listeners = new Set<() => void>();
+let state: TabStore = {};
+
+/** Notifies on subscribe, as nanostores does; listeners read `state` themselves. */
+const subscribe = (listener: () => void) => {
+	listeners.add(listener);
+	listener();
+	return () => {
+		listeners.delete(listener);
+	};
+};
+
+const setKey = (key: string, value: TabStore[string]) => {
+	if (state[key] === value) return;
+	state = { ...state, [key]: value };
+	for (const listener of [...listeners]) listener();
+};
+
+export function useSharedTab(storeKey: string | undefined, fallback: string): Ref<string> {
+	const curr = ref(fallback);
+
+	let unsubscribe: (() => void) | undefined;
+
+	onMounted(() => {
+		if (!storeKey) return;
+		unsubscribe = subscribe(() => {
+			const next = state[storeKey]?.curr;
+			if (next) curr.value = next;
+		});
+	});
+
+	onUnmounted(() => unsubscribe?.());
+
+	return curr;
+}
+
+export function useTabState(initial: string, storeKey?: string) {
+	const curr = useSharedTab(storeKey, initial);
+
+	const setCurr = (next: string) => {
+		if (storeKey) {
+			setKey(storeKey, { curr: next });
+			return;
+		}
+		curr.value = next;
+	};
+
+	return { curr, setCurr };
+}
+</script>
+
 <script setup lang="ts">
 import TabView from '@aziontech/webkit/tab-view';
-import { computed, nextTick, ref, useId, useSlots } from 'vue';
-
-import { useTabState } from './useTabState';
+import { computed, nextTick, useId, useSlots } from 'vue';
 
 const TabViewItem = TabView.Item;
 

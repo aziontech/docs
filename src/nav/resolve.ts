@@ -145,8 +145,15 @@ function nodeLabel(data: NavData, node: NavNode, lang: Lang): string {
 }
 
 function nodeHref(data: NavData, node: NavNode, lang: Lang): string | undefined {
-	const withQuery = (href: string | undefined) =>
-		href && node.query ? `${href}?${node.query}` : href;
+	// A row may land on a section of its target page: `hash` carries the heading's
+	// slug, which rehype-slug derives from the heading text and keeps identical in
+	// both locales when the heading is a product name. Order matters: path?query#hash.
+	const withQuery = (href: string | undefined) => {
+		if (!href) return href;
+		const q = node.query ? `?${node.query}` : '';
+		const h = node.hash ? `#${node.hash}` : '';
+		return `${href}${q}${h}`;
+	};
 
 	if (node.href) return node.href;
 	if (node.tree) {

@@ -1,1 +1,1 @@
-export { default } from './Tabs.vue';
+export { default } from '~/components/webkit/Tabs.vue';
