@@ -1,0 +1,169 @@
+---
+title: Scan file uploads with an AI Inference firewall function
+description: >-
+  Create a function that sends an uploaded file to a model through AI Inference,
+  and run it on a firewall so a malicious upload never reaches the origin.
+meta_tags: 'AI Inference, firewall function, file upload, PDF injection, Rules Engine, WAF, security'
+namespace: docs_guides_ai_inference_upload_scanning
+permalink: /documentation/guides/ai/inference/scan-uploads-with-ai-inference/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+You can scan an upload with a model and deny a malicious file, from Azion Console. The function runs on [Firewall](/en/documentation/platform/firewall/) and calls the model through [AI Inference](/en/documentation/build/ai-inference/). For the design this page builds, refer to [Autonomous upload inspection with AI Inference](/en/documentation/guides/ai/inference/autonomous-security-ai-agent/).
+
+---
+
+## Prerequisites
+
+- An Azion account. To create one, refer to [How to create an account on Azion](/en/documentation/fundamentals/creating-account/).
+- A firewall with the **Functions** module turned on. For what a function does on a firewall, refer to [Functions for Firewall](/en/documentation/platform/firewall/functions/).
+- A domain associated to that firewall, so the upload traffic reaches it.
+- The upload routes to protect, such as `/upload` or `/documents/upload`.
+
+---
+
+## Create the firewall function
+
+A function runs on a firewall when it registers a `firewall` handler. This one reads the request body, sends it to the model, and applies the verdict in the same request. To create it:
+
+1. Access [Azion Console](https://console.azion.com/) > **Products Menu** > **Libraries** > **Functions**.
+2. Select **+ Function**.
+3. Enter a unique, descriptive name for the function.
+4. In the **Code** tab, paste the function below.
+5. In the **Arguments** tab, paste the JSON below.
+6. Select **Save**.
+
+The **Code** tab takes this function:
+
+```js
+async function handleRequest(event) {
+  try {
+    const requestBody = await event.request.text();
+    const { model, action, prompt } = event.args;
+    const contentType = event.request.headers.get("content-type");
+
+    // Allows images
+    if (contentType && contentType.startsWith("image/")) {
+      event.continue();
+      return;
+    }
+
+    // Decodes the content if it's base64
+    const decodedBody = contentType && contentType.includes("base64")
+      ? atob(requestBody.split(",")[1])
+      : requestBody;
+
+    // Calls the model via Azion.AI.run
+    const modelResponse = await Azion.AI.run(model, {
+      stream: false,
+      seed: 42,
+      temperature: 0,
+      max_tokens: 1024,
+      messages: [
+        {
+          role: "system",
+          content: `${prompt}`
+        },
+        {
+          role: "user",
+          content: decodedBody
+        }
+      ]
+    });
+
+    // Extracts the model's response
+    const result = modelResponse?.choices?.[0]?.message?.content?.trim();
+
+    if (result === "true") {
+      event.console.warn(`[AI] ${result}`);
+      event[action]();
+      return;
+    }
+  } catch (err) {
+    event.console.error("Error handling request:", err.message);
+    event.continue();
+    return;
+  }
+
+  event.continue(); // If not malicious, let it pass
+}
+
+addEventListener("firewall", event => {
+  event.waitUntil(handleRequest(event));
+});
+```
+
+The **Arguments** tab takes this JSON:
+
+```json
+{
+  "model": "casperhansen-mistral-small-24b-instruct-2501-awq",
+  "prompt": "You are a security assistant specialized in detecting malicious PDF files. Analyze the provided content carefully and return 'true' only if you identify malicious content, such as embedded scripts, suspicious patterns, or known vulnerabilities. Do not classify a file as malicious based solely on its structure or the presence of a PDF header. If the content is safe or does not contain clear malicious indicators, return 'false'. Do not provide any additional explanation or output.",
+  "action": "deny"
+}
+```
+
+The function is saved and available to instantiate on a firewall.
+
+The function reads the request body and lets an image content type through untouched. It decodes base64 content, sends it to the model with the prompt from the arguments, and applies the action. The action, `deny` in this example, runs only when the model answers `true`. On any error, the function logs the message and lets the request continue.
+
+The arguments select [Mistral 3 Small](/en/documentation/build/ai-inference/mistral-3-small/), whose id is `casperhansen-mistral-small-24b-instruct-2501-awq`. Make sure the model you choose is available and configured in your account. For every id you can pass, refer to [AI models](/en/documentation/build/ai-inference/models/).
+
+The handler runs on [Functions](/en/documentation/build/functions/). For every field `Azion.AI.run` accepts, refer to [Model invocation](/en/documentation/build/ai-inference/model-invocation/). For what happens after the call, refer to [How AI Inference works](/en/documentation/build/ai-inference/how-it-works/).
+
+---
+
+## Instantiate the function on a firewall
+
+A function instance binds the function to one firewall, and a Rules Engine rule decides when it runs. To scan the uploads your application receives:
+
+1. In Azion Console, go to **Products Menu** > **Firewall**.
+2. Select the firewall that secures the upload routes.
+3. In the **Main Settings** tab, turn on the **DDoS Protection**, **Functions**, **Network Shield**, and **Web Application Firewall** modules.
+4. Select **Save**.
+5. Go to the **Functions Instances** tab.
+6. Select **+ Function Instance**.
+7. Enter a name for the instance.
+8. Select the function you created.
+9. Select **Save**.
+10. Go to the **Rules Engine** tab.
+11. Select **+ Rule**.
+12. Enter a name for the rule.
+13. In the **Criteria** section, select the `Request URI` variable.
+14. Set the comparison operator to _starts with_.
+15. Enter an upload route as the argument, such as `/upload`.
+16. In the **Behaviors** section, select **Run Function**.
+17. Select the instance you created.
+18. Select **Save**.
+
+The rule runs the function on every request whose URI starts with that route. A file the model calls malicious is denied before the origin receives it. Changes can take a few minutes to propagate. Wait before you send an upload that matches the criteria.
+
+---
+
+## Monitor and tune the policy
+
+A model decides what the policy blocks, so its record is the only way to check it. Watch these signals in [Real-Time Metrics](/en/documentation/platform/real-time-metrics/) and [Real-Time Events](/en/documentation/observe/real-time-events/):
+
+- The rate of uploads blocked, allowed, and quarantined.
+- Patterns by country, IP, ASN, route, and time.
+- Events correlated with the security incidents your team reports.
+
+Then tune the policy against what you read:
+
+- The prompt in the **Arguments** tab, which sets how strictly the model answers.
+- Whether a suspect upload is denied or held for review in [Object Storage](/en/documentation/store/object-storage/).
+- The Web Application Firewall and Network Shield rules on the same firewall.
+- The volume the function sends to the model, within [AI Inference limits](/en/documentation/build/ai-inference/limits/).
+- The false positives and false negatives your analysts label, fed back into the prompt.
+
+The signals show what the function decided, and each adjustment changes what the next reading shows.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Autonomous upload inspection with AI Inference" href="/en/documentation/guides/ai/inference/autonomous-security-ai-agent/" label="The design this page builds, with its dataflow and the components it puts in the request path." />
+  <DocCard title="AI Inference best practices" href="/en/documentation/build/ai-inference/best-practices/" label="The decisions the function takes before the call: the model id, the input it sends, and how it reads the response." />
+</DocCardGroup>
