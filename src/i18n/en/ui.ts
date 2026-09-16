@@ -15,6 +15,7 @@ export default {
 	'guides.topics': 'Topics',
 	'guides.kind.learningPath': 'Learning path',
 	'guides.kind.tutorial': 'Tutorial',
+	'guides.kind.howToGuide': 'How-to guide',
 	'guides.kind.referenceArchitecture': 'Reference architecture',
 	'guides.kind.video': 'Video',
 	'guides.count.one': '{count} page',

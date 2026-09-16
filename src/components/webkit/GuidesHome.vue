@@ -212,8 +212,13 @@
 <script lang="ts">
 export const PAGE_SIZE = 24;
 
-/** The four content types the guides tree tags a page with. */
-export type GuideKind = 'learning-path' | 'tutorial' | 'reference-architecture' | 'video';
+/** The five content types the guides tree tags a page with. */
+export type GuideKind =
+	| 'learning-path'
+	| 'tutorial'
+	| 'how-to-guide'
+	| 'reference-architecture'
+	| 'video';
 
 /** One catalogued page: what it takes to filter it and to draw its card. */
 export interface GuidesEntry {

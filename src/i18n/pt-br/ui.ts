@@ -17,6 +17,7 @@ export default UIDictionary({
 	'guides.topics': 'Tópicos',
 	'guides.kind.learningPath': 'Trilha de aprendizado',
 	'guides.kind.tutorial': 'Tutorial',
+	'guides.kind.howToGuide': 'Guia how-to',
 	'guides.kind.referenceArchitecture': 'Arquitetura de referência',
 	'guides.kind.video': 'Vídeo',
 	'guides.count.one': '{count} página',
