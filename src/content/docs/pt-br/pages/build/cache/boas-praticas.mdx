@@ -1,0 +1,160 @@
+---
+title: Boas práticas
+description: >-
+  Defina um TTL que acompanhe a frequência de mudança, mantenha a cache key
+  estreita, versione o que você substitui e purgue as variações do objeto.
+meta_tags: 'cache, boas práticas, ttl, cache key, variação de cache, purge, objetos versionados, tiered cache, stale cache'
+namespace: documentation_products_cache_best_practices
+permalink: /documentacao/build/cache/boas-praticas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Uma aplicação que usa bem o cache responde a maior parte das requisições sem acessar a origem e, ainda assim, mostra a cada visitante o conteúdo que a origem tem agora. Os dois objetivos se opõem, e um cache setting é onde você decide o equilíbrio. Erre em uma direção e a origem carrega um tráfego de que não precisa. Erre na outra e um visitante lê uma página que você substituiu há uma hora.
+
+As práticas abaixo seguem da forma como o [Cache](/pt-br/documentacao/build/cache/) armazena e entrega uma cópia. Elas cobrem o TTL por tipo de conteúdo, a largura da cache key e nomes de objeto versionados. Depois, o purge que alcança cada variação, a segunda camada de cache e a cópia expirada que uma falha da origem transforma em rede de proteção.
+
+---
+
+## Defina um TTL que acompanhe a frequência de mudança do conteúdo
+
+Uma aplicação entrega conteúdo que muda em ritmos diferentes, então um TTL único para tudo está sempre errado em algum ponto. Divida os paths em cache settings pela frequência com que a origem substitui o que eles contêm, e dê a cada setting um **Max Age** próprio. Uma regra do [Rules Engine](/pt-br/documentacao/plataforma/applications/rules-engine/) então aplica cada setting aos paths que ele cobre.
+
+O raciocínio é a troca que o TTL carrega. Um TTL longo responde mais requisições pela cópia armazenada e acessa menos a origem, e a cópia pode conter conteúdo que a origem já alterou. Um TTL curto mantém a cópia próxima da versão da origem e custa mais buscas na origem.
+
+O corpo da requisição abaixo cria um setting para assets que são substituídos por um novo deploy, e não editados no lugar:
+
+```json
+{
+  "name": "static-assets",
+  "browser_cache": { "behavior": "override", "max_age": 86400 },
+  "modules": {
+    "cache": {
+      "behavior": "override",
+      "max_age": 300
+    }
+  }
+}
+```
+
+Uma página cujo conteúdo a origem edita ao longo do dia recebe um segundo setting com um **Max Age** mais curto, aplicado pela sua própria regra. O custo da divisão é um setting e uma regra a mais para manter por ritmo de mudança.
+
+---
+
+## Mantenha a cache key tão estreita quanto a resposta exigir
+
+Cada entrada que um cache setting acrescenta à cache key multiplica as cópias que uma URL mantém. Um setting que varia por um cookie armazena uma cópia por valor de cookie. Um que varia por cada argumento de query string armazena uma cópia por combinação de argumentos. As requisições por essa URL então se dividem entre as cópias, de modo que menos delas encontram uma cópia já armazenada, e um purge precisa alcançar cada uma.
+
+Nomeie apenas as entradas que alteram a resposta. Quando dois visitantes recebem os mesmos bytes, a key não deveria distingui-los. O behavior `allowlist` faz isso nomeando os argumentos ou cookies de que a resposta depende e ignorando o resto:
+
+```json
+{
+  "name": "product-listing",
+  "modules": {
+    "cache": { "behavior": "override", "max_age": 300 },
+    "application_accelerator": {
+      "cache_vary_by_querystring": {
+        "behavior": "allowlist",
+        "fields": ["category", "page"],
+        "sort_enabled": true
+      }
+    }
+  }
+}
+```
+
+O campo `sort_enabled` vale a linha que ocupa. Com ele ativo, `?category=shoes&page=2` e `?page=2&category=shoes` compartilham uma key, em vez de armazenar a mesma resposta duas vezes. Uma allowlist tem um custo. Um argumento de que a resposta depende, fora da lista, faz dois visitantes compartilharem uma cópia que nenhum dos dois deveria ver. Para os campos e seus behaviors, consulte [Cache settings](/pt-br/documentacao/build/cache/cache-settings/).
+
+---
+
+## Versione o nome de um objeto quando substituir o seu conteúdo
+
+Um objeto cujo nome nunca muda precisa ser purgado de cada camada e de cada variação a cada vez que a origem substitui o seu conteúdo. Um objeto cujo nome carrega uma versão é um objeto novo. Nada está em cache sob o novo nome, então a primeira requisição por ele busca os bytes atuais.
+
+Coloque a versão no nome do objeto e altere-a junto com o conteúdo. Em vez de `image.jpg`, nomeie a primeira versão `image_1.jpg` e a substituta `image_2.jpg`. Um número sequencial, um timestamp ou um hash do conteúdo funcionam; o que importa é que uma mudança de conteúdo seja uma mudança de nome.
+
+```text
+https://static.example.com/assets/image_1.jpg
+https://static.example.com/assets/image_2.jpg
+```
+
+Cada atualização então chega aos usuários sem um purge. Um visitante que mantém o nome antigo em um browser cache ainda recebe um objeto válido, e não uma incompatibilidade. Você também pode entregar duas versões ao mesmo tempo e voltar atrás apontando as suas páginas para o nome anterior. O custo é que cada referência ao objeto muda com ele. Isso se adequa a conteúdo que um passo de build gera, e não a conteúdo que uma pessoa edita no lugar.
+
+---
+
+## Purgue por cache key ou por wildcard quando um objeto varia
+
+Um purge por URL converte cada URL em uma cache key e ignora as variações que essa key pode carregar. Uma cópia que varia por cookie, device group ou formato de imagem sobrevive a ele, então o purge parece bem-sucedido e a cópia antiga continua a ser entregue.
+
+Escolha o tipo de purge pelo que a key do objeto carrega. Um purge por cache key nomeia cada variação, e uma requisição recebe até 50 keys. Um purge por wildcard alcança cada key que casa com uma expressão, e uma requisição recebe uma expressão:
+
+```bash
+azion purge --cachekey "httpwww.example.com/@@user=user;,httpwww.example.com/@@;"
+azion purge --wildcard "www.example.com/@@*"
+```
+
+A variação por query string é a exceção: um purge por URL a alcança, desde que os argumentos estejam na ordem que a key contém, ou em ordem alfabética quando o **Sort** está ativo. Para o que cada tipo alcança, consulte [Real-Time Purge](/pt-br/documentacao/build/cache/real-time-purge/) e, para as keys em si, [Cache keys](/pt-br/documentacao/build/cache/cache-keys/).
+
+---
+
+## Ative o Tiered Cache para objetos que permanecem em cache por muito tempo
+
+O Tiered Cache responde a um miss na primeira camada por uma segunda camada, em vez de pela origem, então um objeto buscado uma vez é entregue a cada data center por essa camada. A origem vê menos requisições, e o objeto permanece em cache por mais tempo.
+
+A camada se adequa a objetos com vida longa e corpo estável. Ela custa um salto extra em um miss na primeira camada, e impõe um piso ao **Max Age** do setting. Conteúdo que muda a cada poucos segundos é o candidato errado. O setting também precisa usar _Override cache behavior_.
+
+```json
+{
+  "name": "video-segments",
+  "modules": {
+    "cache": {
+      "behavior": "override",
+      "max_age": 86400,
+      "tiered_cache": { "enabled": true, "topology": "nearest-region" }
+    }
+  }
+}
+```
+
+Duas consequências acompanham o toggle. Uma regra com **Bypass Cache** não alcança a segunda camada, então uma aplicação com cache settings de Tiered Cache continua a armazenar lá pelo TTL mínimo. E um objeto mantido nas duas camadas é purgado primeiro do Tiered Cache e depois do Cache, para que a primeira camada não seja reabastecida com uma cópia desatualizada. Para as topologies e o piso, consulte [Tiered Cache](/pt-br/documentacao/build/cache/tiered-cache/).
+
+---
+
+## Deixe o stale cache responder enquanto a origem está indisponível
+
+Com o **Stale cache** ativo, uma cópia além do seu TTL ainda é entregue quando uma tentativa de revalidação falha, pelo tempo que a janela de stale durar. Um visitante lê a versão anterior de uma página em vez de uma página de erro, e a Azion busca a versão atual em background.
+
+Ative-o para conteúdo em que uma versão antiga é melhor do que um erro: um artigo, uma listagem, uma página de produto. Deixe-o desativado onde uma versão antiga é pior do que nenhuma resposta, como um preço ou um número de disponibilidade sobre o qual o visitante age.
+
+A janela difere por comportamento. Sob _Honor cache policies_, a diretiva `stale-while-revalidate` da origem a define. Sob _Override cache behavior_, ou quando a origem omite a diretiva, a janela é de 300 segundos. Se o toggle começa ativo depende da interface. Um setting criado pela API ou pela CLI tem o stale cache desativado; o Console o ativa em um setting novo. Para o que conta como uma revalidação que falhou, consulte [Como o Cache funciona](/pt-br/documentacao/build/cache/como-funciona/).
+
+---
+
+## Verifique o status de cache antes e depois de uma alteração
+
+Um cache setting e a sua regra são uma afirmação sobre o que a Azion vai armazenar. A resposta diz o que ela armazenou, pelo header `x-cache` que uma requisição com `Pragma: azion-debug-cache` retorna.
+
+Leia o status depois de criar um setting, depois de alterar um TTL e depois de um purge. Uma resposta entregue por uma cópia armazenada informa `HIT`, uma que chegou à origem informa `MISS`, e uma resposta que a plataforma não colocou em cache informa `-`.
+
+```bash
+curl -sI -H "Pragma: azion-debug-cache" https://www.example.com/static/site.js
+```
+
+A mesma resposta carrega o `x-cache-key`, que é o argumento que um purge por cache key recebe. Lê-lo uma vez informa quais variações o setting realmente acrescenta à key. Para o procedimento, consulte [Verifique o status de cache de uma resposta](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/verificar-tempo-de-cache-da-pagina/).
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Como o Cache funciona" href="/pt-br/documentacao/build/cache/como-funciona/">Os mecanismos de que estas práticas seguem: a busca, o TTL, o stale cache e o purge.</DocItem>
+  <DocItem title="Cache settings" href="/pt-br/documentacao/build/cache/cache-settings/">Cada campo nomeado nesta página, com o seu tipo, o seu padrão e os seus limites.</DocItem>
+  <DocItem title="Cache keys" href="/pt-br/documentacao/build/cache/cache-keys/">O que cada variação acrescenta a uma key, e os headers de debug que a mostram.</DocItem>
+  <DocItem title="Real-Time Purge" href="/pt-br/documentacao/build/cache/real-time-purge/">Os três tipos de purge, e qual deles alcança um objeto que varia.</DocItem>
+  <DocItem title="Crie um cache setting" href="/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/ajustar-cache-settings/">Os passos no Console, na API e na CLI por trás dos corpos de requisição desta página.</DocItem>
+  <DocItem title="Limites do Cache" href="/pt-br/documentacao/build/cache/limites/">O piso e o teto do TTL, o tamanho do fragmento e as quotas de purge.</DocItem>
+</ItemList>
+</FrameBox>
