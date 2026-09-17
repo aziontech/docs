@@ -1,67 +1,85 @@
 ---
-title: Acelere aplicações e APIs com edge computing
+title: Application Accelerator no caminho da requisição da aplicação
 description: >-
-  Utilize o Application Accelerator para melhorar o desempenho de aplicações e
-  APIs.
-meta_tags: 'edge, aplicações, aplicações web, api, aceleração'
-namespace: docs_arch_application_acceleration
+  Acompanhe uma requisição em uma aplicação que varia a cache key, da regra do
+  Rules Engine até o objeto em cache ou a origem.
 permalink: /documentacao/guias/performance-e-confiabilidade/otimizacao-de-entrega/application-acceleration/
+meta_tags: >-
+  application accelerator, architecture, cache key, dynamic content, api
+  acceleration, rules engine, cache
+namespace: docs_arch_application_acceleration
 ---
 
-A [aceleração de aplicações](https://www.azion.com/pt-br/solucoes/aceleracao-de-aplicacoes/) é vital para a arquitetura web moderna, aprimorando o desempenho de aplicações e APIs. O cache inteligente, baseado em identificadores dinâmicos como strings de consulta e cookies, permite uma entrega de conteúdo personalizada. Configurações especiais suportam vários métodos HTTP, incluindo `POST` e `OPTIONS`, proporcionando respostas rápidas e confiáveis, especialmente durante alto tráfego e aproveitando o cache inteligente e o roteamento de requisições para gerenciar e garantir transações sensíveis.
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
 
-Esta solução é ideal para desenvolvedores e organizações que desejam aprimorar o desempenho de APIs transacionais e garantir a conformidade com as normas PCI e outras regulamentações. A aceleração de aplicações se integra perfeitamente às estratégias de edge computing, proporcionando um manuseio seguro, compatível e rápido de dados para melhor escalabilidade e redução da carga do servidor.
+Este desenho atende uma aplicação cujas respostas dependem de mais do que a URL: uma API que responde de forma diferente por query string, um catálogo que difere por dispositivo, uma página que varia por sessão. [Application Accelerator](/pt-br/documentacao/build/application-accelerator/) coloca essas entradas na cache key, então o cache consegue distinguir duas respostas corretas, em vez de entregar uma delas a todos ou não armazenar nenhuma.
+
+Ele serve a times cujos caminhos dinâmicos chegam à origem a cada requisição porque um cache indexado apenas pela URL não representa o que torna essas requisições diferentes.
 
 ---
 
-## Diagrama da arquitetura de aceleração de aplicações
+## O caminho da requisição
 
-![Visão geral de uma requisição/resposta através do Applications](/assets/docs/images/uploads/app-acceleration-arch.png?v=2)
+```mermaid
+flowchart TD
+  Client["Requisição do cliente para o domínio da aplicação"] --> App["Aplicação na infraestrutura distribuída da Azion"]
+  App --> Rules["Rules Engine avalia as regras da fase de requisição"]
+  Rules --> Policy["Set Cache Policy aplica um cache setting"]
+  Rules --> Bypass["Bypass Cache envia a requisição para a origem"]
+  Policy --> Key["A cache key é montada: URL, mais cada variação que o cache setting nomeia"]
+  Key --> Lookup{"Essa key está no cache?"}
+  Lookup -->|Sim| Hit["O objeto armazenado é retornado"]
+  Lookup -->|Não| Origin["A origem responde"]
+  Bypass --> Origin
+  Origin --> Store["A resposta é armazenada sob essa key"]
+  Store --> Client
+  Hit --> Client
+```
 
-### Fluxo de dados de aceleração de aplicações
+1. Um cliente requisita um domínio associado à aplicação. [Workloads](/pt-br/documentacao/plataforma/workloads/) registra esse domínio na Azion.
+2. A aplicação recebe a requisição no data center mais próximo e [Rules Engine](/pt-br/documentacao/plataforma/applications/rules-engine/) avalia as regras da fase de requisição.
+3. Uma regra decide o que acontece com o cache. **Set Cache Policy** aplica um cache setting; **Bypass Cache** envia a requisição para a origem e não armazena nada em cache.
+4. A cache key é montada a partir da URL, mais cada variação que o cache setting nomeia: os argumentos de query string permitidos, os cookies nomeados, o device group e, para um `POST` ou `OPTIONS` em cache, o hash MD5 do corpo da requisição.
+5. Uma key que já está no cache é respondida a partir do objeto armazenado. Uma key que não está chega à origem, e a resposta é armazenada sob essa key pelo TTL que o cache setting carrega.
+6. Uma requisição que carrega o header `Pragma: azion-debug-cache` recebe a key de volta no header de resposta `X-Cache-Key`, que é como você confirma que a variação é a que você configurou.
 
-1. Um cliente inicia uma requisição para um domínio associado a uma aplicação.
-2. O edge node processa a requisição por meio do Rules Engine, que avalia as políticas de cache. Dependendo das regras definidas:
-    - A requisição pode contornar o cache e ser enviada diretamente ao servidor de origem.
-    - Um TTL (Time to Live) de *0* pode ser definido para o cache, permitindo respostas simultâneas para gerenciar efetivamente cenários de alto tráfego.
-    - As requisições POST, que normalmente contornam o cache, podem ser configuradas para microcaching, fazendo hash da resposta, permitindo um cache eficiente mesmo para conteúdo dinâmico.
-    - Uma chave de cache gerada com base em identificadores de conteúdo dinâmicos pode criar várias variações efêmeras de cache, permitindo a entrega da variação de conteúdo adequada, se encontrada no cache.
-3. A camada do Cache verifica a existência da chave de cache. Se o conteúdo estiver em cache e uma correspondência for encontrada, ele é entregue ao cliente. Se não, a requisição prossegue para o servidor de origem usando o caminho mais eficiente disponível, que pode incluir vários caminhos para garantir confiabilidade e velocidade.
-4. O servidor de origem processa a requisição e envia o conteúdo de volta para o edge node.
-5. O edge node armazena o conteúdo no cache, se aplicável, e a chave de cache é adicionada ao cabeçalho HTTP X-Cache-Key na resposta.
-6. O conteúdo é entregue ao cliente, completando o ciclo de requisição-resposta.
+Dois behaviors alteram o formato desse caminho, e não os seus passos. Um **Max Age** de 0 segundos mantém a requisição no caminho do cache e agrupa requisições simultâneas em uma única requisição à origem, enquanto **Bypass Cache** sai do caminho do cache por completo. Para essa diferença, e para o que cada variação custa, consulte [Como Application Accelerator funciona](/pt-br/documentacao/build/application-accelerator/como-funciona/).
 
 ---
 
 ## Componentes
-- Applications: contém políticas de entrega e cache, regras para automatizar atribuições de políticas de cache com base no tipo de conteúdo e determina como o conteúdo é armazenado em cache.
-    - Cache: permite a configuração de cenários nos quais políticas de cache específicas são aplicadas, oferecendo controle granular sobre a entrega de conteúdo.
-    - Rules Engine: permite a configuração de cenários nos quais políticas específicas são aplicadas, proporcionando controle granular sobre a entrega.
-    - Application Accelerator: permite a configuração do recurso Advanced Cache Key para gerar várias otimizações de protocolo e diferentes identificações de objeto de cache.
-- Domínios: usado para registrar um domínio personalizado com a Azion, possibilitando a entrega de aplicações no edge.
+
+- **[Applications](/pt-br/documentacao/plataforma/applications/)** contém a configuração de entrega, os cache settings e as regras, e é onde o módulo Application Accelerator é ativado.
+- **[Cache](/pt-br/documentacao/build/cache/)** contém os objetos e é dono do formato da cache key ao qual cada variação acrescenta.
+- **[Rules Engine](/pt-br/documentacao/plataforma/applications/rules-engine/)** decide quais requisições um cache setting alcança e carrega os behaviors que este módulo libera.
+- **[Application Accelerator](/pt-br/documentacao/build/application-accelerator/)** fornece a variação de cache, o cache de respostas `POST` e `OPTIONS` e o TTL de cache abaixo de 60 segundos.
+- **[Workloads](/pt-br/documentacao/plataforma/workloads/)** registra o domínio que serve a aplicação.
 
 ---
 
 ## Implementação
 
-1. Crie uma aplicação:
-- No Azion Console, crie uma aplicação usando o botão **+ Create** na barra de navegação superior.
-    - Use a API Azion para criar uma aplicação.
-    - Use a CLI Azion para criar e implantar uma aplicação.
-2.  Crie um domínio e associe-o à aplicação:
-    - No Azion Console, crie um domínio usando o botão **+ Create** na barra de navegação superior.
-    - Use a API Azion para criar um domínio.
-    - Se você criou uma aplicação por meio de um modelo ou a CLI Azion, o domínio é criado para você.
-3. Configure as configurações avançadas da chave de cache: configure uma política de cache com base em strings de consulta ou cookies.
-    - Selecione as opções `Allowlist`, `Blocklist` ou `All Variations`.
-    - Liste as strings de consulta ou cookies que você deseja diferenciar ou não dentro da chave de cache.
-4. Aplique políticas de cache em cenários específicos: use o Rules Engine para aplicar políticas específicas com base em várias condições. Crie uma regra para a configuração de Cache e aplique a política de cache apropriada ao cenário desejado.
-5. Aponte o domínio para Azion: atualize suas configurações de DNS para direcionar o registro CNAME do seu domínio para o endpoint Azion fornecido para o seu domínio.
-6. Teste e monitore: após configurar a entrega do seu conteúdo, teste-a rigorosamente para garantir que está funcionando conforme esperado e monitore os acessos recebidos.
-7. Faça ajustes nas políticas de cache ou outras configurações conforme necessário, com base nas métricas de desempenho e feedback dos usuários.
+1. Crie uma aplicação, em [Azion Console](https://console.azion.com), pela [Azion API](https://api.azion.com/) ou com [Azion CLI](/pt-br/documentacao/devtools/cli/). Para os passos, consulte [Criar uma aplicação](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/criar-uma-aplicacao/).
+2. Registre o domínio que a serve. Para os passos, consulte [Como configurar um domínio](/pt-br/documentacao/guias/plataforma/migracao/configurar-dominio/).
+3. Ative Application Accelerator e crie um cache setting que varia pelo atributo do qual as suas respostas dependem. Para uma query string ou um cookie, consulte [Configure a Advanced Cache Key para uma aplicação](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/advanced-cache-key/). Para uma resposta `POST`, consulte [Armazene em cache respostas de POST e OPTIONS](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/cache-de-respostas-post-e-options/).
+4. Aplique o cache setting com uma regra do Rules Engine e acrescente qualquer regra de bypass ou de encaminhamento de cookies que o desenho exija. Para os passos, consulte [Configure políticas de cache para uma aplicação](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/cache-settings/).
+5. Aponte o registro CNAME do seu domínio para o endpoint da Azion desse domínio.
+6. Confirme a variação com o header `Pragma: azion-debug-cache`, depois acompanhe o status do cache sobre o tráfego real e ajuste a variação, e não o TTL, quando o número de objetos em cache crescer mais rápido do que o conteúdo.
+
+Planeje o purge junto com a variação. Um purge por URL não alcança os objetos que variam por cookie ou por device group, então esses objetos precisam de um purge por cache key ou de um purge por wildcard. Para os tipos de purge, consulte [Real-Time Purge](/pt-br/documentacao/build/cache/real-time-purge/#purge-de-application-accelerator).
 
 ---
 
-## ## Documentação relacionada
+## Recursos relacionados
 
-- [Application Accelerator](/pt-br/documentacao/build/application-accelerator/).
+<FrameBox>
+<ItemList>
+  <DocItem title="Application Accelerator" href="/pt-br/documentacao/build/application-accelerator/">O que o módulo é, o que ele libera e onde estão os seus limites.</DocItem>
+  <DocItem title="Como Application Accelerator funciona" href="/pt-br/documentacao/build/application-accelerator/como-funciona/">O que cada variação acrescenta à cache key e o que uma variação custa.</DocItem>
+  <DocItem title="Configurações do Application Accelerator" href="/pt-br/documentacao/build/application-accelerator/configuracoes/">O campo, o enum e o valor padrão por trás de cada escolha deste desenho.</DocItem>
+  <DocItem title="Primeiros passos com Application Accelerator" href="/pt-br/documentacao/build/application-accelerator/primeiros-passos/">Construa uma versão menor deste desenho em uma única sessão.</DocItem>
+  <DocItem title="Cache" href="/pt-br/documentacao/build/cache/">O formato da cache key, os status de cache e os limites de um objeto em cache.</DocItem>
+</ItemList>
+</FrameBox>
