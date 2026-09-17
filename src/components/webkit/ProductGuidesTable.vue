@@ -9,16 +9,12 @@
 		</Table.Header>
 		<Table.Body>
 			<Table.Row v-for="row in rows" :key="row.href">
-				<!-- eslint-disable webkit/no-style-override -- design-system gap: Table has
-				     no row density/wrap seam, and `py-`/`whitespace-normal` are the cell's
-				     own box, unreachable from a wrapper. Remove when Table grows it. -->
-				<Table.Cell principal class="whitespace-normal py-(--spacing-sm)">
-					<!-- eslint-enable webkit/no-style-override -->
+				<Table.Cell principal>
 					<a
 						:href="row.href"
 						:target="row.external ? '_blank' : undefined"
 						:rel="row.external ? 'noreferrer' : undefined"
-						class="text-(--text-link) no-underline hover:underline"
+						class="min-w-0 whitespace-normal text-(--text-link) no-underline hover:underline"
 					>
 						{{ row.label }}
 					</a>
