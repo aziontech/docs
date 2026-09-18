@@ -93,6 +93,18 @@ function check(name, entry, update) {
 		})`
 	);
 	summary(`| ${name} | ${count} | ${entry.baseline} | ${delta ? `−${delta}` : '—'} |`);
+
+	// The count went down and the baseline did not follow. Until it does, the check tolerates
+	// `delta` regressions it should not — every fix that lands without moving the number is
+	// slack the next PR can spend. Improvement is never punished, so this is an annotation on
+	// the PR, not a failure, carrying the one command that closes the gap.
+	if (delta && process.env.GITHUB_ACTIONS) {
+		console.log(
+			`::notice file=${BASELINES},title=Baseline behind the count::${name}: ${count} ${entry.label}, ` +
+				`baseline ${entry.baseline}. Run \`pnpm ci:ratchet ${name} --update\` and commit ` +
+				`${BASELINES} in this PR, so what it fixed stays fixed.`
+		);
+	}
 	return true;
 }
 

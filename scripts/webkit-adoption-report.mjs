@@ -215,7 +215,10 @@ function renderMarkdown(report, catalog) {
 			'foreign package. That gap is tracked in the design system.'
 	);
 	push();
-	push('This check never fails the build. It measures.');
+	push(
+		'This report never fails the build; it measures. The ratchet step beside it fails when the ' +
+			'count grows past the baseline in `ci/baselines.json`.'
+	);
 
 	return lines.join('\n') + '\n';
 }
