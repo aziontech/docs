@@ -85,25 +85,26 @@ switched off without editing branch protection.
 
 **Internal links** builds the site and checks every internal link in it.
 
-**Design system adoption** runs the design-system ESLint rules over the UI, writes the result to
-the run Summary — how many `webkit/*` violations there are, which rules, which files, and what the
-check did *not* look at — and then fails on any violation at all. The report comes first and always,
-so the number reaches you whatever the check decides; the check itself tolerates nothing.
+**Design system adoption** runs the design-system ESLint rules over the UI and the MDX content,
+writes the result to the run Summary — how many violations there are, which rules, which files, and
+what the check did *not* look at — and then fails if the count is higher than the baseline frozen in
+`ci/baselines.json`. The report comes first and always, so the number reaches you whatever the check
+decides; the check itself is one of the ratchets below.
 
 ### Checks that ratchet
 
-Four checks carry more debt than any one PR can clear, so they are frozen at a baseline in
+Five checks carry more debt than any one PR can clear, so they are frozen at a baseline in
 `ci/baselines.json` and fail only on a number that **grows**: high/critical vulnerabilities, type
-errors from `astro check`, translations whose slug does not match the English page, and broken
-internal links (most of those are links to `www.azion.com` pages that live in the site repository,
-not here). The current numbers are in `ci/baselines.json`; this document does not repeat them,
-because a number copied into prose goes stale the first time someone fixes something.
+errors from `astro check`, translations whose slug does not match the English page, broken internal
+links (most of those are links to `www.azion.com` pages that live in the site repository, not here),
+and design-system violations. The current numbers are in `ci/baselines.json`; this document does not
+repeat them, because a number copied into prose goes stale the first time someone fixes something.
 
-Design-system adoption is deliberately **not** one of them: its baseline is zero, so every
-violation fails the check.
-
-The count can fall and the baseline is then stale, which is reported and never punished; re-snapshot
-with `pnpm ci:ratchet <check> --update`. A ratchet whose command stops producing a number **fails**
+The count can fall and the baseline is then behind, which is reported and never punished. Whoever
+lowers a count lowers its baseline in the same PR — `pnpm ci:ratchet <check> --update`, then commit
+`ci/baselines.json` — because until the number moves, the check tolerates exactly that many
+regressions from the next PR. CI annotates the PR when a baseline is behind, with that command in
+the annotation. A ratchet whose command stops producing a number **fails**
 rather than passing, because a check that silently measures nothing is worse than no check at all —
 which is exactly what the link checker did for as long as it existed.
 
