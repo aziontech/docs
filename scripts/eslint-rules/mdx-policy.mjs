@@ -1,4 +1,5 @@
-// The MDX content policy: a page is prose plus @aziontech/webkit components — nothing else.
+// The MDX content policy: a page is prose, @aziontech/webkit components and other
+// content — nothing else.
 //
 // Two rules, registered in eslint.config.mjs under the `docs` plugin and applied only to
 // `**/*.mdx`. They complement the webkit/* rules (which validate HOW webkit is used);
@@ -16,12 +17,12 @@ const WEBKIT_IMPORT = /^@aziontech\/webkit\/.+/;
 const WRAPPER_IMPORT = /^~\/components\/webkit\/[^/]+\.vue$/;
 const CONTENT_IMPORT = /\.mdx?$/;
 
-export const mdxWebkitImportsOnly = {
+export const mdxAllowedImports = {
 	meta: {
 		type: 'problem',
 		docs: {
 			description:
-				'MDX imports only direct @aziontech/webkit subpaths, ~/components/webkit wrappers or .md/.mdx content partials',
+				'MDX import allowlist: direct @aziontech/webkit subpaths, ~/components/webkit wrappers and .md/.mdx content partials',
 		},
 		schema: [],
 		messages: {
@@ -120,7 +121,7 @@ export const mdxNoRawHtml = {
 
 export default {
 	rules: {
-		'mdx-webkit-imports-only': mdxWebkitImportsOnly,
+		'mdx-allowed-imports': mdxAllowedImports,
 		'mdx-no-raw-html': mdxNoRawHtml,
 		'webkit-wrapper-imports': webkitWrapperImports,
 	},
