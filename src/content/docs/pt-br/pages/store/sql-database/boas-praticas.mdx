@@ -1,0 +1,158 @@
+---
+title: Boas práticas
+description: >-
+  Leia a chave de erro de cada instrução, agrupe instruções relacionadas, indexe
+  uma coluna de vetor e nomeie um banco de dados pelo que ele guarda.
+meta_tags: 'sql database, best practices, statements, error handling, rows read, rows written, vector index, float32, database name'
+namespace: documentation_products_sql_database_best_practices
+permalink: /documentacao/store/sql-database/boas-praticas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Uma instrução que falha nem sempre se anuncia. A requisição que a carregou pode relatar sucesso enquanto a instrução dentro dela foi rejeitada. Uma consulta que retorna dez linhas pode ter lido um milhão para encontrá-las, e a conta é medida pelo que foi lido. A busca por vizinhos mais próximos lê um índice pelo nome, então o índice precisa existir antes de a consulta ser escrita. Cada um desses pontos é decidido onde a instrução é escrita, e cada um é barato de acertar ali e caro de descobrir depois.
+
+As práticas abaixo tratam de como um cliente lê o resultado de cada instrução, de quando as instruções viajam em uma única chamada e de onde o custo de uma consulta é informado. As demais tratam do índice que uma busca vetorial lê, do tipo que uma coluna de embedding carrega, da espera antes de um banco de dados novo responder à primeira consulta, do nome que ele mantém por toda a sua existência e da cópia dos dados que só você pode fazer.
+
+---
+
+## Leia a chave de erro de cada instrução, qualquer que seja o status HTTP
+
+Decida o fluxo do código a partir de `data[].error` em toda resposta que o endpoint de consulta retorna, e leia o status HTTP como um veredito sobre a requisição, não sobre as instruções dentro dela.
+
+`POST /databases/{database_id}/query` responde `200` assim que a requisição em si está bem formada. Cada instrução recebe sua própria entrada em `data`, e uma entrada cuja instrução falhou carrega `error` no lugar de `results`. Um cliente que verifica apenas o código de status registra a falha como sucesso e segue com o que estava fazendo. A resposta abaixo é o que `SELECT * FROM nope;` retorna em um banco de dados sem nenhuma tabela com esse nome:
+
+```json
+{"state":"executed","data":[{"error":"no such table: nope"}]}
+```
+
+O código de status continua carregando os erros que a própria requisição levanta. Um corpo sem a chave `statements` responde `400` com o erro `10059` `Required Field`, e instruções que a plataforma não conseguiu executar de forma alguma respondem `422` com o erro `14005` `Execute SQL Exception`. Ambos são falhas da chamada; um `200` com uma entrada `error` é a falha de uma instrução dentro de uma chamada que funcionou no resto.
+
+O custo é que o código de status sozinho não diz mais a um cliente o que aconteceu. Toda resposta é percorrida entrada por entrada, e o cliente decide o que um resultado parcial significa para o trabalho que estava fazendo.
+
+---
+
+## Envie as instruções relacionadas em uma única chamada
+
+Coloque as instruções que pertencem a uma mesma unidade de trabalho em um único array `statements`, em vez de enviar uma requisição para cada uma.
+
+O endpoint de consulta recebe o array e executa as instruções em ordem. Cada instrução retorna uma entrada em `data`, na mesma ordem, então a entrada na posição 2 pertence à instrução na posição 2. Pelo menos 100 instruções em uma chamada são bem-sucedidas, o que cobre uma tabela e as linhas que a inicializam. Um schema e suas primeiras linhas viajam em um único corpo:
+
+```json
+{
+  "statements": [
+    "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);",
+    "INSERT INTO users (id, name, email) VALUES (1, 'Ada', 'ada@example.com');",
+    "INSERT INTO users (id, name, email) VALUES (2, 'Alan', 'alan@example.com');"
+  ]
+}
+```
+
+Um array vazio é aceito: responde `200` com `"data":[]`.
+
+O custo é que uma chamada é tão rápida quanto sua instrução mais lenta, e uma falha dentro dela é parcial. As entradas anteriores à que falhou carregam seus próprios `results`, e nenhum campo da resposta informa um rollback. Ordene o array de modo que o trabalho possa continuar a partir do que já foi executado.
+
+---
+
+## Meça o custo de uma consulta pela resposta que ela retorna
+
+Leia `rows_read` e `rows_written` em cada entrada de resultado, porque é por esses dois números que a conta é medida.
+
+Toda entrada que carrega `results` carrega três números ao lado de `columns` e `rows`: `rows_read`, `rows_written` e `query_duration_ms`. Eles são informados por instrução, não por chamada, então um array de instruções informa o custo de cada uma separadamente. `rows_read` conta as linhas que uma instrução leu, não as linhas que ela retornou, então um filtro que varre uma tabela custa mais do que o tamanho do seu conjunto de resultados sugere. Um resultado de uma única linha informa os cinco campos:
+
+```json
+{"results":{"columns":["id","name","email"],"rows":[[1,"Ada","ada@example.com"]],"rows_read":1,"rows_written":0,"query_duration_ms":0.034}}
+```
+
+A [biblioteca SQL da Azion](/pt-br/documentacao/devtools/azion-lib/sql/) informa menos. Suas entradas de resultado carregam `statement`, `columns` e `rows`, e descartam os três números, então um cliente que precisa das contagens medidas as lê na resposta da API. Para as linhas que cada plano inclui, consulte [Limites do SQL Database](/pt-br/documentacao/store/sql-database/limites/).
+
+O custo é que os números precisam ser extraídos da entrada inteira, em vez de retirados diretamente de `rows`. Um cliente escrito para retornar apenas as linhas descarta o único relato do que a consulta custou.
+
+---
+
+## Indexe uma coluna de vetor antes da primeira consulta de vizinhos mais próximos
+
+Crie o índice que `vector_top_k` lê antes de executar uma busca por vizinhos mais próximos na coluna.
+
+`vector_top_k('index', vector, k)` recebe um nome de índice, não um nome de coluna, e retorna as `k` linhas mais próximas como valores `id` que fazem join em `rowid`. O índice é criado ao envolver a coluna em `libsql_vector_idx` dentro de uma instrução `CREATE INDEX`, e a função recebe uma métrica opcional, como em `libsql_vector_idx(stats_embedding, 'metric=cosine')`. A indexação usa o algoritmo DiskANN. Um índice de vetor é suportado em uma tabela com um `ROWID` ou uma `PRIMARY KEY` de coluna única, e uma `PRIMARY KEY` composta sem `ROWID` não é suportada. O índice e a busca que o lê nomeiam a mesma string:
+
+```sql
+CREATE INDEX teams_idx ON teams (libsql_vector_idx(stats_embedding));
+SELECT name, year FROM vector_top_k('teams_idx', vector('[82, 25, 63]'), 2) JOIN teams ON teams.rowid = id;
+```
+
+As funções de distância são um caminho diferente. `vector_distance_cos(a, b)` e `vector_distance_l2(a, b)` comparam dois vetores e não leem nenhum índice, então respondem a uma pergunta sobre um par, não sobre uma tabela. A distância de cosseno vai de 0 a 2, em que `0` é quase idêntico, `1` é ortogonal e `2` é oposto.
+
+O custo é uma segunda tabela. Criar um índice de vetor adiciona uma shadow table chamada `<index>_shadow`. Tanto `.tables` no EdgeSQL Shell quanto `getTables` na biblioteca `azion` a listam, então um código que itera por todas as tabelas encontra uma tabela que ninguém criou.
+
+---
+
+## Declare uma nova coluna de embedding como `FLOAT32`
+
+Declare uma coluna de embedding como `F32_BLOB(<dimensions>)`, e passe para outro tipo somente quando os dados derem um motivo.
+
+Uma coluna de vetor é um tipo blob que carrega a quantidade de dimensões na instrução `CREATE TABLE`, então `F32_BLOB(3)` guarda vetores de três dimensões. Seis tipos estão disponíveis, cada um com um alias: `FLOAT1BIT` e `F1BIT_BLOB`, `FLOAT8` e `F8_BLOB`, `FLOATB16` e `FB16_BLOB`, `FLOAT16` e `F16_BLOB`, `FLOAT32` e `F32_BLOB`, e `FLOAT64` e `F64_BLOB`. `FLOAT32` é o ponto de partida recomendado, e o tipo mais estreito não é uma economia gratuita: uma coluna `FLOAT1BIT` não suporta `vector_distance_l2`, então ela responde a menos perguntas que os outros. Por exemplo, `text-embedding-3-small` produz vetores de 1.536 dimensões, que `F32_BLOB(1536)` guarda.
+
+A quantidade de dimensões é verificada quando um vetor é construído, não quando a coluna é declarada. `CREATE TABLE t (v F32_BLOB(65537));` é aceito, e `vector()` então rejeita o valor com `vector: max size exceeded 65536` dentro de um HTTP `200`.
+
+O custo é que tanto o tipo quanto a quantidade de dimensões ficam fixos na instrução que declara a coluna. A decisão é tomada antes de o primeiro embedding ser armazenado, e uma tabela mantém o tipo com que foi criada.
+
+---
+
+## Verifique o status antes da primeira consulta em um banco de dados novo
+
+Espere até `status` indicar `created` antes de enviar a primeira instrução a um banco de dados criado na mesma execução.
+
+`POST /databases` responde `202`. O `state` do envelope é `pending` enquanto o `status` do próprio banco de dados é `creating`, e o provisionamento leva cerca de 15 segundos. `GET /databases/{database_id}` responde `200`, não carrega a chave `state` e informa o valor atual de `status` em `data`, que é `creating`, `created` ou `deleting`. Repita essa chamada até o valor indicar `created`:
+
+```bash
+curl --request GET \
+  --url https://api.azion.com/v4/workspace/sql/databases/1851 \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]'
+```
+
+O mesmo campo aparece em Azion Console, na coluna **Status** da lista de bancos de dados, e a ação **Delete** da linha permanece desabilitada enquanto o status é `creating` ou `deleting`.
+
+O custo é um laço de espera em qualquer fluxo que cria um banco de dados e o consulta na mesma execução. A chamada de criação retorna antes de o banco de dados conseguir responder a uma instrução, então o código que vem depois dela consulta o status repetidamente em vez de seguir adiante.
+
+---
+
+## Nomeie um banco de dados pelo que ele guarda
+
+Escolha um nome que ainda descreva os dados daqui a alguns meses, porque nada renomeia um banco de dados depois que ele existe.
+
+`name` é obrigatório na criação, vai de 6 a 50 caracteres, aceita letras, números e o hífen, e é único dentro da conta. `PATCH` e `PUT` em um banco de dados respondem `405` com o erro `10007` `Method Not Allowed`, então o nome é somente leitura desde o momento em que o banco de dados existe. `active` é aceito apenas na criação, pela mesma razão. Um nome fora do comprimento ou do conjunto de caracteres é rejeitado com o erro `14000` `Invalid Database Name Format`, e um nome com menos de 6 caracteres retorna `10048` `Min Length` junto dele. O erro `14001`, cujo título é `Name Already In Use.`, rejeita um nome que a conta já tem.
+
+Um nome que declara o que o banco de dados guarda diz ao próximo leitor da lista de bancos de dados qual deles abrir. Para os limites dentro dos quais esta prática funciona, consulte [Limites do SQL Database](/pt-br/documentacao/store/sql-database/limites/).
+
+O custo é que a decisão é permanente. Um nome que deixa de descrever o seu conteúdo é substituído criando um segundo banco de dados com outro nome, copiando os dados para ele e apagando o primeiro.
+
+---
+
+## Faça seu próprio backup a partir da instância principal
+
+Exporte os dados você mesmo, em um cronograma que é seu, e leia a exportação na instância principal, não em uma réplica.
+
+A Azion não oferece endpoint de backup nem comando de backup, então uma cópia de um banco de dados existe apenas quando algo a cria. A plataforma executa uma instância principal com réplicas de leitura, e uma réplica alcança o estado da instância principal após um tempo de propagação que difere de uma réplica para outra. Uma exportação lida em uma réplica pode, portanto, estar atrás do que a instância principal guarda, e é por isso que a instância principal é a que deve ser copiada. Dois caminhos produzem uma exportação: `.dump` no [EdgeSQL Shell](/pt-br/documentacao/store/sql-database/edgesql-shell/) escreve o schema de uma tabela, os dados dela ou ambos, e Azion Console oferece **Export all to .csv**, **Export all to .json** e **Export all to .xlsx** na aba **Tables**.
+
+Para a instância principal e as réplicas que leem dela, consulte [Como o SQL Database funciona](/pt-br/documentacao/store/sql-database/como-funciona/).
+
+O custo é que o cronograma, o armazenamento e a restauração são todos seus. Nenhum endpoint informa quando a última exportação foi feita, e uma restauração é o conjunto de instruções exportadas executado novamente em um banco de dados que você cria.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Como o SQL Database funciona" href="/pt-br/documentacao/store/sql-database/como-funciona/">Os mecanismos por trás de cada prática, incluindo como uma instrução chega aos dados.</DocItem>
+  <DocItem title="Bancos de dados e consultas" href="/pt-br/documentacao/store/sql-database/bancos-de-dados-e-consultas/">Cada campo e código de erro que estas práticas leem, operação por operação.</DocItem>
+  <DocItem title="Vector search" href="/pt-br/documentacao/store/sql-database/vector-search/">Os tipos de vetor, as funções e o índice que as duas práticas de vetor usam.</DocItem>
+  <DocItem title="Limites do SQL Database" href="/pt-br/documentacao/store/sql-database/limites/">Os limites dentro dos quais estas práticas funcionam, e o uso que cada plano inclui.</DocItem>
+  <DocItem title="Crie tabelas e consulte dados" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-tabelas-edge-sql/">O procedimento por trás das práticas de instrução, a partir da primeira tabela.</DocItem>
+  <DocItem title="Construa uma busca semântica com embeddings" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/edge-sql-vector-search/">O procedimento por trás do índice e do tipo de coluna, de ponta a ponta.</DocItem>
+</ItemList>
+</FrameBox>

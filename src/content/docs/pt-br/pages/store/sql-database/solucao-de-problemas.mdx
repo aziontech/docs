@@ -1,0 +1,200 @@
+---
+title: Solução de problemas
+description: >-
+  Diagnostique uma consulta que relata sucesso sem dados, uma requisição de
+  criação que a API recusa e um EdgeSQL Shell que não inicia.
+meta_tags: 'sql database, troubleshooting, error 14000, error 14001, error 14005, error 10004, error 10007, error 10097, statement error, edgesql shell, preview access'
+namespace: documentation_products_sql_database_troubleshooting
+permalink: /documentacao/store/sql-database/solucao-de-problemas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Esta página cobre o que [SQL Database](/pt-br/documentacao/store/sql-database/) faz e você não esperava: uma consulta que responde `200` e não escreve nada, um banco de dados novo que responde `404`, uma requisição de criação recusada por causa do nome, um nome que já está em uso, uma consulta que a plataforma recusa com `422`, uma requisição que não altera nada, um `CREATE TABLE` e uma inserção de vetor que falham dentro de um sucesso, uma requisição de listagem limitada a 100, um EdgeSQL Shell que encerra na inicialização e um produto que está ausente do Azion Console.
+
+---
+
+## Uma consulta responde HTTP 200 e os dados não estão lá
+
+`POST /databases/{database_id}/query` responde HTTP `200` e `state` traz `executed`, e a linha que você inseriu não está na tabela. A entrada da instrução em `data` carrega `error` no lugar de `results`.
+
+Dois resultados são reportados em dois níveis, e só o segundo descreve o seu SQL. O status HTTP descreve a requisição: ela estava bem formada, ela autenticou e ela chegou ao banco de dados. Cada instrução recebe então a própria entrada em `data`, na ordem em que as instruções foram enviadas, e uma entrada cuja instrução foi recusada carrega `error` em vez de `results`. Nada dessa recusa chega à linha de status. Um cliente que decide apenas pelo código de status registra a falha como um sucesso e segue em frente.
+
+Um `SELECT` contra uma tabela que o banco de dados não tem retorna isto:
+
+```json
+{"state":"executed","data":[{"error":"no such table: users"}]}
+```
+
+- **Leia `data[].error` em cada entrada, não o status HTTP**: a posição da entrada corresponde à posição da instrução dela em `statements`, então a resposta nomeia qual delas falhou.
+- **Confirme que a tabela existe**: `.tables` no EdgeSQL Shell lista as tabelas do banco de dados selecionado, e `getTables` na biblioteca `azion` executa um `PRAGMA` e retorna a mesma lista.
+- **Espere que a biblioteca `azion` reporte a falha duas vezes**: uma instrução recusada preenche `data.results[0].error` e um `error.message` de nível superior, então um cliente que não lê nenhum dos dois vê uma resposta sem linhas.
+
+O cliente então para na instrução que foi recusada, e cada entrada que carrega `results` pertence a uma instrução que rodou. Para o formato do envelope, consulte [Bancos de dados e consultas](/pt-br/documentacao/store/sql-database/bancos-de-dados-e-consultas/).
+
+---
+
+## Um banco de dados novo responde 10004 Not Found na primeira consulta
+
+Uma consulta enviada logo depois de `POST /databases` responde HTTP `404` com o código `10004` e o título `Not Found`. A requisição de criação respondeu `202` e retornou o identificador que a consulta usa.
+
+A criação é aceita antes de o banco de dados existir. A resposta de criação carrega `state` como `pending` e o `status` do próprio banco de dados como `creating`, e o provisionamento leva cerca de 15 segundos. Uma consulta endereçada a esse identificador antes de o provisionamento terminar não encontra nada contra o que rodar, então a plataforma responde como responde a qualquer identificador desconhecido. O mesmo `404` cobre, portanto, um banco de dados que ainda está sendo construído e um banco de dados que nunca foi criado.
+
+- **Consulte `GET /databases/{database_id}` até `status` ser `created`**: a resposta de recuperação não carrega a chave `state`, então `status` é o campo que reporta o progresso.
+- **Espere a janela de provisionamento passar antes da primeira instrução**: ela leva cerca de 15 segundos a partir da requisição de criação.
+- **Confirme o identificador quando esperar não resolver**: `GET /databases` com `search` definido como parte do nome retorna os bancos de dados correspondentes com o `id` e o `status` deles.
+
+A consulta então responde HTTP `200`, e `data` carrega uma entrada para cada instrução que ela enviou.
+
+---
+
+## 14000 Invalid Database Name Format em uma requisição de criação
+
+`POST /databases` responde HTTP `400` com o código `14000` e o título `Invalid Database Name Format`. Quando o nome tem menos de seis caracteres, o código `10048` com o título `Min Length` chega no mesmo array `errors`.
+
+Um nome de banco de dados tem de 6 a 50 caracteres, e cada caractere é uma letra, um número ou o hífen (`-`). `14000` cobre as duas metades dessa regra: um nome fora da faixa de comprimento e um nome carregando qualquer outro caractere produzem o mesmo código. `10048` restringe uma das metades e aparece apenas para um nome abaixo do mínimo, e é por isso que dois erros podem descrever um nome só. Azion Console aplica a mesma regra antes de a requisição sair do navegador. As mensagens dele dizem qual metade falhou: "Database name must be at least 6 characters", "Database name must be at most 50 characters" e "Use only letters, numbers and hyphen (-)".
+
+- **Conte os caracteres do nome**: o limite é de 6 a 50, e ele vale para o nome sozinho.
+- **Remova cada caractere fora do conjunto**: uma letra, um número e o hífen são aceitos, enquanto um underscore ou um espaço não é.
+- **Leia dois códigos como um problema só**: `14000` ao lado de `10048` descreve um único nome que é curto demais.
+
+A requisição de criação então responde HTTP `202` com `state` como `pending`, e a resposta carrega o banco de dados e o `id` dele. Para o conjunto inteiro de limites, consulte [Limites do SQL Database](/pt-br/documentacao/store/sql-database/limites/).
+
+---
+
+## 14001 Name Already In Use em uma requisição de criação
+
+`POST /databases` responde HTTP `400` com o código `14001`, o título `Name Already In Use.` e o detalhe `The database name already exists.` O `source.pointer` do erro nomeia `/data/name`.
+
+Um nome de banco de dados é único dentro da conta, então a colisão é com um banco de dados que a conta já tem. O nome também é permanente: `name` é aceito no corpo de criação e é somente leitura depois disso, e nenhuma operação dos endpoints o altera. Um banco de dados que carrega o nome que você quer fica com ele até o próprio banco de dados ser excluído.
+
+- **Encontre o banco de dados que tem o nome**: `GET /databases` com `search` definido como parte do nome retorna cada correspondência com o `id`, o `status` e o `last_modified` dela.
+- **Envie um nome diferente**: o nome não pode ser alterado depois, então envie aquele que o banco de dados mantém enquanto existir.
+- **Exclua o banco de dados que você não quer mais**: `DELETE /databases/{database_id}` responde `202`, e o banco de dados responde `404` em segundos.
+
+A requisição de criação então responde HTTP `202`, e `GET /databases` lista o novo banco de dados ao lado dos que a conta já tinha.
+
+---
+
+## 14005 Execute SQL Exception com HTTP 422
+
+`POST /databases/{database_id}/query` responde HTTP `422` com o código `14005` e o título `Execute SQL Exception`. A resposta carrega um array `errors` em vez de `data`, e `meta.database_name` nomeia o banco de dados que a chamada endereçou.
+
+`422` é um veredito sobre a chamada inteira: as instruções não puderam ser executadas de jeito nenhum. Esse é um resultado diferente de uma instrução que o banco de dados recusa, que responde HTTP `200` e carrega `error` na própria entrada em `data`. Um corpo sem a chave `statements` falha ainda antes, sob o código `10059` e o título `Required Field`, com `source.pointer` em `/data/statements`. Ler qual dos três a resposta é diz se você muda a requisição ou o SQL.
+
+- **Leia `meta.database_name`**: ele nomeia o banco de dados que a chamada alcançou, o que separa um identificador errado de uma instrução errada.
+- **Verifique se o corpo carrega `statements`**: a chave guarda um array de strings, e um corpo sem ela responde `400` com `10059` `Required Field`.
+- **Envie as instruções uma de cada vez**: cada instrução retorna a própria entrada, então uma chamada carregando uma instrução restringe o que a plataforma recusou.
+
+A chamada então responde HTTP `200` com `state` como `executed`, e cada instrução que ela carregou tem uma entrada em `data`.
+
+---
+
+## 10007 Method Not Allowed em uma requisição que altera um banco de dados
+
+`PATCH` ou `PUT` em `/databases/{database_id}` responde HTTP `405` com o código `10007` e o título `Method Not Allowed`. O banco de dados existe e o corpo é válido.
+
+Os endpoints de SQL carregam cinco operações: listar um banco de dados, criar um, recuperar um, excluir um e rodar uma consulta contra um. Nenhuma delas atualiza um banco de dados, então o objeto que uma criação retorna é o objeto que o banco de dados mantém. `name` e `active` são aceitos no corpo de criação e são somente leitura depois disso, e `status`, `last_modified`, `last_editor` e `product_version` são definidos pela plataforma. Um banco de dados, portanto, nunca é renomeado e nunca é desligado depois da criação.
+
+- **Envie `name` e `active` na criação**: o corpo de criação aceita esses dois campos e nada mais.
+- **Substitua o banco de dados para mudar o nome dele**: crie um com o nome que você quer, depois envie um `DELETE` no que você não precisa mais.
+- **Mude os dados em vez do objeto**: `POST /databases/{database_id}/query` roda as instruções do [dialeto SQLite](https://www.sqlite.org/lang.html), que é onde um schema muda.
+
+Um banco de dados então muda apenas pelas instruções que você envia a ele, e `GET /databases/{database_id}` continua retornando o nome com que ele foi criado.
+
+---
+
+## CREATE TABLE responde too many columns
+
+Uma instrução `CREATE TABLE` retorna HTTP `200`, e a entrada dela em `data` carrega um erro em vez de um resultado:
+
+```json
+{"state":"executed","data":[{"error":"too many columns on <table>"}]}
+```
+
+Uma tabela tem no máximo 2.000 colunas, que é o padrão do próprio SQLite. O teto pertence à instrução e não à requisição, então a recusa viaja dentro da resposta bem-sucedida e a linha de status continua lendo `200`. Nenhuma tabela é criada. Um cliente que confia no status segue como se a tabela existisse, e a próxima instrução contra ela falha com `no such table`, o que faz você procurar o problema errado.
+
+- **Conte as colunas que a instrução declara**: 2.000 é o teto para uma tabela.
+- **Divida as colunas entre tabelas**: duas tabelas unidas por uma chave guardam o que uma tabela não consegue.
+- **Leia `data[].error` antes da próxima instrução**: o `CREATE TABLE` que falhou é reportado apenas na própria entrada.
+
+A entrada do `CREATE TABLE` então carrega `results`, e as instruções seguintes encontram a tabela.
+
+---
+
+## Uma inserção de vetor responde max size exceeded 65536
+
+Um `INSERT` que chama `vector()` retorna HTTP `200`, e a entrada dele carrega `{"error":"vector: max size exceeded 65536"}`. O `CREATE TABLE` que declarou a coluna respondeu sem erro nenhum.
+
+`vector()` aceita no máximo 65.536 dimensões, e é o único lugar em que esse teto é verificado. Uma coluna de vetor declara a contagem de dimensões dela como um parâmetro de tipo, como em `F32_BLOB(3)` para três dimensões, e SQLite não valida esse parâmetro. `CREATE TABLE t (v F32_BLOB(65537));` tem sucesso, portanto, e a coluna existe com uma largura que nenhum valor consegue preencher. A primeira inserção é onde a divergência fica visível, um passo depois da instrução que a causou.
+
+- **Conte as dimensões que o embedding carrega**: `vector()` aceita até 65.536 delas.
+- **Declare a coluna com a contagem de dimensões do modelo**: `text-embedding-3-small` retorna 1.536 dimensões, então a coluna é declarada `F32_BLOB(1536)`.
+- **Não leia um `CREATE TABLE` bem-sucedido como uma largura válida**: a declaração é aceita com qualquer número que carregue.
+
+A inserção então carrega `results`, e `vector_extract` retorna o vetor armazenado na forma de texto dele. Para os tipos e as funções, consulte [Vector Search](/pt-br/documentacao/store/sql-database/vector-search/).
+
+---
+
+## 10097 Invalid Page Size em uma requisição de listagem
+
+`GET /databases` responde HTTP `400` com o código `10097` e o título `Invalid Page Size`. A conta tem mais bancos de dados do que a resposta retornou.
+
+`page_size` aceita de 1 a 100 e assume 10 por padrão. Uma requisição que pede mais de 100 bancos de dados em uma resposta é recusada em vez de ser cortada no teto. O endpoint pagina no lugar disso: `count` diz quantos bancos de dados corresponderam à requisição, `total_pages` diz em quantas páginas eles se dividem no `page_size` atual, e `page` seleciona uma delas. Os dois campos `next` e `previous` são `null` nas duas pontas da lista.
+
+- **Mantenha `page_size` em 100 ou abaixo**: valores de 1 a 100 são aceitos, e 10 é o padrão.
+- **Percorra as páginas**: leia `total_pages` na primeira resposta, depois envie `page` uma vez por página.
+- **Restrinja a lista em vez de aumentar a página**: `search` corresponde a parte de um nome, e `ordering` aceita um nome de campo, prefixado com `-` para ordem decrescente.
+
+A listagem então responde HTTP `200`, e `results` carrega um objeto de banco de dados por entrada.
+
+---
+
+## O EdgeSQL Shell encerra na inicialização com ImportError
+
+`python edgesql-shell.py` encerra antes de o prompt `EdgeSQL>` aparecer, em uma instalação limpa e em um ambiente virtual novo:
+
+```text
+ImportError: cannot import name 'Configuration' from 'kaggle.api.kaggle_api_extended'
+```
+
+O shell importa o módulo Kaggle dele enquanto inicia. `commands/import.py` importa `edgesql_kaggle.py`, que importa um símbolo que o `kaggle==1.8.3` fixado não define mais. Essa importação roda antes de a ferramenta ler um único comando, então todo comando falha, toque ele em Kaggle ou não. Fixar um `kaggle` mais antigo não evita isso: o pacote autentica dentro do próprio `__init__.py`, então importá-lo já falha sem credenciais da Kaggle. Uma correção está pendente. Neutralizar essa única importação localmente mantém o resto da ferramenta funcionando, e foi assim que a Azion verificou os comandos em [EdgeSQL Shell](/pt-br/documentacao/store/sql-database/edgesql-shell/); isso é uma solução local, não uma etapa suportada, e até a correção ser lançada uma das três interfaces abaixo é o caminho confiável.
+
+- **Rode as instruções pela Azion API**: `POST /databases/{database_id}/query` carrega o mesmo SQL que o shell enviaria. Para as operações, consulte [Bancos de dados e consultas](/pt-br/documentacao/store/sql-database/bancos-de-dados-e-consultas/).
+- **Chame a biblioteca `azion` a partir de Node ou TypeScript**: `azion/sql` exporta as operações de banco de dados e as duas funções de consulta. Para a superfície, consulte [Azion Libraries - SQL](/pt-br/documentacao/devtools/azion-lib/sql/).
+- **Rode a consulta no Azion Console**: a aba **Editor** de um banco de dados roda SQL e retorna o resultado em **Run query**.
+
+Cada uma dessas interfaces então roda a instrução que o shell não consegue alcançar. Para os comandos que o shell oferece quando uma correção for lançada, consulte [EdgeSQL Shell](/pt-br/documentacao/store/sql-database/edgesql-shell/).
+
+---
+
+## SQL Database está ausente do Azion Console
+
+**Store** > **SQL Database** está ausente da navegação do Azion Console, ou a rota `/sql-database` não abre nenhuma lista de bancos de dados. A conta faz login e alcança todos os outros produtos.
+
+SQL Database é um produto em Preview. Ele não vem habilitado por padrão, e uma conta só o alcança depois de Azion habilitá-lo, em todo plano. A entrada de navegação carrega a tag `Preview` assim que o produto está na conta. Uma segunda condição esconde os bancos de dados em vez do produto. Duas permissões os governam pela Azion API: **View SQL Database** para visualizar os bancos de dados criados e os dados deles, e **Edit SQL Database** para criá-los e editá-los.
+
+- **Solicite acesso ao time de suporte técnico**: o acesso ao Preview é combinado por um ticket de suporte. Para os canais, consulte [Technical Support](/pt-br/documentacao/suporte/).
+- **Verifique as duas permissões na conta**: para como um time as recebe, consulte [Teams Permissions](/pt-br/documentacao/fundamentos/teams-permissions/).
+- **Não espere uma mudança de plano para liberá-lo**: SQL Database está em Preview em Hobby, Pro e Enterprise igualmente, então uma solicitação é o que o habilita.
+
+**Store** > **SQL Database** então abre a lista de bancos de dados, com as colunas **Name**, **Status**, **Last Editor** e **Last Modified**.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Bancos de dados e consultas" href="/pt-br/documentacao/store/sql-database/bancos-de-dados-e-consultas/">Cada operação, campo, envelope e código de erro de que estes sintomas vêm.</DocItem>
+  <DocItem title="Como o SQL Database funciona" href="/pt-br/documentacao/store/sql-database/como-funciona/">O ciclo de vida de um banco de dados e como uma instrução chega aos dados.</DocItem>
+  <DocItem title="Limites do SQL Database" href="/pt-br/documentacao/store/sql-database/limites/">Cada limite por trás destas recusas, com o que acontece depois dele.</DocItem>
+  <DocItem title="Boas práticas" href="/pt-br/documentacao/store/sql-database/boas-praticas/">Os hábitos que impedem a maioria destes sintomas de aparecer.</DocItem>
+  <DocItem title="Vector Search" href="/pt-br/documentacao/store/sql-database/vector-search/">Os tipos, as funções e o índice de vetor que a inserção que falhou usa.</DocItem>
+  <DocItem title="EdgeSQL Shell" href="/pt-br/documentacao/store/sql-database/edgesql-shell/">Os comandos, as opções e as variáveis de ambiente do shell.</DocItem>
+  <DocItem title="Crie e gerencie bancos de dados" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gerenciar-bancos-dados-edge-sql/">O procedimento para criar, listar e excluir um banco de dados.</DocItem>
+  <DocItem title="Crie tabelas e consulte dados" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-tabelas-edge-sql/">O procedimento por trás das instruções que estas seções diagnosticam.</DocItem>
+</ItemList>
+</FrameBox>

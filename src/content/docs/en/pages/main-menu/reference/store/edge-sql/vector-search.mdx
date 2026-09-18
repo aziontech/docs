@@ -1,52 +1,35 @@
 ---
-title: SQL Database Vector Search
-description: Use Vector Search to implement semantic search engines, offering enhanced experiences and attending to advanced use cases.
-meta_tags: vector search, Azion SQL Database, AI-based applications, vector embeddings, SQLite
+title: Vector search
+description: >-
+  Look up the vector column types, the distance and index functions, and the
+  bounds SQL Database applies to vector data.
+meta_tags: 'vector search, SQL Database, vector embeddings, AI-based applications, cosine distance, DiskANN, libsql_vector_idx, vector_top_k, SQLite'
 namespace: documentation_edge_sql_vector_search
 permalink: /documentation/store/sql-database/vector-search/
 ---
 
-**Vector Search** is an **Azion SQL Database** feature that enables customers to implement semantic search engines. While traditional search models aim to find exact matches, such as keyword matches, vector search models use specialized algorithms to identify similar items based on their mathematical representations, or vector embeddings.
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
 
-By using Vector Search, you can implement various use cases:
+Vector search ranks rows by how close a stored vector is to a query vector, where a traditional search compares keywords for an exact match. The values it compares are vector embeddings, the numeric representations of text, images, or other data. [SQL Database](/en/documentation/store/sql-database/) implements vector search through libSQL, which stores each vector in the native SQLite BLOB storage class. The vector type sets how many bits represent each floating-point number in the vector.
 
-- Enhancing search systems and offering personalized recommendations by finding items with similar characteristics or based on users' preferences, such as related products in ecommerce or content in streaming platforms.
-- Creating text embeddings to search for semantically similar text, where words or phrases are represented as vectors.
-- Building AI-based applications, leveraging Natural Language Processing (NLP) for voice assistants and chatbots, with integration to [AI Inference](/en/documentation/build/ai-inference/) that enables powerful Retrieval-Augmented Generation (RAG) applications using frameworks like LangChain and LangGraph directly at the edge.
+Vector search serves four kinds of workload:
 
-Distributed across the Azion global edge network, this feature enables more relevant search results, real-time recommendations, and insights, drastically reducing latency and improving user satisfaction. All of this while maintaining data locality and reducing dependence on the centralized database.
+- Recommendations that find items with similar characteristics, such as related products in an ecommerce catalog or content in a streaming platform.
+- Semantic text search, where a text embedding represents a word or a phrase as a vector.
+- Voice assistants and chatbots that apply natural language processing (NLP).
+- The retrieval step of a retrieval-augmented generation (RAG) application built on [AI Inference](/en/documentation/build/ai-inference/), with a framework such as LangChain or LangGraph.
 
----
-
-## Implementation
-
-| Scope | Resource |
-|---|---|
-| Implement Vector Search | Guide explaining the basics of [implementing Vector Search](/en/documentation/guides/application-development/data/sql-database-vector-search/) |
-| Get to know Azion SQL Database and its features | [SQL Database reference](/en/documentation/store/sql-database/) |
-| Integrate with AI Inference | Learn about [AI Inference capabilities](/en/documentation/build/ai-inference/) |
+The vectors sit in the same database as the rest of the rows, so one statement filters on ordinary columns and ranks by vector distance. No separate vector service holds a copy of the data. For how a query reaches the data, refer to [How SQL Database works](/en/documentation/store/sql-database/how-it-works/).
 
 ---
 
-## Databases and storage
+## Vector columns
 
-By leveraging SQL Database, vector search databases are optimized to handle high-dimensional vector data at the edge. This enables fast, localized processing as well as reduced latency, allowing complex tasks for advanced data-intensive applications to run efficiently.
+A vector column is declared as a blob type carrying the number of dimensions each vector holds. A `F32_BLOB` column holds an array of 32-bit floating-point numbers as a binary large object (BLOB). This statement declares a three-dimensional vector column:
 
-SQL Database implements Main/Replicas, distributed within the Azion Global Infrastructure, to enable ultra-low latency querying at the edge. This approach allows it to be accessed from any edge location, facilitating real-time processing and data analysis, and guaranteeing availability and fault tolerance. SQL Database uses SQLite's dialect.
-
-:::tip
-The Azion Libraries provide tools and utilities to interact with Azion services both within and outside of the Azion Runtime environment. Explore the [Azion Libraries repository](https://github.com/aziontech/lib/tree/main) to know more about it.
-:::
-
----
-
-## Columns
-
-To store vectors in a vector search database, you can add a column specifically for the vector data.
-
-For example, using the `text-embedding-3-small` model and a `1536` dimension, this column should be declared to hold an array of 32-bit floating-point numbers as a binary large object (BLOB) type, as follows. The (3) in the example specifies the number of 32-bit floating-point (F32) elements in the vector, indicating a 3-dimensional vector:
-
-```graphql
+```sql
 CREATE TABLE teams (
   name TEXT,
   year INT,
@@ -54,91 +37,135 @@ CREATE TABLE teams (
 );
 ```
 
-Then, you can insert data in the table, including vector embeddings (in this example, representing team stats for the 2023 season):
+The examples on this page use three dimensions so that every vector is readable in full. A real embedding column declares the dimension count of the model that fills it. The `text-embedding-3-small` model returns 1,536 dimensions, so its column is declared `F32_BLOB(1536)`.
 
-```graphql
-INSERT INTO teams (name, year, stats_embedding)
-VALUES
-  (
-    'Red',
-    2023,
-    vector('[80, 30, 60]')
-  ),
-  (
-    'Blue',
-    2023,
-    vector('[85, 25, 65]')
-  ),
-  (
-    'Yellow',
-    2023,
-    vector('[78, 28, 62]')
-  ),
-  (
-    'Green',
-    2023,
-    vector('[90, 20, 70]')
-  );
-```
+Each type has an alias, and the two spellings declare the same column:
+
+| Type | Alias |
+| --- | --- |
+| `FLOAT1BIT` | `F1BIT_BLOB` |
+| `FLOAT8` | `F8_BLOB` |
+| `FLOATB16` | `FB16_BLOB` |
+| `FLOAT16` | `F16_BLOB` |
+| `FLOAT32` | `F32_BLOB` |
+| `FLOAT64` | `F64_BLOB` |
+
+`FLOAT32` is the recommended starting point.
 
 ---
 
-## Embeddings
+## Functions
 
-Embeddings are numerical vector representations of complex data (like words or images) that capture essential characteristics, enabling similarity-based searches. In the example, given an embedding of [80, 30, 60] for a team, a query can retrieve other teams with similar embeddings, helping identify teams with comparable performance stats.
+SQL Database adds six SQL functions for vector data:
 
-Using embeddings, you can query to find similar information between the teams. For example, teams with stats similar to 82 goals scored, 25 goals conceded, and 63% possession: 
+| Function | What it does |
+| --- | --- |
+| `vector('[...]')` | Builds a vector from its text form. A vector of more than 65,536 dimensions is rejected |
+| `vector_extract(column)` | Returns the text form of a stored vector |
+| `vector_distance_cos(a, b)` | Returns the cosine distance between two vectors, where `0` is nearest |
+| `vector_distance_l2(a, b)` | Returns the Euclidean distance between two vectors. Not supported for `FLOAT1BIT` vectors |
+| `libsql_vector_idx(column)` | Marks a column for an approximate-nearest-neighbor index |
+| `vector_top_k('index', vector, k)` | Returns the `k` nearest rows of an index, to join on `rowid` |
 
-```graphql
+`vector` builds the value a vector column stores, and `vector_extract` reads it back. The text form `vector_extract` returns carries no spaces between the elements, so a column holding `vector('[85, 25, 65]')` returns `[85,25,65]`.
+
+---
+
+## Distance
+
+A distance function compares two vectors and returns a number. A smaller number means the two vectors are closer.
+
+`vector_distance_cos` returns the cosine distance, which is `1 - cosine similarity`. The value ranges from 0 to 2:
+
+- A distance close to `0` means the vectors are nearly identical, or exactly matching.
+- A distance close to `1` means the vectors are orthogonal, at a right angle to each other.
+- A distance close to `2` means the vectors point in opposite directions.
+
+`vector_distance_l2` returns the Euclidean distance instead. It is not supported for `FLOAT1BIT` vectors.
+
+Order by the distance to rank rows from nearest to furthest. This query returns the three teams whose stats are closest to a season of 82 goals scored, 25 conceded, and 63% possession:
+
+```sql
 SELECT name,
-       vector_extract(stats_embedding),
        vector_distance_cos(stats_embedding, vector('[82, 25, 63]')) AS similarity
 FROM teams
 ORDER BY similarity ASC
 LIMIT 3;
 ```
 
+A query written this way does not consult a vector index. The index is stored as a separate table, and a statement reaches it only through `vector_top_k`. To rank a large table without comparing the query vector with every row, refer to [Indexing](#indexing).
+
 ---
 
 ## Indexing
 
-Considering Vector Search uses larger databases and datasets, it supports indexing through Approximate Nearest Neighbors (ANN), using SQL, wrapping the vector column into the `libsql_vector_idx` function.
+A vector index answers an approximate-nearest-neighbor (ANN) search without comparing the query vector with every row. SQL Database builds the index with the DiskANN algorithm. Wrap the vector column in `libsql_vector_idx` to create one:
 
-```graphql
-CREATE INDEX teams_idx ON teams ( libsql_vector_idx(embedding) );
+```sql
+CREATE INDEX teams_idx ON teams (libsql_vector_idx(stats_embedding));
 ```
 
-To adequately use the index, you can modify your query to guarantee the index is consulted. Using the index is not automatic, since it is internally represented as a different table. For the previous example query, we can modify it slightly to make sure the index is consulted:
+The column inside `libsql_vector_idx` is the vector column of the table the index is created on. A second argument sets the distance metric, as in `libsql_vector_idx(stats_embedding, 'metric=cosine')`.
 
-```graphql
-SELECT
-  name,
-  year,
-  similarity
-FROM
-  teams
-JOIN
-  vector_top_k('teams_idx', '[4,5,6]', 3)
-ON
-  teams.rowid = id
-WHERE
-  year >= 2023;
+Creating a vector index adds a shadow table named after the index, `teams_idx_shadow`. A table listing returns it beside the tables you created. The `.tables` command of the [EdgeSQL Shell](/en/documentation/store/sql-database/edgesql-shell/) and the `getTables` call of the [azion/sql library](/en/documentation/devtools/azion-lib/sql/) both show it.
+
+A vector index requires a table with a `ROWID` or with a single-column `PRIMARY KEY`. A composite `PRIMARY KEY` without a `ROWID` is not supported.
+
+---
+
+## Querying
+
+Using a vector index is not automatic. Select from `vector_top_k` and join the table on `rowid` to make a statement consult the index.
+
+`vector_top_k` takes the index name, the query vector, and the number of rows to return. It returns those rows as one column named `id`, which holds the `ROWID` or the `PRIMARY KEY` of each nearest neighbor.
+
+This sequence creates the table, stores four vectors, indexes them, and returns the two teams nearest to the query vector:
+
+```sql
+CREATE TABLE teams (
+  name TEXT,
+  year INT,
+  stats_embedding F32_BLOB(3)
+);
+
+INSERT INTO teams (name, year, stats_embedding)
+VALUES
+  ('Red', 2023, vector('[80, 30, 60]')),
+  ('Blue', 2023, vector('[85, 25, 65]')),
+  ('Yellow', 2023, vector('[78, 28, 62]')),
+  ('Green', 2023, vector('[90, 20, 70]'));
+
+CREATE INDEX teams_idx ON teams (libsql_vector_idx(stats_embedding));
+
+SELECT name, year
+FROM vector_top_k('teams_idx', vector('[82, 25, 63]'), 2)
+JOIN teams ON teams.rowid = id;
 ```
 
-  ---
+A `WHERE` clause filters the rows `vector_top_k` already returned. Adding `WHERE year >= 2023` keeps the 2023 rows among those two, and it never makes the index return more than `k` rows.
 
-## Limits and considerations
+Generate the query vector with the same embedding model that produced the stored column. For a walkthrough that builds a semantic search end to end, refer to [Build a semantic search with vector embeddings](/en/documentation/guides/application-development/data/sql-database-vector-search/).
 
-- Vector Search uses **libSQL**.
-- LibSQL uses the native SQLite BLOB storage class for vector columns, defined according to the number of bits used to represent each floating-point number in the vector. 
-- Supported vector types: `FLOAT1BIT | F1BIT_BLOB`, `FLOAT8 | F8_BLOB`, `FLOATB16 | FB16_BLOB`, `FLOAT16 | F16_BLOB`, `FLOAT32 | F32_BLOB`, and `FLOAT64 | F64_BLOB`. The `FLOAT32` is recommended as a starting point.
-- The vector_distance_cos function calculates the cosine distance, which is defined at: `Cosine Distance = 1 — Cosine Similarity`.
-  - The cosine distance ranges *from 0 to 2*, where:
-    - A distance close to `0` indicates that the vectors are nearly identical or exactly matching.
-    - A distance close to `1` indicates that the vectors are orthogonal (perpendicular).
-    - A distance close to `2` indicates that the vectors are pointing in opposite directions.
-- Euclidian distance isn't supported for `1-bit FLOAT1BIT vectors`.
-- LibSQL can only operate on vectors with no more than *65536 dimensions*.
-- LibSQL implements the DiskANN algorithm to speed up approximate nearest neighbor queries for tables with vector columns. Check the [Indexing](#indexing) section for more information.
-- To query a vector index, you must use the vector_top_k(idx_name, q_vector, k) function, which finds the top k nearest neighbors and returns their ROWID or PRIMARY KEY.
-- Vector index works only for tables with ROWID or with singular PRIMARY KEY. Composite PRIMARY KEY without ROWID isn't supported.
+---
+
+## Limits
+
+Three bounds apply to vector data. A vector holds at most 65,536 dimensions. `vector_distance_l2` is not supported for `FLOAT1BIT` vectors. A vector index requires a table with a `ROWID` or a single-column `PRIMARY KEY`.
+
+The dimension ceiling is enforced when a vector is built, not when a column is declared. The statement `CREATE TABLE t (v F32_BLOB(65537));` succeeds, because SQLite does not validate the parameter of a column type. The statement that calls `vector` with more than 65,536 dimensions is the one that fails, and it answers `{"error":"vector: max size exceeded 65536"}` inside an HTTP `200` response.
+
+For every other bound SQL Database applies, refer to [SQL Database limits](/en/documentation/store/sql-database/limits/).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Build a semantic search with vector embeddings" href="/en/documentation/guides/application-development/data/sql-database-vector-search/">A walkthrough that creates the embedding column, fills it, indexes it, and queries it.</DocItem>
+  <DocItem title="SQL Database" href="/en/documentation/store/sql-database/">The product the vector columns and functions on this page belong to.</DocItem>
+  <DocItem title="Databases and queries" href="/en/documentation/store/sql-database/databases-and-queries/">The envelope a statement returns, and how a failed vector statement reports its error.</DocItem>
+  <DocItem title="SQL Database limits" href="/en/documentation/store/sql-database/limits/">Every bound the product applies, including the ones on vector data.</DocItem>
+  <DocItem title="AI Inference" href="/en/documentation/build/ai-inference/">Where a RAG application runs its model, beside the vector search that retrieves the context.</DocItem>
+</ItemList>
+</FrameBox>
