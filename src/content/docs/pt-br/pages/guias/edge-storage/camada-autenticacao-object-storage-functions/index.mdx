@@ -1,85 +1,101 @@
 ---
-title: Autentique requisições ao Object Storage com Functions
+title: Autentique requisições com Functions
 description: >-
-  Valide um JWT em uma função antes que qualquer objeto saia de um bucket do
-  Object Storage, para que apenas uma requisição autorizada seja atendida.
-meta_tags: 'object storage, functions, autenticação, jwt, segurança, controle de acesso'
+  Proteja um bucket do Object Storage com uma função que valida um JSON Web
+  Token e entrega o objeto somente a uma requisição autorizada.
+meta_tags: 'object storage, functions, authentication, jwt, bearer token, azion runtime'
 namespace: docs_guides_auth_layer_object_storage
 permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/dados/camada-autenticacao-object-storage-functions/
 ---
 
-import DocButton from '~/components/webkit/DocButton.vue';
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
 
-Por padrão, buckets do Object Storage podem ser acessados através do endpoint S3 ou usados como origens para applications. No entanto, quando você precisa de controle de acesso granular—como exigir autenticação antes de recuperar objetos—você pode implementar uma camada de autenticação usando Functions.
+Você pode colocar uma função na frente de um bucket do [Object Storage](/pt-br/documentacao/store/object-storage/), para que a função valide um JSON Web Token antes que qualquer objeto saia do bucket.
 
-Este guia demonstra como criar uma Function que valida tokens JWT antes de permitir o acesso a objetos armazenados no Object Storage, fornecendo uma maneira segura de servir conteúdo protegido através do seu domínio.
-
-## Como funciona
-
-A camada de autenticação funciona como um guardião entre os usuários e o conteúdo do seu Object Storage:
-
-1. Um usuário solicita um objeto do seu domínio
-2. A Function intercepta a requisição
-3. A Function valida o token JWT dos headers ou cookies da requisição
-4. Se válido, a Function recupera o objeto do Object Storage e o retorna
-5. Se inválido ou ausente, a Function retorna uma resposta 401 Unauthorized
-
-Esta abordagem garante que apenas usuários autenticados possam acessar seu conteúdo protegido, aproveitando a rede global da Azion para desempenho ideal.
+Uma requisição que carrega um token válido recebe o objeto com o seu content type. Toda outra requisição recebe HTTP `401` e o bucket nunca é lido. Um bucket que não precisa de token é servido por um connector e por uma regra do Rules Engine, o que [Use um bucket como origem de uma aplicação](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/) cobre.
 
 ---
 
 ## Pré-requisitos
 
-Antes de começar, certifique-se de ter:
-
-- Uma [conta Azion](https://console.azion.com/)
-- [Azion CLI](/pt-br/documentacao/devtools/cli/) instalado e configurado
-- [Node.js](https://nodejs.org/) versão 18 ou superior
-- Um bucket **Object Storage** com conteúdo para proteger
-- Uma chave de assinatura JWT (secret) para validação de tokens
+- Uma [conta Azion](https://console.azion.com/).
+- A [Azion CLI](/pt-br/documentacao/devtools/cli/) instalada e autorizada.
+- Node.js versão 18 ou superior.
+- Um bucket que guarda os objetos a proteger, com **Workloads Access** definido como _Read Only_ ou _Read & Write_. Um bucket definido como _Restricted_ não é lido por Azion Runtime, então a função não alcança nada nele. Consulte [Criar um bucket](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/).
+- Um secret de assinatura para os tokens que a sua aplicação emite.
 
 ---
 
-## Implementação
+## Como a verificação funciona
 
-### 1. Crie um novo projeto de Function
+A função responde às requisições que uma regra roteia para ela. Ela lê o token do header `Authorization` ou do cookie `auth_token`, verifica a assinatura contra o secret compartilhado e chama Object Storage somente depois que a assinatura confere. Um bucket também é alcançável pelo endpoint S3 e por um connector, e nenhum desses caminhos pede um token; a função protege o caminho em que ela está.
 
-Inicialize um novo projeto de Functions usando o Azion CLI:
+O fluxo abaixo mostra as duas recusas e a única rota que alcança o bucket:
 
-```bash
-azion init my-auth-storage
+```mermaid
+flowchart TD
+  A[Request arrives at the function] --> B{Token in the header or the cookie}
+  B -- No --> C[401 Authentication required]
+  B -- Yes --> D{Signature verified}
+  D -- No --> E[401 Invalid token]
+  D -- Yes --> F[Read the object from the bucket]
+  F --> G{Key found}
+  G -- No --> H[404 Object not found]
+  G -- Yes --> I[200 with the object and its content type]
 ```
 
-Selecione as seguintes opções:
-- **Template**: JavaScript
-- **Runtime**: Azion Runtime
+---
 
-### 2. Instale as dependências
+## Crie o projeto da função
 
-Navegue até o diretório do seu projeto e instale os pacotes necessários:
+A Azion CLI cria a estrutura do projeto e o `npm` adiciona a biblioteca que verifica o token. Para configurar o projeto:
 
-```bash
-cd my-auth-storage
-npm install jose
-```
+<DocSteps>
+  <DocStep title="Inicialize o projeto">
 
-A biblioteca `jose` fornece capacidades de verificação JWT para runtimes JavaScript.
+  ```bash
+  azion init my-auth-storage
+  ```
 
-### 3. Implemente a Function de autenticação
+  Nos prompts, defina **Template** como _JavaScript_ e **Runtime** como _Azion Runtime_. A Azion CLI escreve o projeto em uma pasta `my-auth-storage`.
 
-Substitua o conteúdo do seu arquivo JavaScript principal pelo seguinte código:
+  </DocStep>
+  <DocStep title="Vá para a pasta do projeto">
+
+  ```bash
+  cd my-auth-storage
+  ```
+
+  </DocStep>
+  <DocStep title="Instale a biblioteca de tokens">
+
+  ```bash
+  npm install jose
+  ```
+
+  A biblioteca `jose` verifica JSON Web Tokens em runtimes JavaScript. O `npm` a adiciona ao `package.json`.
+
+  </DocStep>
+</DocSteps>
+
+A pasta do projeto guarda o código do template e a dependência `jose`.
+
+---
+
+## Escreva o handler
+
+Abra o arquivo JavaScript principal do projeto e substitua o conteúdo dele por este handler:
 
 ```javascript
 import Storage from "azion:storage";
 import { jwtVerify } from "jose";
 
-// Configuração JWT - armazene estas variáveis de forma segura em variáveis de ambiente
-const JWT_SECRET = process.env.JWT_SECRET;
-const BUCKET_NAME = process.env.BUCKET_NAME;
-
 async function verifyToken(token) {
   try {
-    const secretKey = new TextEncoder().encode(JWT_SECRET);
+    const secretKey = new TextEncoder().encode(Azion.env.get("JWT_SECRET"));
     const { payload } = await jwtVerify(token, secretKey);
     return { valid: true, payload };
   } catch (error) {
@@ -89,13 +105,13 @@ async function verifyToken(token) {
 }
 
 function extractToken(request) {
-  // Tenta o header Authorization primeiro
+  // The Authorization header comes first.
   const authHeader = request.headers.get("Authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
     return authHeader.substring(7);
   }
-  
-  // Tenta cookie como fallback
+
+  // The cookie is the fallback.
   const cookieHeader = request.headers.get("Cookie");
   if (cookieHeader) {
     const cookies = cookieHeader.split(";").map(c => c.trim());
@@ -104,18 +120,17 @@ function extractToken(request) {
       return authCookie.substring(11);
     }
   }
-  
+
   return null;
 }
 
 async function handleRequest(event) {
   const request = event.request;
   const url = new URL(request.url);
-  
-  // Extrai a object key do caminho da URL
-  // Exemplo: /files/image.png -> key é "image.png"
+
+  // /files/image.png reaches the bucket as the key image.png
   const objectKey = url.pathname.replace(/^\/files\//, "");
-  
+
   if (!objectKey) {
     return new Response(JSON.stringify({ error: "Object key required" }), {
       status: 400,
@@ -123,16 +138,15 @@ async function handleRequest(event) {
     });
   }
 
-  // Extrai e verifica o token JWT
   const token = extractToken(request);
-  
+
   if (!token) {
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: "Authentication required",
-      message: "Forneça um token JWT válido no header Authorization ou cookie auth_token"
+      message: "Provide a valid JWT token in Authorization header or auth_token cookie"
     }), {
       status: 401,
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
         "WWW-Authenticate": "Bearer"
       }
@@ -140,9 +154,9 @@ async function handleRequest(event) {
   }
 
   const verification = await verifyToken(token);
-  
+
   if (!verification.valid) {
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       error: "Invalid token",
       message: verification.error
     }), {
@@ -151,34 +165,32 @@ async function handleRequest(event) {
     });
   }
 
-  // Token válido - recupera objeto do storage
   try {
-    const storage = new Storage(BUCKET_NAME);
+    const storage = new Storage(Azion.env.get("BUCKET_NAME"));
     const storageObject = await storage.get(objectKey);
-    
-    // Retorna o conteúdo do objeto com headers apropriados
+
     return new Response(storageObject.content, {
       status: 200,
       headers: {
         "Content-Type": storageObject.contentType || "application/octet-stream",
-        "Content-Length": storageObject.contentLength?.toString(),
+        "Content-Length": String(storageObject.contentLength ?? ""),
         "Cache-Control": "private, max-age=3600"
       }
     });
   } catch (error) {
     console.error("Storage error:", error);
-    
+
     if (error.message && error.message.includes("not found")) {
-      return new Response(JSON.stringify({ 
-        error: "Object not found" 
+      return new Response(JSON.stringify({
+        error: "Object not found"
       }), {
         status: 404,
         headers: { "Content-Type": "application/json" }
       });
     }
-    
-    return new Response(JSON.stringify({ 
-      error: "Internal server error" 
+
+    return new Response(JSON.stringify({
+      error: "Internal server error"
     }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
@@ -191,162 +203,158 @@ addEventListener("fetch", (event) => {
 });
 ```
 
-### 4. Configure as variáveis de ambiente
+Seis decisões estão no código:
 
-Crie um arquivo `.env` na raiz do seu projeto com o seguinte conteúdo:
+- A key do objeto é o caminho da requisição com `/files/` removido, então `/files/image.png` lê a key `image.png`. Uma requisição que deixa a key vazia retorna `400` com o corpo `{"error": "Object key required"}`.
+- Uma requisição sem token retorna `401`, carrega o header `WWW-Authenticate: Bearer` e nomeia os dois lugares aceitos no seu campo `message`.
+- Um token que o secret não verifica retorna `401` com o corpo `{"error": "Invalid token"}` e a mensagem que `jose` levantou.
+- Um token verificado lê o objeto e o retorna com o content type que Object Storage armazenou, ou `application/octet-stream` quando o objeto não carrega nenhum. `Cache-Control: private, max-age=3600` mantém a resposta fora de um cache compartilhado.
+- Uma key que não está no bucket retorna `404` com o corpo `{"error": "Object not found"}`. Toda outra falha de armazenamento retorna `500`.
+- `console.error` escreve `JWT verification failed:` e `Storage error:`, e as duas linhas chegam aos logs da função.
 
-```env
-BUCKET_NAME=seu-bucket-name
-JWT_SECRET=seu-segredo
+O handler lê `JWT_SECRET` e `BUCKET_NAME` com `Azion.env.get`, então nenhum dos dois valores é escrito no código.
+
+---
+
+## Configure as variáveis de ambiente
+
+Crie um arquivo `.env` na raiz do projeto, com o bucket que o handler lê e o secret contra o qual ele verifica:
+
+```text
+BUCKET_NAME=your-bucket-name
+JWT_SECRET=your-secret
 ```
 
 :::caution[Atenção]
-Nunca commite o arquivo `.env` ou secrets como `JWT_SECRET` no seu repositório de código. Adicione `.env` ao seu `.gitignore`.
+Nunca faça commit do arquivo `.env` nem de um secret como `JWT_SECRET` no seu repositório de código. Adicione `.env` ao seu `.gitignore`.
 :::
 
-### 5. Configure o storage para desenvolvimento local
+---
 
-Para executar o projeto localmente, adicione uma configuração de `storage` ao seu arquivo `azion.config` para que o runtime da Azion consiga resolver as requisições do Object Storage no ambiente de desenvolvimento:
+## Configure o storage local para desenvolvimento
+
+Azion Runtime responde a uma chamada local ao Object Storage a partir de uma pasta na sua máquina. Adicione um bloco `storage` ao `azion.config` para que `storage.get` resolva enquanto você desenvolve:
 
 ```javascript
 storage: [
   {
-    name: 'seu-bucket-name',
-    prefix: 'seu-bucket-prefix',
-    dir: './caminho/para/arquivos/de/storage',
+    name: 'your-bucket-name',
+    prefix: 'your-bucket-prefix',
+    dir: './path/to/storage/files',
     workloadsAccess: 'read_only',
   },
 ],
 ```
 
-Substitua `seu-bucket-name`, `seu-bucket-prefix` e `./caminho/para/arquivos/de/storage` pelos valores correspondentes à estrutura do seu projeto.
-
-### 6. Faça o deploy da Function
-
-Faça o deploy da sua Function para a Azion:
-
-```bash
-azion deploy
-```
-
-Após a conclusão do deploy, execute `azion sync` para enviar suas variáveis de ambiente locais para sua conta da Azion:
-
-```bash
-azion sync
-```
-
-Esse passo é necessário porque a Function utiliza variáveis de ambiente (`BUCKET_NAME` e `JWT_SECRET`). Sem o sync, essas variáveis não estarão disponíveis para a função em tempo de execução.
+Substitua `your-bucket-name`, `your-bucket-prefix` e `./path/to/storage/files` pelos valores do seu projeto. `workloadsAccess` é a grafia em camelCase que o arquivo de configuração usa para o nível de acesso do bucket, e `read_only` é suficiente para um handler que apenas lê.
 
 ---
 
-## Gere tokens JWT para testes
+## Faça o deploy da função
 
-Para testar sua camada de autenticação, você precisa de tokens JWT válidos. Aqui está um exemplo usando Node.js:
+O deploy envia o código e `azion sync` envia os valores que o código lê. Para colocar os dois na sua conta:
 
-```javascript
-import { SignJWT } from 'jose';
+<DocSteps>
+  <DocStep title="Faça o deploy do projeto">
 
-const secret = new TextEncoder().encode('sua-chave-secreta');
+  ```bash
+  azion deploy
+  ```
 
-const token = await new SignJWT({ 
-  sub: 'user123',
-  permissions: ['read:files']
-})
-  .setProtectedHeader({ alg: 'HS256' })
-  .setIssuedAt()
-  .setExpirationTime('2h')
-  .sign(secret);
+  A Azion CLI faz o build do projeto e envia a função para a sua conta.
 
-console.log(token);
-```
+  </DocStep>
+  <DocStep title="Envie as variáveis de ambiente">
 
-### Teste com curl
+  ```bash
+  azion sync
+  ```
 
-```bash
-# Com header Authorization
-curl -H "Authorization: Bearer SEU_JWT_TOKEN" \
-  https://seu-dominio.com/files/documento.pdf
+  O handler lê `BUCKET_NAME` e `JWT_SECRET` em tempo de execução. Sem este passo, as variáveis existem apenas no seu arquivo `.env` e a função não as encontra.
 
-# Com cookie
-curl -b "auth_token=SEU_JWT_TOKEN" \
-  https://seu-dominio.com/files/documento.pdf
-```
+  </DocStep>
+</DocSteps>
+
+A função roda na sua conta com o nome do bucket e o secret de assinatura de que ela precisa.
 
 ---
 
-## Configurações avançadas
+## Verifique a configuração
 
-### Controle de acesso baseado em roles
+Assine um token com o mesmo secret, depois requisite um objeto três vezes: com o header, com o cookie e sem nenhum dos dois. Para verificar a função:
 
-Você pode estender a Function para verificar permissões de usuário armazenadas no payload JWT:
+<DocSteps>
+  <DocStep title="Assine um token de teste">
 
-```javascript
-// Adicionar à lógica de verificação
-const { payload } = verification;
+  Salve o script como `sign-token.mjs` na pasta do projeto, para que o Node.js o leia como um módulo, e rode com `node sign-token.mjs`:
 
-// Verifica se o usuário tem permissão para este recurso
-if (payload.permissions && !payload.permissions.includes('read:files')) {
-  return new Response(JSON.stringify({ 
-    error: "Insufficient permissions" 
-  }), {
-    status: 403,
-    headers: { "Content-Type": "application/json" }
-  });
-}
-```
+  ```javascript
+  import { SignJWT } from 'jose';
 
-### Rate limiting por usuário
+  const secret = new TextEncoder().encode('your-secret-key');
 
-Implemente rate limiting baseado no ID do usuário do JWT:
+  const token = await new SignJWT({
+    sub: 'user123',
+    permissions: ['read:files']
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('2h')
+    .sign(secret);
 
-```javascript
-// Use KV Store para rastrear contagens de requisições por usuário
-import KV from "azion:kv";
+  console.log(token);
+  ```
 
-const kv = new KV("rate-limits");
-const userId = verification.payload.sub;
-const key = `ratelimit:${userId}:${Math.floor(Date.now() / 60000)}`;
+  O script imprime o token assinado. Defina `secret` com o valor que você armazenou em `JWT_SECRET`, ou a função recusa todo token que o script emite.
 
-const count = await kv.get(key) || 0;
-if (count > 100) {
-  return new Response(JSON.stringify({ 
-    error: "Rate limit exceeded" 
-  }), {
-    status: 429,
-    headers: { "Content-Type": "application/json" }
-  });
-}
-await kv.put(key, count + 1, { expirationTtl: 120 });
-```
+  </DocStep>
+  <DocStep title="Requisite um objeto com o header Authorization">
 
-### Metadados de objeto para controle de acesso
+  ```bash
+  curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    https://your-domain.com/files/document.pdf
+  ```
 
-Armazene informações de controle de acesso nos metadados do objeto:
+  A resposta carrega o objeto e o content type que Object Storage armazenou para ele.
 
-```javascript
-// Verifica metadados do objeto para restrições adicionais
-const allowedRoles = storageObject.metadata?.get("allowed_roles");
-if (allowedRoles) {
-  const roles = allowedRoles.split(",");
-  const userRole = verification.payload.role;
-  if (!roles.includes(userRole)) {
-    return new Response(JSON.stringify({ 
-      error: "Access denied for this resource" 
-    }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" }
-    });
+  </DocStep>
+  <DocStep title="Requisite o mesmo objeto com o cookie">
+
+  ```bash
+  curl -b "auth_token=YOUR_JWT_TOKEN" \
+    https://your-domain.com/files/document.pdf
+  ```
+
+  A resposta é a mesma, o que confirma o fallback do cookie.
+
+  </DocStep>
+  <DocStep title="Requisite o objeto sem token">
+
+  ```bash
+  curl https://your-domain.com/files/document.pdf
+  ```
+
+  A função recusa a requisição com HTTP `401`:
+
+  ```json
+  {
+    "error": "Authentication required",
+    "message": "Provide a valid JWT token in Authorization header or auth_token cookie"
   }
-}
-```
+  ```
+
+  </DocStep>
+</DocSteps>
+
+Um token assinado retorna o objeto, e um token ausente ou não verificável retorna `401` sem alcançar o bucket.
 
 ---
 
-## Recursos relacionados
+## Próximos passos
 
-- [Referência da API Object Storage](/pt-br/documentacao/devtools/runtime/api-reference/storage/)
-- [Visão geral de Functions](/pt-br/documentacao/build/functions/)
-- [Integração JWT](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/jwt/)
-- [Como criar e modificar um bucket do Object Storage](/pt-br/documentacao/produtos/guias/criar-e-modificar-bucket/)
-
-<DocButton href="/pt-br/documentacao/devtools/runtime/api-reference/storage/" label="Referência da API Object Storage" kind="secondary" size="medium" />
+<DocCardGroup cols={2}>
+  <DocCard title="Criar um bucket" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/" label="Crie o bucket que esta função lê e defina o seu nível de acesso." />
+  <DocCard title="Use um bucket como origem de uma aplicação" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/" label="Sirva um bucket por um connector e uma regra quando os objetos não precisam de token." />
+  <DocCard title="API de runtime do Storage" href="/pt-br/documentacao/devtools/runtime/api-reference/storage/" label="Todos os métodos e campos do módulo azion:storage que o handler chama." />
+  <DocCard title="Functions" href="/pt-br/documentacao/build/functions/" label="Como uma função é construída, implantada e roteada na Azion Platform." />
+</DocCardGroup>

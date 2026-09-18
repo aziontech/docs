@@ -1,125 +1,305 @@
 ---
-title: Como acessar o Object Storage usando o protocolo S3
+title: Use ferramentas compatíveis com S3 com o Object Storage
 description: >-
-  Aprenda a integrar o Object Storage da Azion com ferramentas S3-compatible, 
-  SDKs e CLIs para gerenciar buckets e objetos com baixa latência e custo zero de DTO.
+  Crie uma credencial S3 para Object Storage, configure o s3cmd ou um SDK com
+  ela e gerencie os objetos dos seus buckets pelas ferramentas que você já usa.
 meta_tags: >-
-  object storage, s3 protocol, hmac credentials, boto3, s3cmd, cloud storage, 
-  azion storage, s3 compatible
+  object storage, s3 protocol, s3 credential, capabilities, s3cmd, boto3, access
+  key, secret key, sigv4
 namespace: documentation_guides_s3_protocol_edge_storage
 permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/dados/protocolo-s3-para-object-storage/
 ---
 
-O **Object Storage** da Azion é totalmente compatível com o protocolo S3. Isso permite que você gerencie seus dados utilizando o ecossistema de ferramentas, SDKs e bibliotecas que você já conhece. Essa compatibilidade facilita a migração de outros provedores de nuvem para a Azion, aproveitando a nossa rede global para reduzir a latência e eliminar custos de **Data Transfer Out (DTO)**.
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
 
-O acesso é realizado através de credenciais HMAC (access key e secret key), que garantem segurança e controle granular sobre as operações.
+[Object Storage](/pt-br/documentacao/store/object-storage/) responde ao protocolo S3, então você gerencia objetos com as ferramentas que já usa, como o s3cmd e a biblioteca boto3. Cada ferramenta se autentica com uma credencial S3 e depois lista, faz upload, faz download e exclui os objetos dos buckets que essa credencial alcança.
 
 ---
 
-## 1. Criar credenciais de acesso (HMAC) via API
+## Pré-requisitos
 
-Para utilizar ferramentas S3-compatible, você deve gerar uma credencial que define o nível de permissão (*capabilities*).
+- Um bucket para a credencial alcançar. Consulte [Criar um bucket](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/).
+- Acesso ao Azion Console, para o procedimento pelo Console. Consulte [Como acessar o Azion Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/como-acessar-o-azion-console/).
+- Um [personal token](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/), para o procedimento pela API.
+- Um cliente S3: o s3cmd para os procedimentos de linha de comando, ou Python com a biblioteca boto3 para o exemplo com SDK.
 
-1. Execute a seguinte requisição `POST` no seu terminal, substituindo `[TOKEN VALUE]` pelo seu [personal token](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/):
+---
 
-```bash
-curl --request POST \
-  --url [https://api.azion.com/v4/workspace/storage/credentials](https://api.azion.com/v4/workspace/storage/credentials) \
-  --header 'Accept: application/json' \
-  --header 'Authorization: Token [TOKEN VALUE]' \
-  --header 'Content-Type: application/json' \
-  --data '{
-     "name": "Credencial Full Access",
-     "capabilities": [
-        "listFiles", 
-        "readFiles", 
-        "writeFiles", 
-        "deleteFiles", 
-        "listAllBucketNames", 
+## Crie uma credencial no Azion Console
+
+Uma credencial carrega um conjunto de capabilities e cada capability é um checkbox no formulário de criação.
+
+| Rótulo no Console | Valor na API | O que a credencial pode fazer |
+| --- | --- | --- |
+| **List Files** | `listFiles` | Ver os arquivos armazenados no bucket: `ListObjects` e `ListObjectsV2`. |
+| **Read Files** | `readFiles` | Acessar arquivos e fazer download deles: `GetObject` e `HeadObject`. |
+| **Write Files** | `writeFiles` | Fazer upload de arquivos ou modificá-los: `PutObject`, `CopyObject`, `CreateMultipartUpload`, `UploadPart` e `CompleteMultipartUpload`. |
+| **Delete Files** | `deleteFiles` | Remover arquivos: `DeleteObject`, `DeleteObjects` e `AbortMultipartUpload`. Exige **Write Files**. |
+| **List All Bucket Names** | `listAllBucketNames` | Recuperar os nomes dos buckets disponíveis: `ListBuckets`. |
+| **List Buckets** | `listBuckets` | Ver os detalhes dos buckets, incluindo metadados e configurações: `HeadBucket`, `ListMultipartUploads` e `ListParts`. |
+
+Para criar a credencial:
+
+<DocSteps>
+  <DocStep title="Abra Object Storage no Azion Console">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Object Storage**.
+
+  </DocStep>
+  <DocStep title="Inicie a credencial">
+
+  Selecione **Create Credential**, o controle que configura uma nova credencial para alcançar o seu bucket do Object Storage.
+
+  </DocStep>
+  <DocStep title="Nomeie a credencial">
+
+  Em **General**, em **Name**, insira um nome que diga o que usa a credencial, como `ci-upload`.
+
+  </DocStep>
+  <DocStep title="Defina a data de expiração">
+
+  Insira a data em que a credencial para de funcionar.
+
+  </DocStep>
+  <DocStep title="Selecione as capabilities">
+
+  Selecione um checkbox por operação que a credencial permite, entre as seis da tabela acima.
+
+  </DocStep>
+  <DocStep title="Copie o secret key">
+
+  Azion Console informa "Credential has been created" e mostra o secret key uma única vez, em um diálogo de cópia. Copie o secret key antes de fechar o diálogo.
+
+  </DocStep>
+</DocSteps>
+
+A credencial existe na sua conta e você guarda a única cópia do secret key dela.
+
+---
+
+## Crie uma credencial pela API
+
+`POST /v4/workspace/storage/credentials` cria a credencial e retorna o par de chaves. O corpo aceita quatro campos:
+
+| Campo | Obrigatório | O que define |
+| --- | --- | --- |
+| `name` | Sim | Identifica a credencial na sua conta. |
+| `capabilities` | Sim | As operações que a credencial permite: `listFiles`, `readFiles`, `writeFiles`, `deleteFiles`, `listAllBucketNames` e `listBuckets`. |
+| `buckets` | Não | Um array com os nomes dos buckets que a credencial alcança. Omita o campo e a credencial alcança todos os buckets da conta. |
+| `expiration_date` | Não | O momento em que a credencial para de funcionar, em UTC ISO 8601. O campo é `null` quando você o omite. |
+
+O campo é o plural `buckets` e aceita um array. Um campo `bucket` no singular é aceito e ignorado, e a credencial que ele cria alcança toda a conta. Para as operações S3 que cada capability cobre, consulte [Compatibilidade com S3](/pt-br/documentacao/store/object-storage/compatibilidade-s3/).
+
+Para criar a credencial:
+
+<DocSteps>
+  <DocStep title="Envie a requisição de criação">
+
+  Substitua `[TOKEN VALUE]` pelo seu personal token e `my-static-bucket` pelo bucket que a credencial alcança:
+
+  ```bash
+  curl --request POST \
+    --url https://api.azion.com/v4/workspace/storage/credentials \
+    --header 'Accept: application/json' \
+    --header 'Authorization: Token [TOKEN VALUE]' \
+    --header 'Content-Type: application/json' \
+    --data '{
+    "name": "full-access",
+    "capabilities": [
+      "listFiles",
+      "readFiles",
+      "writeFiles",
+      "deleteFiles",
+      "listAllBucketNames",
+      "listBuckets"
+    ],
+    "buckets": [
+      "my-static-bucket"
+    ],
+    "expiration_date": "2026-12-31T23:59:59Z"
+  }'
+  ```
+
+  </DocStep>
+  <DocStep title="Leia a resposta">
+
+  Um `201` carrega a credencial, com o access key e o secret key de que o seu cliente S3 precisa:
+
+  ```json
+  {
+    "state": "executed",
+    "data": {
+      "id": 1234,
+      "name": "full-access",
+      "access_key": "[ACCESS KEY]",
+      "secret_key": "[SECRET KEY]",
+      "capabilities": [
+        "listFiles",
+        "readFiles",
+        "writeFiles",
+        "deleteFiles",
+        "listAllBucketNames",
         "listBuckets"
-  ],
-  "buckets": [
-    "meu-bucket-estatico"
-  ],
-  "expiration_date": "2026-12-31T23:59:59Z"
-}'
+      ],
+      "buckets": [
+        "my-static-bucket"
+      ],
+      "expiration_date": "2026-12-31T23:59:59Z",
+      "last_editor": "user@example.com",
+      "created_at": "2026-09-17T22:44:18.221540Z",
+      "last_modified": "2026-09-17T22:44:18.221540Z"
+    }
+  }
+  ```
 
-```
+  </DocStep>
+  <DocStep title="Salve o par de chaves">
 
-| Chave | Descrição |
-| --- | --- |
-| `name` | Identificador amigável para a credencial. |
-| `capabilities` | Lista de permissões (ex: `readFiles` para GET, `writeFiles` para PUT). |
-| `buckets` | Opcional. Restringe o acesso apenas aos buckets listados. |
-| `expiration_date` | Data de expiração no formato UTC ISO 8601. |
+  Copie `data.access_key` e `data.secret_key` para a ferramenta que você configura em seguida.
 
-2. Na resposta, salve os valores de `access_key` e `secret_key`.
+  </DocStep>
+</DocSteps>
 
-:::caution
-Por segurança, a `secret_key` é exibida apenas uma vez no momento da criação. Caso a perca, será necessário criar uma nova credencial, pois não é possível recuperá-la ou modificá-la posteriormente.
+A credencial alcança os buckets em `data.buckets` e `DELETE /v4/workspace/storage/credentials/{id}` a remove.
+
+:::caution[Atenção]
+Esta chamada é a única que retorna `secret_key`. Azion não consegue recuperá-lo e um `GET` posterior no endpoint de credenciais nunca o retorna. Substitua um secret key perdido criando outra credencial.
 :::
 
 ---
 
-## 2. Configurações Globais de Conexão
+## Configure o s3cmd
 
-Para configurar qualquer ferramenta, utilize os seguintes parâmetros padrão:
+O [s3cmd](https://s3tools.org/s3cmd) é uma ferramenta de linha de comando para S3 e outros serviços de armazenamento em nuvem, e `s3cmd --configure` pergunta cada configuração de conexão, uma de cada vez. Para configurá-lo:
 
-* **Endpoint:** `s3.us-east-005.azionstorage.net`.
-* **Região:** `us-east-005`.
+<DocSteps>
+  <DocStep title="Instale o s3cmd">
+
+  Instale o pacote s3cmd na máquina que gerencia os objetos.
+
+  </DocStep>
+  <DocStep title="Adicione o s3cmd ao seu PATH">
+
+  Confirme que o PATH do seu sistema contém `s3cmd`, para que o comando rode a partir de qualquer diretório.
+
+  </DocStep>
+  <DocStep title="Inicie a configuração">
+
+  ```bash
+  s3cmd --configure
+  ```
+
+  </DocStep>
+  <DocStep title="Insira o access key e o secret key">
+
+  Insira o `access_key` e o `secret_key` da credencial que você criou.
+
+  </DocStep>
+  <DocStep title="Insira a região">
+
+  Insira `us-east-005`, a região que dá nome ao endpoint do Object Storage.
+
+  </DocStep>
+  <DocStep title="Insira o endpoint">
+
+  Insira `s3.us-east-005.azionstorage.net`.
+
+  </DocStep>
+  <DocStep title="Insira o template de DNS">
+
+  Insira `%(bucket).s3.us-east-005.azionstorage.net`, que endereça cada bucket como um subdomínio do endpoint.
+
+  </DocStep>
+  <DocStep title="(Opcional) Insira uma senha de criptografia">
+
+  Insira uma senha de criptografia e o caminho para o seu programa GPG. Gnu Privacy Guard é um software de criptografia livre e de código aberto, e adiciona uma camada de privacidade criptográfica e de autenticação à comunicação S3.
+
+  </DocStep>
+  <DocStep title="Ative o HTTPS">
+
+  Insira `true`.
+
+  </DocStep>
+  <DocStep title="(Opcional) Insira um servidor proxy HTTP">
+
+  Deixe a resposta em branco quando a sua máquina se conecta diretamente.
+
+  </DocStep>
+  <DocStep title="Pressione y para testar as configurações">
+
+  O s3cmd assina uma requisição com as chaves que você inseriu e informa o resultado:
+
+  ```text
+  Please wait, attempting to list all buckets...
+  Success. Your access key and secret key worked fine :-)
+  ```
+
+  </DocStep>
+</DocSteps>
+
+O s3cmd agora alcança os seus buckets com essa credencial. Você pode salvar as respostas em um arquivo `.s3cfg` e rodar `s3cmd --configure` de novo para mudá-las.
 
 ---
 
-## 3. Exemplos de Integração
+## Gerencie objetos com o s3cmd
 
-### Usando Python (Boto3)
+Cada comando endereça um bucket ou um objeto pela sua URL `s3://`.
 
-O Boto3 é a biblioteca padrão para desenvolvedores Python interagirem com storage S3.
+| Comando | O que faz |
+| --- | --- |
+| `s3cmd ls` | Lista todos os buckets da conta. |
+| `s3cmd ls s3://my-bucket` | Lista o conteúdo do bucket. |
+| `s3cmd put file.xml s3://my-bucket/file.xml` | Faz upload de um arquivo para o bucket. |
+| `s3cmd get s3://my-bucket/file.xml file-2.xml` | Faz download do objeto para um arquivo local, que você compara com o original. |
+| `s3cmd del s3://my-bucket/addrbook.xml` | Exclui um objeto. |
+| `s3cmd info s3://my-bucket/file.xml` | Retorna os metadados de um objeto sem baixá-lo. |
+
+:::caution[Atenção]
+O endpoint S3 gerencia objetos, não buckets. `s3cmd mb` e `s3cmd rb` são recusados com `403 AccessDenied` e a mensagem `not entitled`, quaisquer que sejam as capabilities da credencial. Crie e exclua buckets pelo Azion Console, pela API da Azion ou pela Azion CLI, como [Criar um bucket](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/) mostra.
+:::
+
+Rode `s3cmd --help` para listar todos os comandos que a ferramenta aceita.
+
+---
+
+## Conecte-se com um SDK
+
+Qualquer SDK S3 alcança o mesmo endpoint com a mesma credencial. boto3 é a biblioteca que a maioria dos projetos Python usa para armazenamento S3, e o seu client recebe o endpoint, a região e o par de chaves:
 
 ```python
 import boto3
 
 s3 = boto3.client(
     "s3",
-    endpoint_url="[https://s3.us-east-005.azionstorage.net](https://s3.us-east-005.azionstorage.net)",
-    aws_access_key_id="<SUA_ACCESS_KEY>",
-    aws_secret_access_key="<SUA_SECRET_KEY>",
+    endpoint_url="https://s3.us-east-005.azionstorage.net",
+    aws_access_key_id="[ACCESS KEY]",
+    aws_secret_access_key="[SECRET KEY]",
     region_name="us-east-005",
 )
 
-# Exemplo: Listar objetos no bucket
-response = s3.list_objects_v2(Bucket="meu-bucket-estatico")
+response = s3.list_objects_v2(Bucket="my-static-bucket")
 for obj in response.get("Contents", []):
-    print(f"Objeto encontrado: {obj['Key']}")
-
+    print(f"Object found: {obj['Key']}")
 ```
 
-### Usando s3cmd (CLI)
+O script imprime uma linha por objeto armazenado no bucket:
 
-O [s3cmd](https://s3cmd.org) é uma ferramenta de linha de comando para gerenciar serviços S3.
+```text
+Object found: images/logo.png
+```
 
-1. Instale o pacote `s3cmd` e certifique-se de que ele esteja no seu PATH.
-2. Execute `s3cmd --configure` e siga o prompt interativo:
-* **Access Key / Secret Key:** Insira as chaves geradas no passo 1.
-* **Default Region:** `us-east`.
-* **S3 Endpoint:** `s3.us-east-005.azionstorage.net`.
-* **DNS template:** `%(bucket).s3.us-east-005.azionstorage.net`.
-* **Encryption password / GPG program path:** Opcional (GPG adiciona camada de privacidade).
-* **Use HTTPS protocol:** `true`.
-* **HTTP Proxy server:** Deixe em branco, a menos que utilize um proxy.
+O endpoint assina requisições com SigV4 e também responde a um endereço no estilo path, `s3.us-east-005.azionstorage.net/<bucket>/<key>`. Ele serve o gerenciamento de objetos, não a entrega a usuários finais: uma aplicação apoiada por um connector é o que responde a uma requisição vinda da internet.
 
+---
 
-3. Pressione `y` para testar o acesso. Se bem-sucedido, você verá: `Success. Your access key and secret key worked fine :-)`.
+## Próximos passos
 
-#### Comandos comuns:
-
-| Comando | Descrição |
-| --- | --- |
-| `s3cmd ls` | Lista todos os buckets da conta. |
-| `s3cmd put arquivo.png s3://meu-bucket/` | Faz upload de um objeto. |
-| `s3cmd get s3://meu-bucket/arquivo.png` | Faz download de um objeto. |
-| `s3cmd del s3://meu-bucket/arquivo.png` | Exclui um objeto. |
-
-:::note
-A exclusão de buckets (`rb`) só é permitida se o bucket estiver vazio. Se arquivos foram deletados recentemente, pode haver um período de espera de até 24 horas antes que a exclusão do bucket seja permitida.
-:::
+<DocCardGroup cols={2}>
+  <DocCard title="Compatibilidade com S3" href="/pt-br/documentacao/store/object-storage/compatibilidade-s3/" label="Todas as capabilities, as operações S3 que Azion responde e o que o endpoint retorna." />
+  <DocCard title="Upload e download de objetos" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/upload-e-download-de-objetos-do-bucket/" label="Mova os mesmos objetos com a API da Azion e a Azion CLI." />
+  <DocCard title="Criar um bucket" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/" label="Crie o bucket que uma credencial alcança e defina o nível de acesso que a plataforma usa." />
+  <DocCard title="Use um bucket como origem de uma aplicação" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/" label="Sirva os objetos ao público, o que o endpoint S3 não faz." />
+</DocCardGroup>
