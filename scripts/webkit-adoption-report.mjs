@@ -32,7 +32,8 @@ const RULE_PURPOSE = {
 	'webkit/prefer-define-model': 'hand-rolled `modelValue` + `update:modelValue` pair',
 	'webkit/no-style-override': '`class`/`style` on a webkit component — restyling it',
 	'webkit/authoring-standards': 'shared authoring standards (typed slots, comments, …)',
-	'docs/mdx-webkit-imports-only': 'MDX import that is not a direct `@aziontech/webkit/*` subpath',
+	'docs/mdx-webkit-imports-only':
+		'MDX import that is not a webkit subpath, a wrapper or a `.md`/`.mdx` partial',
 	'docs/mdx-no-raw-html': 'raw HTML element in MDX instead of prose or a webkit component',
 	'docs/webkit-wrapper-imports': 'webkit wrapper importing beyond vue, webkit and sibling wrappers',
 };

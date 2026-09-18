@@ -5,23 +5,28 @@
 // these two constrain WHAT an MDX file may reach for at all. The adoption report counts
 // both namespaces.
 
-/** Import sources an MDX page may use: direct webkit component subpaths, or a wrapper
+/** Import sources an MDX page may use: direct webkit component subpaths, a wrapper
  * from the sanctioned wrapper folder — whose own imports docs/webkit-wrapper-imports
- * constrains to webkit, making the guarantee transitive. */
+ * constrains to webkit, making the guarantee transitive — or another content partial.
+ *
+ * A `.md`/`.mdx` import is content, not UI: a snippet or tab body reused across pages
+ * and languages. It carries no styling decision of its own, and the partial it points at
+ * is itself an MDX file this same rule governs — so the policy stays transitive. */
 const WEBKIT_IMPORT = /^@aziontech\/webkit\/.+/;
 const WRAPPER_IMPORT = /^~\/components\/webkit\/[^/]+\.vue$/;
+const CONTENT_IMPORT = /\.mdx?$/;
 
 export const mdxWebkitImportsOnly = {
 	meta: {
 		type: 'problem',
 		docs: {
 			description:
-				'MDX imports only direct @aziontech/webkit subpaths or ~/components/webkit wrappers',
+				'MDX imports only direct @aziontech/webkit subpaths, ~/components/webkit wrappers or .md/.mdx content partials',
 		},
 		schema: [],
 		messages: {
 			forbidden:
-				'MDX content imports only `@aziontech/webkit/<component>` subpaths or `~/components/webkit/<Name>.vue` wrappers; "{{source}}" is neither. Compose the page from prose and webkit components.',
+				'MDX content imports only `@aziontech/webkit/<component>` subpaths, `~/components/webkit/<Name>.vue` wrappers or `.md`/`.mdx` content partials; "{{source}}" is none of these. Compose the page from prose and webkit components.',
 		},
 	},
 	create(context) {
@@ -29,7 +34,12 @@ export const mdxWebkitImportsOnly = {
 			ImportDeclaration(node) {
 				const source = node.source.value;
 				if (typeof source !== 'string') return;
-				if (WEBKIT_IMPORT.test(source) || WRAPPER_IMPORT.test(source)) return;
+				if (
+					WEBKIT_IMPORT.test(source) ||
+					WRAPPER_IMPORT.test(source) ||
+					CONTENT_IMPORT.test(source)
+				)
+					return;
 				context.report({ node: node.source, messageId: 'forbidden', data: { source } });
 			},
 		};
