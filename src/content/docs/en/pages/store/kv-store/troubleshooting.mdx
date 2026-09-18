@@ -1,0 +1,261 @@
+---
+title: Troubleshooting
+description: >-
+  Fix a constructor that throws, a namespace a function cannot open, an import
+  the build rejects, and the errors the Azion API returns.
+meta_tags: 'kv store, troubleshooting, kverror, azion.kv, invalid_value_type, invalid_multiple_get_return_type, namespace not found, azion:kv, validation_error, invalid_page_size'
+namespace: documentation_products_kv_store_troubleshooting
+permalink: /documentation/store/kv-store/troubleshooting/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Every symptom below is a string [KV Store](/en/documentation/store/kv-store/) returns: a constructor that throws, an argument `open` refuses, a namespace the runtime does not find while the Azion API lists it, a value and a return type the client rejects, a delete method that is not a function, an import that fails the build, a configuration entry that creates nothing, a duplicate name answered with `400`, a `405` on every request that would change a namespace, a `500` on a malformed body, a page size outside its range, and an error body a handler reads as empty.
+
+---
+
+## KV constructor is private on a new Azion.KV call
+
+A function throws `KvError: KV constructor is private, use KV.open(name) instead` on the line that builds the client, before any key is read or written. Both `new Azion.KV()` and `new Azion.KV('my-namespace')` produce it.
+
+`Azion.KV` guards its constructor, and `open` is the only static member that hands back a client. The guard runs before the argument is examined, which is why the no-argument form fails the same way: there is no default namespace behind it, and the call never gets far enough to look for one. `Azion.KV.open` is also asynchronous, so a call that is not awaited hands the lines after it a promise where they expect a client, and the first method call on that promise throws something else entirely.
+
+- **Replace the constructor with `await Azion.KV.open(name)`**: it is the only entry point, and it is asynchronous, so the call is awaited.
+- **Name a namespace on every call**: no form of `open` resolves a default, so the argument is always the name of a namespace the account holds.
+- **Create the namespace before the function opens it**: the client cannot create one. For the operation, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+
+The handler then holds a client for that namespace:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('my-namespace');
+    await kv.put('user-42', 'active');
+
+    return new Response('Stored');
+  },
+};
+```
+
+---
+
+## Invalid name type, expected string
+
+`Azion.KV.open` rejects with `KvError: Invalid name type, expected string` before it reaches the account. `Azion.KV.open(123)`, `Azion.KV.open('')`, `Azion.KV.open(null)`, and `Azion.KV.open()` each produce the same message.
+
+`open` checks the type of its argument first, and it accepts a non-empty string and nothing else. A namespace carries no numeric id, so a number is never a valid argument: the name is the identifier. An empty string names nothing, and a name read from a variable that was never set arrives as `undefined` and fails the same check. The message describes the argument rather than the account, so a well-formed name that belongs to no namespace passes this check and fails later with a different error.
+
+- **Pass the name as a non-empty string**: `Azion.KV.open('my-namespace')`.
+- **Do not pass an identifier from another product**: a namespace has no `id` field, and `name` is what addresses it. For the fields it carries, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+- **Check the variable before the call**: a name built from a request or a configuration value can arrive as `undefined` or as an empty string, and either one reaches `open` as an invalid type.
+
+`open` then resolves the name against the account, and a name no namespace carries raises a `NotFound` error naming it instead.
+
+---
+
+## KV namespace "my-namespace" does not exist for a namespace the Azion API lists
+
+`Azion.KV.open` rejects with `NotFound: KV namespace "my-namespace" does not exist` inside a deployed function, while `GET /v4/workspace/kv/namespaces` returns that same name in `results`. A name no namespace carries produces the identical message, so the error does not tell the two cases apart.
+
+`open` resolves the name against the runtime's own view of the account before it returns a client, and that view is separate from the one the management API answers from. Azion observed a namespace that the API had been listing for more than an hour refused by `open` throughout, in a function where `Azion.Storage` constructed normally on the same request and where `env` and `ctx` were both empty objects. That rules out a general failure to reach the stores and rules out a missing binding. Two readings remain open and neither can be settled from the function: propagation from the management API to the runtime that has not finished, and a Preview entitlement that covers the management API without covering the runtime.
+
+- **Compare the name character for character**: names are case-sensitive, so the string `open` receives has to match the one the create request sent exactly, including its case.
+- **Confirm the namespace through the Azion API**: `GET /v4/workspace/kv/namespaces/{name}` answers `200` with the namespace, or `404` with `namespace_not_found`. For the operation, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+- **Confirm that the account holds KV Store Preview access**: KV Store is a Preview product, and access is granted per account on request. For the channels, refer to [Technical Support](/en/documentation/support/).
+- **Report it when all three hold**: a namespace the API returns and the runtime refuses is not something the function can correct, so it goes to the technical support team with the namespace name and the time of the call.
+
+The three checks separate a name you can fix yourself from a condition only the technical support team can clear, which is what the identical message otherwise hides.
+
+---
+
+## INVALID_VALUE_TYPE on a put call
+
+`kv.put(key, value)` rejects with `INVALID_VALUE_TYPE` and writes nothing. The value is a `Map`, a `Set`, a `WeakMap`, a `WeakSet`, a `RegExp`, or a `SharedArrayBuffer`.
+
+`put` serializes a value it does not already hold as text or as bytes, and JSON serialization returns `{}` for every one of those six shapes. Writing one would therefore store an empty object under the key and resolve as a success, and the read that followed would return `{}` with nothing to show that the entries, the members, or the pattern had been dropped. The client refuses the value instead, so the loss surfaces at the write, on the line that caused it, rather than at a read somewhere else in the application.
+
+- **Convert a `Map` or a `Set` before you store it**: a `Map` becomes an array of its entries and a `Set` becomes an array of its members, and both of those serialize to what they hold.
+- **Store the parts of a `RegExp` rather than the object**: `source` and `flags` are strings, and the expression is rebuilt from them on read.
+- **Pass an `ArrayBuffer` or a typed-array view for binary data**: `put` accepts both, and a view is written with its `byteOffset` and `byteLength` honored.
+
+`put` then resolves, and the value comes back in the type the read asks for. For the five shapes `put` accepts, refer to [KV client](/en/documentation/store/kv-store/kv-client/).
+
+---
+
+## INVALID_MULTIPLE_GET_RETURN_TYPE on a multi-key get
+
+`kv.get(keys, returnType)` rejects with `INVALID_MULTIPLE_GET_RETURN_TYPE` when `keys` is an array. The same return type on a single key is accepted, so the call looks correct next to the one beside it.
+
+The two paths take different sets of return types. A single key reads as `text`, `json`, `arrayBuffer`, or `stream`. An array of keys reads as `text` or `json` only, because that path builds one object carrying an entry per key, and an `ArrayBuffer` or a `ReadableStream` has no place inside it. `get` dispatches on the type of its first argument, so whether a return type is valid depends on whether that argument is a string or an array.
+
+- **Ask for `text` or `json` on an array of keys**: those are the two return types that path accepts.
+- **Read one key at a time when the value must arrive as `arrayBuffer` or `stream`**: the single-key path accepts all four return types.
+- **Expect one entry per distinct key**: the array is de-duplicated before the read, so a key listed twice is read once and returns once.
+
+The read then resolves to a plain object keyed by the key name, carrying `null` for a key the namespace does not hold. For that object and the four return types, refer to [KV client](/en/documentation/store/kv-store/kv-client/).
+
+---
+
+## Azion.KV.delete is not a function
+
+A function throws `TypeError: Azion.KV.delete is not a function` on a call shaped `Azion.KV.delete('my-namespace')`, and `Azion.KV.delete` reads as `undefined` when the code inspects it first.
+
+`delete` is a method on the client that `open` returns, and it removes one key. It is not a static member of `Azion.KV`, whose static members are `length`, `name`, `prototype`, and `open`. The two calls read alike and mean different things: `kv.delete(key)` removes a key from a namespace, and nothing at all removes the namespace. No interface deletes one, and that is not a permission the account is missing: the client, the Azion API, [Azion CLI](/en/documentation/devtools/cli/), and Azion Console each expose no delete path for a namespace.
+
+- **Remove the call**: nothing replaces it, because no interface deletes a namespace.
+- **Delete the keys instead of the namespace**: `await kv.delete('user-42')` on a client from `Azion.KV.open` removes one key. For the method, refer to [KV client](/en/documentation/store/kv-store/kv-client/).
+- **Treat a namespace as permanent when you plan one**: a name the account holds is held from then on. For the naming convention that follows from it, refer to [Best practices](/en/documentation/store/kv-store/best-practices/).
+
+The function then runs to completion, and the namespace stays on the account with whatever keys it still holds.
+
+---
+
+## The build cannot resolve azion:kv and produces no bundle
+
+The build stops on the import line and no bundle is produced:
+
+```text
+✘ [ERROR] Could not resolve "azion:kv"
+
+    src/function/index.js:1:24:
+      1 │ import { KVStore } from 'azion:kv';
+        ╵                         ~~~~~~~~~~
+
+[Azion] [Build] › ✖  error     Build failed with 1 error
+```
+
+There is no `azion:kv` module. `Azion.KV` is a global of [Azion Runtime](/en/documentation/devtools/runtime/), present in every function with no import line and no credential, and a module specifier for it has never existed. The failure is misread often, because a neighboring specifier behaves differently: `azion:storage` resolves in the same project with the same bundler, so a function that reaches two stores fails on one import and builds the other. The `azion` library does not cover it either, because the published package exports no KV entry.
+
+- **Delete the import line**: `Azion.KV` is reachable without it, and nothing takes its place at the top of the file.
+- **Open the client from the global**: `const kv = await Azion.KV.open('my-namespace');` inside the handler.
+- **Do not reach for `azion/kv` instead**: the `azion` library publishes no KV export, so that specifier does not resolve either.
+
+The build then produces the bundle, and `Azion.KV` resolves inside the deployed handler. For the client the global exposes, refer to [KV client](/en/documentation/store/kv-store/kv-client/).
+
+---
+
+## A namespace declared in azion.config.js is never created
+
+`azion.config.js` carries a `kv` entry, `azion build` succeeds, `azion deploy` reports that the application was deployed, and the account holds exactly the namespaces it held before. No warning and no error names the entry:
+
+```javascript
+export default {
+  kv: [{ name: 'my-namespace' }],
+  build: { preset: 'javascript', polyfills: true },
+};
+```
+
+The entry is accepted at every stage that could reject it and acted on at none. The key is declared in the configuration's type definitions, so an editor accepts it; the build validates it and carries it into the manifest; the deploy reads the manifest and reports success. A namespace is created by one request only, `POST /v4/workspace/kv/namespaces` on the Azion API. The silence is what makes this costly: a function deployed alongside that entry opens a namespace that was never created, and the symptom that reaches you is a `NotFound` from `Azion.KV.open` rather than anything pointing at the configuration.
+
+- **Create the namespace through the Azion API**: one `POST` to `/v4/workspace/kv/namespaces` carrying `name` in the body. For the request and the response it returns, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+- **Remove the `kv` entry from `azion.config.js`**: it creates nothing, and leaving it in place reads as though the namespace is provisioned with the function.
+- **Confirm the namespace before you deploy the function**: `GET /v4/workspace/kv/namespaces` lists every name the account holds.
+
+The namespace then exists before the first deploy, and `Azion.KV.open` receives a name the account holds.
+
+---
+
+## Namespace already exists answers 400 and not 409
+
+`POST /v4/workspace/kv/namespaces` answers `400` with the KV service envelope, and a client that branches on `409` for a collision falls through to its validation branch and reports the wrong cause:
+
+```json
+{"state":"error","error":{"code":"validation_error","message":"Namespace already exists","details":{"field":"name"}}}
+```
+
+The KV service reports every rejection of the create body under one status and one code. A name shorter than 3 characters, a name longer than 63, a name carrying a character outside `^[a-zA-Z0-9_-]+$`, a missing `name`, and a name the account already holds all answer `400` with `validation_error` in `code`, and only `message` separates them. A name is unique within the account and it is permanent, so the collision is with a namespace that keeps that name from then on.
+
+- **Branch on `error.message` rather than on the status**: `400` with `validation_error` covers every rejection of the body, and the message names which rule was broken.
+- **List what the account already holds**: `GET /v4/workspace/kv/namespaces` returns every name in `results`. For the operation, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+- **Send a different name**: a namespace is neither renamed nor deleted, so the name in the collision stays taken.
+
+The create request then answers `201`, and the response carries `name`, `created_at`, and `last_modified`.
+
+---
+
+## 405 Method Not Allowed on a request that changes a namespace
+
+`DELETE`, `PUT`, or `PATCH` on `/v4/workspace/kv/namespaces/{name}` answers `405` in the platform gateway's envelope, with `10007` in `code` and the text in `detail`:
+
+```json
+{"errors":[{"code":"10007","title":"Method Not Allowed","detail":"Method \"DELETE\" not allowed.","status":"405","source":{"pointer":"/data"},"meta":{"method":"DELETE"}}]}
+```
+
+Three operations exist on the resource and none of them changes a namespace. `OPTIONS` on the collection answers `allow: GET, POST, HEAD, OPTIONS`, and `OPTIONS` on a single namespace answers `allow: GET, HEAD, OPTIONS`. There is no rename, no deactivation, no emptying, and no delete, on the Azion API or on any other interface. A namespace is therefore permanent from the moment the create request answers `201`, and the `405` is the whole answer rather than a permission to request or a header to add.
+
+- **Read the `allow` header before you write the client**: `OPTIONS` on either path returns the methods that exist.
+- **Remove keys rather than the namespace**: `kv.delete(key)` from a function removes one key at a time. For the method, refer to [KV client](/en/documentation/store/kv-store/kv-client/).
+- **Create a second namespace when the layout has to change**: the first one keeps its name and its keys, and a function opens whichever one it names.
+- **Choose the name before the create request**: the name is the identifier and it is read-only afterwards. For the rules it follows, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+
+The account then works with create, list, and retrieve, which is the whole surface a namespace exposes.
+
+---
+
+## 500 internal_error on a create request
+
+`POST /v4/workspace/kv/namespaces` answers `500`, while the token, the path, and the account are all correct and the same request with a different body answers `201`:
+
+```json
+{"state":"error","error":{"code":"internal_error","message":"Internal server error","details":{}}}
+```
+
+Two ordinary client mistakes reach the service unhandled: a body that is not valid JSON, and a `name` carrying a type other than a string, such as `{"name":123}`. Both belong to the `400` family the endpoint uses for every other rejection of the body, and Azion tracks the mismatch as a service defect rather than behavior to write code against. What it means for you is that this status does not report an outage and does not justify a retry: the body is what to look at.
+
+- **Validate the JSON before the request is sent**: a truncated body or an unquoted key produces this status rather than a parse error naming the character.
+- **Send `name` as a string**: `{"name":"my-namespace"}`, and never a number or a boolean in that field.
+- **Set `Content-Type: application/json`**: the create body is JSON and the header declares it. For the headers every request carries, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+
+The create request then answers `201` with the namespace, or `400` with a `validation_error` whose `message` names what is wrong with the name.
+
+---
+
+## 400 invalid_page_size on a list request
+
+`GET /v4/workspace/kv/namespaces` answers `400` and returns no namespaces. A `page_size` of `0`, of `101`, and of `1000` each produce it:
+
+```json
+{"state":"error","error":{"code":"invalid_page_size","message":"Page size must be between 1 and 100","details":{}}}
+```
+
+`page_size` accepts 1 to 100 and defaults to 50. A request above the ceiling is refused rather than trimmed to it, so a client that asks for every namespace in one response receives nothing instead of the first hundred. The list pages instead, and KV Store's envelope is not the one the rest of the Azion API v4 uses: the namespaces sit in `results`, and the paging fields sit under a `pagination` object carrying `page`, `page_size`, `total_count`, `total_pages`, `has_next`, and `has_previous`.
+
+- **Keep `page_size` between 1 and 100**: 50 is what the endpoint uses when the parameter is absent.
+- **Walk the pages with `has_next`**: send `page` once per page until `has_next` reads `false`.
+- **Do not try to narrow the response with `fields`**: the parameter is accepted and ignored, and every namespace comes back with all three of its fields.
+
+The list then answers `200`, and `results` carries one namespace per entry. For the envelope and its fields, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+
+---
+
+## A KV Store error reaches the handler with nothing in errors detail
+
+A client reads `errors[0].detail` on a rejected request and logs `undefined`, while the response body plainly carries a message. The status is `400`, `404`, or `500`.
+
+Two error envelopes coexist on the same endpoint, and a handler written against one reads nothing from the other. The platform gateway emits the Azion API v4 envelope: an `errors` array whose entries carry a numeric `code`, a `title`, and the human text in `detail`. It answers the `405`. The KV service emits its own: `state` set to `error`, and an `error` object carrying a snake_case `code`, the human text in `message`, and a `details` object. It answers `400`, `404`, and `500`, which is every rejection a client meets in ordinary use.
+
+- **Read `error.message` when the body carries `state`**: `validation_error`, `invalid_page_size`, `namespace_not_found`, and `internal_error` all arrive in that shape.
+- **Keep the Azion API v4 branch for the `405`**: the gateway envelope is what a `DELETE`, `PUT`, or `PATCH` on a namespace returns.
+- **Do not key the handler on numeric codes alone**: the KV service's codes are strings, so a branch that matches numbers skips every `400`, `404`, and `500`.
+- **Redact the body before you log it**: the `404` response echoes the caller's `account_id` inside `details`.
+
+The handler then reports the message the platform returned, whichever of the two envelopes carried it. For both shapes with every field they name, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="KV client" href="/en/documentation/store/kv-store/kv-client/">Every method, value type, return type, and option these client errors come from.</DocItem>
+  <DocItem title="Namespaces" href="/en/documentation/store/kv-store/namespaces/">The three API operations, the two error envelopes, and the fields a namespace carries.</DocItem>
+  <DocItem title="How KV Store works" href="/en/documentation/store/kv-store/how-it-works/">What runs between a function and the namespace it opens.</DocItem>
+  <DocItem title="KV Store limits" href="/en/documentation/store/kv-store/limits/">The bounds behind these refusals, with the usage each plan includes.</DocItem>
+  <DocItem title="Best practices" href="/en/documentation/store/kv-store/best-practices/">The habits that keep most of these symptoms from appearing.</DocItem>
+  <DocItem title="Store and read data from a function" href="/en/documentation/guides/application-development/data/manage-with-functions/">The procedure that puts a working client inside a running function.</DocItem>
+  <DocItem title="How Functions works" href="/en/documentation/build/functions/how-it-works/">The handler that holds the client, and the two patterns it accepts.</DocItem>
+  <DocItem title="Technical Support" href="/en/documentation/support/">The channels that open Preview access and take a namespace the runtime refuses.</DocItem>
+</ItemList>
+</FrameBox>

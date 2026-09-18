@@ -1,0 +1,338 @@
+---
+title: KV client
+description: >-
+  Open the Azion.KV client inside a function, and look up its methods, value
+  types, return types, options, and errors.
+meta_tags: 'kv store, azion.kv, kv client, runtime, put, get, getWithMetadata, delete, namespace'
+namespace: documentation_products_kv_store_kv_client
+permalink: /documentation/store/kv-store/kv-client/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+`Azion.KV` is the client a function uses to read and write keys in [KV Store](/en/documentation/store/kv-store/). It is a global of [Azion Runtime](/en/documentation/devtools/runtime/), so a [function](/en/documentation/build/functions/) reaches it with no import line and no credential. Two facts govern every call on this page. First, the client is opened with `await Azion.KV.open(name)`, and that call is asynchronous. Second, the namespace it names must already exist, because the client cannot create one.
+
+---
+
+## Open a client
+
+`Azion.KV.open` is the only entry point. The constructor is private, so `new Azion.KV()` and `new Azion.KV('my-namespace')` both throw `KvError: KV constructor is private, use KV.open(name) instead`. There is no default namespace: the no-argument form fails on the same guard, before a namespace is ever resolved.
+
+`Azion.KV` is a runtime global and has no module form. `import { KVStore } from 'azion:kv'` fails the build with `Could not resolve "azion:kv"`, and no bundle is produced.
+
+Open the namespace, then call a method on the client that `open` returns:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('my-namespace');
+    const value = await kv.get('user-42', 'text');
+
+    return new Response(value ?? 'No value for that key');
+  },
+};
+```
+
+`open` rejects an argument that is not a non-empty string. `Azion.KV.open(123)`, `Azion.KV.open('')`, `Azion.KV.open(null)`, and `Azion.KV.open()` all throw `KvError: Invalid name type, expected string`. A name that belongs to no namespace on the account throws `NotFound: KV namespace "no-such-namespace" does not exist`. Namespaces are created through the Azion API. For more information, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+
+---
+
+## Methods
+
+Every method is asynchronous, so every call is awaited. `open` is a static method on `Azion.KV`, and the other four are methods on the client it returns.
+
+| Method | Signature | Returns |
+| --- | --- | --- |
+| `open` | `Azion.KV.open(name)` | A client for the namespace `name` |
+| `get` | `kv.get(key, returnType, options)` | The value, or `null` when the key is absent |
+| `getWithMetadata` | `kv.getWithMetadata(key, returnType, options)` | An object carrying `value` and `metadata` |
+| `put` | `kv.put(key, value, options)` | Nothing. The promise resolves when the write succeeds |
+| `delete` | `kv.delete(key)` | Nothing. The promise resolves when the delete completes |
+
+`returnType` and `options` are optional on both read methods. For the `open` specimen, refer to [Open a client](#open-a-client).
+
+### get
+
+`get` reads one key and returns its value in the type the second argument names. A key the namespace does not hold returns `null`, which the caller checks for rather than catches. The second argument defaults to `text`, and the third is an options object.
+
+This handler reads the same namespace in all four return types:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('my-namespace');
+
+    // 'text' is the default, so kv.get('user-42') returns the same value.
+    const text = await kv.get('user-42', 'text');
+    if (text === null) {
+      return new Response('No value for that key', { status: 404 });
+    }
+
+    const profile = await kv.get('user-42-profile', 'json');
+    const avatar = await kv.get('user-42-avatar', 'arrayBuffer');
+
+    // A stream is read one chunk at a time.
+    const stream = await kv.get('user-42-export', 'stream');
+    const decoder = new TextDecoder();
+    let exported = '';
+    for await (const chunk of stream) {
+      exported += decoder.decode(chunk, { stream: true });
+    }
+    exported += decoder.decode();
+
+    return new Response(JSON.stringify({
+      role: profile.role,
+      avatarBytes: avatar.byteLength,
+      exportedCharacters: exported.length,
+    }), { headers: { 'Content-Type': 'application/json' } });
+  },
+};
+```
+
+### getWithMetadata
+
+`getWithMetadata` reads a key and returns the value together with the metadata stored beside it. The return is an object with two properties, `value` and `metadata`. `metadata` is `null` when the key was written without any, so a caller tests it before reading a field from it. The arguments match `get`: a key, an optional return type, and an optional options object.
+
+This handler reads a value and the version recorded in its metadata:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('my-namespace');
+    const result = await kv.getWithMetadata('user-42-profile', 'json');
+
+    // metadata is null when the key was written without it.
+    const version = result.metadata === null ? 0 : result.metadata.version;
+
+    return new Response(JSON.stringify({ value: result.value, version }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+};
+```
+
+### put
+
+`put` writes a key. One call covers both cases: it creates a key, and it replaces the value of a key that already exists, so there is no separate update method. The type of the value is inferred from the value itself, which is why `put` takes no return-type argument. The third argument is an options object carrying `metadata`, `expiration`, and `expirationTtl`.
+
+This handler writes one key of each accepted value type:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('my-namespace');
+
+    await kv.put('user-42', 'active');
+
+    // An object is serialized to JSON, so it needs no stringify call.
+    await kv.put('user-42-profile', { id: 42, role: 'admin' });
+
+    const bytes = new TextEncoder().encode('binary data');
+    await kv.put('user-42-avatar', bytes.buffer);
+
+    // A view stores the bytes it covers, not the whole buffer behind it.
+    await kv.put('user-42-header', bytes.subarray(0, 4));
+
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('a large value'));
+        controller.close();
+      },
+    });
+    await kv.put('user-42-export', stream);
+
+    return new Response('Stored', { status: 201 });
+  },
+};
+```
+
+### delete
+
+`delete` removes one key from the namespace. It takes a single key and has no array form, unlike `get`. Deleting a key the namespace does not hold is not an error: the call resolves either way, so `delete` never reports whether anything was removed.
+
+This handler removes one key:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('my-namespace');
+
+    // The call resolves whether or not the key was there.
+    await kv.delete('user-42');
+
+    return new Response('Deleted');
+  },
+};
+```
+
+---
+
+## Value types
+
+`put` infers the type of a value from the value itself. Five shapes are accepted.
+
+| Value | What `put` stores |
+| --- | --- |
+| A string | The text as given |
+| An object | The object serialized to JSON |
+| An `ArrayBuffer` | The bytes the buffer holds |
+| A typed-array view | The bytes the view covers. `byteOffset` and `byteLength` are honored, so a view over part of a buffer stores that part |
+| A `ReadableStream` | The bytes the stream produces, which suits a value too large to hold in memory |
+
+Six shapes are rejected instead of written: `Map`, `Set`, `WeakMap`, `WeakSet`, `RegExp`, and `SharedArrayBuffer`. JSON serialization flattens each of them to `{}`, so storing one would record an empty object and lose the data. `put` throws `INVALID_VALUE_TYPE` rather than write it. Convert such a value before you store it: a `Map` becomes an array of its entries, and a `Set` becomes an array of its members.
+
+---
+
+## Return types
+
+The second argument of `get` and `getWithMetadata` names the type the value comes back as. It is optional, and `text` is the default.
+
+| Return type | What the call returns |
+| --- | --- |
+| `text` | A string. The default |
+| `json` | An object parsed from the stored JSON |
+| `arrayBuffer` | An `ArrayBuffer` |
+| `stream` | A `ReadableStream`, read one chunk at a time |
+
+A read that passes an array of keys accepts only two of them, `text` and `json`. Any other return type on that path throws `INVALID_MULTIPLE_GET_RETURN_TYPE`.
+
+---
+
+## Read several keys at once
+
+`get` and `getWithMetadata` both accept an array of keys in place of a single key, with `text` or `json` as the return type. The result is a plain object keyed by the key name, not a `Map`. A key the namespace does not hold carries `null` in that object; on `getWithMetadata`, each key carries an object with `value` and `metadata`. The array is de-duplicated before the read, so a key listed twice produces one entry.
+
+This handler reads three entries from an array that lists one key twice:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('my-namespace');
+
+    // 'user-1' is listed twice and read once.
+    const values = await kv.get(['user-1', 'user-2', 'user-1'], 'text');
+
+    return new Response(JSON.stringify(values), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+};
+```
+
+The local development simulation does not agree with the platform here. A function running under [Azion CLI](/en/documentation/devtools/cli/) reads a `Map` from the same call, while the deployed runtime builds a plain object. Read the result as a plain object for the platform, and account for the `Map` when you run the function locally.
+
+---
+
+## Put options
+
+The third argument of `put` is an object, and every property in it is optional.
+
+| Option | Type | What it does |
+| --- | --- | --- |
+| `metadata` | object | Stores a JSON-serializable object beside the value. `getWithMetadata` reads it back |
+| `expiration` | number | Expires the key at an absolute time, given as a Unix timestamp in seconds |
+| `expirationTtl` | number | Expires the key after a number of seconds |
+
+`expiration` and `expirationTtl` express an expiry in different terms: one is a moment, the other is a duration.
+
+This handler writes one key with each option:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('my-namespace');
+
+    await kv.put('session-42', 'session-data', {
+      expiration: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    await kv.put('cache-42', 'cached-data', { expirationTtl: 300 });
+
+    await kv.put('user-42-profile', { id: 42, role: 'admin' }, {
+      metadata: { createdBy: 'admin', version: 1, tags: ['user', 'profile'] },
+    });
+
+    return new Response('Stored', { status: 201 });
+  },
+};
+```
+
+---
+
+## Get options
+
+The third argument of `get` and `getWithMetadata` is an object, and it carries one property.
+
+| Option | Type | What it does |
+| --- | --- | --- |
+| `cacheTtl` | number | Caches the result of the read for that many seconds, so a later read of the same key is served from the cache |
+
+For example, a configuration object that every request reads and a deploy rewrites once a day is read with `cacheTtl` set to 300, so repeated reads within five minutes come from the cache instead of the store.
+
+This handler reads a configuration key with a cached result:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('my-namespace');
+
+    const config = await kv.get('config-key', 'json', { cacheTtl: 300 });
+
+    return new Response(JSON.stringify(config), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+};
+```
+
+---
+
+## Errors
+
+Every error below rejects the promise its call returns, so a `try` block around the call receives it as an exception carrying that message.
+
+| Message | Cause | What to do |
+| --- | --- | --- |
+| `KvError: KV constructor is private, use KV.open(name) instead` | Code calls `new Azion.KV()` or `new Azion.KV(name)` | Open the client with `await Azion.KV.open(name)` |
+| `KvError: Invalid name type, expected string` | `Azion.KV.open` received a number, `null`, an empty string, or no argument | Pass the namespace name as a non-empty string |
+| `NotFound: KV namespace "no-such-namespace" does not exist` | The account holds no namespace with the name passed to `Azion.KV.open` | Create the namespace through the Azion API, then open it |
+| `TypeError: Azion.KV.delete is not a function` | Code calls `Azion.KV.delete` to remove a namespace | Remove the call. No interface deletes a namespace |
+| `INVALID_VALUE_TYPE` | `put` received a `Map`, `Set`, `WeakMap`, `WeakSet`, `RegExp`, or `SharedArrayBuffer` | Convert the value to one of the shapes in Value types |
+| `INVALID_MULTIPLE_GET_RETURN_TYPE` | A read of an array of keys asked for a return type other than `text` or `json` | Ask for `text` or `json` on that path |
+
+The first three come from `Azion.KV.open`, so a namespace problem surfaces when the client is opened, not at the first `get` or `put`.
+
+---
+
+## What the client does not do
+
+Four capabilities a reader may expect are absent from `Azion.KV`.
+
+- **Key listing.** The client exposes no `list`, `keys`, or equivalent method, and no other interface enumerates the keys a namespace holds. An application reads a key whose name it already knows.
+- **Atomic increment.** The client exposes no increment method, and no other interface offers one.
+- **Namespace creation.** `Azion.KV.open` opens a namespace that already exists. A namespace is created through the Azion API. For more information, refer to [Namespaces](/en/documentation/store/kv-store/namespaces/).
+- **Namespace deletion.** `Azion.KV.delete` is not a function, and no delete path for a namespace exists in any interface.
+
+---
+
+## Limits
+
+The bounds KV Store applies, and the usage each plan includes, are collected on one page. For more information, refer to [KV Store limits](/en/documentation/store/kv-store/limits/).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Namespaces" href="/en/documentation/store/kv-store/namespaces/">The namespace this client opens, and the API operations that create it.</DocItem>
+  <DocItem title="How KV Store works" href="/en/documentation/store/kv-store/how-it-works/">What happens between a put call and the read that follows it.</DocItem>
+  <DocItem title="Store and read data from a function" href="/en/documentation/guides/application-development/data/manage-with-functions/">The procedure that puts these methods inside a running function.</DocItem>
+  <DocItem title="How Functions works" href="/en/documentation/build/functions/how-it-works/">The handler that holds the client, and the two patterns it accepts.</DocItem>
+  <DocItem title="KV Store limits" href="/en/documentation/store/kv-store/limits/">Every bound KV Store applies, with the usage each plan includes.</DocItem>
+  <DocItem title="Best practices" href="/en/documentation/store/kv-store/best-practices/">How to name keys, lay out namespaces, and handle a failed call.</DocItem>
+  <DocItem title="Troubleshooting" href="/en/documentation/store/kv-store/troubleshooting/">The symptoms a KV Store call produces, and what each one means.</DocItem>
+</ItemList>
+</FrameBox>

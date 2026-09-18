@@ -1,0 +1,249 @@
+---
+title: Boas práticas
+description: >-
+  Nomeie um namespace que nada renomeia, aguarde cada chamada do cliente, trate
+  os dois envelopes de erro e alcance keys em um store que não lista nenhuma.
+meta_tags: 'kv store, best practices, namespace naming, key naming, error handling, eventual consistency, value types, multiple keys'
+namespace: documentation_products_kv_store_best_practices
+permalink: /documentacao/store/kv-store/boas-praticas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Um namespace é nomeado uma vez e mantém esse nome enquanto a conta existir, porque nenhuma interface renomeia, esvazia ou exclui um namespace. Uma key só é alcançável por um nome que o código consiga construir de novo, porque nada lista o que um namespace guarda. Uma leitura pode retornar um value que uma escrita anterior já substituiu. Uma requisição rejeitada chega em uma de duas formas, e um cliente escrito para uma delas registra a outra como sucesso. Cada uma dessas decisões é tomada onde o código é escrito, e cada uma é barata ali e cara depois.
+
+As práticas a seguir aparecem na ordem em que as decisões chegam. O nome do namespace vem primeiro, porque nenhuma interface o altera. Depois vêm o cliente que uma função abre, os dois envelopes em que uma requisição de namespace rejeitada chega e o nome de key que substitui a listagem que este store não tem. As quatro últimas cobrem o tipo que um value assume na entrada e na saída, a leitura de várias keys em uma chamada, a desatualização que toda leitura carrega e as perguntas que devem ficar fora do store.
+
+---
+
+## Nomeie um namespace como se você nunca pudesse alterá-lo
+
+Escolha um nome de namespace que ainda descreva seu conteúdo daqui a um ano, porque nada no KV Store renomeia um namespace.
+
+A Azion API v4 expõe três operações sobre um namespace: criar, listar e recuperar. `PUT`, `PATCH` e `DELETE` respondem `405` cada um, então um namespace não pode ser renomeado, desativado, esvaziado ou excluído depois que existe, e um nome que a conta cria permanece na conta. O nome também é o identificador, já que um namespace não carrega id numérico, então o nome é o que toda requisição posterior e toda chamada de `Azion.KV.open` em uma função passam. Um nome que declara a aplicação e o ambiente que ele atende diz ao próximo leitor da lista qual namespace uma função está abrindo, e mantém as keys de uma carga de trabalho fora das de outra. Por exemplo, um serviço de checkout que roda em dois ambientes mantém dois namespaces em vez de um namespace com dois prefixos de key, para que uma escrita de staging não caia em uma key de produção.
+
+```text
+checkout-sessions-prod
+checkout-sessions-staging
+checkout-flags-prod
+```
+
+Escreva os nomes em minúsculas, com hífen entre as palavras, e mantenha essa forma para todo namespace da conta. A plataforma não exige isso: o padrão `^[a-zA-Z0-9_-]+$` aceita maiúsculas, então `Orders-EU` é um nome válido e `orders-eu` também. **Os nomes diferenciam maiúsculas de minúsculas**, então os dois são namespaces diferentes, e uma conta pode acabar com os dois. Como nada exclui um namespace, um nome criado na caixa errada fica na conta com essa caixa para sempre. Minúsculas são uma convenção que esta página recomenda, não uma regra que a API impõe, e o valor dela é remover o único erro que não dá para desfazer. Para as regras que ela impõe, consulte [Namespaces](/pt-br/documentacao/store/kv-store/namespaces/).
+
+O custo é que a decisão é permanente, e ela é tomada antes de a primeira key existir. Um namespace cujo nome deixa de descrever seu conteúdo é substituído pela criação de um segundo namespace e pela escrita das keys nele a partir de uma função, e o primeiro permanece na conta a partir de então.
+
+---
+
+## Abra o cliente com `Azion.KV.open` e aguarde cada chamada
+
+Abra o cliente com `await Azion.KV.open(name)` e aguarde cada método que ele retorna, incluindo as escritas cujo resultado você nunca lê.
+
+O construtor é privado. Tanto `new Azion.KV()` quanto `new Azion.KV('my-namespace')` lançam `KvError: KV constructor is private, use KV.open(name) instead`, então `Azion.KV.open` é o único ponto de entrada. Ele é assíncrono e recebe o nome do namespace: não existe namespace padrão, então todo cliente nomeia o namespace que abre. Os quatro métodos do cliente também são assíncronos. `put` e `delete` resolvem sem nada, o que faz do `await` o único sinal que um handler recebe de que a escrita terminou antes de a resposta sair. `get` resolve com o value, ou com `null` quando o namespace não guarda essa key, então quem pula o `await` compara uma promise com `null` e toma o ramo errado sempre.
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('checkout-sessions-prod');
+
+    // put resolve sem nada, então o await é o que confirma a escrita.
+    await kv.put('session:42', 'active');
+
+    // Uma key que o namespace não guarda é lida como null, e não como um erro.
+    const session = await kv.get('session:42', 'text');
+    if (session === null) {
+      return new Response('No session for that key', { status: 404 });
+    }
+
+    return new Response(session);
+  },
+};
+```
+
+Uma key ausente é, portanto, um ramo e não uma rejeição, e o padrão para o qual ela recai é decisão da aplicação. Para cada método, seus argumentos e os erros que ele lança, consulte [Cliente KV](/pt-br/documentacao/store/kv-store/cliente-kv/).
+
+O custo é que cada chamada segura o handler até ela resolver. Uma escrita da qual a resposta não depende ainda assim atrasa a resposta, e a alternativa é um handler que responde antes de o store guardar o value.
+
+---
+
+## Trate os dois envelopes de erro
+
+Escreva um handler que leia as duas formas que uma requisição de namespace rejeitada retorna, porque um cliente que lê uma delas trata a outra como sucesso.
+
+Dois emissores respondem sob `https://api.azion.com/v4/workspace/kv/namespaces`, a coleção e o caminho do recurso abaixo dela. O serviço KV responde uma falha de validação, um namespace inexistente e um erro de servidor com `state` definido como `error` e um objeto `error`, onde `code` é uma string em snake_case como `validation_error` ou `namespace_not_found` e o texto está em `message`. O gateway da plataforma responde um método não suportado com um array `errors`, onde `code` é numérico, o texto está em `title` e `detail`, e `status` repete o status HTTP. Os dois não compartilham nenhuma key. Um cliente que lê `errors[0].detail` não encontra nada em todo `400` e `404` que o serviço KV levanta, e um cliente que lê `error.message` não encontra nada no `405` que um `DELETE` retorna de `https://api.azion.com/v4/workspace/kv/namespaces/{name}`, o caminho do recurso.
+
+```javascript
+// Retorna uma mensagem para qualquer um dos envelopes com que uma requisição de namespace pode responder.
+function kvErrorMessage(body) {
+  // O serviço KV: { state, error: { code, message, details } }
+  if (body.error) {
+    return `${body.error.code}: ${body.error.message}`;
+  }
+
+  // O gateway da plataforma: { errors: [{ code, title, detail, status }] }
+  if (Array.isArray(body.errors)) {
+    return body.errors.map((entry) => `${entry.code}: ${entry.title}`).join(', ');
+  }
+
+  return 'Unrecognized error body';
+}
+```
+
+O terceiro ramo não é decoração. Um caminho que o gateway não roteia responde com uma página HTML em vez de qualquer um dos envelopes, então um cliente que analisa o corpo como JSON precisa de um lugar para esse caso cair. Para os dois envelopes por completo, e o `code` e a `message` que cada falha retorna, consulte [Namespaces](/pt-br/documentacao/store/kv-store/namespaces/).
+
+O custo são dois parsers para um endpoint, e um teste da forma do corpo antes de qualquer campo ser lido dele. Um cliente que ganha um terceiro caminho de falha depois tem que adicioná-lo nos dois ramos.
+
+---
+
+## Derive o nome de uma key do que a requisição já carrega
+
+Componha toda key a partir de dados que a requisição já carrega, porque nenhuma interface lista as keys que um namespace guarda.
+
+O cliente expõe `get`, `getWithMetadata`, `put` e `delete`, e nada mais. Não existe `list`, não existe `keys` e não existe enumeração do conteúdo de um namespace, nem no cliente nem na Azion API v4, então uma key só é alcançável por um nome que o código consiga produzir de novo. O esquema de nomes é o que substitui a listagem. Um separador usado em todo lugar o mantém legível: dois-pontos entre um prefixo que nomeia o tipo de registro e o identificador que seleciona um deles, como em `session:42` e `flag:new-checkout`. Uma key que nada consegue nomear de novo é também uma key que nada consegue remover, já que `delete` recebe a key, então dê a um registro com tempo de vida natural uma expiração quando você o escreve e deixe que ele saia sozinho.
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('checkout-sessions-prod');
+    const sessionId = new URL(request.url).searchParams.get('session');
+    if (sessionId === null) {
+      return new Response('Missing session parameter', { status: 400 });
+    }
+
+    // Todo leitor reconstrói o mesmo nome a partir da requisição que chega até ele.
+    const key = `session:${sessionId}`;
+    await kv.put(key, 'active', { expirationTtl: 3600 });
+
+    return new Response(await kv.get(key, 'text'));
+  },
+};
+```
+
+Uma aplicação que precisa conhecer todo o conjunto que armazenou mantém esse conjunto por conta própria, em um registro cujo próprio nome de key ela sempre consegue reconstruir. Para as opções que `put` recebe além do value, consulte [Cliente KV](/pt-br/documentacao/store/kv-store/cliente-kv/).
+
+O custo é que o esquema tem que ser acordado antes da primeira escrita e respeitado por toda função que abre o namespace. Uma key escrita sob um nome que ninguém mais deriva é um value que o namespace guarda, que conta para o armazenamento e que nenhuma requisição jamais alcança.
+
+---
+
+## Combine o tipo de um value na entrada e na saída
+
+Armazene um value em uma das cinco formas que `put` aceita, e leia-o de volta no tipo de retorno que corresponde ao que o handler faz com ele.
+
+`put` infere o tipo a partir do próprio value, e escreve uma string, um objeto, um `ArrayBuffer`, uma view de array tipado e um `ReadableStream`. Seis formas são rejeitadas com `INVALID_VALUE_TYPE`: `Map`, `Set`, `WeakMap`, `WeakSet`, `RegExp` e `SharedArrayBuffer`. A serialização JSON achata cada uma delas em um objeto vazio, então a rejeição é o comportamento útil. Um `Map` escrito como `{}` é dado perdido no momento da escrita e descoberto no momento da leitura, muito depois, por quem ler a key em seguida. Converta antes: um `Map` vira um objeto ou um array de suas entradas, e um `Set` vira um array de seus membros.
+
+O tipo de retorno é o segundo argumento de `get` e `getWithMetadata`, e o padrão é `text`. Use `text` para um value que o handler repassa, `json` para um do qual ele lê campos, `arrayBuffer` para bytes e `stream` para um value grande demais para caber na memória. Ordenados pelo trabalho que cada um faz antes de a chamada resolver, eles ficam `stream`, `arrayBuffer`, `text` e `json`, porque `json` analisa o value inteiro e `stream` não analisa nada dele.
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('checkout-flags-prod');
+
+    // Um Map é rejeitado com INVALID_VALUE_TYPE, então armazene o que ele guarda.
+    const flags = new Map([['new-checkout', true], ['dark-mode', false]]);
+    await kv.put('flag:all', Object.fromEntries(flags));
+
+    // json analisa o objeto armazenado, então o handler lê um campo dele.
+    const stored = await kv.get('flag:all', 'json');
+
+    return new Response(String(stored['new-checkout']));
+  },
+};
+```
+
+O custo é que o tipo é decidido duas vezes, uma na escrita e outra em cada leitura, e o store não registra nada sobre qual deles foi usado. Um value armazenado como objeto e lido como `text` chega como o texto JSON para o qual foi serializado, e não como um objeto, e o handler que o recebe não reporta erro nenhum.
+
+---
+
+## Leia várias keys em uma chamada quando precisar de várias
+
+Passe um array de keys para `get` quando um handler precisar de mais de um value, em vez de aguardar uma chamada por key.
+
+`get` e `getWithMetadata` aceitam um array no lugar de uma única key. A chamada retorna um objeto simples indexado pelo nome da key, e uma key que o namespace não guarda carrega `null` nesse objeto. O array é deduplicado antes da leitura, então uma key listada duas vezes produz uma entrada e custa uma leitura. Esse caminho aceita apenas dois tipos de retorno, `text` e `json`, e qualquer outro lança `INVALID_MULTIPLE_GET_RETURN_TYPE`, então um conjunto de values binários ou de streams ainda é lido uma key por vez.
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('checkout-flags-prod');
+
+    // Três nomes, duas leituras: 'flag:new-checkout' é deduplicado.
+    const flags = await kv.get(
+      ['flag:new-checkout', 'flag:dark-mode', 'flag:new-checkout'],
+      'json',
+    );
+
+    // Uma key que o namespace não guarda carrega null no resultado.
+    const checkout = flags['flag:new-checkout'] ?? { on: false };
+
+    return new Response(JSON.stringify(checkout), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+};
+```
+
+Uma função rodando sob a simulação de desenvolvimento local lê um `Map` a partir da mesma chamada, enquanto o runtime implantado monta um objeto simples. Para essa diferença e a forma que cada um retorna, consulte [Cliente KV](/pt-br/documentacao/store/kv-store/cliente-kv/).
+
+O custo é que o caminho do array abre mão dos outros dois tipos de retorno, e que toda entrada do resultado é ou um value ou `null`. Um handler que trata uma key ausente de forma diferente de um value vazio armazenado faz essa distinção por conta própria, no que ele escreve.
+
+---
+
+## Trate toda leitura como possivelmente desatualizada
+
+Escreva o handler de modo que um value que uma requisição armazena possa não ser o value que a próxima requisição lê.
+
+KV Store é eventualmente consistente: uma escrita fica visível onde foi feita antes de ficar visível em todo lugar, e escritas concorrentes em uma key resolvem como última escrita vence. Para como uma escrita se propaga e o que define essa janela, consulte [Como o KV Store funciona](/pt-br/documentacao/store/kv-store/como-funciona/). Um handler que precisa agir sobre um value que ele mesmo escreveu na mesma invocação usa o value que já tem em mãos, em vez de lê-lo de volta. Nenhuma interface oferece incremento atômico, então um value que duas requisições leem, alteram e escrevem de volta perde uma das duas alterações.
+
+A opção `cacheTtl` em `get` alarga essa mesma janela deliberadamente. Ela guarda em cache o resultado da leitura pelo número de segundos que você informa, então leituras repetidas dessa key são servidas a partir do resultado em cache em vez do store. Defina-a em um value que é escrito uma vez ou raramente e lido com frequência, onde ela elimina o custo de uma leitura fria. Deixe-a de fora de um value que muda com frequência e precisa ser visto logo depois de mudar, porque uma escrita feita em outro lugar não fica visível até o resultado em cache expirar.
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    const kv = await Azion.KV.open('checkout-flags-prod');
+
+    // O handler responde a partir do value que escreveu, e não de uma releitura.
+    const state = { on: true, updatedAt: Date.now() };
+    await kv.put('flag:new-checkout', state);
+
+    // Escrito uma vez por dia e lido em toda requisição: cacheTtl serve.
+    const config = await kv.get('config:checkout', 'json', { cacheTtl: 300 });
+
+    return new Response(JSON.stringify({ state, config }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+};
+```
+
+O custo é que o store não é o acordo entre duas requisições. Um value que as duas alteram precisa de um dono fora do KV Store, e cada `cacheTtl` que você define troca a atualidade de uma leitura pelo custo de fazê-la.
+
+---
+
+## Armazene apenas o que uma busca por key pode responder
+
+Mantenha no KV Store os values que uma requisição consegue pedir pelo nome, e envie as perguntas que precisam de um filtro, de uma junção ou de uma ordenação para um produto que as responde.
+
+Um namespace responde uma pergunta: o que está armazenado sob esta key. Não há consulta e não há listagem, então toda outra pergunta é respondida percorrendo dados que o KV Store não percorre por você. Registros de sessão, feature flags e values de configuração cabem aqui, porque a requisição que precisa de um deles já carrega o identificador que o nomeia. Uma pergunta que seleciona registros por um campo, os agrupa, os junta ou os classifica é uma consulta, e [SQL Database](/pt-br/documentacao/store/sql-database/) a responde. Uma resposta que deve ser servida de novo sem rodar a função pertence a [Cache](/pt-br/documentacao/build/cache/), e não a um value que uma função escreve e lê em toda requisição.
+
+| A pergunta que uma requisição faz | Onde ela é respondida |
+| --- | --- |
+| O que está armazenado sob esta key? | KV Store |
+| Quais registros correspondem a este filtro, e em que ordem? | SQL Database |
+| Esta resposta pode ser servida de novo sem rodar a função? | Cache |
+
+O custo é que a decisão é tomada por value, e não uma vez por aplicação. Um produto que responde bem a uma pergunta não responde as outras de jeito nenhum, e um value que você depois precisa buscar é movido escrevendo-o no produto que consegue buscá-lo. KV Store não ganha uma consulta.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Cliente KV" href="/pt-br/documentacao/store/kv-store/cliente-kv/">Cada método que estas práticas chamam, com seus argumentos, seus tipos de retorno e seus erros.</DocItem>
+  <DocItem title="Namespaces" href="/pt-br/documentacao/store/kv-store/namespaces/">As regras de nome com que a primeira prática trabalha, e os dois envelopes que a terceira lê.</DocItem>
+  <DocItem title="Como o KV Store funciona" href="/pt-br/documentacao/store/kv-store/como-funciona/">A propagação de onde vem uma leitura desatualizada, e a escrita que vence quando duas colidem.</DocItem>
+  <DocItem title="Limites do KV Store" href="/pt-br/documentacao/store/kv-store/limites/">Os limites dentro dos quais estas práticas trabalham, e o uso que uma conta inclui.</DocItem>
+  <DocItem title="Armazene e leia dados de uma função" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gerenciar-com-funcoes/">O procedimento que coloca estas práticas dentro de uma função em execução.</DocItem>
+  <DocItem title="Solução de problemas" href="/pt-br/documentacao/store/kv-store/solucao-de-problemas/">O que significa uma chamada rejeitada, sintoma por sintoma.</DocItem>
+</ItemList>
+</FrameBox>
