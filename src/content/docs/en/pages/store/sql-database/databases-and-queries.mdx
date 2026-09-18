@@ -1,0 +1,368 @@
+---
+title: Databases and queries
+description: >-
+  Look up every field of a database, the five API operations on it, and the
+  metrics each SQL statement returns.
+meta_tags: 'sql database, database fields, sql api, statements, rows read, rows written, query errors, sqlite dialect'
+namespace: documentation_products_sql_database_databases_and_queries
+permalink: /documentation/store/sql-database/databases-and-queries/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+A database is the artifact [SQL Database](/en/documentation/store/sql-database/) creates. It stores relational data and accepts SQL in SQLite's dialect. The Azion API v4 addresses it by an integer identifier and exposes five operations on it: four on the database object, and one that runs SQL statements against its contents. This page lists the fields of a database, the five operations, the result a statement returns, and the errors the API and the statements each return.
+
+---
+
+## Database names
+
+A database name is chosen at creation and cannot be changed afterwards.
+
+| Rule | Value |
+| --- | --- |
+| Length | 6 to 50 characters |
+| Characters | Letters, numbers, and the hyphen (`-`) |
+| Uniqueness | A name is unique within your account |
+
+A name outside those bounds returns `14000`, with `10048` alongside it when the name is shorter than 6 characters. A name the account already holds returns `14001`. Because the name is fixed for the life of the database, a name that records what the database holds stays readable, as in `orders-eu`.
+
+---
+
+## Database fields
+
+| Field | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `id` | integer | — | — | The database identifier. Read-only |
+| `name` | string, 6 to 50 characters | Yes | — | The database name. Read-only after creation |
+| `status` | `creating`, `created`, or `deleting` | — | `creating` | Provisioning state. Read-only |
+| `active` | boolean | — | `true` | Whether the database is active. Accepted at creation only |
+| `last_modified` | date-time | — | — | When the database last changed. Read-only |
+| `last_editor` | string | — | — | The account that last changed it. Read-only |
+| `product_version` | string | — | `1.0` | The schema version. Read-only |
+
+A create request accepts `name` and `active`, and nothing else. No field is editable afterwards: `PATCH` and `PUT` both return `10007` `Method Not Allowed`, so a database is never renamed and `active` is never changed.
+
+---
+
+## Operations
+
+Every operation is authenticated and sits under `https://api.azion.com/v4/workspace/sql`.
+
+| Operation | Method and path |
+| --- | --- |
+| List databases | `GET /databases` |
+| Create a database | `POST /databases` |
+| Retrieve a database | `GET /databases/{database_id}` |
+| Delete a database | `DELETE /databases/{database_id}` |
+| Execute a query | `POST /databases/{database_id}/query` |
+
+The four database operations act on the object in the table above. The query operation reaches past it, into the tables and rows the database holds.
+
+### Create a database
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/sql/databases \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "my-database"
+}'
+```
+
+The response carries `202` and the database that is being provisioned:
+
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": 1851,
+    "name": "my-database",
+    "status": "creating",
+    "active": true,
+    "last_modified": "2026-09-18T02:10:35.433088Z",
+    "last_editor": "user@example.com",
+    "product_version": "1.0"
+  }
+}
+```
+
+The envelope's `state` and the database's `status` are two different fields. `state` describes the request, and `pending` means the platform accepted it. `status` describes the database, and `creating` means it does not accept queries yet.
+
+### Retrieve a database
+
+```bash
+curl --request GET \
+  --url https://api.azion.com/v4/workspace/sql/databases/1851 \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]'
+```
+
+The response carries `200` and no `state` key:
+
+```json
+{
+  "data": {
+    "id": 1851,
+    "name": "my-database",
+    "status": "created",
+    "active": true,
+    "last_modified": "2026-09-18T02:10:59.058568Z",
+    "last_editor": "user@example.com",
+    "product_version": "1.0"
+  }
+}
+```
+
+Provisioning takes about 15 seconds. Poll this operation after a create request until `status` is `created`, and send the first query then. An identifier that belongs to no database returns `10004`.
+
+### List databases
+
+```bash
+curl --request GET \
+  --url 'https://api.azion.com/v4/workspace/sql/databases?page_size=10' \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]'
+```
+
+The response carries `200`, one database per entry under `results`, and the pagination fields around them:
+
+```json
+{
+  "count": 1,
+  "total_pages": 1,
+  "page": 1,
+  "page_size": 10,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 1851,
+      "name": "my-database",
+      "status": "created",
+      "active": true,
+      "last_modified": "2026-09-18T02:10:59.058568Z",
+      "last_editor": "user@example.com",
+      "product_version": "1.0"
+    }
+  ]
+}
+```
+
+| Field | What it carries |
+| --- | --- |
+| `count` | Databases the account holds that match the request |
+| `total_pages` | Pages the result divides into, at the current `page_size` |
+| `page` | The page this response carries |
+| `page_size` | Databases per page |
+| `next`, `previous` | The adjacent pages, or `null` at either end |
+| `results` | One database object per entry, carrying the fields listed in Database fields |
+
+Four query parameters narrow and order the list:
+
+| Query parameter | Effect |
+| --- | --- |
+| `page` | Return one page of the list |
+| `page_size` | Databases per page. Defaults to 10 and accepts up to 100 |
+| `search` | Match part of a database name |
+| `ordering` | Order the results by a field name. Prefix the name with `-` for descending order |
+
+A `page_size` above 100 returns `10097`. Read a longer list one page at a time, with `page`.
+
+### Delete a database
+
+```bash
+curl --request DELETE \
+  --url https://api.azion.com/v4/workspace/sql/databases/1851 \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]'
+```
+
+The response carries `202` and `{"state": "pending"}`, and the database answers `10004` within seconds. A delete is accepted while the status is still `creating`. Deletion is permanent, and the rows the database held cannot be recovered.
+
+### Execute a query
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/sql/databases/1851/query \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "statements": ["SELECT id, name, email FROM users;"]
+}'
+```
+
+The response carries `200` and one entry per statement:
+
+```json
+{
+  "state": "executed",
+  "data": [
+    {
+      "results": {
+        "columns": ["id", "name", "email"],
+        "rows": [[1, "Ada", "ada@example.com"]],
+        "rows_read": 1,
+        "rows_written": 0,
+        "query_duration_ms": 0.034
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Query
+
+The query body carries one key, `statements`, holding an array of SQL strings. Each statement returns one entry in `data`, in the order the array lists them. The two statements below create a table and read it back:
+
+```sql
+CREATE TABLE IF NOT EXISTS cities (id INTEGER, city TEXT, country TEXT);
+SELECT city, country FROM cities;
+```
+
+Each one is a string in the array:
+
+```json
+{
+  "statements": [
+    "CREATE TABLE IF NOT EXISTS cities (id INTEGER, city TEXT, country TEXT);",
+    "SELECT city, country FROM cities;"
+  ]
+}
+```
+
+A statement that succeeds carries a `results` object with five fields.
+
+| Field | What it carries |
+| --- | --- |
+| `columns` | The column names of the result set. Empty for a statement that returns no rows |
+| `rows` | One array per row, with the values in column order |
+| `rows_read` | The rows the statement read |
+| `rows_written` | The rows the statement wrote |
+| `query_duration_ms` | How long the statement ran, in milliseconds |
+
+`rows_read` and `rows_written` are the two metrics SQL Database is billed on, and the API returns them for every statement. For the usage each plan includes, refer to [SQL Database limits](/en/documentation/store/sql-database/limits/).
+
+An empty `statements` array returns `200` with `"data": []`. A single call carrying 100 statements succeeds. The statements themselves are SQLite's SQL: for the syntax each one accepts, refer to the [SQLite language reference](https://www.sqlite.org/lang.html).
+
+---
+
+## Failed statements
+
+A statement that fails does not fail the request. The call returns HTTP `200`, and the entry for that statement carries `error` in place of `results`:
+
+```json
+{
+  "state": "executed",
+  "data": [
+    {
+      "error": "no such table: nope"
+    }
+  ]
+}
+```
+
+A client that reads only the HTTP status treats this response as a success. It then reads a `results` key that is not there. Check `data[].error` on every entry before you read `data[].results`, and report an entry that carries `error` as a failed statement.
+
+When the statements cannot be executed at all, the request returns `422` with `14005` `Execute SQL Exception` instead, and `meta.database_name` names the database. The two rejections are therefore read in two different places: a `422` in the `errors` array, and a failed statement inside a `200`.
+
+---
+
+## Authentication
+
+Every request carries a [personal token](/en/documentation/guides/platform/account-and-billing/personal-tokens/) and asks for JSON:
+
+```http
+Authorization: Token [TOKEN VALUE]
+Accept: application/json
+```
+
+A request that carries a body also carries `Content-Type: application/json`.
+
+The account needs the SQL Database permissions for the operation. **View SQL Database** grants permission to view the created databases and their data through the Azion API. **Edit SQL Database** grants permission to create and edit databases and their data through the Azion API. For more information, refer to [Teams Permissions](/en/documentation/fundamentals/teams-permissions/).
+
+---
+
+## Errors
+
+A rejected request carries one `errors` array. Each entry names the `code`, the `title`, a `detail`, the `status`, and the field it applies to under `source.pointer`.
+
+```json
+{
+  "errors": [
+    {
+      "code": "14001",
+      "title": "Name Already In Use.",
+      "detail": "The database name already exists.",
+      "status": "400",
+      "source": {
+        "pointer": "/data/name"
+      }
+    }
+  ]
+}
+```
+
+| Code | Title | Status | Cause |
+| --- | --- | --- | --- |
+| `10004` | `Not Found` | 404 | No database carries that identifier |
+| `10007` | `Method Not Allowed` | 405 | A `PATCH` or a `PUT` request on a database |
+| `10048` | `Min Length` | 400 | The name is shorter than 6 characters. Returned alongside `14000` |
+| `10059` | `Required Field` | 400 | The query body carries no `statements` key. `source.pointer` is `/data/statements` |
+| `10097` | `Invalid Page Size` | 400 | `page_size` is above 100 |
+| `14000` | `Invalid Database Name Format` | 400 | The name is shorter than 6 or longer than 50 characters, or carries a character other than a letter, a number, or the hyphen |
+| `14001` | `Name Already In Use.` | 400 | The account already holds a database with that name |
+| `14005` | `Execute SQL Exception` | 422 | The statements could not be executed. `meta.database_name` names the database |
+
+A statement that fails returns its error as a string inside a `200`, and never in an `errors` array.
+
+| Error string | Cause |
+| --- | --- |
+| `no such table: <name>` | The statement names a table that does not exist |
+| `too many columns on <table>` | The `CREATE TABLE` statement declares more than 2,000 columns |
+| `vector: max size exceeded 65536` | `vector()` received more than 65,536 dimensions |
+
+For the vector types and the functions that build and compare them, refer to [SQL Database Vector Search](/en/documentation/store/sql-database/vector-search/).
+
+---
+
+## Limits
+
+A database name runs 6 to 50 characters, a table holds up to 2,000 columns, and a list response returns up to 100 databases. Every bound on a database, what the platform does past each value, and the usage each plan includes are in [SQL Database limits](/en/documentation/store/sql-database/limits/).
+
+---
+
+## The runtime API
+
+The operations above are HTTP calls, addressed to `api.azion.com` and authenticated with a personal token. A function running in Azion Runtime reaches the same database a second way: it imports the `azion:sql` module and calls `Database.open`, which takes the database name, carries no token, and opens a connection to the read replica.
+
+That module belongs to the runtime rather than to SQL Database, so its connection, statement, and row objects are documented with the other runtime bindings, in [SQL Database API](/en/documentation/devtools/runtime/api-reference/sql-database/).
+
+---
+
+## The azion library
+
+The `azion` npm package exports `azion/sql`, which wraps the same operations for Node and TypeScript. It reads the token from the `AZION_TOKEN` environment variable.
+
+The library is not a passthrough, and two differences change what you can read from it. It camelCases the database fields to `lastModified`, `lastEditor`, and `productVersion`. Its query result drops `rows_read`, `rows_written`, and `query_duration_ms`, so an account that meters its own consumption reads those three from the API rather than from the library. For the functions the library exports, refer to [Azion SQL library](/en/documentation/devtools/azion-lib/sql/).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How SQL Database works" href="/en/documentation/store/sql-database/how-it-works/">Where a database is written, where it is read, and what reaches it.</DocItem>
+  <DocItem title="SQL Database limits" href="/en/documentation/store/sql-database/limits/">Every bound on this page in one table, with the usage each plan includes.</DocItem>
+  <DocItem title="Create and manage databases" href="/en/documentation/guides/application-development/data/manage-sql-database/">The procedure behind the four database operations, from Azion Console and the API.</DocItem>
+  <DocItem title="Create tables and query data" href="/en/documentation/guides/application-development/data/create-tables-sql-database/">The procedure behind the query operation, with the output each statement returns.</DocItem>
+  <DocItem title="Vector search" href="/en/documentation/store/sql-database/vector-search/">The vector column types, the distance functions, and the index they need.</DocItem>
+  <DocItem title="SQL Database API" href="/en/documentation/devtools/runtime/api-reference/sql-database/">Reading the same database from a function, with `azion:sql`.</DocItem>
+</ItemList>
+</FrameBox>

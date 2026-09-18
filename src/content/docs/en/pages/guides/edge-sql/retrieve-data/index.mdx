@@ -1,94 +1,96 @@
 ---
-title: "Retrieve data with SQL Database and Functions"
+title: Query a database from a function
 description: >-
-  Read rows from an existing SQL Database inside a function with the azion:sql module.
-meta_tags: 'sql database, storage, cloud, SQL, sqlite, data'
+  Read rows from SQL Database inside a function with the azion:sql runtime
+  module, and return them in the response the function sends.
+meta_tags: 'sql database, storage, cloud, SQL, sqlite, data, functions, azion:sql'
 namespace: documentation_products_edge_sql_retrieve_data_edge_function
 permalink: /documentation/guides/application-development/data/retrieve-data-with-functions/
 ---
 
-import DocButton from '~/components/webkit/DocButton.vue';
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
 
-See how to retrieve data from an existing database (DB) with SQL Database and Functions.
+You read rows from a database in [SQL Database](/en/documentation/store/sql-database/) inside a [function](/en/documentation/build/functions/), during the request the function handles. The `azion:sql` runtime module opens the connection and runs the SQL.
 
-<DocButton href="/en/documentation/store/sql-database/" label="go to SQL Database reference" kind="secondary" size="medium" />
+This page carries one worked function. For every method the module exposes, refer to [SQL Database API](/en/documentation/devtools/runtime/api-reference/sql-database/).
 
 ---
 
 ## Prerequisites
 
-- [Azion Functions enabled](/en/documentation/build/functions/).
-- An active [Azion Personal Token](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
+- An application to instantiate the function on. Refer to [Instantiate a function on an application](/en/documentation/guides/application-development/getting-started/instantiate-functions/).
+- A [personal token](/en/documentation/guides/platform/account-and-billing/personal-tokens/) to authorize the API requests.
+- The **Edit SQL Database** permission, which grants permission to create and edit databases and their data through the Azion API. Refer to [Teams Permissions](/en/documentation/fundamentals/teams-permissions/).
+- SQL Database enabled on your account. The product is in Preview and is not enabled by default, so request access through [Technical Support](/en/documentation/support/).
 
 ---
 
-## Create a database and add a table
+## Create the database and the table
 
-:::note 
-Replace `{{token}}` with your personal token and `{{db_id}}` with the ID of the database.
+The function reads a table that already exists, so the two calls below are the shortest path to one. To create the database and fill it with rows:
+
+<DocSteps>
+  <DocStep title="Create the database">
+
+  ```bash
+  curl --location --request POST 'https://api.azion.com/v4/workspace/sql/databases' \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --data '{"name":"mydatabase"}'
+  ```
+
+  The API answers with HTTP `202` and returns the identifier the next call takes in its path:
+
+  ```json
+  {
+    "state": "pending",
+    "data": {
+      "id": 1851,
+      "name": "mydatabase",
+      "status": "creating",
+      "active": true,
+      "last_modified": "2026-09-18T02:10:35.433088Z",
+      "last_editor": "user@example.com",
+      "product_version": "1.0"
+    }
+  }
+  ```
+
+  Provisioning takes roughly 15 seconds. Send `GET /databases/{database_id}` until `status` reads `created`.
+
+  </DocStep>
+  <DocStep title="Create the table and insert the rows">
+
+  ```bash
+  curl --location --request POST 'https://api.azion.com/v4/workspace/sql/databases/1851/query' \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --data '{"statements":["CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL);","INSERT INTO users VALUES (1, '\''user 1'\'');","INSERT INTO users VALUES (2, '\''user 2'\'');","INSERT INTO users VALUES (3, '\''user 3'\'');"]}'
+  ```
+
+  The API answers with HTTP `200` and `"state": "executed"`, and `data` carries one entry per statement, in the order you sent them.
+
+  </DocStep>
+</DocSteps>
+
+The database `mydatabase` holds a `users` table with three rows. The name you set here is the name the function passes to `Database.open`.
+
+:::note
+A statement that fails does not fail the request. The call still answers HTTP `200`, and the entry for that statement carries `error` in place of `results`, so read `data[].error` before you treat the call as done.
 :::
 
-1. Create a database by executing the following cURL:
-
-```
-curl -X POST https://api.azion.com/v4/edge_sql/databases \
--H "Authorization: Token {{token}}" \
--H "Content-Type: application/json" \
--d '{
-    "name": "mydatabase"
-}'
-```
-
-:::note 
-When the database is created, keep its ID. This information is required in the next steps.
-::: 
-
-2. Add a table named `users`: 
-
-```
-curl -X POST 'https://api.azion.com/v4/edge_sql/databases/{{db_id}}/query' \
--H 'Authorization: Token {{token}}' \
--H 'Content-Type: application/json' \
--d '{
-    "statements": [
-        "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL);"
-    ]
-}'
-```
-
-:::note 
-The creation of a database is an async task. It might take a few minutes for the DB to receive and perform actions.
-::: 
-
-3. Populate the table with data: 
-
-```
-curl -X POST https://api.azion.com/v4/edge_sql/databases/{{db_id}}/query \
--H "Authorization: Token {{token}}" \
--H "Content-Type: application/json" \
--d '{
-    "statements": [
-        "INSERT INTO users VALUES (1, '\''user 1'\'');",
-        "INSERT INTO users VALUES (2, '\''user 2'\'');",
-        "INSERT INTO users VALUES (3, '\''user 3'\'');"
-    ]
-}'
-```
-
-Now, the DB is created and populated with rows.
-
 ---
 
-## Create a function that queries the database
+## Write the function
 
-1. Access [Azion Console](https://console.azion.com).
-2. On the upper-left corner, select **Functions** in the **Edge Libraries** section.
-3. Select **+ Function**.
-4. Choose a name for your function.
-5. Delete the placeholder function that is inside the code editor. 
-6. Paste the following code: 
+`Database.open` opens a connection to the read replica of the database, so a function reads the data and does not write to it. The handler below answers a `GET` request with the contents of `users`:
 
-```js
+```javascript
 import { Database } from "azion:sql";
 
 async function db_query() {
@@ -129,15 +131,56 @@ async function handle_request(request) {
 addEventListener("fetch", (event) =>
   event.respondWith(handle_request(event.request))
 );
-``` 
+```
+
+`connection.query` returns a rows handle. `rows.columnCount()` and `rows.columnName(i)` name the columns, `rows.next()` advances one row and returns a falsy value once the result set is exhausted, and `row.getString(i)` reads a cell by its position. The sample joins the cells of a row with `|` and the rows with a line break, then sends the text as the response body. A failure inside the module is logged with `e.message` and `e.stack` and returned as HTTP `500`.
 
 :::note
-Since this example is for retrieving data, the method was set to be only GET. You can implement the business logic necessary to meet your needs.
+The sample reads data, so it answers `GET` and rejects every other method with `405`. Change the guard to the methods your own logic serves.
 :::
 
-This function was created to communicate with SQL Database. Now, it's necessary to instantiate this function in a running application:
+---
 
-<DocButton href="/en/documentation/guides/application-development/getting-started/instantiate-functions/" label="go to How to instantiate functions in your application" kind="secondary" size="medium" />
+## Instantiate and run the function
 
+A function runs only after it is bound to an application and a rule on that application selects it. To run the function and read the rows:
 
+<DocSteps>
+  <DocStep title="Create the function in Azion Console">
 
+  Access [Azion Console](https://console.azion.com/) and create a function that carries the code above. Refer to [Functions](/en/documentation/build/functions/).
+
+  </DocStep>
+  <DocStep title="Instantiate the function on an application">
+
+  Bind the function to the application that serves your domain, then add the rule that runs the instance. Refer to [Instantiate a function on an application](/en/documentation/guides/application-development/getting-started/instantiate-functions/).
+
+  </DocStep>
+  <DocStep title="Request the application">
+
+  ```bash
+  curl 'https://<your-application-domain>/'
+  ```
+
+  </DocStep>
+</DocSteps>
+
+The response carries the column names on the first line and one line per row of `users`:
+
+```text
+id|name
+1|user 1
+2|user 2
+3|user 3
+```
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="SQL Database API" href="/en/documentation/devtools/runtime/api-reference/sql-database/" label="Every method the azion:sql module exposes to a function, with its signature." />
+  <DocCard title="Create tables and query data" href="/en/documentation/guides/application-development/data/create-tables-sql-database/" label="Define the tables the function reads, insert rows, and read them back with SQL." />
+  <DocCard title="Instantiate a function on an application" href="/en/documentation/guides/application-development/getting-started/instantiate-functions/" label="Bind the function to an application, name the instance, and pass its Args in JSON." />
+  <DocCard title="Databases and queries" href="/en/documentation/store/sql-database/databases-and-queries/" label="Every field, operation, envelope, and error code of the SQL Database endpoints." />
+</DocCardGroup>
