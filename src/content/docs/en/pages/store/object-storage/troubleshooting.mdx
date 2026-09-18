@@ -1,0 +1,160 @@
+---
+title: Troubleshooting
+description: >-
+  Find the cause when a bucket cannot be deleted, the API rejects a create
+  request, or the Azion CLI reports a success it did not produce.
+meta_tags: 'object storage, troubleshooting, error 17006, error 17000, error 17001, error 10059, error 10039, error 17013, bucket deletion, content type, workloads_access, azion cli'
+namespace: documentation_products_object_storage_troubleshooting
+permalink: /documentation/store/object-storage/troubleshooting/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+This page covers what [Object Storage](/en/documentation/store/object-storage/) does that you did not expect: a bucket that refuses to be deleted, a create request the API rejects, an object served with the wrong content type, a write that answers `17013`, a list request that finds nothing, an object an application does not return, and the two Azion CLI commands that report an outcome they did not produce.
+
+---
+
+## A bucket cannot be deleted and the API returns `17006`
+
+A `DELETE` on the bucket answers HTTP `400`, with the title `Cannot Delete Non Empty Bucket` and the detail `Unable to delete a non-empty bucket. Additionally, objects deleted within the last 24 hours are also taken into consideration.`
+
+Two conditions block the deletion, and the detail names both. A bucket that holds one object cannot be deleted. A bucket emptied within the last 24 hours cannot be deleted either, because Object Storage removes a deleted object permanently only after a 24-hour grace period. A bucket that never held an object deletes at once.
+
+- **Empty the bucket**: list the keys with `GET /buckets/{bucket_name}/objects`, then send one `DELETE` per key. For the operations, refer to [Buckets and objects](/en/documentation/store/object-storage/buckets-and-objects/).
+- **Wait out the grace period**: send the `DELETE` again 24 hours after the last object was removed.
+- **Expect the same refusal from the Azion CLI**: the 24-hour rule applies to `azion delete storage bucket` as well.
+
+The `DELETE` then answers HTTP `200` with `state` set to `executed`, and the bucket leaves `GET /buckets`.
+
+---
+
+## A bucket name is refused and the API returns `17000` or `17001`
+
+A `POST /buckets` answers HTTP `400` under one of two titles, and `source.pointer` names `/data/name`.
+
+`Bucket Already Exists` means the name is taken. A bucket name is unique across every Azion account, so another account can hold it, and the detail reads `Bucket name '<name>' is already in use.` `Bucket Name Not Available` means the name begins with `azion`, which Object Storage reserves.
+
+- **`17000`, `Bucket Already Exists`**: send another name. A name that carries your project or account as a prefix collides less often than a generic one.
+- **`17001`, `Bucket Name Not Available`**: remove the `azion` prefix from the name.
+- **Check the name against the other rules**: a name is 6 to 63 characters, and it holds letters, numbers, and the hyphen. For each bound, refer to [Object Storage limits](/en/documentation/store/object-storage/limits/).
+
+The create request then answers HTTP `201` with `state` set to `executed`, and the response carries the bucket.
+
+---
+
+## The access level is refused and the API returns `10059` or `10039`
+
+A `POST /buckets` answers HTTP `400` with the title `Required Field` under code `10059`, or the title `Invalid Choice` under code `10039`. In both cases `source.pointer` names `workloads_access`.
+
+`workloads_access` is required on create, and it accepts exactly three values: `read_only`, `read_write`, and `restricted`. `10059` means the field is absent from the body. A body that sends `edge_access` produces the same error, because the API does not read `edge_access` and the create schema does not store an unknown field. `10039` means the value sits outside the three: a body carrying `private` answers `"private" is not a valid choice.`
+
+- **Name the field `workloads_access`**: the field carries that name in the API, in the Azion CLI, and in the `azion` library. `edge_access` is not part of any of them.
+- **Replace `private` with `restricted`**: `restricted` is the value that keeps the Azion platform out of the bucket.
+- **Check which level the bucket needs**: for what each value permits, refer to [Access levels](/en/documentation/store/object-storage/how-it-works/#access-levels).
+
+The create request then answers HTTP `201`, and reading the bucket back shows `workloads_access` with the value you sent.
+
+---
+
+## An object is served with the wrong content type
+
+A download of the object returns a `Content-Type` the object was not uploaded with. A file uploaded as an image is served as `text/plain`, or a JSON body is served as `application/octet-stream`.
+
+The stored content type comes from the `Content-Type` header of the upload request. When the request carries no `Content-Type`, Object Storage detects the type from the object itself. The `Storage-Content-Type` header, which the API specification documents, is accepted and ignored, so a request that sets only that header stores a detected type rather than the one you named.
+
+- **Upload the object again with `Content-Type`**: the header sets the stored type, and a `POST` to a key that already exists replaces the object and answers `201`.
+- **Drop `Storage-Content-Type` from the request**: the header changes nothing, and it hides the missing `Content-Type`.
+- **Read the type back**: `GET /buckets/{bucket_name}/objects/{object_key}` returns the object with the type it holds.
+
+Every later request for the object then returns the type you sent. For the upload operations, refer to [Buckets and objects](/en/documentation/store/object-storage/buckets-and-objects/).
+
+---
+
+## A `PUT` to an object key returns `17013`
+
+A `PUT` on `/buckets/{bucket_name}/objects/{object_key}` answers HTTP `404`, with the title `Object Does Not Exist`. The bucket exists and the request body is valid.
+
+`PUT` maps to `update_object_key`, which replaces an object that is already stored. It never creates one. `POST` maps to `create_object_key`, which is the operation that creates the key, including every prefix inside it: a `POST` to `objects/folder/sub/data.json` needs no prior step.
+
+- **`POST` the key first**: the create answers `201` with `state` set to `executed` and `data.object_key` naming the key.
+- **Keep `PUT` for replacements**: once the key exists, `PUT` answers `200` or `202`.
+- **Or `POST` every time**: a `POST` to a key that already exists replaces the object and answers `201`, so one operation covers both cases.
+
+The object is then stored under the key, and `GET /buckets/{bucket_name}/objects` returns it.
+
+---
+
+## A list request returns no bucket although the bucket exists
+
+`GET /buckets` with `name` set to part of a bucket name answers `200` with `count` as `0` and an empty `results` array. The `bucket` filter returns nothing for any value, including an exact name.
+
+`name` matches the whole bucket name exactly, although the API specification describes it as a case-insensitive partial match. The `bucket` filter returns no record at all. `search` is the parameter that matches part of a name, and `workloads_access` filters correctly.
+
+- **Match part of a name with `search`**: `GET /buckets?search=my-bucket` returns every bucket whose name contains `my-bucket`.
+- **Use `name` only with the whole name**: `GET /buckets?name=my-bucket-ro` returns that one bucket.
+- **Do not filter with `bucket`**: it returns no record, so an empty response proves nothing about the account.
+- **Page through the list instead of filtering**: `page_size` accepts up to 100, and `page` moves through the pages.
+
+The response then carries the bucket in `results`, and `count` states how many buckets matched.
+
+---
+
+## An object is missing from the application that serves the bucket
+
+A list request on the bucket returns the object key, and a request to the application that serves the bucket does not return the object.
+
+An object reaches an end user only through an application. A **Connector** with **Connector Type** set to _Object Storage_ points at the bucket, and a Rules Engine rule sends matching requests to that connector. Two links in that chain hide an object that exists. The connector's **Prefix** field narrows what it serves, so an object stored outside the prefix is unreachable through it. With no connector and no rule, no request reaches the bucket at all. The S3 endpoint does not close the gap either: it manages objects and does not deliver them to end users.
+
+- **Compare the object key with the connector's prefix**: the connector serves the objects under **Prefix** and nothing else.
+- **Confirm a rule sends the request to the connector**: without the rule, the application never asks the bucket.
+- **Check the access level of the bucket**: a `restricted` bucket cannot back an application, while `read_only` and `read_write` can.
+- **For the whole chain, refer to [Use a bucket as an application origin](/en/documentation/guides/application-development/data/use-bucket-as-origin/)**: it carries the connector fields and the rule.
+
+A request that matches the rule then returns the object from the bucket.
+
+---
+
+## The Azion CLI reports `Bucket deletion was scheduled successfully` and the bucket remains
+
+`azion delete storage bucket --name <bucket> --force` prints `Delete all objects from bucket`, then `Deleting objects...`, then `Bucket deletion was scheduled successfully`. The bucket is still in the output of `azion list storage bucket`.
+
+This is a defect in Azion CLI 4.23.0, not a rule you worked around incorrectly. `--force` deletes every object in the bucket and then asks the API to delete the bucket. The API refuses with `17006`, because an object was removed within the last 24 hours. The command does not report that refusal, so it prints a success it did not produce. The objects are gone; the bucket is not.
+
+- **Read the bucket list before you trust the message**: `azion list storage bucket` states whether the bucket survived.
+- **Delete the bucket after the grace period**: 24 hours after the last object was removed, run `azion delete storage bucket --name <bucket>` without `--force`.
+- **Remove objects one at a time when you want to keep the bucket**: `azion delete storage object --bucket-name <bucket> --object-key <key>` prints `Object <key> was deleted successfully`.
+
+The delete without `--force` then prints `Bucket <bucket> was deleted successfully`, and the bucket leaves the list.
+
+---
+
+## The Azion CLI reports `no such file or directory` for a file that exists
+
+`azion create storage object --source` fails on a path you can read. From the working directory `/tmp`, `--source /tmp/os-cli.txt` answers `Error: open /tmp/tmp/os-cli.txt: no such file or directory`, and the file is there.
+
+This is a defect in Azion CLI 4.23.0. The command joins the value of `--source` to the working directory instead of reading an absolute path as absolute, so the directory appears twice in the path it opens. The help text of the flag describes the value as an absolute path, which is the opposite of what the command accepts. `azion update storage object --source` behaves the same way.
+
+- **Pass a relative path**: from the directory that holds the file, `--source os-cli.txt` reaches it.
+- **Run the command from the directory that holds the file**: the relative path is then the file name alone.
+- **Upload through the API when a script needs an absolute path**: `POST /buckets/{bucket_name}/objects/{object_key}` takes the file as the request body.
+
+The command then prints `Object created successfully`. For the storage commands and their flags, refer to [Azion CLI](/en/documentation/devtools/cli/).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Buckets and objects" href="/en/documentation/store/object-storage/buckets-and-objects/">Every operation, field, and error code the storage endpoints return.</DocItem>
+  <DocItem title="How Object Storage works" href="/en/documentation/store/object-storage/how-it-works/">What each access level permits, and why a deleted bucket waits out a grace period.</DocItem>
+  <DocItem title="Object Storage limits" href="/en/documentation/store/object-storage/limits/">Every bound on a bucket name, an object key, and a list request, with what happens past it.</DocItem>
+  <DocItem title="S3 compatibility" href="/en/documentation/store/object-storage/s3-compatibility/">The endpoint, the credentials, and the capabilities an S3 client needs.</DocItem>
+  <DocItem title="Best practices" href="/en/documentation/store/object-storage/best-practices/">The habits that keep these symptoms from appearing, with the reasoning for each.</DocItem>
+  <DocItem title="Create a bucket" href="/en/documentation/guides/application-development/data/create-and-modify-bucket/">The steps for creating a bucket and changing its access level.</DocItem>
+  <DocItem title="Upload and download objects" href="/en/documentation/guides/application-development/data/upload-and-download-objects-from-bucket/">The steps for storing, replacing, and reading an object.</DocItem>
+  <DocItem title="Use a bucket as an application origin" href="/en/documentation/guides/application-development/data/use-bucket-as-origin/">The connector and the rule that put a bucket behind an application.</DocItem>
+</ItemList>
+</FrameBox>
