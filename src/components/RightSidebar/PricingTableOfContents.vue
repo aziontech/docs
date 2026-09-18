@@ -7,7 +7,7 @@ import WkDocOnThisPage, { type DocTocItem } from '@aziontech/webkit/doc-on-this-
 import type { MarkdownHeading } from 'astro';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
-import { useSharedTab } from '~/components/tabs/useTabState';
+import { useSharedTab } from '~/components/webkit/Tabs.vue';
 import { deduplicateHeadings } from '~/util/deduplicateHeadings';
 import { unescape } from '~/util/html-entities';
 
