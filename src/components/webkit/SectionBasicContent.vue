@@ -22,7 +22,7 @@ import { computed } from 'vue';
 import Button from '@aziontech/webkit/button';
 
 /** A call to action. `textLink`/`text`/`outlined`/`severity` are legacy spellings. */
-interface SectionButton {
+export interface SectionButton {
 	label?: string;
 	link?: string;
 	target?: string;

@@ -95,6 +95,13 @@ export const mdxNoRawHtml = {
 				if (node.name.type !== 'JSXIdentifier') return;
 				const tag = node.name.name;
 				if (!/^[a-z]/.test(tag)) return;
+				// Markdown has no line break inside a table cell, so `<br>` is the only way to
+				// keep multi-line cell content without swapping the table for a component.
+				// Tolerated there, and only there: a row is a line that starts with `|`.
+				if (tag === 'br') {
+					const line = context.sourceCode.lines[node.loc.start.line - 1] ?? '';
+					if (/^\s*\|/.test(line)) return;
+				}
 				context.report({ node: node.name, messageId: 'rawHtml', data: { tag } });
 			},
 		};
