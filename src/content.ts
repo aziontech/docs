@@ -1,10 +1,5 @@
 import { getCollection } from 'astro:content';
-import {
-	createIsLangEntry,
-	isEnglishEntry,
-	isRecipeEntry,
-	isTutorialEntry,
-} from './content/config';
+import { createIsLangEntry, isEnglishEntry } from './content.config';
 
 const isKoreanEntry = createIsLangEntry('ko');
 
@@ -16,6 +11,4 @@ export const allPages = await getCollection('docs', (entry) => {
 		return true;
 	}
 });
-export const tutorialPages = allPages.filter(isTutorialEntry);
-export const recipePages = allPages.filter(isRecipeEntry);
 export const englishPages = allPages.filter(isEnglishEntry);

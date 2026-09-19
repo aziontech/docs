@@ -3,16 +3,11 @@ import { h } from 'hastscript';
 import type { Plugin, Transformer } from 'unified';
 import { CONTINUE, EXIT, SKIP, visit } from 'unist-util-visit';
 
-/**
- * Rehype plugin to enhance the output of GitHub-Flavored Markdown’s task lists.
- * This improves possibilities for our `<Checklist>` component.
- *
- * 1. Wraps checkboxes and siblings in a `<label>` to associate them.
- * 2. Wraps sibling nodes after checkboxes in `<span>` to ease styling `:checked ~ *`.
- */
+/** Rehype plugin reshaping GFM task lists for the `<Checklist>` component. */
+// A `<label>` wrapper associates the checkbox with its text; the trailing `<span>`
+// makes the siblings addressable as `:checked ~ *`.
 export function rehypeTasklistEnhancer(): Plugin<[], Root> {
 	const transformer: Transformer<Root> = (tree) => {
-		// Find task list items.
 		visit(tree, 'element', (node) => {
 			if (
 				!node.properties ||
@@ -21,7 +16,6 @@ export function rehypeTasklistEnhancer(): Plugin<[], Root> {
 			) {
 				return CONTINUE;
 			}
-			// Find checkboxes inside task list items.
 			visit(node, 'element', (child, index, parent) => {
 				if (child.tagName !== 'input' || typeof index !== 'number' || !parent) {
 					return CONTINUE;

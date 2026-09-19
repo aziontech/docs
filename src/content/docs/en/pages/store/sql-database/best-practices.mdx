@@ -1,0 +1,158 @@
+---
+title: Best practices
+description: >-
+  Read every statement's error key, batch related statements, index a vector
+  column, and name a database so that failures and query cost stay visible.
+meta_tags: 'sql database, best practices, statements, error handling, rows read, rows written, vector index, float32, database name'
+namespace: documentation_products_sql_database_best_practices
+permalink: /documentation/store/sql-database/best-practices/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+A statement that fails does not always announce itself. The request that carried it can report success while the statement inside it was rejected. A query that returns ten rows may have read a million to find them, and the account is metered on what was read. Nearest-neighbor search reads an index by name, so the index has to exist before the query is written. Each of those is decided where the statement is written, and each is cheap to get right there and expensive to find afterwards.
+
+The practices below cover how a client reads the outcome of each statement, when statements travel in one call, and where the cost of a query is reported. The rest cover the index a vector search reads, the type an embedding column carries, the wait before a new database answers its first query, the name it keeps for as long as it exists, and the copy of the data that only you can make.
+
+---
+
+## Read the error key of every statement, whatever the HTTP status
+
+Branch on `data[].error` in every response the query endpoint returns, and read the HTTP status as a verdict on the request rather than on the statements inside it.
+
+`POST /databases/{database_id}/query` answers `200` once the request itself is well formed. Each statement gets its own entry in `data`, and an entry whose statement failed carries `error` in place of `results`. A client that checks only the status code records the failure as a success and continues with whatever it was doing. The response below is what `SELECT * FROM nope;` returns against a database with no table of that name:
+
+```json
+{"state":"executed","data":[{"error":"no such table: nope"}]}
+```
+
+The status code still carries the errors the request itself raises. A body with no `statements` key answers `400` with error `10059` `Required Field`, and statements the platform could not execute at all answer `422` with error `14005` `Execute SQL Exception`. Both of those are failures of the call; a `200` with an `error` entry is a failure of one statement inside a call that otherwise worked.
+
+The cost is that the status code alone no longer tells a client what happened. Every response is walked entry by entry, and the client decides what a partial result means for the work it was doing.
+
+---
+
+## Send related statements in one call
+
+Put the statements that belong to one unit of work in a single `statements` array instead of sending one request each.
+
+The query endpoint takes the array and runs the statements in order. Each statement returns one entry in `data`, in that same order, so the entry at position 2 belongs to the statement at position 2. At least 100 statements in one call succeed, which covers a table and the rows that seed it. A schema and its first rows travel as one body:
+
+```json
+{
+  "statements": [
+    "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);",
+    "INSERT INTO users (id, name, email) VALUES (1, 'Ada', 'ada@example.com');",
+    "INSERT INTO users (id, name, email) VALUES (2, 'Alan', 'alan@example.com');"
+  ]
+}
+```
+
+An empty array is accepted: it answers `200` with `"data":[]`.
+
+The cost is that one call is only as fast as its slowest statement, and a failure inside it is partial. The entries before the failed one carry their own `results`, and no field in the response reports a rollback. Order the array so that the work can resume from whatever already ran.
+
+---
+
+## Measure a query's cost from its own response
+
+Read `rows_read` and `rows_written` out of each result entry, because those two numbers are what the account is metered on.
+
+Every entry that carries `results` carries three numbers beside `columns` and `rows`: `rows_read`, `rows_written`, and `query_duration_ms`. They are reported per statement, not per call, so an array of statements reports each one's cost separately. `rows_read` counts the rows a statement read rather than the rows it returned, so a filter that scans a table costs more than the size of its result set suggests. A single-row result reports all five fields:
+
+```json
+{"results":{"columns":["id","name","email"],"rows":[[1,"Ada","ada@example.com"]],"rows_read":1,"rows_written":0,"query_duration_ms":0.034}}
+```
+
+The [Azion SQL library](/en/documentation/devtools/azion-lib/sql/) reports less. Its result entries carry `statement`, `columns`, and `rows`, and drop the three numbers, so a client that needs the metered counts reads them from the API response. For the rows each plan includes, refer to [SQL Database limits](/en/documentation/store/sql-database/limits/).
+
+The cost is that the numbers have to be parsed out of the whole entry rather than lifted straight from `rows`. A client written to return only the rows discards the only report of what the query cost.
+
+---
+
+## Index a vector column before the first nearest-neighbor query
+
+Create the index that `vector_top_k` reads before running a nearest-neighbor search against the column.
+
+`vector_top_k('index', vector, k)` takes an index name, not a column name, and returns the `k` nearest rows as `id` values that join on `rowid`. The index is created by wrapping the column in `libsql_vector_idx` inside a `CREATE INDEX` statement, and the function takes an optional metric, as in `libsql_vector_idx(stats_embedding, 'metric=cosine')`. Indexing uses the DiskANN algorithm. A vector index is supported on a table with a `ROWID` or a single-column `PRIMARY KEY`, and a composite `PRIMARY KEY` without `ROWID` is not supported. The index and the search that reads it name the same string:
+
+```sql
+CREATE INDEX teams_idx ON teams (libsql_vector_idx(stats_embedding));
+SELECT name, year FROM vector_top_k('teams_idx', vector('[82, 25, 63]'), 2) JOIN teams ON teams.rowid = id;
+```
+
+The distance functions are a different path. `vector_distance_cos(a, b)` and `vector_distance_l2(a, b)` compare two vectors and read no index, so they answer a question about a pair rather than about a table. Cosine distance runs from 0 to 2, where `0` is nearly identical, `1` is orthogonal, and `2` is opposite.
+
+The cost is a second table. Creating a vector index adds a shadow table named `<index>_shadow`. Both `.tables` in the EdgeSQL Shell and `getTables` in the `azion` library list it, so code that iterates every table meets a table nobody created.
+
+---
+
+## Declare a new embedding column as `FLOAT32`
+
+Declare an embedding column as `F32_BLOB(<dimensions>)`, and move to another type only when the data gives a reason.
+
+A vector column is a blob type that carries its dimension count in the `CREATE TABLE` statement, so `F32_BLOB(3)` holds three-dimensional vectors. Six types are available, each with an alias: `FLOAT1BIT` and `F1BIT_BLOB`, `FLOAT8` and `F8_BLOB`, `FLOATB16` and `FB16_BLOB`, `FLOAT16` and `F16_BLOB`, `FLOAT32` and `F32_BLOB`, and `FLOAT64` and `F64_BLOB`. `FLOAT32` is the recommended starting point, and the narrowest type is not a free saving: a `FLOAT1BIT` column does not support `vector_distance_l2`, so it answers fewer questions than the others. For example, `text-embedding-3-small` produces vectors of 1,536 dimensions, which `F32_BLOB(1536)` holds.
+
+The dimension count is checked when a vector is built, not when the column is declared. `CREATE TABLE t (v F32_BLOB(65537));` is accepted, and `vector()` then rejects the value with `vector: max size exceeded 65536` inside an HTTP `200`.
+
+The cost is that both the type and the dimension count are fixed in the statement that declares the column. The decision is made before the first embedding is stored, and a table keeps the type it was created with.
+
+---
+
+## Poll the status before the first query on a new database
+
+Wait until `status` reads `created` before sending the first statement to a database that was created in the same run.
+
+`POST /databases` answers `202`. The envelope's `state` is `pending` while the database's own `status` is `creating`, and provisioning takes roughly 15 seconds. `GET /databases/{database_id}` answers `200`, carries no `state` key, and reports the current value of `status` in `data`, which is `creating`, `created`, or `deleting`. Poll that call until the value reads `created`:
+
+```bash
+curl --request GET \
+  --url https://api.azion.com/v4/workspace/sql/databases/1851 \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]'
+```
+
+The same field appears in Azion Console, in the **Status** column of the database list, and the row's **Delete** action stays disabled while the status is `creating` or `deleting`.
+
+The cost is a wait loop in any flow that creates a database and queries it in the same run. The create call returns before the database can answer a statement, so the code that follows it polls instead of proceeding.
+
+---
+
+## Name a database for what it holds
+
+Choose a name that still describes the data months from now, because nothing renames a database after it exists.
+
+`name` is required at creation, runs from 6 to 50 characters, accepts letters, numbers, and the hyphen, and is unique within the account. `PATCH` and `PUT` on a database answer `405` with error `10007` `Method Not Allowed`, so the name is read-only from the moment the database exists. `active` is accepted at creation only, for the same reason. A name outside the length or the character set is rejected with error `14000` `Invalid Database Name Format`, and one shorter than 6 characters returns `10048` `Min Length` alongside it. Error `14001`, whose title is `Name Already In Use.`, rejects a name the account already holds.
+
+A name that states what the database holds tells the next reader of the database list which one to open. For the bounds this practice works within, refer to [SQL Database limits](/en/documentation/store/sql-database/limits/).
+
+The cost is that the decision is permanent. A name that stops describing its contents is replaced by creating a second database under a different name, copying the data into it, and deleting the first.
+
+---
+
+## Take your own backup from the main instance
+
+Export the data yourself, on a schedule you own, and read the export from the main instance rather than from a replica.
+
+Azion offers no backup endpoint and no backup command, so a copy of a database exists only when something makes one. The platform runs a main instance with read replicas, and a replica reaches the main instance's state after a propagation time that differs from one replica to another. An export read from a replica can therefore be behind what the main instance holds, which is why the main instance is the one to back up. Two paths produce an export: `.dump` in the [EdgeSQL Shell](/en/documentation/store/sql-database/edgesql-shell/) writes a table's schema, its data, or both, and Azion Console offers **Export all to .csv**, **Export all to .json**, and **Export all to .xlsx** on the **Tables** tab.
+
+For the main instance and the replicas that read from it, refer to [How SQL Database works](/en/documentation/store/sql-database/how-it-works/).
+
+The cost is that the schedule, the storage, and the restore are all yours. No endpoint reports when the last export was taken, and a restore is the exported statements run again against a database you create.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How SQL Database works" href="/en/documentation/store/sql-database/how-it-works/">The mechanisms behind each practice, including how a statement reaches the data.</DocItem>
+  <DocItem title="Databases and queries" href="/en/documentation/store/sql-database/databases-and-queries/">Every field and error code these practices read, operation by operation.</DocItem>
+  <DocItem title="Vector search" href="/en/documentation/store/sql-database/vector-search/">The vector types, functions, and index the two vector practices use.</DocItem>
+  <DocItem title="SQL Database limits" href="/en/documentation/store/sql-database/limits/">The bounds these practices work within, and the usage each plan includes.</DocItem>
+  <DocItem title="Create tables and query data" href="/en/documentation/guides/application-development/data/create-tables-sql-database/">The procedure behind the statement practices, from the first table onward.</DocItem>
+  <DocItem title="Build a semantic search with vector embeddings" href="/en/documentation/guides/application-development/data/sql-database-vector-search/">The procedure behind the index and the column type, end to end.</DocItem>
+</ItemList>
+</FrameBox>

@@ -1,0 +1,149 @@
+---
+title: Best practices
+description: >-
+  Set access levels, object keys, content types, and credentials so that objects
+  stay servable, replaceable, and reachable only by what needs them.
+meta_tags: 'object storage, best practices, workloads access, object key, versioning, content type, s3 credential, prefix, connector'
+namespace: documentation_products_object_storage_best_practices
+permalink: /documentation/store/object-storage/best-practices/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Most of what goes wrong with stored objects is decided before anything is uploaded. A key that cannot be replaced safely, a bucket that anyone can write through, a credential that reaches every bucket in the account, or a content type that was never set are all cheap to get right at the start and expensive to change once an audience depends on them.
+
+The practices below cover the access level a bucket carries, how a key is chosen and versioned, the content type on every upload, the prefix an application serves, how an S3 credential is scoped, the path objects reach users through, and what to expect when something is deleted.
+
+---
+
+## Give a bucket the lowest access level the application needs
+
+Set `workloads_access` to `read_only` unless a function has to write objects during a request, and to `restricted` when no application should serve the bucket at all.
+
+The level governs only what the Azion platform may do when an application serves the bucket. A deployment pipeline still writes to a `read_only` bucket through the Azion API or the S3 protocol, because those authenticate with a token or a credential. A bucket set to `read_write` gives the write permission to the application, so any request that reaches it can modify the objects unless a function decides otherwise.
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/storage/buckets \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "site-assets-ro",
+  "workloads_access": "read_only"
+}'
+```
+
+The cost is that raising the level later is a separate change, and a bucket already serving traffic changes behavior the moment it is raised. Start low and raise it when a function needs the write.
+
+---
+
+## Version an object's name instead of replacing it in place
+
+Give an object a key that changes when its content changes, and upload the new content under the new key.
+
+An upload to a key that is in use replaces the object whole, and there is no version history: the previous content cannot be recovered, and every reader of that key sees the new content at once. During a deployment that replaces several objects one by one, readers see a mix of old and new until the last one lands.
+
+```text
+assets/app.4f2a9c.js
+assets/app.9b71e0.js
+assets/styles.4f2a9c.css
+```
+
+A key carrying a build identifier lets both versions exist while a deployment runs, makes a rollback a matter of pointing at the previous key, and lets each object be cached for a long time because its name never serves different content. The cost is that old keys accumulate, so a deployment that versions keys also needs a step that removes the ones nothing references.
+
+---
+
+## Set `Content-Type` on every upload
+
+Send the `Content-Type` header on every upload request rather than relying on detection.
+
+The content type is fixed at upload and returned on every read. When a request sends no `Content-Type`, Azion detects the type, which is usually right and is not guaranteed for a file whose extension and content disagree. An object stored with the wrong content type keeps serving it until the object is written again, and a browser handed the wrong type may download a page instead of rendering it.
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/storage/buckets/site-assets-ro/objects/assets/app.4f2a9c.js \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/javascript' \
+  --data-binary '@./dist/app.4f2a9c.js'
+```
+
+The `Storage-Content-Type` header the API accepts does not set the stored type, so a script that sends it instead of `Content-Type` silently stores the detected type.
+
+---
+
+## Choose a prefix that matches what the application serves
+
+Lay keys out so that one prefix holds exactly what one connector should serve.
+
+A connector names a bucket and, optionally, a prefix, and serves that prefix as the root of the application path. When the layout matches, one connector exposes one set of objects and nothing else. When it does not, either the connector exposes more than intended or the same bucket needs several connectors and rules.
+
+```text
+public/index.html
+public/assets/app.4f2a9c.js
+internal/reports/2026-q3.csv
+```
+
+A connector with the prefix `public` serves `index.html` at `/` and never reaches `internal`. The cost is that a prefix cannot be renamed any more than a key can, so a layout that turns out wrong is rewritten object by object.
+
+---
+
+## Scope an S3 credential to the buckets and capabilities it needs
+
+Name the buckets in the `buckets` array and grant only the capabilities the client uses.
+
+A credential created without `buckets` reaches every bucket in the account, and the field is an array: sending a singular `bucket` is accepted, ignored, and produces exactly that account-wide credential. The secret key is returned only once, so a credential that is too broad cannot be narrowed later and has to be replaced.
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/storage/credentials \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "ci-upload",
+  "capabilities": ["listFiles", "readFiles", "writeFiles"],
+  "buckets": ["site-assets-ro"],
+  "expiration_date": "2027-01-31T23:59:59Z"
+}'
+```
+
+Setting `expiration_date` bounds the damage of a leaked key without anyone having to remember to revoke it. The cost is an expiry that has to be renewed before it lapses, which is why the date belongs in the same place the credential is provisioned.
+
+---
+
+## Serve objects to end users through an application
+
+Point an application at the bucket with a connector, and keep end users off the S3 endpoint.
+
+The S3 endpoint answers signed management requests. It does not put the objects behind Azion's distributed infrastructure, nothing caches the responses, and every request lands on one management interface. A pre-signed URL handed to a browser has the same effect, because the browser goes straight to that endpoint. Serving the same objects through an application puts [Cache](/en/documentation/build/cache/) in front of them and applies the rules the application already has.
+
+The cost is the setup: a connector and a rule have to exist before anything is served. Keep the S3 endpoint for what it is dimensioned for, which is uploading, listing, and removing objects.
+
+---
+
+## Plan deletions around the grace period
+
+Treat a delete as staged rather than immediate, and do not build a flow that creates a bucket, empties it, and deletes it in one pass.
+
+A deleted object stops being listed and stops being served at once, and it is removed permanently 24 hours later. Until that period ends, the bucket it was in cannot be deleted, so an automated teardown that empties a bucket and immediately deletes it fails. A bucket that never held an object is deleted straight away.
+
+Reusing one long-lived bucket, or accepting that teardown finishes the next day, both avoid the failure. The cost of reuse is that the bucket's name stays taken, which matters because names are unique across every Azion account.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How Object Storage works" href="/en/documentation/store/object-storage/how-it-works/">The mechanisms behind each practice, including the request path and the grace period.</DocItem>
+  <DocItem title="Buckets and objects" href="/en/documentation/store/object-storage/buckets-and-objects/">Every field these practices set, with the error each rejection returns.</DocItem>
+  <DocItem title="S3 compatibility" href="/en/documentation/store/object-storage/s3-compatibility/">The credential fields and capabilities the scoping practice uses.</DocItem>
+  <DocItem title="Create a bucket" href="/en/documentation/guides/application-development/data/create-and-modify-bucket/">The procedure for setting and changing an access level.</DocItem>
+  <DocItem title="Use a bucket as an application origin" href="/en/documentation/guides/application-development/data/use-bucket-as-origin/">The procedure for the connector and the rule the delivery practice needs.</DocItem>
+  <DocItem title="Object Storage limits" href="/en/documentation/store/object-storage/limits/">The bounds these practices work within, and the usage each plan includes.</DocItem>
+</ItemList>
+</FrameBox>

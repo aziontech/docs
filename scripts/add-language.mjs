@@ -242,7 +242,7 @@ class LanguageScaffolder {
 	 * @param {string} data File contents to write.
 	 */
 	#safeWrite(path, data) {
-		const prettyPath = path.replace('../', '');
+		const prettyPath = path.replaceAll('../', '');
 		try {
 			const formatted = LanguageScaffolder.format(data, path);
 			fs.writeFileSync(resolve(path), formatted, { encoding: 'utf-8', flag: 'wx' });
@@ -266,16 +266,6 @@ class LanguageScaffolder {
 	export default UIDictionary({
 	});
 	`,
-		},
-		{
-			getPath: (tag) => `../src/i18n/${tag}/nav.ts`,
-			getStub: () => `import { NavDictionary } from '../translation-checkers';
-
-export default NavDictionary({
-	startHere: 'START-HERE-TRANSLATION',
-	'getting-started': 'GETTING-STARTED-TRANSLATION',
-});
-`,
 		},
 		{
 			getPath: (tag) => `../src/i18n/${tag}/docsearch.ts`,

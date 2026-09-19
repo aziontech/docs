@@ -1,23 +1,19 @@
 import fs from 'fs';
 import kleur from 'kleur';
 import { dedentMd, formatCount } from '../../output.mjs';
-import { LinkCheckerOptions, LinkCheckerState, replaceHrefs } from '../base/base';
+import { LinkCheckerState, replaceHrefs } from '../base/base';
+import type { LinkCheckerOptions } from '../base/base';
 import type { LinkIssue } from '../base/issue';
 
-/**
- * Handle all autofix-related tasks:
- *
- * - Promote the autofix option if autofixable issues were found, but no autofix was requested.
- * - If autofix was requested, perform it, and return `true` to cause a second `run()` pass.
- * - In the second `run()` after an autofix, inform the user about the result.
- */
+/** Every autofix task; returns `true` when a second `run()` pass is needed. */
+// Without `--autofix` it only advertises the option. With it, it fixes and asks for the
+// second pass, which is where the user is told what the fix changed.
 export function handlePossibleAutofix(
 	linkIssues: LinkIssue[],
 	options: LinkCheckerOptions,
 	state: LinkCheckerState
 ): boolean {
-	// If we've been called from the second `run()` pass after an autofix,
-	// inform the user about the result
+	// The second pass reports what the autofix changed.
 	if (state.autofixedCount > 0) {
 		const todos =
 			linkIssues.length > 0
@@ -30,19 +26,15 @@ export function handlePossibleAutofix(
 		return false;
 	}
 
-	// No need to do anything if we didn't find any issues
 	if (!linkIssues.length) return false;
 
-	// Count issues that can be autofixed
 	const autofixCount = linkIssues.reduce(
 		(prev, linkIssue) =>
 			prev + (linkIssue.autofixHref ? linkIssue.sourceFileAnnotations.length : 0),
 		0
 	);
 
-	// Skip autofix if it wasn't requested
 	if (!options.autofix) {
-		// Before skipping, promote the autofix option if available
 		if (autofixCount > 0) {
 			outputAutofixMessage(
 				'Autofix available',
@@ -53,7 +45,6 @@ export function handlePossibleAutofix(
 		return false;
 	}
 
-	// Give feedback if a requested autofix is not available for the found issues
 	if (!autofixCount) {
 		outputAutofixMessage(
 			'Autofix unavailable',
@@ -62,7 +53,6 @@ export function handlePossibleAutofix(
 		return false;
 	}
 
-	// Autofix is enabled, so go through all source file that contain autofixable issues
 	const sourceFilesWithAutofixes = new Set(
 		linkIssues.flatMap(
 			(linkIssue) =>
@@ -82,12 +72,10 @@ export function handlePossibleAutofix(
 		autofixIssuesInSourceFile(sourceFilePath, linkIssues, state);
 	});
 
-	// Remember that we performed an autofix
 	state.autofixedCount = autofixCount;
 
 	outputAutofixMessage('Checking result', 'Scanning for remaining issues after autofix...');
 
-	// Return true to trigger a new `run()` pass
 	return true;
 }
 
@@ -98,9 +86,7 @@ function autofixIssuesInSourceFile(
 ) {
 	const sourceFileContents = fs.readFileSync(sourceFilePath, 'utf8');
 
-	// Split the source file into lines, but this time also capture the line separators
-	// in the array, allowing us to put the file back together after autofixing
-	// without modifying the line separators
+	// Capturing the separators lets the file be reassembled with its newlines intact.
 	const linesAndNewlines = sourceFileContents.split(/(\r?\n)/);
 
 	linkIssues.forEach((linkIssue) => {
@@ -110,13 +96,10 @@ function autofixIssuesInSourceFile(
 			if (annotation.location.file !== sourceFilePath) return;
 			if (annotation.location.startLine === undefined) return;
 
-			// Remember that we performed an autofix for this link issue
 			state.autofixedPathnameHrefs.add(`${linkIssue.page.pathname},${linkIssue.linkHref}`);
 
-			// Convert startLine to a zero-based `linesAndNewlines` index
 			const lineIndex = (annotation.location.startLine - 1) * 2;
 
-			// Replace all occurrences of linkHref with autofixHref
 			linesAndNewlines[lineIndex] = replaceHrefs(
 				linesAndNewlines[lineIndex],
 				linkIssue.linkHref,
@@ -125,8 +108,6 @@ function autofixIssuesInSourceFile(
 		});
 	});
 
-	// Put the autofixed contents back together, retaining the exact newlines we captured,
-	// and update the source file with the new contents
 	const autofixedSourceFileContents = linesAndNewlines.join('');
 	if (sourceFileContents === autofixedSourceFileContents)
 		throw new Error(`Failed to autofix "${sourceFilePath}": File contents did not change`);

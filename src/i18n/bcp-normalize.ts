@@ -1,9 +1,5 @@
-/**
- * Simplified method for normalizing language tags.
- * We use `bcp-47-normalize` elsewhere, but this is a little presumptuous
- * and strips region identifiers from `pt-BR` and `zh-CN`.
- * @param tag Language tag to normalize, e.g. `pt-br` → `pt-BR`
- */
+/** Lowercases the language, uppercases the region: `pt-br` → `pt-BR`. */
+// Preferred over `bcp-47-normalize` here: that strips the region from `pt-BR` and `zh-CN`.
 
 export function normalizeLangTag(tag: string) {
 	if (!tag.includes('-')) return tag.toLowerCase();

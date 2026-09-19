@@ -1,36 +1,81 @@
 ---
-title: How to handle Stripe webhooks with Functions
+title: Build a Stripe webhook handler with Functions
 description: >-
-  Learn how to securely handle Stripe webhooks using Azion Functions to process payment events in real-time with optimal performance and reliability.
+  Receive Stripe payment events on a Hono app deployed as a function, verify
+  every signature, and handle each event type.
 meta_tags: 'functions, stripe webhooks, payments, webhook verification, stripe integration'
 namespace: docs_guides_stripe_webhooks
-permalink: /documentation/products/guides/build/stripe-webhooks-functions/
+permalink: /documentation/guides/application-development/functions-and-runtime/stripe-webhooks-functions/
+---
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+In this tutorial, you will build a Stripe webhook handler that runs as a [function](/en/documentation/build/functions/) on Azion. You will create the project, verify the signature, handle the events, store the credentials, deploy the handler, and register its URL with Stripe.
+
+The handler is a Hono app with two routes: `POST /webhook`, which receives the events, and `GET /`, which reports the status of the service.
+
 ---
 
-import LinkButton from 'azion-webkit/linkbutton'
+## Prerequisites
 
-This guide demonstrates how to securely handle Stripe webhooks using Azion Functions. You'll learn to process payment events in real-time, verify webhook signatures, and build a robust payment processing system at the edge.
+- An Azion account. To create one, refer to [How to create an account on Azion](/en/documentation/fundamentals/creating-account/).
+- A [Stripe](https://stripe.com/) account with API access.
+- [Azion CLI](/en/documentation/devtools/cli/) installed.
+- [Stripe CLI](https://stripe.com/docs/stripe-cli) installed.
+- Node.js 18 or higher.
 
-:::tip
-This demonstration shows how to leverage Functions for secure webhook processing while maintaining PCI compliance and optimal performance at the edge.
-:::
+---
 
-## Requirements
+## 1. Create the project
 
-Before you begin, ensure you have:
+Azion CLI scaffolds the project from the Hono preset. To create it:
 
-- An [Azion account](https://console.azion.com/)
-- A [Stripe account](https://stripe.com/) with API access
-- [Azion CLI](/en/documentation/products/azion-cli/overview/) installed and configured
-- [Node.js](https://nodejs.org/) version 18 or higher
+<DocSteps>
+  <DocStep title="Authenticate the CLI">
 
-## Code
+  Run the login command:
 
-This is a code example of how to use Stripe webhooks with Azion Functions. The complete code example you can find in this [GitHub repository](https://github.com/egermano/edge-functions-examples/tree/main/packages/stripe-webhooks).
+  ```bash
+  azion login
+  ```
+
+  The command opens a browser-based flow and stores the resulting personal token locally, so the next commands run against your account.
+
+  </DocStep>
+  <DocStep title="Initialize the project">
+
+  Run the init command:
+
+  ```bash
+  azion init
+  ```
+
+  </DocStep>
+  <DocStep title="Name the project">
+
+  Enter a name, or press `enter` to accept the suggestion the CLI prints.
+
+  </DocStep>
+  <DocStep title="Select the Hono preset" />
+  <DocStep title="Select a template" />
+</DocSteps>
+
+The CLI creates the project directory with the Hono template and its configuration files.
+
+---
+
+## 2. Verify the webhook signature
+
+Stripe signs every webhook request and carries the signature in the `stripe-signature` header. A handler that acts on an unverified request acts on any request that reaches its URL, so the signature check runs before the route.
+
+The middleware below rejects a request with no signature, rejects a request whose signature does not match, and attaches the parsed event to the Hono context for the route handler.
+
+The `entry` field of `azion.config.js` names the entry file of the project. Open that file and replace its contents with the Stripe client and the verification middleware:
 
 ```typescript
 import { Context, Hono } from "hono";
-import { fire } from "hono/service-worker";
 import { HTTPException } from "hono/http-exception";
 import Stripe from "stripe";
 
@@ -42,19 +87,16 @@ type Variables = {
   stripeEvent: Stripe.Event;
 };
 
-// Initialize Hono app with proper types
 export const app = new Hono<{
   Bindings: Bindings;
   Variables: Variables;
 }>();
 
-// Initialize Stripe with your secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+const stripe = new Stripe(Azion.env.get("STRIPE_SECRET_KEY") || "", {
   apiVersion: "2025-06-30.basil",
   typescript: true,
 });
 
-// Middleware to verify the webhook signature
 const verifyStripeWebhook = async (c: Context, next: () => Promise<void>) => {
   try {
     const signature = c.req.header("stripe-signature");
@@ -66,11 +108,10 @@ const verifyStripeWebhook = async (c: Context, next: () => Promise<void>) => {
 
     const payload = await c.req.raw.text();
 
-    // Verify the webhook signature
     const event = stripe.webhooks.constructEvent(
       payload,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET || ""
+      Azion.env.get("STRIPE_WEBHOOK_SECRET") || ""
     );
 
     // Attach the event to the context for use in the route handler
@@ -81,13 +122,23 @@ const verifyStripeWebhook = async (c: Context, next: () => Promise<void>) => {
     return c.json({ error: "Webhook verification failed" }, 400);
   }
 };
+```
 
-// Webhook endpoint
+A request that fails the check receives a `400` response and never reaches the route.
+
+---
+
+## 3. Handle the payment events
+
+The route reads the verified event from the context and branches on its type. Every branch ends in a `200` response: Stripe retries an event that the endpoint does not acknowledge. A retry delivers an event the handler may have already acted on, so record the `id` of every event it processes and skip one that repeats. A retry can redeliver an event the handler already processed, so store each `event.id` and skip an ID already stored.
+
+Add the webhook route, the status route, the error handler, and the export to the same file:
+
+```typescript
 app.post("/webhook", verifyStripeWebhook, async (c) => {
   const event = c.get("stripeEvent");
 
   try {
-    // Handle the event
     switch (event.type) {
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -121,7 +172,6 @@ app.post("/webhook", verifyStripeWebhook, async (c) => {
   }
 });
 
-// Health check endpoint
 app.get("/", (c) => {
   return c.json({
     status: "ok",
@@ -130,177 +180,138 @@ app.get("/", (c) => {
   });
 });
 
-// Error handling
 app.onError((err: Error, c) => {
   console.error("Error:", err);
   return c.json({ error: "Internal Server Error" }, 500);
 });
 
-fire(app, { env: { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY! } });
+export default app;
 ```
 
-## Deploying to Azion
+The handler answers every verified event with `{ "received": true }`, and an event type outside the switch reaches the `default` branch and is logged.
 
-### Step 1: Authenticate with Azion
+:::note
+`export default app` is the ES Modules handler pattern. For the Service Worker pattern and the steps to migrate from it, refer to [Migrate handler patterns in Functions](/en/documentation/guides/application-development/functions-and-runtime/migrate-handler-patterns/).
+:::
 
-1. Log in to your Azion account via CLI:
+For the reference implementation of this handler, refer to [edge-functions-examples](https://github.com/egermano/edge-functions-examples/tree/main/packages/stripe-webhooks).
+
+---
+
+## 4. Store the Stripe credentials
+
+The handler reads both Stripe keys from the environment, so neither value belongs in the code. The secret key starts with `sk_test_` or `sk_live_`, and the webhook signing secret starts with `whsec_`.
+
+Store the secret key as an environment variable on your account:
 
 ```bash
-azion login
+azion create variables --key "STRIPE_SECRET_KEY" --value "<your-stripe-secret-key>" --secret true
 ```
 
-2. Follow the authentication prompts to connect your CLI with your Azion account.
-
-### Step 2: Create a new Application from a template
-
-1. Initialize a new Application:
+Store the webhook signing secret the same way:
 
 ```bash
-azion init
+azion create variables --key "STRIPE_WEBHOOK_SECRET" --value "<your-stripe-webhook-secret>" --secret true
 ```
 
-2. Select the template Hono Boilerplate to use for your browserless application.
+Both variables are stored on the account with the `secret` field set to `true`, which marks the value as confidential. A variable whose key contains `password`, `pwd`, `secret`, `key`, `hash`, `encrypted`, `passcode`, `auth`, or `token` is sent as a secret by default. A change to a variable reaches the function only after a redeploy. For the fields, the limits, and the other subcommands, refer to [Environment variables](/en/documentation/build/functions/environment-variables/).
 
-3. Follow the prompts to configure your new Applications.
+---
 
-### Step 3: Create secrets for Stripe credentials
+## 5. Deploy the handler
 
-For security, store your Stripe credentials as secrets:
-
-```bash
-azion create secret STRIPE_SECRET_KEY
-azion create secret STRIPE_WEBHOOK_SECRET
-```
-
-When prompted, enter your respective Stripe credentials. This ensures your sensitive data is encrypted and secure.
-
-### Step 4: Deploy the Function
-
-Deploy your webhook handler to Azion's edge network:
+Deploy the project:
 
 ```bash
 azion deploy
 ```
 
-The deployment process will:
+Azion CLI builds the project, deploys it, and opens Azion Console on the page that carries the deployment logs. When the browser does not open, the terminal prints the link.
 
-- Upload your Function code
-- Configure the application
-- Set up the necessary routing rules
-- Configure environment variables and secrets
-- Provide you with a unique domain
-
-### Step 5: Update Stripe webhook configuration
-
-1. After deployment, you'll receive a domain like `https://xxxxxxx.map.azionedge.net`
-2. Go to your Stripe Dashboard > **Developers** > **Webhooks**
-3. Edit your webhook endpoint
-4. Update the URL to `https://xxxxxxx.map.azionedge.net/webhook`
-5. Save the changes
-
-### Step 6: Test webhook delivery
-
-1. Trigger test events in Stripe Dashboard
-2. Monitor webhook delivery and responses
-3. Check Function logs for processing confirmation
-
-## Testing your webhook handler
-
-### Step 1: Use Stripe CLI for local testing
-
-1. Install [Stripe CLI](https://stripe.com/docs/stripe-cli)
-2. Forward webhooks to your local development server:
-
-```bash
-stripe listen --forward-to localhost:3000/webhook
-```
-
-3. Trigger test events:
-
-```bash
-stripe trigger payment_intent.succeeded
-stripe trigger charge.succeeded
-stripe trigger invoice.payment_succeeded
-```
-
-### Step 2: Test in production
-
-1. Use Stripe Dashboard to send test webhooks
-2. Monitor webhook delivery and retry attempts
-3. Check response codes and processing times
-4. Verify event handling accuracy
-
-### Step 3: Error handling testing
-
-1. Test with invalid signatures
-2. Test with malformed payloads
-3. Test timeout scenarios
-4. Verify retry mechanisms
-
-## Security best practices
-
-### Webhook verification
-
-- **Always verify signatures**: Never process unverified webhooks
-- **Use HTTPS**: Ensure all webhook endpoints use HTTPS
-- **Validate payload**: Check event structure and required fields
-- **Implement replay protection**: Track processed event IDs
-
-### Secret management
-
-- **Use Azion secrets**: Store credentials securely
-- **Rotate secrets regularly**: Update webhook secrets periodically
-- **Limit access**: Restrict secret access to necessary functions
-- **Monitor usage**: Track secret access and usage patterns
-
-## Monitoring and logging
-
-### Event logging
-
-```javascript
-function logWebhookEvent(event, status, processingTime) {
-    console.log({
-        event_id: event.id,
-        event_type: event.type,
-        status,
-        processing_time: processingTime,
-        timestamp: new Date().toISOString()
-    });
-}
-```
-
-### Performance monitoring
-
-- **Response times**: Monitor webhook processing speed
-- **Success rates**: Track successful vs failed processing
-- **Error patterns**: Identify common failure scenarios
-- **Retry frequency**: Monitor webhook retry attempts
-
-## Troubleshooting
-
-### Common issues and solutions
-
-- **Signature verification failures**: Check webhook secret configuration
-- **Timeout errors**: Optimize processing logic for speed
-- **Duplicate processing**: Implement idempotency checks
-- **Missing events**: Verify webhook endpoint configuration
-
-### Debugging tips
-
-1. **Enable detailed logging**: Log all webhook events and processing steps
-2. **Use Stripe Dashboard**: Monitor webhook delivery attempts
-3. **Test locally**: Use Stripe CLI for local debugging
-4. **Check signatures**: Verify webhook signature calculation
-
-## Next steps
-
-- Implement comprehensive event logging and monitoring
-- Add webhook replay functionality for failed events
-- Integrate with your existing payment processing system
-- Implement advanced fraud detection mechanisms
-- Scale webhook processing for high-volume scenarios
+The deployment returns a domain in the format `https://xxxxxxxxx.map.azionedge.net`. Propagation takes a few minutes, so wait before you send the first event. The webhook route of the handler is `/webhook` on that domain.
 
 ---
 
-<LinkButton link="https://stripe.com/docs/webhooks" text="Stripe Webhooks Documentation" />
-<LinkButton link="/en/documentation/products/build/applications/functions/" text="Learn more about Functions" />
+## 6. Point Stripe at the handler
+
+To deliver the events to the deployed handler:
+
+<DocSteps>
+  <DocStep title="Open the webhook settings">
+
+  In the Stripe Dashboard, go to **Developers** > **Webhooks**.
+
+  </DocStep>
+  <DocStep title="Select your webhook endpoint" />
+  <DocStep title="Set the endpoint URL">
+
+  Enter `https://<your-azion-domain>/webhook`.
+
+  </DocStep>
+  <DocStep title="Save the changes" />
+</DocSteps>
+
+Stripe delivers to your function every event selected on that endpoint. For the event types an endpoint accepts, refer to [Stripe webhooks](https://stripe.com/docs/webhooks).
+
+---
+
+## 7. Verify the handler
+
+To exercise the deployed handler:
+
+<DocSteps>
+  <DocStep title="Request the status route">
+
+  ```bash
+  curl https://<your-azion-domain>/
+  ```
+
+  The route returns a JSON object with three fields: `status` set to `ok`, `timestamp` set to the time of the request, and `service` set to `stripe-webhooks`.
+
+  </DocStep>
+  <DocStep title="Send two events the switch names">
+
+  ```bash
+  stripe trigger payment_intent.succeeded
+  stripe trigger charge.succeeded
+  ```
+
+  Stripe delivers each event to the registered endpoint, and the handler answers `{ "received": true }`. The Stripe Dashboard lists the delivery, its response code, and any retry for that endpoint.
+
+  </DocStep>
+  <DocStep title="Send an event the switch does not name">
+
+  ```bash
+  stripe trigger invoice.payment_succeeded
+  ```
+
+  The handler answers `{ "received": true }` again, and the event reaches the `default` branch.
+
+  </DocStep>
+  <DocStep title="Read what the handler logged">
+
+  ```bash
+  azion logs cells --tail
+  ```
+
+  The terminal prints the console messages of the last 5 minutes and keeps printing new ones.
+
+  </DocStep>
+</DocSteps>
+
+Each triggered event produces one line: `PaymentIntent was successful!` with the payment intent ID, `Charge was successful!` with the charge ID, and `Unhandled event type invoice.payment_succeeded` for the event the switch does not name.
+
+:::tip
+To exercise the handler before a deployment, start the local development server with `azion dev` and forward the events to it with `stripe listen --forward-to localhost:3000/webhook`. Refer to [Azion CLI dev](/en/documentation/devtools/cli/dev-command/).
+:::
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Environment variables" href="/en/documentation/build/functions/environment-variables/" label="The fields of a variable, the account and per-function limits, and every CLI subcommand that manages one." />
+  <DocCard title="Troubleshoot function execution and logs" href="/en/documentation/build/functions/troubleshooting/" label="What to check when a function never runs, stops before it responds, or produces no log output." />
+  <DocCard title="Functions best practices" href="/en/documentation/build/functions/best-practices/" label="What each part of the handler does, and the design choices that keep an invocation inside its limits." />
+  <DocCard title="Functions limits" href="/en/documentation/build/functions/limits/" label="The CPU time, wall-clock time, sub-request, and memory ceilings a single invocation runs inside." />
+</DocCardGroup>

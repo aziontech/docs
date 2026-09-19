@@ -1,0 +1,200 @@
+---
+title: Troubleshooting
+description: >-
+  Diagnose a query that reports success with no data, a create request the API
+  refuses, and an EdgeSQL Shell that does not start.
+meta_tags: 'sql database, troubleshooting, error 14000, error 14001, error 14005, error 10004, error 10007, error 10097, statement error, edgesql shell, preview access'
+namespace: documentation_products_sql_database_troubleshooting
+permalink: /documentation/store/sql-database/troubleshooting/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+This page covers what [SQL Database](/en/documentation/store/sql-database/) does that you did not expect: a query that answers `200` and writes nothing, a new database that answers `404`, a create request refused over its name, a name that is already taken, a query the platform declines with `422`, a request that changes nothing, a `CREATE TABLE` and a vector insert that fail inside a success, a list request bounded at 100, an EdgeSQL Shell that exits at startup, and a product that is absent from Azion Console.
+
+---
+
+## A query answers HTTP 200 and the data is not there
+
+`POST /databases/{database_id}/query` answers HTTP `200` and `state` reads `executed`, and the row you inserted is not in the table. The statement's entry in `data` carries `error` in place of `results`.
+
+Two outcomes are reported at two levels, and only the second one describes your SQL. The HTTP status describes the request: it was well formed, it authenticated, and it reached the database. Each statement then gets its own entry in `data`, in the order the statements were sent, and an entry whose statement was rejected carries `error` instead of `results`. Nothing about that rejection reaches the status line. A client that branches on the status code alone records the failure as a success and keeps going.
+
+A `SELECT` against a table the database does not hold returns this:
+
+```json
+{"state":"executed","data":[{"error":"no such table: users"}]}
+```
+
+- **Read `data[].error` on every entry, not the HTTP status**: the position of the entry matches the position of its statement in `statements`, so the response names which one failed.
+- **Confirm the table exists**: `.tables` in the EdgeSQL Shell lists the tables of the selected database, and `getTables` in the `azion` library runs a `PRAGMA` and returns the same list.
+- **Expect the `azion` library to report the failure twice**: a rejected statement fills `data.results[0].error` and a top-level `error.message`, so a client that reads neither sees a response with no rows.
+
+The client then stops on the statement that was rejected, and every entry carrying `results` belongs to a statement that ran. For the shape of the envelope, refer to [Databases and queries](/en/documentation/store/sql-database/databases-and-queries/).
+
+---
+
+## A new database answers 10004 Not Found on its first query
+
+A query sent moments after `POST /databases` answers HTTP `404` with the code `10004` and the title `Not Found`. The create request answered `202` and returned the identifier the query uses.
+
+Create is accepted before the database exists. The create response carries `state` as `pending` and the database's own `status` as `creating`, and provisioning takes about 15 seconds. A query addressed to that identifier before provisioning finishes finds nothing to run against, so the platform answers as it answers any unknown identifier. The same `404` therefore covers a database that is still being built and a database that was never created.
+
+- **Poll `GET /databases/{database_id}` until `status` is `created`**: the retrieve response carries no `state` key, so `status` is the field that reports progress.
+- **Wait out the provisioning window before the first statement**: it runs about 15 seconds from the create request.
+- **Confirm the identifier when the wait does not help**: `GET /databases` with `search` set to part of the name returns the matching databases with their `id` and `status`.
+
+The query then answers HTTP `200`, and `data` carries one entry for each statement it sent.
+
+---
+
+## 14000 Invalid Database Name Format on a create request
+
+`POST /databases` answers HTTP `400` with the code `14000` and the title `Invalid Database Name Format`. When the name is shorter than six characters, the code `10048` with the title `Min Length` arrives in the same `errors` array.
+
+A database name holds 6 to 50 characters, and every character is a letter, a number, or the hyphen (`-`). `14000` covers both halves of that rule: a name outside the length range and a name carrying any other character produce the same code. `10048` narrows one half of it and appears only for a name below the minimum, which is why two errors can describe one name. Azion Console applies the same rule before the request leaves the browser. Its messages state which half failed: "Database name must be at least 6 characters", "Database name must be at most 50 characters", and "Use only letters, numbers and hyphen (-)".
+
+- **Count the characters of the name**: the bound is 6 to 50, and it applies to the name alone.
+- **Remove every character outside the set**: a letter, a number, and the hyphen are accepted, while an underscore or a space is not.
+- **Read two codes as one problem**: `14000` beside `10048` describes a single name that is too short.
+
+The create request then answers HTTP `202` with `state` as `pending`, and the response carries the database and its `id`. For the whole set of bounds, refer to [SQL Database limits](/en/documentation/store/sql-database/limits/).
+
+---
+
+## 14001 Name Already In Use on a create request
+
+`POST /databases` answers HTTP `400` with the code `14001`, the title `Name Already In Use.`, and the detail `The database name already exists.` The `source.pointer` of the error names `/data/name`.
+
+A database name is unique within the account, so the collision is with a database the account already holds. The name is also permanent: `name` is accepted in the create body and read-only afterwards, and no operation on the endpoints changes it. A database that carries the name you want keeps it until the database itself is deleted.
+
+- **Find the database that holds the name**: `GET /databases` with `search` set to part of the name returns each match with its `id`, `status`, and `last_modified`.
+- **Send a different name**: the name cannot be changed later, so send the one the database keeps for as long as it exists.
+- **Delete the database you no longer want**: `DELETE /databases/{database_id}` answers `202`, and the database answers `404` within seconds.
+
+The create request then answers HTTP `202`, and `GET /databases` lists the new database beside the ones the account already held.
+
+---
+
+## 14005 Execute SQL Exception with HTTP 422
+
+`POST /databases/{database_id}/query` answers HTTP `422` with the code `14005` and the title `Execute SQL Exception`. The response carries an `errors` array instead of `data`, and `meta.database_name` names the database the call addressed.
+
+`422` is a verdict on the whole call: the statements could not be executed at all. That is a different outcome from a statement the database rejects, which answers HTTP `200` and carries `error` in its own entry in `data`. A body with no `statements` key fails earlier still, under the code `10059` and the title `Required Field`, with `source.pointer` at `/data/statements`. Reading which of the three the response is tells you whether to change the request or the SQL.
+
+- **Read `meta.database_name`**: it names the database the call reached, which separates a wrong identifier from a wrong statement.
+- **Check that the body carries `statements`**: the key holds an array of strings, and a body without it answers `400` with `10059` `Required Field`.
+- **Send the statements one at a time**: each statement returns its own entry, so a call carrying one statement narrows what the platform declined.
+
+The call then answers HTTP `200` with `state` as `executed`, and every statement it carried has an entry in `data`.
+
+---
+
+## 10007 Method Not Allowed on a request that changes a database
+
+`PATCH` or `PUT` on `/databases/{database_id}` answers HTTP `405` with the code `10007` and the title `Method Not Allowed`. The database exists and the body is valid.
+
+The SQL endpoints carry five operations: list a database, create one, retrieve one, delete one, and run a query against one. None of them updates a database, so the object a create returns is the object the database keeps. `name` and `active` are accepted in the create body and read-only afterwards, and `status`, `last_modified`, `last_editor`, and `product_version` are set by the platform. A database is therefore never renamed and never switched off after creation.
+
+- **Send `name` and `active` on create**: the create body accepts those two fields and nothing else.
+- **Replace the database to change its name**: create one under the name you want, then `DELETE` the one you no longer need.
+- **Change the data rather than the object**: `POST /databases/{database_id}/query` runs the statements of the [SQLite dialect](https://www.sqlite.org/lang.html), which is where a schema changes.
+
+A database then changes only through the statements you send it, and `GET /databases/{database_id}` keeps returning the name it was created with.
+
+---
+
+## CREATE TABLE answers too many columns
+
+A `CREATE TABLE` statement returns HTTP `200`, and its entry in `data` carries an error instead of a result:
+
+```json
+{"state":"executed","data":[{"error":"too many columns on <table>"}]}
+```
+
+A table holds at most 2,000 columns, which is SQLite's own default. The ceiling belongs to the statement rather than to the request, so the refusal travels inside the successful response and the status line still reads `200`. No table is created. A client that trusts the status continues as though the table exists, and the next statement against it fails with `no such table`, which sends you looking for the wrong problem.
+
+- **Count the columns the statement declares**: 2,000 is the ceiling for one table.
+- **Divide the columns across tables**: two tables joined on a key hold what one table cannot.
+- **Read `data[].error` before the next statement**: the failed `CREATE TABLE` is reported only in its own entry.
+
+The `CREATE TABLE` entry then carries `results`, and the statements that follow find the table.
+
+---
+
+## A vector insert answers max size exceeded 65536
+
+An `INSERT` that calls `vector()` returns HTTP `200`, and its entry carries `{"error":"vector: max size exceeded 65536"}`. The `CREATE TABLE` that declared the column answered with no error at all.
+
+`vector()` accepts at most 65,536 dimensions, and it is the only place that ceiling is checked. A vector column declares its dimension count as a type parameter, as in `F32_BLOB(3)` for three dimensions, and SQLite does not validate that parameter. `CREATE TABLE t (v F32_BLOB(65537));` therefore succeeds, and the column exists with a width no value can fill. The first insert is where the mismatch becomes visible, one step after the statement that caused it.
+
+- **Count the dimensions the embedding carries**: `vector()` accepts up to 65,536 of them.
+- **Declare the column with the dimension count of the model**: `text-embedding-3-small` returns 1,536 dimensions, so the column is declared `F32_BLOB(1536)`.
+- **Do not read a successful `CREATE TABLE` as a valid width**: the declaration is accepted whatever number it carries.
+
+The insert then carries `results`, and `vector_extract` returns the stored vector in its text form. For the types and the functions, refer to [Vector search](/en/documentation/store/sql-database/vector-search/).
+
+---
+
+## 10097 Invalid Page Size on a list request
+
+`GET /databases` answers HTTP `400` with the code `10097` and the title `Invalid Page Size`. The account holds more databases than the response returned.
+
+`page_size` accepts 1 to 100 and defaults to 10. A request that asks for more than 100 databases in one response is refused rather than trimmed to the ceiling. The endpoint pages instead: `count` states how many databases matched the request, `total_pages` states how many pages they divide into at the current `page_size`, and `page` selects one of them. The two fields `next` and `previous` are `null` at either end of the list.
+
+- **Keep `page_size` at 100 or below**: values from 1 to 100 are accepted, and 10 is the default.
+- **Walk the pages**: read `total_pages` from the first response, then send `page` once per page.
+- **Narrow the list rather than enlarging the page**: `search` matches part of a name, and `ordering` takes a field name, prefixed with `-` for descending order.
+
+The list then answers HTTP `200`, and `results` carries one database object per entry.
+
+---
+
+## The EdgeSQL Shell exits at startup with ImportError
+
+`python edgesql-shell.py` exits before the `EdgeSQL>` prompt appears, on a clean install and a fresh virtual environment:
+
+```text
+ImportError: cannot import name 'Configuration' from 'kaggle.api.kaggle_api_extended'
+```
+
+The shell imports its Kaggle module while it starts. `commands/import.py` imports `edgesql_kaggle.py`, which imports a symbol the pinned `kaggle==1.8.3` no longer defines. That import runs before the tool reads a single command, so every command fails, whether or not it touches Kaggle. Pinning an older `kaggle` does not avoid it: the package authenticates inside its own `__init__.py`, so importing it at all fails without Kaggle credentials. A fix is pending. Stubbing that one import out locally leaves the rest of the tool working, which is how Azion verified the commands on [EdgeSQL Shell](/en/documentation/store/sql-database/edgesql-shell/); it is a local workaround, not a supported step, and until the fix ships one of the three interfaces below is the reliable path.
+
+- **Run the statements through the Azion API**: `POST /databases/{database_id}/query` carries the same SQL the shell would send. For the operations, refer to [Databases and queries](/en/documentation/store/sql-database/databases-and-queries/).
+- **Call the `azion` library from Node or TypeScript**: `azion/sql` exports the database operations and the two query functions. For the surface, refer to [Azion Libraries - SQL](/en/documentation/devtools/azion-lib/sql/).
+- **Run the query in Azion Console**: the **Editor** tab of a database runs SQL and returns the result under **Run query**.
+
+Each of those interfaces then runs the statement the shell cannot reach. For the commands the shell offers once a fix ships, refer to [EdgeSQL Shell](/en/documentation/store/sql-database/edgesql-shell/).
+
+---
+
+## SQL Database is absent from Azion Console
+
+**Store** > **SQL Database** is missing from the navigation of Azion Console, or the route `/sql-database` opens no database list. The account signs in and reaches every other product.
+
+SQL Database is a Preview product. It is not enabled by default, and an account reaches it only after Azion enables it, on every plan. The navigation entry carries the tag `Preview` once the product is on the account. A second condition hides the databases rather than the product. Two permissions govern them through the Azion API: **View SQL Database** for viewing the created databases and their data, and **Edit SQL Database** for creating and editing them.
+
+- **Request access from the technical support team**: Preview access is arranged through a support ticket. For the channels, refer to [Technical Support](/en/documentation/support/).
+- **Check the two permissions on the account**: for how a team receives them, refer to [Teams permissions](/en/documentation/fundamentals/teams-permissions/).
+- **Do not wait for a plan change to open it**: SQL Database is in Preview on Hobby, Pro, and Enterprise alike, so a request is what enables it.
+
+**Store** > **SQL Database** then opens the database list, with the columns **Name**, **Status**, **Last Editor**, and **Last Modified**.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Databases and queries" href="/en/documentation/store/sql-database/databases-and-queries/">Every operation, field, envelope, and error code these symptoms come from.</DocItem>
+  <DocItem title="How SQL Database works" href="/en/documentation/store/sql-database/how-it-works/">The lifecycle of a database and how a statement reaches the data.</DocItem>
+  <DocItem title="SQL Database limits" href="/en/documentation/store/sql-database/limits/">Every bound behind these refusals, with what happens past it.</DocItem>
+  <DocItem title="Best practices" href="/en/documentation/store/sql-database/best-practices/">The habits that keep most of these symptoms from appearing.</DocItem>
+  <DocItem title="Vector search" href="/en/documentation/store/sql-database/vector-search/">The vector types, functions, and index the failed insert uses.</DocItem>
+  <DocItem title="EdgeSQL Shell" href="/en/documentation/store/sql-database/edgesql-shell/">The commands, options, and environment variables of the shell.</DocItem>
+  <DocItem title="Create and manage databases" href="/en/documentation/guides/application-development/data/manage-sql-database/">The procedure for creating, listing, and deleting a database.</DocItem>
+  <DocItem title="Create tables and query data" href="/en/documentation/guides/application-development/data/create-tables-sql-database/">The procedure behind the statements these sections diagnose.</DocItem>
+</ItemList>
+</FrameBox>

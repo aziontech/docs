@@ -1,0 +1,160 @@
+---
+title: Solução de problemas
+description: >-
+  Encontre a causa quando um bucket não pode ser excluído, a API rejeita uma
+  requisição de criação ou a Azion CLI relata um sucesso que não produziu.
+meta_tags: 'object storage, troubleshooting, error 17006, error 17000, error 17001, error 10059, error 10039, error 17013, bucket deletion, content type, workloads_access, azion cli'
+namespace: documentation_products_object_storage_troubleshooting
+permalink: /documentacao/store/object-storage/solucao-de-problemas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Esta página cobre o que [Object Storage](/pt-br/documentacao/store/object-storage/) faz e você não esperava: um bucket que se recusa a ser excluído, uma requisição de criação que a API rejeita, um objeto servido com o content type errado, uma escrita que responde `17013`, uma requisição de listagem que não encontra nada, um objeto que uma aplicação não retorna e os dois comandos da Azion CLI que relatam um resultado que não produziram.
+
+---
+
+## Um bucket não pode ser excluído e a API retorna `17006`
+
+Um `DELETE` no bucket responde HTTP `400`, com o título `Cannot Delete Non Empty Bucket` e o detalhe `Unable to delete a non-empty bucket. Additionally, objects deleted within the last 24 hours are also taken into consideration.`
+
+Duas condições bloqueiam a exclusão, e o detalhe nomeia as duas. Um bucket que guarda um objeto não pode ser excluído. Um bucket esvaziado nas últimas 24 horas também não pode ser excluído, porque Object Storage remove um objeto excluído permanentemente apenas depois de um período de carência de 24 horas. Um bucket que nunca guardou um objeto é excluído na hora.
+
+- **Esvazie o bucket**: liste as chaves com `GET /buckets/{bucket_name}/objects`, depois envie um `DELETE` por chave. Para as operações, consulte [Buckets e objetos](/pt-br/documentacao/store/object-storage/buckets-e-objetos/).
+- **Espere o período de carência passar**: envie o `DELETE` de novo 24 horas depois de o último objeto ter sido removido.
+- **Espere a mesma recusa da Azion CLI**: a regra de 24 horas também vale para `azion delete storage bucket`.
+
+O `DELETE` então responde HTTP `200` com `state` definido como `executed`, e o bucket sai de `GET /buckets`.
+
+---
+
+## Um nome de bucket é recusado e a API retorna `17000` ou `17001`
+
+Um `POST /buckets` responde HTTP `400` sob um de dois títulos, e `source.pointer` nomeia `/data/name`.
+
+`Bucket Already Exists` significa que o nome já está em uso. Um nome de bucket é único em todas as contas da Azion, então outra conta pode tê-lo, e o detalhe diz `Bucket name '<name>' is already in use.` `Bucket Name Not Available` significa que o nome começa com `azion`, que Object Storage reserva.
+
+- **`17000`, `Bucket Already Exists`**: envie outro nome. Um nome que começa com seu projeto ou sua conta colide com menos frequência que um nome genérico.
+- **`17001`, `Bucket Name Not Available`**: remova o prefixo `azion` do nome.
+- **Verifique o nome contra as outras regras**: um nome tem de 6 a 63 caracteres e contém letras, números e o hífen. Para cada limite, consulte [Limites do Object Storage](/pt-br/documentacao/store/object-storage/limites/).
+
+A requisição de criação então responde HTTP `201` com `state` definido como `executed`, e a resposta carrega o bucket.
+
+---
+
+## O nível de acesso é recusado e a API retorna `10059` ou `10039`
+
+Um `POST /buckets` responde HTTP `400` com o título `Required Field` sob o código `10059`, ou com o título `Invalid Choice` sob o código `10039`. Nos dois casos, `source.pointer` nomeia `workloads_access`.
+
+`workloads_access` é obrigatório na criação e aceita exatamente três valores: `read_only`, `read_write` e `restricted`. `10059` significa que o campo está ausente do corpo. Um corpo que envia `edge_access` produz o mesmo erro, porque a API não lê `edge_access` e o schema de criação não armazena um campo desconhecido. `10039` significa que o valor está fora dos três: um corpo carregando `private` responde `"private" is not a valid choice.`
+
+- **Nomeie o campo como `workloads_access`**: o campo carrega esse nome na API, na Azion CLI e na biblioteca `azion`. `edge_access` não faz parte de nenhuma delas.
+- **Troque `private` por `restricted`**: `restricted` é o valor que mantém a plataforma da Azion fora do bucket.
+- **Verifique de qual nível o bucket precisa**: para o que cada valor permite, consulte [Níveis de acesso](/pt-br/documentacao/store/object-storage/como-funciona/#niveis-de-acesso).
+
+A requisição de criação então responde HTTP `201`, e ler o bucket de volta mostra `workloads_access` com o valor que você enviou.
+
+---
+
+## Um objeto é servido com o content type errado
+
+Um download do objeto retorna um `Content-Type` com o qual o objeto não foi enviado. Um arquivo enviado como imagem é servido como `text/plain`, ou um corpo JSON é servido como `application/octet-stream`.
+
+O content type armazenado vem do header `Content-Type` da requisição de upload. Quando a requisição não carrega `Content-Type`, Object Storage detecta o tipo a partir do próprio objeto. O header `Storage-Content-Type`, que a especificação da API documenta, é aceito e ignorado, então uma requisição que define apenas esse header armazena um tipo detectado, não o que você nomeou.
+
+- **Envie o objeto de novo com `Content-Type`**: o header define o tipo armazenado, e um `POST` para uma chave que já existe substitui o objeto e responde `201`.
+- **Tire `Storage-Content-Type` da requisição**: o header não muda nada e esconde a ausência do `Content-Type`.
+- **Leia o tipo de volta**: `GET /buckets/{bucket_name}/objects/{object_key}` retorna o objeto com o tipo que ele carrega.
+
+Toda requisição posterior pelo objeto então retorna o tipo que você enviou. Para as operações de upload, consulte [Buckets e objetos](/pt-br/documentacao/store/object-storage/buckets-e-objetos/).
+
+---
+
+## Um `PUT` em uma chave de objeto retorna `17013`
+
+Um `PUT` em `/buckets/{bucket_name}/objects/{object_key}` responde HTTP `404`, com o título `Object Does Not Exist`. O bucket existe e o corpo da requisição é válido.
+
+`PUT` mapeia para `update_object_key`, que substitui um objeto já armazenado. Ele nunca cria um. `POST` mapeia para `create_object_key`, que é a operação que cria a chave, incluindo todo prefixo dentro dela: um `POST` para `objects/folder/sub/data.json` não precisa de nenhum passo anterior.
+
+- **Faça o `POST` da chave primeiro**: a criação responde `201` com `state` definido como `executed` e `data.object_key` nomeando a chave.
+- **Guarde o `PUT` para substituições**: uma vez que a chave existe, `PUT` responde `200` ou `202`.
+- **Ou use `POST` sempre**: um `POST` para uma chave que já existe substitui o objeto e responde `201`, então uma operação cobre os dois casos.
+
+O objeto então fica armazenado sob a chave, e `GET /buckets/{bucket_name}/objects` o retorna.
+
+---
+
+## Uma requisição de listagem não retorna nenhum bucket embora o bucket exista
+
+`GET /buckets` com `name` definido como parte de um nome de bucket responde `200` com `count` igual a `0` e um array `results` vazio. O filtro `bucket` não retorna nada para nenhum valor, inclusive um nome exato.
+
+`name` corresponde ao nome inteiro do bucket, exatamente, embora a especificação da API o descreva como uma correspondência parcial que não diferencia maiúsculas de minúsculas. O filtro `bucket` não retorna registro nenhum. `search` é o parâmetro que corresponde a parte de um nome, e `workloads_access` filtra corretamente.
+
+- **Corresponda parte de um nome com `search`**: `GET /buckets?search=my-bucket` retorna todo bucket cujo nome contém `my-bucket`.
+- **Use `name` apenas com o nome inteiro**: `GET /buckets?name=my-bucket-ro` retorna aquele bucket.
+- **Não filtre com `bucket`**: ele não retorna registro nenhum, então uma resposta vazia não prova nada sobre a conta.
+- **Pagine a lista em vez de filtrar**: `page_size` aceita até 100, e `page` percorre as páginas.
+
+A resposta então carrega o bucket em `results`, e `count` informa quantos buckets corresponderam.
+
+---
+
+## Um objeto está ausente na aplicação que serve o bucket
+
+Uma requisição de listagem no bucket retorna a chave do objeto, e uma requisição para a aplicação que serve o bucket não retorna o objeto.
+
+Um objeto chega a um usuário final apenas por uma aplicação. Um **Connector** com **Connector Type** definido como _Object Storage_ aponta para o bucket, e uma regra do Rules Engine envia as requisições correspondentes para esse connector. Dois elos dessa cadeia escondem um objeto que existe. O campo **Prefix** do connector estreita o que ele serve, então um objeto armazenado fora do prefixo é inalcançável por ele. Sem connector e sem regra, nenhuma requisição chega ao bucket. O endpoint S3 também não fecha a lacuna: ele gerencia objetos e não os entrega a usuários finais.
+
+- **Compare a chave do objeto com o prefixo do connector**: o connector serve os objetos sob **Prefix** e nada mais.
+- **Confirme que uma regra envia a requisição para o connector**: sem a regra, a aplicação nunca pergunta ao bucket.
+- **Verifique o nível de acesso do bucket**: um bucket `restricted` não pode servir de origem para uma aplicação, enquanto `read_only` e `read_write` podem.
+- **Para a cadeia inteira, consulte [Usar um bucket como origem](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/)**: ela carrega os campos do connector e a regra.
+
+Uma requisição que corresponde à regra então retorna o objeto do bucket.
+
+---
+
+## A Azion CLI relata `Bucket deletion was scheduled successfully` e o bucket permanece
+
+`azion delete storage bucket --name <bucket> --force` imprime `Delete all objects from bucket`, depois `Deleting objects...`, depois `Bucket deletion was scheduled successfully`. O bucket continua na saída de `azion list storage bucket`.
+
+Este é um defeito na Azion CLI 4.23.0, não uma regra que você contornou de forma incorreta. `--force` exclui todos os objetos do bucket e depois pede à API que exclua o bucket. A API recusa com `17006`, porque um objeto foi removido nas últimas 24 horas. O comando não relata essa recusa, então imprime um sucesso que não produziu. Os objetos se foram; o bucket não.
+
+- **Leia a lista de buckets antes de confiar na mensagem**: `azion list storage bucket` informa se o bucket sobreviveu.
+- **Exclua o bucket depois do período de carência**: 24 horas depois de o último objeto ter sido removido, execute `azion delete storage bucket --name <bucket>` sem `--force`.
+- **Remova os objetos um a um quando quiser manter o bucket**: `azion delete storage object --bucket-name <bucket> --object-key <key>` imprime `Object <key> was deleted successfully`.
+
+A exclusão sem `--force` então imprime `Bucket <bucket> was deleted successfully`, e o bucket sai da lista.
+
+---
+
+## A Azion CLI relata `no such file or directory` para um arquivo que existe
+
+`azion create storage object --source` falha em um caminho que você consegue ler. A partir do diretório de trabalho `/tmp`, `--source /tmp/os-cli.txt` responde `Error: open /tmp/tmp/os-cli.txt: no such file or directory`, e o arquivo está lá.
+
+Este é um defeito na Azion CLI 4.23.0. O comando junta o valor de `--source` ao diretório de trabalho em vez de ler um caminho absoluto como absoluto, então o diretório aparece duas vezes no caminho que ele abre. O texto de ajuda da flag descreve o valor como um caminho absoluto, que é o oposto do que o comando aceita. `azion update storage object --source` se comporta da mesma forma.
+
+- **Passe um caminho relativo**: a partir do diretório que guarda o arquivo, `--source os-cli.txt` chega até ele.
+- **Execute o comando a partir do diretório que guarda o arquivo**: o caminho relativo é então apenas o nome do arquivo.
+- **Faça o upload pela API quando um script precisar de um caminho absoluto**: `POST /buckets/{bucket_name}/objects/{object_key}` recebe o arquivo como corpo da requisição.
+
+O comando então imprime `Object created successfully`. Para os comandos de storage e suas flags, consulte [Azion CLI](/pt-br/documentacao/devtools/cli/).
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Buckets e objetos" href="/pt-br/documentacao/store/object-storage/buckets-e-objetos/">Toda operação, campo e código de erro que os endpoints de storage retornam.</DocItem>
+  <DocItem title="Como o Object Storage funciona" href="/pt-br/documentacao/store/object-storage/como-funciona/">O que cada nível de acesso permite, e por que um bucket excluído espera um período de carência.</DocItem>
+  <DocItem title="Limites do Object Storage" href="/pt-br/documentacao/store/object-storage/limites/">Todo limite de um nome de bucket, de uma chave de objeto e de uma requisição de listagem, com o que acontece além dele.</DocItem>
+  <DocItem title="Compatibilidade com S3" href="/pt-br/documentacao/store/object-storage/compatibilidade-s3/">O endpoint, as credenciais e as capacidades de que um cliente S3 precisa.</DocItem>
+  <DocItem title="Boas práticas" href="/pt-br/documentacao/store/object-storage/boas-praticas/">Os hábitos que evitam o aparecimento desses sintomas, com o raciocínio de cada um.</DocItem>
+  <DocItem title="Criar um bucket" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/">Os passos para criar um bucket e mudar seu nível de acesso.</DocItem>
+  <DocItem title="Upload e download de objetos" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/upload-e-download-de-objetos-do-bucket/">Os passos para armazenar, substituir e ler um objeto.</DocItem>
+  <DocItem title="Usar um bucket como origem" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/">O connector e a regra que colocam um bucket atrás de uma aplicação.</DocItem>
+</ItemList>
+</FrameBox>

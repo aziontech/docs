@@ -1,0 +1,229 @@
+name: CI gate
+
+# The PR gate, in the shape of aziontech/webkit's governance.yml: a `changes` job with path
+# filters, every job conditioned on one of its outputs, and one aggregator at the end.
+#
+# `CI gate` aggregates the jobs in this file: it passes when every one succeeded or was
+# cleanly skipped, so a job can be added or switched off without touching branch
+# protection.
+#
+# Two checks are deliberately NOT in here — `internal-links.yml` and
+# `design-system-adoption.yml` are standalone workflows with their own triggers and their
+# own status checks, so branch protection needs all three names. Internal links pays for
+# that independence by building the site itself; see the note in its own file.
+#
+# This workflow never deploys. Deploys live in their own workflows, with their own secrets
+# and the opposite concurrency (a deploy is never cancelled mid-flight).
+
+on:
+  pull_request:
+    branches:
+      - main
+      # The new-docs work lands here first, so PRs to it get the same gate.
+      - release/new-azion-docs
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      content: ${{ steps.filter.outputs.content }}
+      platform: ${{ steps.filter.outputs.platform }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            # Touching the gate itself, or any config it enforces, re-runs everything —
+            # otherwise a PR that breaks the gate is the one PR the gate never sees.
+            gate: &gate
+              - '.github/workflows/ci-gate.yml'
+              - '.github/actions/setup/**'
+              - 'ci/baselines.json'
+              - 'scripts/ci/**'
+              - 'eslint.config.mjs'
+              - '.prettierrc*'
+              - '.prettierignore'
+              - '.stylelintrc*'
+              - '.nvmrc'
+            content:
+              - 'src/content/**'
+              - 'src/i18n/**'
+              - 'src/nav/**'
+              - 'cicd/massive-redirect/**'
+              - *gate
+            platform:
+              - 'src/**'
+              - 'plugins/**'
+              - 'integrations/**'
+              - 'scripts/**'
+              - 'astro.config.ts'
+              - 'tsconfig.json'
+              - 'postcss.config.js'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - *gate
+
+  security:
+    name: Security scans
+    needs: changes
+    if: needs.changes.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+
+      # Ratchet. 33 high and 1 critical are already in the tree — the repository has never
+      # run an audit, so blocking outright would mean fixing all 34 before any PR could
+      # merge. The critical one is astro < 7.2.8 (RCE through AVIF image optimization);
+      # bumping Astro is its own change, not a side effect of wiring up CI.
+      - name: Audit dependencies (ratchet)
+        run: pnpm ci:ratchet audit
+
+      - name: Secret detection
+        uses: trufflesecurity/trufflehog@20652fbbdefffcdaa493a5bf57ab2ac6b1db715b # main
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          extra_args: --only-verified
+
+  content:
+    name: Content integrity
+    needs: changes
+    if: ${{ needs.changes.outputs.content == 'true' || needs.changes.outputs.platform == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      # Blocking: the navigation tree is the one structure a broken entry takes down for
+      # every page at once.
+      - name: Navigation tree
+        run: pnpm lint:navcheck
+
+      # Ratchet. 745 translations already carry a slug that does not match the English
+      # page; this fails only on one this branch adds.
+      - name: Translation slugs (ratchet)
+        run: pnpm ci:ratchet slugcheck
+
+  code-quality:
+    name: Code quality
+    needs: changes
+    if: needs.changes.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+
+      # Every check below carries `if: always()`, so one failure does not hide the other
+      # three. Splitting these into separate jobs bought exactly that, and cost a second
+      # checkout and install (~24 s of runner) to buy it.
+      #
+      # ESLint, Prettier and Stylelint run over the changed files only. Over the whole tree
+      # ESLint reports 97 errors across 46 files — debt that is no branch's fault, and not
+      # worth reformatting the repository to clear. Scoping to the diff is the ratchet:
+      # what you touch, you leave clean.
+      - name: Collect changed files
+        id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" > changed.txt
+          grep -E '\.(js|mjs|cjs|ts|tsx|vue|astro)$' changed.txt > changed-code.txt || true
+          grep -E '\.(css|scss|vue|astro)$' changed.txt > changed-style.txt || true
+          grep -E '\.(js|mjs|cjs|ts|tsx|vue|astro|json|md|mdx|yml|yaml|css|scss)$' changed.txt > changed-fmt.txt || true
+          echo "code=$(wc -l < changed-code.txt)" >> "$GITHUB_OUTPUT"
+          echo "style=$(wc -l < changed-style.txt)" >> "$GITHUB_OUTPUT"
+          echo "fmt=$(wc -l < changed-fmt.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: ESLint (zero warnings on changed files)
+        if: ${{ always() && steps.diff.outcome == 'success' && steps.diff.outputs.code != '0' }}
+        run: tr '\n' '\0' < changed-code.txt | xargs -0 pnpm exec eslint --max-warnings 0
+
+      - name: Prettier (changed files)
+        if: ${{ always() && steps.diff.outcome == 'success' && steps.diff.outputs.fmt != '0' }}
+        run: tr '\n' '\0' < changed-fmt.txt | xargs -0 pnpm exec prettier --check --plugin-search-dir=.
+
+      - name: Stylelint (changed files)
+        if: ${{ always() && steps.diff.outcome == 'success' && steps.diff.outputs.style != '0' }}
+        run: tr '\n' '\0' < changed-style.txt | xargs -0 pnpm exec stylelint
+
+      # Ratchet, for the same reason as the slugs: the type errors already here are not
+      # this branch's. This is the class of bug that reaches production silently — DocFrame
+      # rendered an empty slot with a build reporting zero errors.
+      - name: astro check (ratchet)
+        if: always()
+        run: pnpm ci:ratchet astro-check
+
+  build:
+    name: Build
+    needs: changes
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      # `build:local` ends in test:frontmatter, so namespaces and unique permalinks are
+      # asserted here.
+      - name: Build and validate frontmatter
+        run: pnpm build:local
+        env:
+          NODE_OPTIONS: --max-old-space-size=8120
+
+
+  ci-gate:
+    name: CI gate
+    needs: [changes, security, content, code-quality, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # `skipped` counts as OK, so a job the path filter did not select — or one switched
+      # off — never blocks a merge.
+      - name: Every job passed or was skipped
+        run: |
+          declare -A results=(
+            [changes]="${{ needs.changes.result }}"
+            [security]="${{ needs.security.result }}"
+            [content]="${{ needs.content.result }}"
+            [code-quality]="${{ needs['code-quality'].result }}"
+            [build]="${{ needs.build.result }}"
+          )
+          failed=0
+          for job in "${!results[@]}"; do
+            result="${results[$job]}"
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "FAIL  $job: $result"
+              failed=1
+            else
+              echo "ok    $job: $result"
+            fi
+          done
+          if [[ $failed -eq 1 ]]; then
+            echo "The CI gate did not pass."
+            exit 1
+          fi
+          echo "CI gate passed."
