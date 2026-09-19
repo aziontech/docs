@@ -27,6 +27,8 @@ export interface MenuNode {
 	target?: '_self' | '_blank';
 	tagValue?: string;
 	children?: MenuNode[];
+	kind?: 'inline' | 'drill';
+	groups?: MenuGroupNode[];
 }
 
 export interface MenuGroupNode {
@@ -55,6 +57,7 @@ export interface SidebarModel {
 	expandedIds: string[];
 	treeId: string | null;
 	header: SidebarHeader | null;
+	catalog: MenuGroupNode[] | null;
 }
 
 export interface SidebarLabels {
@@ -363,11 +366,18 @@ export function resolveSidebar(
 			expandedIds: unique(ctx.expanded),
 			treeId: null,
 			header: null,
+			catalog: null,
 		};
 	}
 
 	const back = backRow(data, tree, lang, labels);
 	const groups = groupsToMenu(data, tree.groups, lang, tree.id, ctx);
+	const catalog = groupsToMenu(data, data.root.groups, lang, 'root', {
+		activePath,
+		activeId: '',
+		expanded: [],
+		comingSoonHref: ctx.comingSoonHref,
+	});
 
 	return {
 		groups,
@@ -380,6 +390,7 @@ export function resolveSidebar(
 			backHref: back?.href ?? `/${lang}/${DOCS_BASE[lang]}/`,
 			backLabel: back?.label ?? labels.allProducts,
 		},
+		catalog,
 	};
 }
 

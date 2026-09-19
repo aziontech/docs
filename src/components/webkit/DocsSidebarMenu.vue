@@ -1,22 +1,27 @@
 <template>
 	<MenuRoot
 		v-if="visibleGroups.length"
+		:key="drilled ? 'level' : 'flat'"
 		ref="menuRef"
 		v-model:expanded="expanded"
-		:groups="visibleGroups"
+		v-model:path="path"
+		:groups="menuGroups"
 		:active-id="activeId"
 		:role="presentation ? 'presentation' : undefined"
 		:aria-label="ariaLabel"
 		@navigate="onNavigate"
-	/>
+	>
+		<MenuBack v-if="backLabel">{{ backLabel }}</MenuBack>
+	</MenuRoot>
 	<p v-else class="px-(--spacing-sm) py-(--spacing-xs) text-body-sm text-(--text-muted)">
 		{{ noMatchesLabel }}
 	</p>
 </template>
 
 <script setup lang="ts">
+import MenuBack from '@aziontech/webkit/menu-back';
 import MenuRoot from '@aziontech/webkit/menu-root';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import type { MenuGroupNode, MenuNode } from '~/nav/resolve';
 
@@ -35,6 +40,10 @@ interface Props {
 	filter?: string;
 	/** Shown when the filter matches nothing. */
 	noMatchesLabel?: string;
+	catalogGroups?: MenuGroupNode[] | null;
+	backLabel?: string;
+	levelLabel?: string;
+	levelHref?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -44,6 +53,10 @@ const props = withDefaults(defineProps<Props>(), {
 	presentation: false,
 	filter: '',
 	noMatchesLabel: 'No rows match.',
+	catalogGroups: null,
+	backLabel: '',
+	levelLabel: '',
+	levelHref: '',
 });
 
 const query = computed(() => props.filter.trim().toLowerCase());
@@ -63,6 +76,23 @@ const visibleGroups = computed(() => {
 	return props.groups
 		.map((group) => ({ ...group, items: prune(group.items) }))
 		.filter((group) => group.items.length > 0);
+});
+
+const LEVEL_ID = 'docs-sidebar-level';
+
+const path = ref<string[]>([]);
+const drilled = ref(false);
+
+const menuGroups = computed<MenuGroupNode[]>(() => {
+	if (!drilled.value || !props.catalogGroups?.length) return visibleGroups.value;
+	return [
+		...props.catalogGroups,
+		{
+			items: [
+				{ id: LEVEL_ID, label: props.levelLabel, kind: 'drill', groups: visibleGroups.value },
+			],
+		},
+	];
 });
 
 function foldIds(nodes: MenuNode[], out: string[] = []): string[] {
@@ -90,11 +120,33 @@ onMounted(() => {
 		// storage unavailable
 	}
 
-	if (props.presentation) {
-		menuRef.value?.$el
-			?.querySelector('[aria-current="page"]')
-			?.scrollIntoView({ block: 'nearest' });
+	if (props.catalogGroups?.length && props.groups.length) {
+		path.value = [LEVEL_ID];
+		drilled.value = true;
 	}
+
+	if (props.presentation) {
+		nextTick(() =>
+			nextTick(() =>
+				menuRef.value?.$el
+					?.querySelector('[aria-current="page"]')
+					?.scrollIntoView({ block: 'nearest' })
+			)
+		);
+	}
+});
+
+watch(path, (value, previous) => {
+	if (!drilled.value || value.length > 0 || previous.length === 0) return;
+	nextTick(() => {
+		const root = menuRef.value?.$el;
+		if (!root) return;
+		const rows = Array.from(root.children)
+			.filter((child) => child.tagName === 'SECTION')
+			.flatMap((section) => Array.from(section.querySelectorAll<HTMLAnchorElement>('a[href]')));
+		const landing = rows.find((row) => row.getAttribute('href') === props.levelHref) ?? rows[0];
+		landing?.focus();
+	});
 });
 
 watch(expanded, (value) => {

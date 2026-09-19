@@ -44,6 +44,7 @@ export default UIDictionary({
 	'leftSidebar.noMatches': 'Nenhuma linha corresponde.',
 	'leftSidebar.a11yTitle': 'Primária',
 	'leftSidebar.allProducts': 'Todos os produtos',
+	'leftSidebar.backToDocs': 'Voltar para Docs',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Última atualização',
 	'pageHeader.copy': 'Copiar como Markdown',
