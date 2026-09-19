@@ -14,6 +14,10 @@
 			:initial-expanded="initialExpanded"
 			:filter="filter"
 			:no-matches-label="noMatchesLabel"
+			:catalog-groups="catalogGroups"
+			:back-label="backLabel"
+			:level-label="header?.title ?? ''"
+			:level-href="header?.href ?? ''"
 		/>
 
 		<template #footer>
@@ -40,6 +44,8 @@ withDefaults(
 		ariaLabel?: string;
 		filterPlaceholder?: string;
 		noMatchesLabel?: string;
+		catalogGroups?: MenuGroupNode[] | null;
+		backLabel?: string;
 	}>(),
 	{
 		activeId: '',
@@ -48,6 +54,8 @@ withDefaults(
 		ariaLabel: 'Sidebar',
 		filterPlaceholder: 'Filter sidebar',
 		noMatchesLabel: 'No rows match.',
+		catalogGroups: null,
+		backLabel: '',
 	}
 );
 

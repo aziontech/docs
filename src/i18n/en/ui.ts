@@ -42,6 +42,7 @@ export default {
 	'leftSidebar.noMatches': 'No rows match.',
 	'leftSidebar.a11yTitle': 'Primary',
 	'leftSidebar.allProducts': 'All products',
+	'leftSidebar.backToDocs': 'Back to Docs',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Last updated',
 	'pageHeader.copy': 'Copy as Markdown',
