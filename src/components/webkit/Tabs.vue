@@ -1,39 +1,47 @@
 <template>
-	<div class="relative py-(--spacing-md)">
-		<div
-			ref="tablistRef"
-			data-doc-chrome
-			class="flex items-end gap-(--spacing-xs) overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-			role="tablist"
-			@keydown="onKeydown"
+	<!-- Clips the entering panel's offset, which would otherwise widen the document. The
+	     spacing is chrome for the strip, so a block without one sits flush in the prose. -->
+	<div :class="['relative overflow-hidden', tabs.length ? 'py-(--spacing-md)' : '']">
+		<!-- Composed, not standalone: the List slides one indicator and owns the keyboard model. -->
+		<TabViewRoot
+			v-if="tabs.length"
+			:value="curr"
+			:data-testid="uid"
+			@update:value="onValueChange"
 		>
-			<TabViewItem
-				v-for="tab in tabs"
-				:key="tab.key"
-				:value="tab.key"
-				:selected="curr === tab.key"
-				:data-testid="tabTestId(tab.key)"
-				@click="onTabClick($event, tab.key)"
-			>
-				<slot :name="tab.slot" />
-			</TabViewItem>
-		</div>
+			<TabViewList data-doc-chrome>
+				<TabViewItem
+					v-for="tab in tabs"
+					:key="tab.key"
+					:value="tab.key"
+					:data-testid="tabTestId(tab.key)"
+				>
+					<slot :name="tab.slot" />
+				</TabViewItem>
+			</TabViewList>
+		</TabViewRoot>
 
-		<div
+		<!-- `v-show`, not `v-if`: every interface's panel stays in the served HTML for search. -->
+		<Transition
 			v-for="panel in panels"
 			:key="panel.key"
-			class="pt-(--spacing-md)"
-			role="tabpanel"
-			:aria-labelledby="panel.labelledBy"
-			:hidden="curr !== panel.key"
+			:enter-from-class="enterFrom"
+			enter-active-class="transition duration-moderate-02 ease-productive-entrance motion-reduce:transition-none"
 		>
-			<slot :name="panel.slot" />
-		</div>
+			<div
+				v-show="curr === panel.key"
+				:class="tabs.length ? 'pt-(--spacing-md)' : ''"
+				:role="tabs.length ? 'tabpanel' : undefined"
+				:aria-labelledby="panel.labelledBy"
+			>
+				<slot :name="panel.slot" />
+			</div>
+		</Transition>
 	</div>
 </template>
 
 <script lang="ts">
-import { onMounted, onUnmounted, ref, type Ref } from 'vue';
+import { onMounted, onUnmounted, ref, toValue, type MaybeRefOrGetter, type Ref } from 'vue';
 
 type TabStore = {
 	[key: string]: {
@@ -41,13 +49,45 @@ type TabStore = {
 	};
 };
 
-/**
- * Module scope: one store per module, so every island importing this file shares it —
- * that is what lets a tab click drive the pricing sidebar in a separate island. A plain
- * stand-in for the nanostores `map` it replaced; a wrapper imports only vue and webkit.
- */
+/** Module scope, so every island importing this file shares one store. */
 const listeners = new Set<() => void>();
 let state: TabStore = {};
+
+/** Stores that outlive the page. `pricing-tabs` stays in memory: the nav deep-links it by hash. */
+const PERSISTED_STORES = new Set(['interface']);
+const STORAGE_PREFIX = 'docs-tabs-';
+const KEY_PATTERN = /^[a-z0-9]+$/;
+
+/** `#interface=cli`; heading ids from rehype-slug never contain `=`, so they parse to null. */
+const readHash = (storeKey: string): string | undefined => {
+	const value = new URLSearchParams(window.location.hash.slice(1)).get(storeKey);
+	return value && KEY_PATTERN.test(value) ? value : undefined;
+};
+
+const readStorage = (storeKey: string): string | undefined => {
+	try {
+		return localStorage.getItem(STORAGE_PREFIX + storeKey) ?? undefined;
+	} catch {
+		return undefined; // storage unavailable
+	}
+};
+
+const writeStorage = (storeKey: string, value: string) => {
+	try {
+		localStorage.setItem(STORAGE_PREFIX + storeKey, value);
+	} catch {
+		// storage unavailable
+	}
+};
+
+/** A fragment-only URL keeps path and query; replaceState neither scrolls nor adds history. */
+const writeHash = (storeKey: string, value: string) => {
+	try {
+		history.replaceState(history.state, '', `#${storeKey}=${value}`);
+	} catch {
+		// sandboxed document
+	}
+};
 
 /** Notifies on subscribe, as nanostores does; listeners read `state` themselves. */
 const subscribe = (listener: () => void) => {
@@ -58,22 +98,45 @@ const subscribe = (listener: () => void) => {
 	};
 };
 
+/** A selection: updates memory, mirrors a persisted store to its carriers, notifies. */
 const setKey = (key: string, value: TabStore[string]) => {
-	if (state[key] === value) return;
+	if (state[key]?.curr === value.curr) return;
 	state = { ...state, [key]: value };
+	if (PERSISTED_STORES.has(key) && typeof window !== 'undefined') {
+		writeStorage(key, value.curr);
+		writeHash(key, value.curr);
+	}
 	for (const listener of [...listeners]) listener();
 };
 
-export function useSharedTab(storeKey: string | undefined, fallback: string): Ref<string> {
+/** Fragment beats storage, both beat the first tab. Never writes the URL: a heading hash survives. */
+const seed = (storeKey: string) => {
+	if (!PERSISTED_STORES.has(storeKey) || state[storeKey]) return;
+	const fromHash = readHash(storeKey);
+	const curr = fromHash ?? readStorage(storeKey);
+	if (!curr) return;
+	state = { ...state, [storeKey]: { curr } };
+	if (fromHash) writeStorage(storeKey, fromHash);
+};
+
+/** A shared value this block does not offer falls back locally, leaving the store alone. */
+export function useSharedTab(
+	storeKey: string | undefined,
+	fallback: string,
+	keys?: MaybeRefOrGetter<readonly string[]>
+): Ref<string> {
 	const curr = ref(fallback);
 
 	let unsubscribe: (() => void) | undefined;
 
 	onMounted(() => {
 		if (!storeKey) return;
+		seed(storeKey);
 		unsubscribe = subscribe(() => {
 			const next = state[storeKey]?.curr;
-			if (next) curr.value = next;
+			if (!next) return;
+			const valid = toValue(keys);
+			curr.value = valid && !valid.includes(next) ? fallback : next;
 		});
 	});
 
@@ -82,8 +145,12 @@ export function useSharedTab(storeKey: string | undefined, fallback: string): Re
 	return curr;
 }
 
-export function useTabState(initial: string, storeKey?: string) {
-	const curr = useSharedTab(storeKey, initial);
+export function useTabState(
+	initial: string,
+	storeKey?: string,
+	keys?: MaybeRefOrGetter<readonly string[]>
+) {
+	const curr = useSharedTab(storeKey, initial, keys);
 
 	const setCurr = (next: string) => {
 		if (storeKey) {
@@ -99,18 +166,17 @@ export function useTabState(initial: string, storeKey?: string) {
 
 <script setup lang="ts">
 import TabView from '@aziontech/webkit/tab-view';
-import { computed, nextTick, useId, useSlots } from 'vue';
+import { computed, useId, useSlots, watch } from 'vue';
 
+const TabViewRoot = TabView.Root;
+const TabViewList = TabView.List;
 const TabViewItem = TabView.Item;
 
 const props = defineProps<{
 	sharedStore?: string;
 }>();
 
-/**
- * Slots are named by the consumer — `tab.<key>` pairs with `panel.<key>` — so the
- * declaration is an index signature rather than a fixed list.
- */
+/** Consumer-named: `tab.<key>` pairs with `panel.<key>`, so the declaration is an index signature. */
 defineSlots<Record<string, () => unknown>>();
 
 const TAB_PREFIX = 'tab.';
@@ -141,38 +207,42 @@ const panels = computed(() => {
 	];
 });
 
-const { curr, setCurr } = useTabState(tabs.value[0]?.key ?? '', props.sharedStore);
+/** A block with no `tab.*` slots renders panels alone, so one strip at the top drives the page. */
+const ownKeys = computed(() =>
+	(tabs.value.length ? tabs.value : panels.value).map(({ key }) => key)
+);
+
+const { curr, setCurr } = useTabState(
+	ownKeys.value[0] ?? '',
+	props.sharedStore,
+	() => ownKeys.value
+);
 
 const uid = useId();
 function tabTestId(key: string) {
 	return `${uid}-${key}`;
 }
 
-const tablistRef = ref<HTMLElement | null>(null);
+/** The Root is controlled by the store; clicks and arrow keys both arrive here. */
+const onValueChange = (next: string | number | null) => {
+	if (next !== null) setCurr(String(next));
+};
 
-const onTabClick = (event: MouseEvent, key: string) => {
-	const button = event.currentTarget as HTMLElement | null;
+/** The side a panel enters from, by direction of travel. Pre-flush, so it is set before the enter. */
+const enterFrom = ref('opacity-0');
+let previous = curr.value;
 
-	setCurr(key);
+watch(curr, (next) => {
+	const from = ownKeys.value.indexOf(previous);
+	const to = ownKeys.value.indexOf(next);
+	previous = next;
 
-	if (props.sharedStore && button) {
-		nextTick(() => button.scrollIntoView({ behavior: 'smooth' }));
+	if (from === -1 || to === -1 || from === to) {
+		enterFrom.value = 'opacity-0';
+		return;
 	}
-};
 
-const onKeydown = (event: KeyboardEvent) => {
-	const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
-	if (!step) return;
-
-	const index = tabs.value.findIndex(({ key }) => key === curr.value);
-	const next = tabs.value[index + step];
-	if (!next) return;
-
-	event.preventDefault();
-	setCurr(next.key);
-
-	nextTick(() => {
-		tablistRef.value?.querySelector<HTMLElement>(`[data-testid="${tabTestId(next.key)}"]`)?.focus();
-	});
-};
+	enterFrom.value =
+		to > from ? 'opacity-0 translate-x-(--spacing-md)' : 'opacity-0 -translate-x-(--spacing-md)';
+});
 </script>
