@@ -1,0 +1,266 @@
+---
+title: Troubleshoot WAF
+description: >-
+  Find why a legitimate request was blocked, why nothing is blocked at all, and
+  what the Azion API returns when it refuses a WAF object.
+meta_tags: 'waf, troubleshooting, false positive, 400 bad request, set waf, waf mode, content-type, request body size, waf exceptions, waf tuning, azion cli'
+namespace: documentation_products_waf_troubleshooting
+permalink: /documentation/secure/waf/troubleshooting/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Every symptom below is something [Web Application Firewall](/en/documentation/secure/waf/) does to live traffic, or a refusal the Azion API returns while you configure it: a legitimate request answered with `400`, a rule set that blocks nothing at all, a `POST` refused for its content type or its size, an exception that covers more than it names, a rule the API will not create, a `500` on a create request, a CLI flag that sends nothing, an empty Tuning screen, and a rule set that refuses to be deleted.
+
+---
+
+## A legitimate request is answered with `400 Bad Request`
+
+A request your application takes every day is answered with `400` and Azion's default error page, headed **Bad Request**. Nothing in that response names WAF: there is no WAF header, the page carries no message of its own, and its Status Code row reads `0`.
+
+WAF scored that request against the threat families of the rule set applied to it, and one of those scores reached the threshold its sensitivity level sets. Legitimate traffic reaches a threshold when it carries what an internal rule was written to catch: an apostrophe in a search term, a pipe character in a field, a fragment of markup in a comment. The rule set is working as configured. Its scope is what is wrong.
+
+Confirm the block before you change anything. The `x-azion-request-id` header on the `400` identifies the request in the `workloadEvents` dataset of [Real-Time Events](/en/documentation/observe/real-time-events/), where `wafBlock` reads `1` and `wafMatch` carries one entry per internal rule that matched, shaped `<index>:<ruleId>:<zone>:<varName>`. A `400` with no such row is not a WAF block.
+
+- **Find the internal rules that matched**: `wafMatch` names each one, and `wafScore` carries a score per threat family rather than a single number for the request. For the query that returns both, refer to [Find the WAF score of a blocked request](/en/documentation/guides/application-security/firewall-and-waf/how-to-find-waf-score/).
+- **Read those matches in Tuning**: the tab groups them by internal rule over a window of up to the last 3 days, and turns the records you select into exceptions. For the procedure, refer to [Tune a WAF rule set](/en/documentation/guides/application-security/firewall-and-waf/tune-waf/).
+- **Write the exception around the request that produced it**: one internal rule, one path, and one condition naming the field that carried the pattern. For every field an exception takes, refer to [WAF Exceptions](/en/documentation/secure/waf/custom-allowed-rules/#fields).
+- **Lower a sensitivity level only when the false positives are spread across a whole family**: the level applies to every request the rule set sees, which a scoped exception does not. For what each level costs, refer to [How WAF works](/en/documentation/secure/waf/how-it-works/#scoring-and-sensitivity).
+
+The request then reaches the application, and the internal rule keeps firing everywhere the exception does not match.
+
+---
+
+## No request is blocked and no match is recorded
+
+An attack-shaped request reaches the application untouched, and no row in Real-Time Events carries a WAF decision for it: `wafBlock` reads `-`, and so do `wafMatch`, `wafScore`, and `wafAttackAction`.
+
+Four configurations produce the same silence, and nothing in the response separates them. Nothing is inspected when no Rules Engine rule carries a `Set WAF` behavior. The request is scored and served anyway when the behavior's mode is `logging`. The firewall runs its rules but skips the module when `modules.waf.enabled` reads `false`, which is what a firewall carries until somebody turns it on: WAF is the only Firewall module that defaults to `false`. And a rule whose criterion reads `${request_args}` `matches` `.*` never matches a request that has no query string.
+
+Start with time. Azion measured 5 minutes 51 seconds before a workload served its application, and 22 minutes before the firewall bound to that workload ran its first rule. Responses alternate between the two states while a change propagates, so a configuration written minutes ago is not yet evidence of anything.
+
+Four reads settle the rest, in the order that costs least to check:
+
+1. `GET /v4/workspace/firewalls/<firewall-id>` returns the module switch. `modules.waf.enabled` has to read `true`. For where that switch is in Azion Console, refer to [How to configure Firewall main settings](/en/documentation/guides/application-security/firewall-and-waf/firewall-configure-main-settings/).
+2. `GET /v4/workspace/firewalls/<firewall-id>/request_rules` returns the rules. One of them has to carry a `set_waf` behavior whose `waf_id` is the rule set you expect. A firewall with no such rule inspects nothing.
+3. On that behavior, read `mode`. `logging` scores the request, records the match, and serves it. Only `blocking` refuses it.
+4. On that rule, read `criteria`. Azion sent identical POSTs to a rule keyed on `${request_args}`: the one carrying `?x=1` was blocked and the one carrying no query string reached the application. A rule built that way skips every `POST` whose payload is in the body. Write `${request_uri}` `starts_with` `/` to apply a rule set to everything.
+
+The rule set then scores the request, and an attack-shaped one is answered with `400` while `wafBlock` reads `1`.
+
+---
+
+## A POST with a benign body is answered with `400`
+
+A `POST` carrying nothing an internal rule targets is answered with `400`. The same body sent under a different `Content-Type` is answered `200`.
+
+WAF parses a request body only in the formats it can take apart: `application/x-www-form-urlencoded`, `multipart/form-data`, `application/json`, `application/vnd.api+json`, and `application/csp-report`. A `POST` whose `Content-Type` is missing or outside that set is not passed along uninspected. Internal rule `11` blocks it, benign body and all: Azion observed `text/plain` and a missing header each answered with `400`, the event reading `wafMatch` as `0:11:BODY:-` and `wafAttackFamily` as `$OTHERS`. A body that is not valid JSON under `application/json` is blocked the same way, at internal rule `15`.
+
+- **Send a content type WAF parses**: in the same test, a form body under `application/x-www-form-urlencoded`, an object under `application/json`, and a multipart upload all reached the application.
+- **Set the header on every `POST`**: a request carrying no `Content-Type` is blocked by the same rule as one carrying an unlisted type.
+- **Validate the JSON before the request leaves the client**: a body of `AAAA` under `application/json` becomes a `400` at the firewall rather than a parse error at the application.
+- **Exempt the internal rule where the client cannot be changed**: an exception naming rule `11` and that path takes the rule out of scoring there. Rule `11` applies to the request body match zone only. For the match zones an exception takes, refer to [WAF Exceptions](/en/documentation/secure/waf/custom-allowed-rules/#match-zones).
+
+The `POST` then reaches the application, and its body is inspected field by field rather than refused for its header.
+
+---
+
+## A POST with a large body is answered with `400`
+
+A `POST` is answered with `400` once its body passes a size, with no attack in it, while the same request with a smaller body is answered `200`. The response is `400` and Azion's default error page, not a `413`.
+
+WAF inspects a request body up to 131,072 bytes, which is 128 KiB. Azion bisected that boundary to the byte against a live workload, with an `application/x-www-form-urlencoded` body carrying no attack pattern: 131,072 bytes answered `200` on three runs, and 131,073 answered `400` on three runs. The event names internal rule `2`, with `wafMatch` reading `0:2:BODY:-` and the family `$OTHERS`. The boundary holds at the default sensitivity, because rule `2` checks the protocol rather than a score.
+
+- **Measure the body, not the request**: the `requestLength` field of an event includes the request line and the headers, so it reads `131148` for a body of 131,073 bytes. So a request whose body is under the ceiling can still report a `requestLength` above it, and it passes: the ceiling applies to the body, and `requestLength` counts more than the body.
+- **Keep a payload that has to be inspected under the ceiling**: a body above it is refused rather than served uninspected.
+- **Test the boundary with a form body**: the same measurement under `application/json` returns `400` at every size, because the test payload is a form body and so invalid JSON, which rule `15` catches first. Under `text/plain`, rule `11` catches the unparsed content type first. Neither reaches the size check, so neither can measure it.
+- **Read the bound with the others**: refer to [WAF limits](/en/documentation/secure/waf/limits/#default-limits).
+
+A body of 131,072 bytes or fewer is then inspected and served.
+
+---
+
+## An exception covers more than it names
+
+An exception created for one header, one field, or one value reads back without the key that named it, and requests you never meant to exempt stop being scored. Nothing reports it: the create call answers `202`.
+
+A condition is one of three shapes, and it carries only the keys its own shape declares. A key the shape does not carry is dropped rather than rejected. Sending `{"match":"any_http_header_value","name":"cookie"}` answers `202` and reads back as `{"match":"any_http_header_value"}`, which is an exception over every request header rather than over the cookie. A `rule_id` left out of the body is the same trap in another place: it defaults to `0`, which means every internal rule.
+
+- **Read the exception back and compare it with what you sent**: `GET /v4/workspace/wafs/<waf-id>/exceptions/<exception-id>` returns the stored `conditions`. A key that is missing there was dropped.
+- **Name the subject with a `specific_` match zone**: `specific_http_header_name`, `specific_query_string_name`, and `specific_body_form_field_name` carry `name`, and `specific_http_header_value`, `specific_query_string_value`, and `specific_body_form_field_value` carry `value`. The nine generic zones carry `match` and nothing else.
+- **Do not read `specific_http_header_value` as naming a header**: it has no key for a header name, so it matches the value of any header.
+- **Set `rule_id` and `path` on every exception**: they are what holds the exception to the false positive it was written for. For the fields and the fifteen match zones, refer to [WAF Exceptions](/en/documentation/secure/waf/custom-allowed-rules/#fields).
+
+The stored `conditions` then read back as sent, and the exception covers the one zone it names.
+
+---
+
+## A rule with a `Set WAF` behavior is refused with `Required Field`
+
+Creating the Rules Engine rule that applies a rule set answers `400`, and the pointer names a field the behavior does not carry:
+
+```json
+{
+  "errors": [
+    {
+      "code": "10059",
+      "title": "Required Field",
+      "detail": "This field is required.",
+      "status": "400",
+      "source": {
+        "pointer": "/data/behaviors/0/attributes/mode"
+      }
+    }
+  ]
+}
+```
+
+`mode` is required on a `set_waf` behavior. A behavior carrying `waf_id` alone is refused, because the rule set says what to detect and the mode says what to do about it.
+
+- **Carry `mode` in the behavior**: `{"type": "set_waf", "attributes": {"waf_id": 21717, "mode": "blocking"}}`.
+- **Send `logging` or `blocking` and nothing else**: any other value answers `400` with `10039 Invalid Choice` on the same pointer. For what each mode does to a request, refer to [How WAF works](/en/documentation/secure/waf/how-it-works/#modes).
+- **Check the rule set the behavior names**: a `waf_id` that exists on no rule set answers `400` with `25036 Invalid Informed WAF` and a `detail` naming the value, repeated in `meta.waf_id`.
+- **Write the whole body to a file for the Azion CLI**: `azion create firewall-rule` takes `--firewall-id` and `--file` only, so the behavior and its mode live in the JSON.
+
+The call then answers `202`, and the response echoes the behavior with its mode, plus the `description` and `order` the API assigns.
+
+---
+
+## A create request is answered with `500 Internal Server Error`
+
+`POST /v4/workspace/wafs` answers `500` on a body whose fields are each valid, while the same body with one entry removed answers `202`:
+
+```json
+{
+  "errors": [
+    {
+      "code": "10067",
+      "title": "Internal Server Error",
+      "detail": "A server error occurred.",
+      "status": "500",
+      "source": {
+        "pointer": "/data/attributes/thresholds"
+      }
+    }
+  ]
+}
+```
+
+The status reads like an outage. It is a validation failure: one threat family appears twice in `thresholds`. The pointer drops the `engine_settings` segment that every other threshold error carries, so it does not lead back to the field in the body you sent, and a retry sends the same duplicate and returns the same `500`.
+
+- **List each threat family once**: there are eight, and `thresholds` holds at most eight entries. For the families and the value each one takes, refer to [WAF Rule Sets](/en/documentation/secure/waf/rules-set/#threat-families).
+- **Send fewer than eight when you mean fewer**: a `thresholds` array carrying a single entry creates a rule set and answers `202`.
+- **Separate a duplicate from a typo by the status**: a `threat` or a `sensitivity` outside its enum answers `400` with `10039 Invalid Choice`, and that pointer indexes the entry carrying it.
+
+The create then answers `202`, and the response echoes the thresholds, sorted by `threat`.
+
+---
+
+## The Azion CLI reports `Ensure this field has at least 1 elements.` on `--conditions`
+
+Every value given to `--conditions` is rejected in the same words, whether it is a JSON array, a JSON object, a bare match zone, or a `key=value` pair:
+
+```text
+Error: failed to create the WAF Exception: ["Ensure this field has at least 1 elements."]
+```
+
+On Azion CLI 4.23.0, the value of that flag never reaches the request. The command sends an empty `conditions` array whatever it is given, and the API refuses it with `400` and `10049 Min Length List Field` on `/data/conditions`, because an exception carries at least one condition. No value for the flag works. `--file` is the form of the command that creates an exception.
+
+Write the body to a file:
+
+```json
+{
+  "rule_id": 1013,
+  "name": "docs-rework-waf-exc-cli-file",
+  "path": "/",
+  "operator": "contains",
+  "active": true,
+  "conditions": [
+    { "match": "any_query_string_value" }
+  ]
+}
+```
+
+Then create the exception from it:
+
+```bash
+azion create waf-exceptions --waf-id 21717 --file exc.json
+```
+
+```text
+Created WAF Exception with ID 281875
+```
+
+- **Read the rule ID with `azion describe waf-exceptions`**: on the same version, the `RULE ID` column of `azion list waf-exceptions` prints a value that is not the rule ID.
+- **Send the body to the API where a script cannot write a file**: `POST /v4/workspace/wafs/<waf-id>/exceptions` takes the same JSON. For both surfaces, refer to [WAF Exceptions](/en/documentation/secure/waf/custom-allowed-rules/#fields).
+
+The command then returns the identifier of the exception it created, and a read-back carries the conditions from the file.
+
+---
+
+## Tuning lists no records
+
+The **Tuning** tab of a rule set returns nothing, on a rule set that is applied to live traffic.
+
+Tuning reads one domain over one window and reports the matches WAF recorded for that pairing. An empty result means one of three things: the query names no domain, the window is shorter than the age of the matches, or the rule set recorded nothing to read.
+
+- **Select a domain**: the query needs one, and the other filters only narrow it. For the filters and the columns a result carries, refer to [WAF Exceptions](/en/documentation/secure/waf/custom-allowed-rules/#tuning).
+- **Widen the window to `Last 3 days`**: that is the longest range offered, so a match older than 3 days is no longer there to read.
+- **Confirm the rule set is the one applied to that traffic**: a rule set that no `Set WAF` behavior names scores nothing, so it records nothing for Tuning to list.
+- **Keep an address filter apart from a list of addresses**: the IP Address field cannot be used together with an IP/CIDR network list filter, and the Country field cannot be used together with a country network list filter.
+
+The query then returns the **Possible Attacks** list, one row per internal rule that matched.
+
+---
+
+## A rule set you no longer use is refused with `Cannot Delete WAF`
+
+`DELETE /v4/workspace/wafs/<waf-id>` answers `400` and removes nothing:
+
+```json
+{
+  "errors": [
+    {
+      "code": "26007",
+      "title": "Cannot Delete WAF",
+      "detail": "It was not possible to perform this operation. To delete this WAF, you must first remove its usage in the following rules engine: ['docs-rework-waf-fw-defaults - docs-rework-waf-rule-ref'].",
+      "status": "400",
+      "source": {
+        "pointer": "/data"
+      },
+      "meta": {
+        "ef_rules_using_waf": [
+          "docs-rework-waf-fw-defaults - docs-rework-waf-rule-ref"
+        ]
+      }
+    }
+  ]
+}
+```
+
+A Rules Engine rule still carries a `set_waf` behavior naming the rule set. The platform refuses to leave that behavior pointing at nothing, and the rejection names what holds it, in `detail` and again in `meta.ef_rules_using_waf`, formatted as the firewall name, a hyphen, and the rule name.
+
+- **Read the rule out of `meta.ef_rules_using_waf`**: one entry per rule, each naming its firewall and itself.
+- **Remove that rule or point it elsewhere**: `DELETE /v4/workspace/firewalls/<firewall-id>/request_rules/<rule-id>` removes it, and a `PUT` or a `PATCH` on the same rule names a different `waf_id`. For the behavior itself, refer to [Rules Engine for Firewall](/en/documentation/platform/firewall/rules-engine/).
+- **Delete the rule set once nothing references it**: the call then answers `202` with `{"state": "pending"}`.
+
+The rule set is then gone, and every rule that used to reference it names a rule set that exists.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="WAF Exceptions" href="/en/documentation/secure/waf/custom-allowed-rules/">The fields, the fifteen match zones, and the Tuning screen these fixes are written against.</DocItem>
+  <DocItem title="WAF Rule Sets" href="/en/documentation/secure/waf/rules-set/">The internal rules a match names, the eight threat families, and the five sensitivity levels.</DocItem>
+  <DocItem title="How WAF works" href="/en/documentation/secure/waf/how-it-works/">What runs between a request and the decision, and what each mode does with a match.</DocItem>
+  <DocItem title="WAF limits" href="/en/documentation/secure/waf/limits/">Every bound behind these refusals, with the response each one returns.</DocItem>
+  <DocItem title="Glossary" href="/en/documentation/secure/waf/glossary/">The terms these symptoms use, from rule set and exception to score and sensitivity.</DocItem>
+  <DocItem title="Tune a WAF rule set" href="/en/documentation/guides/application-security/firewall-and-waf/tune-waf/">The procedure that turns a recorded false positive into a scoped exception.</DocItem>
+  <DocItem title="Find the WAF score of a blocked request" href="/en/documentation/guides/application-security/firewall-and-waf/how-to-find-waf-score/">The query that identifies one blocked request and the rules that matched it.</DocItem>
+  <DocItem title="Check or change the WAF mode" href="/en/documentation/guides/application-security/firewall-and-waf/how-to-check-your-waf-mode/">Where the mode of a Set WAF behavior is read and changed.</DocItem>
+</ItemList>
+</FrameBox>

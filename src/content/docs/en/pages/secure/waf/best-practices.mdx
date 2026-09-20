@@ -1,0 +1,215 @@
+---
+title: WAF best practices
+description: >-
+  Start in Logging, begin at medium sensitivity, and scope every exception to
+  the one condition that clears the false positive.
+meta_tags: 'waf, best practices, logging, blocking, sensitivity, medium, thresholds, threat family, exception, condition, rules engine criteria, request uri, real-time events, tuning, false positive'
+namespace: documentation_products_waf_best_practices
+permalink: /documentation/secure/waf/best-practices/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+A web application firewall that refuses too much turns legitimate requests into errors a user sees and cannot explain. One that refuses too little records an attack it could have refused. Little of the distance between the two comes from a single setting. Most of it comes from the order you turn things on, how narrowly you write the exemptions your own traffic needs, and whether you read what was refused.
+
+These practices apply to a [Web Application Firewall](/en/documentation/secure/waf/) rule set, the exceptions inside it, and the [Rules Engine for Firewall](/en/documentation/platform/firewall/rules-engine/) rule that applies one to traffic. The mechanisms behind them are on [How WAF works](/en/documentation/secure/waf/how-it-works/), and the value of every bound is on [WAF limits](/en/documentation/secure/waf/limits/).
+
+The sections follow the order in which the decisions arise. The first three settle the rule set: the mode it runs in, the sensitivity it starts at, and the shape of its `thresholds` array. The next two settle what the rule set sees and what it stops scoring: the criterion that selects requests, and how narrowly an exception is scoped. The last three cover how many rule sets to keep, when to remove an exception, and how to confirm a change.
+
+---
+
+## Start in Logging and move to Blocking after you read what matched
+
+The mode a rule set runs in belongs to the `Set WAF` behavior on the Rules Engine rule rather than to the rule set. Changing it edits one rule, and the same rule set runs in `Logging` on one rule and `Blocking` on another.
+
+In `Logging`, a request that reaches a threshold is scored, recorded, and served. In `Blocking`, the same request is refused with `400` and Azion's default error page, which names neither WAF nor the rule that matched. Start in `Logging`, because those records are the only description of what your own traffic looks like to the rule set.
+
+Tuning is where the records are read. It lists which internal rule matched which request, over a window of up to the last 3 days, and it turns the records you select into exceptions. Move the rule to `Blocking` once that window holds no request that should have been served.
+
+The cost is real and it is not avoidable. Time in `Logging` is time an attack is recorded rather than refused, so the window is bounded by how quickly you read the records rather than by convenience. A rule set left in `Logging` scores every request and stops none. For the procedure, refer to [Tune a WAF rule set](/en/documentation/guides/application-security/firewall-and-waf/tune-waf/).
+
+---
+
+## Begin at medium sensitivity and raise one family at a time
+
+Sensitivity decides how much evidence a threat family needs before WAF blocks. A higher sensitivity lowers the score a request has to reach, so it blocks more attacks and more legitimate traffic with them. Every threat family starts at `medium`.
+
+A rule set created without naming a sensitivity carries that default on every family:
+
+```bash
+azion create waf --name "<rule-set-name>"
+```
+
+The rule set that command creates is active, runs engine version `2021-Q3` with the `score` engine type, references ruleset `1`, and carries all eight threat families at `medium`.
+
+Starting higher costs you the ability to read the result. Raise several families at once and the false positives arrive together, with nothing in them to say which raise produced which block. Sensitivity is set per family, so raise the families your application has no legitimate reason to resemble and leave the rest where they are. For what each level means, refer to [WAF Rule Sets](/en/documentation/secure/waf/rules-set/#sensitivity-levels).
+
+---
+
+## Send each threat family once in thresholds
+
+A rule set carries a `thresholds` array, and each entry names one threat family and the sensitivity that family runs at. The array is not merged entry by entry: a `PATCH` carrying `engine_settings` replaces the whole array with what you sent. What you post is the rule set's complete threshold configuration rather than an amendment to it.
+
+A partial array is accepted, so changing two families does not oblige you to restate the other six. Send only the families you are changing, each exactly once:
+
+```json
+{
+  "name": "<rule-set-name>",
+  "engine_settings": {
+    "engine_version": "2021-Q3",
+    "type": "score",
+    "attributes": {
+      "rulesets": [1],
+      "thresholds": [
+        { "threat": "sql_injection", "sensitivity": "high" },
+        { "threat": "cross_site_scripting", "sensitivity": "medium" }
+      ]
+    }
+  }
+}
+```
+
+A repeated `threat` is the one shape to keep out of that array. It does not come back as a validation error. It returns `500` with `A server error occurred.`, which reads like a fault in the service and is a rejected payload. Build the array from a map keyed by the family name, so that no generator emits the same family twice. For the bound and the response it returns, refer to [WAF limits](/en/documentation/secure/waf/limits/#default-limits).
+
+---
+
+## Match the request, not its query string
+
+A rule set scores nothing until a Rules Engine rule on the firewall applies it, and that rule's criteria decide which requests it applies to. A rule carries at most one `Set WAF` behavior, so one rule fixes one rule set and one mode for the requests it matches.
+
+A criterion of `${request_args}` with the `matches` operator and an argument of `.*` reads as a match on every request and is not one. An empty variable does not match, so a rule built that way skips every request that carries no query string. Two identical POST requests show it: the one sent to `/?x=1` was blocked, and the one sent to `/` reached the application.
+
+That is the wrong request to skip. A POST carrying its payload in the body is the request whose body you most want inspected, and it is exactly the one that criterion passes over. A criterion of `${request_uri}` with the `starts_with` operator and an argument of `/` matches every request the workload receives:
+
+```json
+{
+  "name": "<rule-name>",
+  "active": true,
+  "criteria": [
+    [
+      {
+        "variable": "${request_uri}",
+        "conditional": "if",
+        "operator": "starts_with",
+        "argument": "/"
+      }
+    ]
+  ],
+  "behaviors": [
+    {
+      "type": "set_waf",
+      "attributes": { "waf_id": 1234, "mode": "logging" }
+    }
+  ]
+}
+```
+
+Applying a rule set to every request also scores every request, including the ones that carry nothing to score, and WAF is billed on requests. Narrow the argument to a path when you mean a path. For the criteria a firewall rule accepts, refer to [Create Firewall Rules with Rules Engine](/en/documentation/guides/application-security/firewall-and-waf/work-with-rules-engine/).
+
+---
+
+## Scope an exception to the narrowest condition that clears the false positive
+
+An exception removes one part of a request from the scoring of one internal rule. Its reach is exactly what its condition and its `rule_id` say, and both default wider than a false positive usually needs: `rule_id` defaults to `0`, which is every internal rule.
+
+A condition either names one specific header, query-string argument, or body field, or it covers every one of them. Which extra key the condition carries is fixed by the match value it uses, and a key that shape does not carry is dropped rather than rejected. The condition below is the incorrect form. The API answers `202`, and the stored condition reads back without the `name`:
+
+```json
+{
+  "rule_id": 1005,
+  "name": "Allow the session cookie on the storefront",
+  "path": "/",
+  "operator": "contains",
+  "active": true,
+  "conditions": [
+    { "match": "any_http_header_value", "name": "cookie" }
+  ]
+}
+```
+
+That exception reads as though it exempts the cookie header. It exempts every request header, and nothing in the response, in the read-back, or in the interface reports the difference. The match value that names a header is `specific_http_header_name`, and it carries the header name in `name`:
+
+```json
+{
+  "rule_id": 1005,
+  "name": "Allow the session cookie on the storefront",
+  "path": "/",
+  "operator": "contains",
+  "active": true,
+  "conditions": [
+    { "match": "specific_http_header_name", "name": "cookie" }
+  ]
+}
+```
+
+Every exception is a hole in the rule set, and it is the size the condition makes it. Scoped to one rule, one path, and one named field, it clears one false positive. Left generic, it takes that part of every request out of that rule's scoring for as long as the rule set runs. For every match value and the key each one carries, refer to [WAF Exceptions](/en/documentation/secure/waf/custom-allowed-rules/#match-zones). For the steps, refer to [Create a WAF exception](/en/documentation/guides/application-security/firewall-and-waf/configure-waf-allowed-rules/).
+
+---
+
+## Keep a separate rule set for each environment
+
+A rule set is shared by every Rules Engine rule that names it. An exception added to clear a false positive in a test environment takes that part of the scoring out of production too. It applies on the same internal rule, for every request the rule set sees.
+
+Keep one rule set per environment, and let each carry only the exceptions its own traffic produced. Cloning an existing rule set seeds a new one with the same families and sensitivities, and it takes the name you send rather than deriving one from the original. A clone is a deep copy, so it arrives carrying the source's exceptions too: delete the ones the new environment's traffic did not produce, or the clone inherits the holes this practice exists to keep apart.
+
+The cost is two objects to keep in step instead of one. A family you raise in production has to be raised again in the rule set the other environment uses. Rule sets are also one of the metrics WAF is billed on. For the number of rule sets each service plan includes, refer to [WAF limits](/en/documentation/secure/waf/limits/#included-usage-per-plan).
+
+---
+
+## Treat every exception as temporary and record why it exists
+
+An exception has no expiry. It keeps subtracting from the scoring until someone deletes it, and the request that justified it may have stopped arriving long before that.
+
+The `name` field is what a later reader works from. Name the exception for the request that produced it and the rule it clears, rather than for the symptom. The next person then decides whether it still applies without reproducing the block.
+
+Tuning does not answer that question for them. Tuning lists requests that matched an internal rule, and a request an exception exempts no longer matches one. The evidence that justified the exception disappears as soon as the exception works. Confirming that an exception is still needed means setting `active` to `false` and sending the request again.
+
+The set is also a list of what to fix. Each exception names a request shape your application produces that a rule set reads as an attack. The set is therefore a backlog for the application as much as a configuration record. Reviewing it costs time, and deleting an exception that is still needed returns the false positive it was clearing.
+
+---
+
+## Confirm each change against the events it produces
+
+Nothing in a blocked response identifies WAF. The request receives `400` and Azion's default error page, with no WAF header and no message naming the rule or the score. The `x-azion-request-id` header on that response is the handle that finds the record.
+
+[Real-Time Events](/en/documentation/observe/real-time-events/) holds the record. It answers a GraphQL query at `/v4/events/graphql`, over the `workloadEvents` dataset. `wafMatch` names the internal rules that matched and the zone each matched in. `wafScore` reports one score per threat family, and `wafAttackAction` states what WAF did:
+
+```graphql
+query {
+  workloadEvents(
+    limit: 1
+    filter: { tsGte: "<start>", tsLt: "<end>", requestIdEq: "<request-id>" }
+  ) {
+    ts
+    requestUri
+    status
+    upstreamStatus
+    wafBlock
+    wafMatch
+    wafScore
+    wafAttackFamily
+    wafAttackAction
+  }
+}
+```
+
+Read the record before you write an exception from it, because the rules that fire are not always the ones the request suggests. The query string `1' OR '1'='1` was caught by rules `1009` and `1013`, the equal sign and the apostrophe. The rule that runs a SQL injection parser over the same argument did not fire. An exception written for the rule you assumed leaves the block in place.
+
+The cost is a second system to query and a request identifier to carry between them. The response tells the user nothing and tells you nothing, which is what keeps the decision out of the response. For the query that returns the score of a blocked request, refer to [Find the WAF score of a blocked request](/en/documentation/guides/application-security/firewall-and-waf/how-to-find-waf-score/).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How WAF works" href="/en/documentation/secure/waf/how-it-works/">The scoring, the modes, and the tuning loop these practices are built on.</DocItem>
+  <DocItem title="WAF Rule Sets" href="/en/documentation/secure/waf/rules-set/">The fields, threat families, sensitivity levels, and internal rules a rule set carries.</DocItem>
+  <DocItem title="WAF Exceptions" href="/en/documentation/secure/waf/custom-allowed-rules/">Every field and match value an exception carries, and the Tuning screen that creates them.</DocItem>
+  <DocItem title="WAF limits" href="/en/documentation/secure/waf/limits/">The bounds behind these recommendations, and the usage each service plan includes.</DocItem>
+  <DocItem title="Tune a WAF rule set" href="/en/documentation/guides/application-security/firewall-and-waf/tune-waf/">The procedure that moves a rule set from Logging to Blocking.</DocItem>
+  <DocItem title="Create a WAF exception" href="/en/documentation/guides/application-security/firewall-and-waf/configure-waf-allowed-rules/">The steps that create an exception from a request Tuning recorded.</DocItem>
+</ItemList>
+</FrameBox>
