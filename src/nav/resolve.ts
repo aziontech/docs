@@ -262,10 +262,21 @@ export function buildNavIndex(data: NavData, lang: Lang): NavIndex {
 	return byPermalink;
 }
 
-function openedTree(node: NavNode, href: string | undefined, ctx: MenuContext): string | undefined {
+function inlineTree(data: NavData, node: NavNode): NavTree | undefined {
+	const tree = node.tree ? data.trees.get(node.tree) : undefined;
+	return tree?.inline ? tree : undefined;
+}
+
+function openedTree(
+	data: NavData,
+	node: NavNode,
+	href: string | undefined,
+	ctx: MenuContext
+): string | undefined {
 	if (node.href || node.placeholder || !href) return undefined;
 	const target = ctx.index.get(normalize(href))?.treeId;
-	return target && target !== ctx.treeId ? target : undefined;
+	if (!target || target === ctx.treeId) return undefined;
+	return data.trees.get(target)?.inline ? undefined : target;
 }
 
 interface MenuContext {
@@ -292,10 +303,12 @@ function toMenuNodes(
 		const label = nodeLabel(data, node, lang);
 		if (!label) return;
 
-		const href = nodeHref(data, node, lang);
+		const inlined = inlineTree(data, node);
+		const rows = inlined ? inlined.groups.flatMap((group) => group.items) : node.items;
+		const href = inlined ? undefined : nodeHref(data, node, lang);
 		const external = Boolean(node.href);
-		const children = node.items?.length
-			? toMenuNodes(data, node.items, lang, id, ctx, [...ancestors, id])
+		const children = rows?.length
+			? toMenuNodes(data, rows, lang, id, ctx, [...ancestors, id])
 			: undefined;
 
 		const claimsActive = Boolean(href) && href !== ctx.comingSoonHref;
@@ -308,7 +321,7 @@ function toMenuNodes(
 			node.tag ??
 			(node.page && !hasOwnLanguage(data, node.page, lang) && lang !== 'en' ? 'EN' : undefined);
 
-		const opensTree = openedTree(node, href, ctx);
+		const opensTree = openedTree(data, node, href, ctx);
 
 		if (children?.length) {
 			if (href) {
@@ -358,6 +371,11 @@ function groupsToMenu(
 		.filter((group) => group.items.length > 0);
 }
 
+function withSectionTitle(groups: MenuGroupNode[], title: string | undefined): MenuGroupNode[] {
+	if (!title || groups.length === 0 || groups[0].label) return groups;
+	return [{ ...groups[0], label: title }, ...groups.slice(1)];
+}
+
 export function resolveTreeMenus(
 	data: NavData,
 	index: NavIndex,
@@ -367,7 +385,8 @@ export function resolveTreeMenus(
 	const out: Record<string, MenuGroupNode[]> = {};
 
 	for (const tree of data.trees.values()) {
-		out[tree.id] = groupsToMenu(data, tree.groups, lang, tree.id, {
+		if (tree.inline) continue;
+		const groups = groupsToMenu(data, tree.groups, lang, tree.id, {
 			activePath: '',
 			activeId: '',
 			expanded: [],
@@ -375,6 +394,7 @@ export function resolveTreeMenus(
 			index,
 			treeId: tree.id,
 		});
+		out[tree.id] = withSectionTitle(groups, text(tree.title, lang));
 	}
 
 	return out;
@@ -389,7 +409,8 @@ export function resolveSidebar(
 ): SidebarModel {
 	const activePath = normalize(pathname);
 	const location = index.get(activePath);
-	const tree = location ? data.trees.get(location.treeId) : undefined;
+	const located = location ? data.trees.get(location.treeId) : undefined;
+	const tree = located?.inline ? undefined : located;
 
 	const ctx: MenuContext = {
 		activePath,
@@ -413,7 +434,10 @@ export function resolveSidebar(
 	}
 
 	const back = backRow(data, tree, lang, labels);
-	const groups = groupsToMenu(data, tree.groups, lang, tree.id, ctx);
+	const groups = withSectionTitle(
+		groupsToMenu(data, tree.groups, lang, tree.id, ctx),
+		text(tree.title, lang)
+	);
 	const catalog = groupsToMenu(data, data.root.groups, lang, 'root', {
 		activePath,
 		activeId: '',
