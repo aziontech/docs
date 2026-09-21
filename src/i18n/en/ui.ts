@@ -43,6 +43,7 @@ export default {
 	'leftSidebar.a11yTitle': 'Primary',
 	'leftSidebar.allProducts': 'All products',
 	'leftSidebar.backToDocs': 'Back to Docs',
+	'leftSidebar.backTo': 'Back to {name}',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Last updated',
 	'pageHeader.copy': 'Copy as Markdown',

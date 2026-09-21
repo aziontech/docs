@@ -15,7 +15,9 @@
 			:filter="filter"
 			:no-matches-label="noMatchesLabel"
 			:catalog-groups="catalogGroups"
+			:trees-href="treesHref"
 			:back-label="backLabel"
+			:back-to-pattern="backToPattern"
 			:level-label="header?.title ?? ''"
 			:level-href="header?.href ?? ''"
 		/>
@@ -45,7 +47,9 @@ withDefaults(
 		filterPlaceholder?: string;
 		noMatchesLabel?: string;
 		catalogGroups?: MenuGroupNode[] | null;
+		treesHref?: string;
 		backLabel?: string;
+		backToPattern?: string;
 	}>(),
 	{
 		activeId: '',
@@ -55,7 +59,9 @@ withDefaults(
 		filterPlaceholder: 'Filter sidebar',
 		noMatchesLabel: 'No rows match.',
 		catalogGroups: null,
+		treesHref: '',
 		backLabel: '',
+		backToPattern: 'Back to {name}',
 	}
 );
 

@@ -41,6 +41,10 @@
 						:aria-label="menuAriaLabel"
 						:filter="filter"
 						:no-matches-label="menuNoMatchesLabel"
+						:trees-href="menuTreesHref"
+						:back-label="menuBackLabel"
+						:back-to-pattern="menuBackToPattern"
+						:level-label="menuHeader?.title ?? ''"
 					/>
 
 					<DocsSidebarMenu
@@ -176,6 +180,9 @@ const props = withDefaults(
 		menuHeader?: SidebarHeaderModel | null;
 		menuFilterPlaceholder?: string;
 		menuNoMatchesLabel?: string;
+		menuTreesHref?: string;
+		menuBackLabel?: string;
+		menuBackToPattern?: string;
 		directoryGroups?: MenuGroupNode[] | null;
 		directoryAriaLabel?: string;
 	}>(),
@@ -189,6 +196,9 @@ const props = withDefaults(
 		menuHeader: null,
 		menuFilterPlaceholder: 'Filter sidebar',
 		menuNoMatchesLabel: 'No rows match.',
+		menuTreesHref: '',
+		menuBackLabel: '',
+		menuBackToPattern: 'Back to {name}',
 		directoryGroups: null,
 		directoryAriaLabel: 'Directory',
 	}
