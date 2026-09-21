@@ -278,7 +278,12 @@ let restore: string[] | null = null;
 watch(query, (value, previous) => {
 	if (value && !previous) restore = [...expanded.value];
 	if (value) {
-		expanded.value = visibleGroups.value.flatMap((group) => foldIds(group.items));
+		expanded.value = [
+			...visibleGroups.value.flatMap((group) => foldIds(group.items)),
+			...Object.values(visibleTrees.value).flatMap((groups) =>
+				groups.flatMap((group) => foldIds(group.items))
+			),
+		];
 		return;
 	}
 	if (restore) {
