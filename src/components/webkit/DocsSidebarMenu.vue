@@ -8,8 +8,7 @@
 		:role="presentation ? 'presentation' : undefined"
 		:aria-label="ariaLabel"
 	>
-		<MenuBack v-if="path.length > 1" />
-		<MenuBack v-else>{{ backLabel }}</MenuBack>
+		<MenuBack>{{ backText }}</MenuBack>
 
 		<MenuGroup
 			v-for="(group, index) in rootGroups"
@@ -85,6 +84,8 @@ interface Props {
 	/** Where to fetch the menu of every tree a row can open. */
 	treesHref?: string;
 	backLabel?: string;
+	/** Names a destination that is not the docs root; "{name}" is the level popped back to. */
+	backToPattern?: string;
 	levelLabel?: string;
 	levelHref?: string;
 }
@@ -99,6 +100,7 @@ const props = withDefaults(defineProps<Props>(), {
 	catalogGroups: null,
 	treesHref: '',
 	backLabel: '',
+	backToPattern: 'Back to {name}',
 	levelLabel: '',
 	levelHref: '',
 });
@@ -171,6 +173,37 @@ const rootGroups = computed<MenuGroupNode[]>(() => {
 });
 
 const levelGroups = computed<MenuGroupNode[]>(() => (drilled.value ? visibleGroups.value : []));
+
+/** With no catalog beneath it, the menu's own tree is the level a pop lands on. */
+const baseIsTree = computed(() => !hasCatalog.value && Boolean(props.levelLabel));
+
+/** Label of every row that opens a level, so Back can name the one beneath the current. */
+const drillLabels = computed(() => {
+	const out = new Map<string, string>();
+	const walk = (nodes: MenuNode[]) => {
+		for (const node of nodes) {
+			if (node.opensTree) out.set(node.id, node.label);
+			if (node.children?.length) walk(node.children);
+		}
+	};
+	for (const group of props.groups) walk(group.items);
+	for (const group of props.catalogGroups ?? []) walk(group.items);
+	for (const groups of Object.values(trees.value)) for (const group of groups) walk(group.items);
+	return out;
+});
+
+const backText = computed(() => {
+	const below = path.value[path.value.length - 2];
+	const name =
+		below === undefined
+			? baseIsTree.value
+				? props.levelLabel
+				: ''
+			: below === LEVEL_ID
+			? props.levelLabel
+			: drillLabels.value.get(below) ?? '';
+	return name ? props.backToPattern.replace('{name}', name) : props.backLabel;
+});
 
 /** A level the reader pushed, above the product level the page mounts at. */
 const pushedDrill = computed(() => path.value.length > (drilled.value ? 1 : 0));

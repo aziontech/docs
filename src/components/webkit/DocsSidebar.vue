@@ -17,6 +17,7 @@
 			:catalog-groups="catalogGroups"
 			:trees-href="treesHref"
 			:back-label="backLabel"
+			:back-to-pattern="backToPattern"
 			:level-label="header?.title ?? ''"
 			:level-href="header?.href ?? ''"
 		/>
@@ -48,6 +49,7 @@ withDefaults(
 		catalogGroups?: MenuGroupNode[] | null;
 		treesHref?: string;
 		backLabel?: string;
+		backToPattern?: string;
 	}>(),
 	{
 		activeId: '',
@@ -59,6 +61,7 @@ withDefaults(
 		catalogGroups: null,
 		treesHref: '',
 		backLabel: '',
+		backToPattern: 'Back to {name}',
 	}
 );
 
