@@ -1,0 +1,281 @@
+---
+title: Bot Manager best practices
+description: >-
+  Calibrate a Bot Manager instance from your own traffic: run in observation
+  mode first, set the threshold from the score distribution, and confirm
+  every change.
+meta_tags: 'bot manager, best practices, calibration, threshold, tuning, observation'
+namespace: documentation_products_bot_manager_best_practices
+permalink: /documentation/secure/bot-manager/best-practices/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Deciding that a request came from a program rather than from a person is a judgment about evidence, and the number that settles it belongs to your own traffic. Set it too low and a customer on an unusual browser meets an error page that explains nothing and offers no way forward. Set it too high and the automated traffic you installed the product to act on is scored, recorded, and served. One argument settles less of that distance than it appears to. The rest is decided by the order in which you turn things on. It is decided by how narrowly you scope what stops being scored, and by whether the log lines are read before an action is configured.
+
+These practices apply to a [Bot Manager](/en/documentation/secure/bot-manager/) function instance, the JSON arguments object it carries, and the [Rules Engine for Firewall](/en/documentation/platform/firewall/rules-engine/) rule that runs it. The scoring they tune is described on [How Bot Manager works](/en/documentation/secure/bot-manager/how-it-works/), and the steps each one takes in the interfaces are in [Monitor and calibrate Bot Manager](/en/documentation/guides/application-security/bots-and-network/monitor-and-calibrate-bot-manager/).
+
+The sections follow the order in which the decisions arise. The first three settle the arguments object: the action an instance starts with, the threshold it runs at, and how to confirm that a change reached the function. The next four settle what runs where: the tag that identifies an instance, the requests worth scoring, the paths that deserve a stricter instance, and the choice between a challenge and a refusal. The last four cover what to stop scoring, how far to raise the dynamic rules, how to compare two periods of counts, and where the logs are kept.
+
+---
+
+## Start in observation mode before the instance refuses anything
+
+Observation mode is an arguments object that scores every request and refuses none. `action` is set to `allow`, so a request at or above the threshold continues. `internal_logs` is raised, so the function writes a report line for requests it would otherwise pass over. A value of `2` writes a line for every request, including the ones that score `0`.
+
+```json
+{
+  "threshold": 30,
+  "action": "allow",
+  "internal_logs": 2,
+  "log_tag": "bot-observation"
+}
+```
+
+The lines that object produces are the only description of how your own traffic scores. A score distribution belongs to one application: its clients, its integrations, its monitors, and its scheduled jobs. No other document can supply it. Run the instance this way for 24 to 72 hours, long enough to cover peak hours, the crawlers that arrive weekly, and the jobs that run overnight.
+
+On [Bot Manager Lite](/en/documentation/secure/bot-manager/bot-manager-lite/) the object has to be written out. The function ships `action` as `deny`, so an instance created with an empty arguments object refuses the first request that crosses the shipped threshold of `30`. Version 0.2.0 of that function also added rules `18` through `26`, which arrived without prior calibration and can score legitimate traffic. Read what they match in the log before you move the instance off `allow`.
+
+While the window is open, read `score` and `matched_rules`. `classified` is computed against the threshold in force, so during observation it describes the configuration as much as the request.
+
+The cost is the window itself. Time in observation is time an automated client is scored, recorded, and served. What bounds the window is how quickly the lines can be read, not the calendar.
+
+---
+
+## Set the threshold from your own score distribution, not from a number on a page
+
+`threshold` is the score at which `action` fires. A request whose score reaches it is acted on, and a request below it continues. Bot Manager Lite ships `30`. Bot Manager documents `18` as the value to start from and `Infinity` as its default, so an instance on that edition that names no threshold never reaches one.
+
+Neither number is an answer. No maximum score is published, so `18` cannot be read as a share of a ceiling and carries no information about your traffic. What produces a threshold is the distribution in the report log: legitimate clients cluster at the low end, automated clients cluster higher, and the threshold goes in the gap between the two. A threshold inside the legitimate cluster refuses customers, and a threshold above the automated cluster acts on nothing.
+
+```json
+{
+  "threshold": 15,
+  "action": "deny",
+  "log_tag": "production"
+}
+```
+
+A lower threshold fires on more requests, which suits an API or a login path where an automated client that passes costs more than a customer who is challenged. A higher one is more permissive, which suits an application whose audience is geographically diverse and whose requests legitimately look unusual. The calibration guidance calls a threshold between `5` and `9` very strict, and warns that it refuses legitimate traffic of an unusual shape.
+
+After the change, the lines to read are the ones classified `legitimate` whose score sits just under the threshold. Those requests are one matched rule away from being acted on. Lower the threshold if automated traffic is still passing, and raise it if requests you recognize are being refused.
+
+At `0` every request is at or above the threshold, so the configured action fires on every request. What that produces depends on the action: with `action` set to `deny` every request is refused, and with `action` set to `allow` nothing is blocked. For each value `action` takes, refer to [Arguments](/en/documentation/secure/bot-manager/arguments/#action).
+
+---
+
+## Confirm that the argument you changed is the one the function reads
+
+Nothing validates the arguments object. Every key an instance sends is stored and returned unchanged, whatever it is named: a payload of twenty-one keys, one of them deliberate nonsense, was stored and read back byte for byte.
+
+A misspelling is therefore accepted. The object below is taken by every interface with no error, and the threshold it was meant to change stays at `30`:
+
+```json
+{
+  "thresold": 5,
+  "action": "deny"
+}
+```
+
+The key the function reads is `threshold`:
+
+```json
+{
+  "threshold": 5,
+  "action": "deny"
+}
+```
+
+Reading the instance back does not reveal the difference, because each interface shows the key exactly as it was typed. An instance also stores only what it sets. One created with `{}` reads back as `{}`, because the function's own defaults are applied when it runs rather than copied into the record. Reading an instance therefore tells you which arguments it sets, not the values it runs at.
+
+Then wait. An argument change reaches the request path in about two minutes. After `action` was switched from `allow` to `deny`, the domain was polled every 15 seconds: the first seven requests still passed, and the eighth was refused, roughly 105 seconds after the change. A re-test run immediately after a change describes the arguments that preceded it.
+
+Two answers separate a change that landed from one that did not. A request refused under `action` set to `deny` returns `403` carrying Azion's default error page. A request the function has not classified returns `204` with no body, which is neither a refusal nor a pass. For a client that stays on that answer, refer to [Troubleshoot Bot Manager](/en/documentation/secure/bot-manager/troubleshooting/).
+
+The cost of skipping the check is a wrong conclusion. An argument the function never read and an argument that had no effect look the same from outside, and the first is the more common of the two.
+
+---
+
+## Tag every instance so its log lines can be told apart
+
+Every report line opens with the prefix `[Bot-Protection][<log_tag>]`, where the second bracket carries the value of the instance's `log_tag` argument. On Bot Manager Lite that prefix is the only part of the line that names the instance: the JSON object after it carries the host, the request, the score, and the rules, and no instance identifier at all.
+
+Bot Manager Lite ships `log_tag` as `bot-manager-instance`. Two instances that both keep it write lines that cannot be told apart, which removes the only handle you have on a firewall running more than one. On Bot Manager an instance with no `log_tag` is tagged with the host the request was made to, which groups the lines by host rather than by instance.
+
+Name the tag for what the instance does, so it still reads correctly months later:
+
+```json
+{
+  "threshold": 10,
+  "action": "deny",
+  "log_tag": "checkout-strict"
+}
+```
+
+The cost of one tag across several instances is paid when something goes wrong. A refusal you need to attribute, a threshold you want to compare against another path, and a rule whose matches you are tracing all start from the tag. For the report line and every field it carries, refer to [Logs](/en/documentation/secure/bot-manager/logs/).
+
+---
+
+## Keep the instance off requests that carry nothing to score
+
+A rule whose criterion matches every request runs the function on every request. That includes images, stylesheets, scripts, fonts, and video: none of them is a client, and each one is scored, logged, and counted anyway. Requests are one of the metrics Bot Manager is billed on, so scoring an asset costs something and settles nothing.
+
+Exclude them in the criteria of the Rules Engine rule that runs the instance. Add a criterion on _Request Uri_ with the operator _does not match_ and this argument:
+
+```text
+\.(png|jpg|jpeg|gif|ico|css|js|svg|woff|woff2|ttf|eot|otf|webp|avif|mp4|webm|pdf)(\?.*)?$
+```
+
+The trailing `(\?.*)?$` keeps the match working when an asset is requested with a query string, which is how most cache-busting versions arrive.
+
+Match on the path rather than on the query string. A criterion of _Request Args_ with _matches_ and an argument of `.*` reads as a match on every request and is not one. An empty variable does not match, so a rule built that way skips every request that carries no query string, including a `POST` whose payload is in the body.
+
+The list is the cost. It is maintained by hand, so a format the application adds later is scored until someone updates the argument. An asset served from a path with no extension is never matched by it either. Keep the list to the extensions the application actually serves.
+
+---
+
+## Run a stricter instance on a high-value path instead of raising the threshold everywhere
+
+A threshold that fits a product catalogue is loose on a login form and on a checkout. One instance carries one threshold and one action, so an application whose paths differ in value needs more than one instance.
+
+Nothing enforces a ceiling on the count: twelve instances were created on a single firewall and every call was accepted. Each one carries its own arguments object, its own threshold, and its own `log_tag`. A Rules Engine rule carries one **Run Function** behavior, so each rule fixes one instance for the requests its criteria match:
+
+```json
+{
+  "name": "Run the strict instance on checkout",
+  "active": true,
+  "criteria": [
+    [
+      {
+        "variable": "${request_uri}",
+        "conditional": "if",
+        "operator": "starts_with",
+        "argument": "/checkout"
+      }
+    ]
+  ],
+  "behaviors": [
+    { "type": "run_function", "attributes": { "value": 1234 } }
+  ]
+}
+```
+
+`value` holds the id of the function instance the rule runs, not the id of the installed function.
+
+The calibration guidance documents a starting threshold per kind of path, and it keeps the stricter values between `10` and `15` for the paths whose abuse costs most:
+
+| Path | Threshold | Action |
+| --- | --- | --- |
+| Login or authentication | `10` | `redirect` |
+| Payment or checkout | `10` | `deny` |
+| Account creation | `12` | `redirect` |
+| API endpoints | `15` | `deny` |
+| Public content | `18` | `deny` |
+
+Which paths deserve their own instance is a question the logs answer. `botManagerBreakdownMetrics` groups bot traffic by the URL it reached, so a login or checkout path at the top of that list is the first candidate.
+
+The cost is plural. Every instance is another object whose arguments drift away from the others, another tag to read, and another rule in the firewall's list. A path that no rule matches is not scored at all. For the dataset that groups bot traffic by the URL it reached, refer to [Logs](/en/documentation/secure/bot-manager/logs/).
+
+---
+
+## Challenge a request on a path a person uses, and refuse it on one they do not
+
+`action` decides what a request at or above the threshold meets, and the two answers to choose between are `deny` and `redirect`. `deny` returns `403` with Azion's default error page, which names neither Bot Manager, nor a score, nor a rule. A customer refused that way has nothing to act on and no route forward. `redirect` sends the request to the location in `redirect_to`, so a client able to answer a challenge gets the chance to:
+
+```json
+{
+  "threshold": 10,
+  "action": "redirect",
+  "redirect_to": "/az-request-verify",
+  "log_tag": "login-challenge"
+}
+```
+
+The challenge function has to run before Bot Manager in the firewall's Rules Engine. A redirected request arrives back at the firewall, and a second Bot Manager score taken before the challenge function sees it redirects the request again.
+
+The result is measurable. The report log field `challenge_solved` reports whether the client solved the challenge, and it carries a value where a challenge function runs alongside Bot Manager.
+
+The cost is the client that cannot answer. An API consumer, a health check, and a monitor have no way through a challenge. On a path they use, `redirect` turns a refusal they could have reported into a loop they cannot. Keep the challenge on the paths a person reaches, and use `deny` or a stricter instance on the rest. For a challenge function and the route it protects, refer to [Protect a route with an ALTCHA challenge](/en/documentation/guides/application-development/functions-and-runtime/altcha/).
+
+---
+
+## Read what a rule matched before you take it out of the scoring
+
+A request's score is the sum of the increments of the rules it matched, and the report line names both: `matched_rules` carries the IDs and `score` carries the total. A false positive is identified by finding the lines whose requests you recognize and reading which IDs they carry. Those IDs come from your own logs. Bot Manager Lite publishes every rule it runs, with an ID and an increment for each, so a Lite line can be read straight against that table.
+
+Two arguments stop a rule from raising a score: `disabled_rules` on Bot Manager Lite and `disabled_static_rules` on Bot Manager. Both take the IDs you read out of the log.
+
+```json
+{
+  "threshold": 30,
+  "action": "deny",
+  "disabled_rules": [1],
+  "log_tag": "production"
+}
+```
+
+That object stops one rule, and the choice is worth a measurement first. Bot Manager Lite's rule `1` matches a request that sends no `User-Agent` header and adds 8 points. A monitor that sends none matches it, and so does every other client that sends none. Disabling the rule lowers all of their scores by 8, and the threshold you calibrated now needs other rules to reach.
+
+A narrower instrument is usually available. Rather than stopping a rule for all traffic, scope the criteria of the rule that runs the instance so the function does not run on the path in question. A second instance on that path, with its own `disabled_rules`, does the same job. A rule named in `disabled_static_rules` also keeps reporting: it still runs, each match lands in the `disabled_matched_rules` field of the log, and it adds nothing to the score.
+
+`good_fingerprint_list` is the same decision with a larger radius. A fingerprint in it skips the analysis rules entirely and is assigned no score at all, so nothing about those requests is scored for as long as the entry stays. Take the value from the `fingerprint` field of your own log lines and confirm it belongs to traffic you recognize, because the entry outlives the client: once that client is compromised, its requests are still not scored. For the rules Bot Manager Lite runs and the score each one adds, refer to [Bot Manager Lite](/en/documentation/secure/bot-manager/bot-manager-lite/).
+
+---
+
+## Raise the dynamic rules tolerance one step at a time
+
+Bot Manager documents a dynamic rules method that compares a request against the application's own traffic baseline, and `dynamic_rules_tolerance` sets how strict that comparison is. The documented values are `soft`, `medium`, and `hard`, and `soft` is the documented default.
+
+Start at `soft`. It is the least likely of the three to produce a false positive, which makes it the one whose result you can read without a second variable in play. Move to `medium` after `soft` has run long enough to show that it refuses nothing you recognize. Treat `hard` as a setting for an environment whose traffic patterns are already understood.
+
+```json
+{
+  "threshold": 18,
+  "action": "deny",
+  "dynamic_rules_tolerance": "medium",
+  "log_tag": "tolerance-medium"
+}
+```
+
+A tolerance change re-scores every request the instance sees, so each step needs its own observation window before the next. `dynamic_rules_logs_enabled` writes the method's debugging logs and is documented for calibration: turn it on for the window and off again afterwards, because the volume it adds is the reason the guidance keeps it out of production.
+
+The cost of moving two steps at once is that the false positives arrive together, with nothing in them to say which step produced them. For the four arguments the method takes, refer to [Arguments](/en/documentation/secure/bot-manager/arguments/#dynamic-rules).
+
+---
+
+## Record the threshold in force with every classification count you compare
+
+`classified` is computed against the threshold rather than against the score alone. One score from one set of rules is classified two ways under two thresholds: a score of 28 from rules `[1,10,18,19,20]` read `legitimate` under a threshold of `30`, and `bad bot` under a threshold of `1`.
+
+Raising a threshold therefore does two things. It stops the action from firing, and it relabels the traffic in the report log and in every chart built on the log. A count of bad-bot requests for one week is comparable with the following week's only when the threshold was the same in both. Write the threshold beside any figure you take from a classification chart, or part of the change you measure is the change you made to the label.
+
+`score` and `matched_rules` are the fields that do not move. They describe the request, so a comparison that spans a threshold change is made on those two and not on `classified` or on the counts derived from it. For each value `classified` takes and what earns it, refer to [Logs](/en/documentation/secure/bot-manager/logs/#classification).
+
+---
+
+## Forward the report log to a destination you own
+
+Report lines surface in [Real-Time Events](/en/documentation/observe/real-time-events/), and [Data Stream](/en/documentation/observe/data-stream/) forwards them from the Functions data source to an endpoint you configure. [Real-Time Metrics](/en/documentation/platform/real-time-metrics/#bot-manager) and the two GraphQL datasets behind it carry counts aggregated from the same lines, so a single request is not retrievable from either.
+
+Retention decides what you can still ask. `botManagerMetrics` is retained for 2 years and `botManagerBreakdownMetrics` for 60 days, so a question about which URLs bot traffic reached three months ago has no answer on the platform. A copy in a destination you own is retained for as long as you keep it. It also sits beside your application's own records, which is what lets a report line be read against what the application did next.
+
+Volume is the setting to watch. `internal_logs` decides how many lines exist: a value of `2` writes one for every request, including those scoring `0`, and the shipped default is `0`. What you forward during an observation window is not what you forward in production, so lower it when the window closes.
+
+Read the dashboards on a schedule rather than after an incident. The calibration guidance reviews them weekly, which is frequent enough that a change in the shape of the traffic shows up in the counts before anyone reports a symptom. For the endpoints Data Stream writes to, refer to [Endpoints](/en/documentation/observe/data-stream/#endpoints).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How Bot Manager works" href="/en/documentation/secure/bot-manager/how-it-works/">The scoring, the threshold, and the session state these practices are tuned against.</DocItem>
+  <DocItem title="Arguments" href="/en/documentation/secure/bot-manager/arguments/">Every argument named here, with its type, its default, and the values it accepts.</DocItem>
+  <DocItem title="Logs" href="/en/documentation/secure/bot-manager/logs/">The report line each of these practices reads, field by field.</DocItem>
+  <DocItem title="Bot Manager Lite" href="/en/documentation/secure/bot-manager/bot-manager-lite/">The rules a Lite instance scores against, each with its ID and the score it adds.</DocItem>
+  <DocItem title="Monitor and calibrate Bot Manager" href="/en/documentation/guides/application-security/bots-and-network/monitor-and-calibrate-bot-manager/">The steps that collect the log lines and turn them into a threshold.</DocItem>
+  <DocItem title="Bot Manager limits" href="/en/documentation/secure/bot-manager/limits/">The size of the arguments object, and the usage each service plan includes.</DocItem>
+</ItemList>
+</FrameBox>
