@@ -71,6 +71,7 @@ export const navTree = z.object({
 	parent: z.string().min(1).default('root'),
 	path: localized,
 	root: z.string().min(1).optional(),
+	inline: z.boolean().optional(),
 	groups: z.array(navGroup).min(1),
 });
 
