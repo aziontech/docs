@@ -3,12 +3,7 @@
 	     spacing is chrome for the strip, so a block without one sits flush in the prose. -->
 	<div :class="['relative overflow-hidden', tabs.length ? 'py-(--spacing-md)' : '']">
 		<!-- Composed, not standalone: the List slides one indicator and owns the keyboard model. -->
-		<TabViewRoot
-			v-if="tabs.length"
-			:value="curr"
-			:data-testid="uid"
-			@update:value="onValueChange"
-		>
+		<TabViewRoot v-if="tabs.length" :value="curr" :data-testid="uid" @update:value="onValueChange">
 			<TabViewList data-doc-chrome>
 				<TabViewItem
 					v-for="tab in tabs"
