@@ -26,7 +26,7 @@ export interface MenuNode {
 	href?: string;
 	target?: '_self' | '_blank';
 	tagValue?: string;
-	opensTree?: boolean;
+	opensTree?: string;
 	children?: MenuNode[];
 }
 
@@ -262,9 +262,10 @@ export function buildNavIndex(data: NavData, lang: Lang): NavIndex {
 	return byPermalink;
 }
 
-function opensOtherTree(node: NavNode, href: string | undefined, ctx: MenuContext): boolean {
-	if (node.href || node.placeholder || !href) return false;
-	return (ctx.index.get(normalize(href))?.treeId ?? null) !== ctx.treeId;
+function openedTree(node: NavNode, href: string | undefined, ctx: MenuContext): string | undefined {
+	if (node.href || node.placeholder || !href) return undefined;
+	const target = ctx.index.get(normalize(href))?.treeId;
+	return target && target !== ctx.treeId ? target : undefined;
 }
 
 interface MenuContext {
@@ -307,7 +308,7 @@ function toMenuNodes(
 			node.tag ??
 			(node.page && !hasOwnLanguage(data, node.page, lang) && lang !== 'en' ? 'EN' : undefined);
 
-		const opensTree = opensOtherTree(node, href, ctx) || undefined;
+		const opensTree = openedTree(node, href, ctx);
 
 		if (children?.length) {
 			if (href) {
@@ -355,6 +356,28 @@ function groupsToMenu(
 			items: toMenuNodes(data, group.items, lang, idPrefix, ctx, []),
 		}))
 		.filter((group) => group.items.length > 0);
+}
+
+export function resolveTreeMenus(
+	data: NavData,
+	index: NavIndex,
+	lang: Lang
+): Record<string, MenuGroupNode[]> {
+	const comingSoonHref = pageHref(data, COMING_SOON, lang);
+	const out: Record<string, MenuGroupNode[]> = {};
+
+	for (const tree of data.trees.values()) {
+		out[tree.id] = groupsToMenu(data, tree.groups, lang, tree.id, {
+			activePath: '',
+			activeId: '',
+			expanded: [],
+			comingSoonHref,
+			index,
+			treeId: tree.id,
+		});
+	}
+
+	return out;
 }
 
 export function resolveSidebar(

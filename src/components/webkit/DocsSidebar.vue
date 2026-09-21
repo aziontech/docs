@@ -15,6 +15,7 @@
 			:filter="filter"
 			:no-matches-label="noMatchesLabel"
 			:catalog-groups="catalogGroups"
+			:trees-href="treesHref"
 			:back-label="backLabel"
 			:level-label="header?.title ?? ''"
 			:level-href="header?.href ?? ''"
@@ -45,6 +46,7 @@ withDefaults(
 		filterPlaceholder?: string;
 		noMatchesLabel?: string;
 		catalogGroups?: MenuGroupNode[] | null;
+		treesHref?: string;
 		backLabel?: string;
 	}>(),
 	{
@@ -55,6 +57,7 @@ withDefaults(
 		filterPlaceholder: 'Filter sidebar',
 		noMatchesLabel: 'No rows match.',
 		catalogGroups: null,
+		treesHref: '',
 		backLabel: '',
 	}
 );
