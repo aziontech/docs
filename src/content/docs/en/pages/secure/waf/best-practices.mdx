@@ -3,7 +3,7 @@ title: WAF best practices
 description: >-
   Start in Logging, begin at medium sensitivity, and scope every exception to
   the one condition that clears the false positive.
-meta_tags: 'waf, best practices, logging, blocking, sensitivity, medium, thresholds, threat family, exception, condition, rules engine criteria, request uri, real-time events, tuning, false positive'
+meta_tags: 'waf, best practices, logging, blocking, sensitivity, medium, thresholds, threat family, exception, condition, rules engine criteria, request uri, content type, request body, file upload, real-time events, tuning, false positive'
 namespace: documentation_products_waf_best_practices
 permalink: /documentation/secure/waf/best-practices/
 ---
@@ -16,7 +16,7 @@ A web application firewall that refuses too much turns legitimate requests into 
 
 These practices apply to a [Web Application Firewall](/en/documentation/secure/waf/) rule set, the exceptions inside it, and the [Rules Engine for Firewall](/en/documentation/platform/firewall/rules-engine/) rule that applies one to traffic. The mechanisms behind them are on [How WAF works](/en/documentation/secure/waf/how-it-works/), and the value of every bound is on [WAF limits](/en/documentation/secure/waf/limits/).
 
-The sections follow the order in which the decisions arise. The first three settle the rule set: the mode it runs in, the sensitivity it starts at, and the shape of its `thresholds` array. The next two settle what the rule set sees and what it stops scoring: the criterion that selects requests, and how narrowly an exception is scoped. The last three cover how many rule sets to keep, when to remove an exception, and how to confirm a change.
+The sections follow the order in which the decisions arise. The first three settle the rule set: the mode it runs in, the sensitivity it starts at, and the shape of its `thresholds` array. The next three settle what the rule set sees and what it stops scoring: the criterion that selects requests, the bodies WAF can read, and how narrowly an exception is scoped. The last three cover how many rule sets to keep, when to remove an exception, and how to confirm a change.
 
 ---
 
@@ -110,6 +110,43 @@ Applying a rule set to every request also scores every request, including the on
 
 ---
 
+## Match the content type and the body size to what WAF parses
+
+A rule set reads the body of a `POST` only in the formats it can take apart, and only up to a size. Which of those two bounds your traffic meets first is what separates an API from an upload endpoint. An API meets the format bound most often, and an upload meets the size one.
+
+Neither bound passes a request through uninspected. WAF parses the body when `Content-Type` is `application/x-www-form-urlencoded`, `multipart/form-data`, `application/json`, `application/vnd.api+json`, or `application/csp-report`. In `Blocking`, a `POST` whose header is missing or outside that set is refused at internal rule `11`, even when the body carries no attack pattern. A body that is not valid JSON under `application/json` is refused at internal rule `15`. A body above 131,072 bytes, which is 128 KiB, is refused at internal rule `2`. All three answer `400`. Past the size ceiling the response was measured carrying Azion's default error page, so an upload client that expects a `413` does not receive one. For the parsing, refer to [How WAF works](/en/documentation/secure/waf/how-it-works/#request-body-parsing). For the bound, refer to [WAF limits](/en/documentation/secure/waf/limits/#default-limits).
+
+For an API, the change is in the client rather than in the rule set. Send the content type the body actually carries, and keep the body well formed under it. A client that posts JSON with no `Content-Type` header is refused at rule `11`, and one that declares `application/json` around a body that does not parse is refused at rule `15`. Both are defects in the client, and the fix belongs there.
+
+For a file upload, the content type is already one WAF parses, because `multipart/form-data` is on the list. Size is the bound that decides the endpoint. A file larger than 128 KiB puts the whole body past the ceiling, so a rule set applied in `Blocking` to that path refuses every upload above that size. Settle it in the criterion of the Rules Engine rule, by naming the paths you want inspected rather than matching every request:
+
+```json
+{
+  "name": "<rule-name>",
+  "active": true,
+  "criteria": [
+    [
+      {
+        "variable": "${request_uri}",
+        "conditional": "if",
+        "operator": "starts_with",
+        "argument": "/api/"
+      }
+    ]
+  ],
+  "behaviors": [
+    {
+      "type": "set_waf",
+      "attributes": { "waf_id": 1234, "mode": "blocking" }
+    }
+  ]
+}
+```
+
+The cost sits on both sides of that line. A path inside the criterion refuses the uploads the endpoint exists to receive, and a path outside it is not scored at all. For the symptom each of these rules produces, refer to [Troubleshoot WAF](/en/documentation/secure/waf/troubleshooting/).
+
+---
+
 ## Scope an exception to the narrowest condition that clears the false positive
 
 An exception removes one part of a request from the scoring of one internal rule. Its reach is exactly what its condition and its `rule_id` say, and both default wider than a false positive usually needs: `rule_id` defaults to `0`, which is every internal rule.
@@ -153,6 +190,8 @@ Every exception is a hole in the rule set, and it is the size the condition make
 A rule set is shared by every Rules Engine rule that names it. An exception added to clear a false positive in a test environment takes that part of the scoring out of production too. It applies on the same internal rule, for every request the rule set sees.
 
 Keep one rule set per environment, and let each carry only the exceptions its own traffic produced. Cloning an existing rule set seeds a new one with the same families and sensitivities, and it takes the name you send rather than deriving one from the original. A clone is a deep copy, so it arrives carrying the source's exceptions too: delete the ones the new environment's traffic did not produce, or the clone inherits the holes this practice exists to keep apart.
+
+Inside a rule set that no production traffic uses, an exception is a legitimate instrument. Testing and validating a new feature in a controlled environment is one of the uses an exception is for. What must not happen is that the same exception reaches production, which is what a single shared rule set does with it.
 
 The cost is two objects to keep in step instead of one. A family you raise in production has to be raised again in the rule set the other environment uses. Rule sets are also one of the metrics WAF is billed on. For the number of rule sets each service plan includes, refer to [WAF limits](/en/documentation/secure/waf/limits/#included-usage-per-plan).
 

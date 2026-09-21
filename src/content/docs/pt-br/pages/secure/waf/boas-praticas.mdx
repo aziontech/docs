@@ -3,7 +3,7 @@ title: Boas práticas de WAF
 description: >-
   Comece em Logging, inicie na sensibilidade medium e restrinja cada exceção à
   única condição que elimina o falso positivo.
-meta_tags: 'waf, boas práticas, logging, blocking, sensibilidade, medium, thresholds, família de ameaças, exceção, condição, critérios do rules engine, request uri, real-time events, tuning, falso positivo'
+meta_tags: 'waf, boas práticas, logging, blocking, sensibilidade, medium, thresholds, família de ameaças, exceção, condição, critérios do rules engine, request uri, content type, corpo da requisição, upload de arquivo, real-time events, tuning, falso positivo'
 namespace: documentation_products_waf_best_practices
 permalink: /documentacao/secure/waf/boas-praticas/
 ---
@@ -16,7 +16,7 @@ Um web application firewall que recusa demais transforma requisições legítima
 
 Estas práticas se aplicam a um rule set do [Web Application Firewall](/pt-br/documentacao/secure/waf/), às exceções dentro dele e à regra do [Rules Engine for Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/) que aplica um rule set ao tráfego. Os mecanismos por trás delas estão em [Como WAF funciona](/pt-br/documentacao/secure/waf/como-funciona/), e o valor de cada limite está em [Limites de WAF](/pt-br/documentacao/secure/waf/limites/).
 
-As seções seguem a ordem em que as decisões aparecem. As três primeiras definem o rule set: o modo em que ele roda, a sensibilidade em que ele começa e o formato do seu array `thresholds`. As duas seguintes definem o que o rule set vê e o que ele deixa de pontuar: o critério que seleciona as requisições e quão estreito é o escopo de uma exceção. As três últimas tratam de quantos rule sets manter, de quando remover uma exceção e de como confirmar uma mudança.
+As seções seguem a ordem em que as decisões aparecem. As três primeiras definem o rule set: o modo em que ele roda, a sensibilidade em que ele começa e o formato do seu array `thresholds`. As três seguintes definem o que o rule set vê e o que ele deixa de pontuar: o critério que seleciona as requisições, os corpos que o WAF consegue ler e quão estreito é o escopo de uma exceção. As três últimas tratam de quantos rule sets manter, de quando remover uma exceção e de como confirmar uma mudança.
 
 ---
 
@@ -110,6 +110,43 @@ Aplicar um rule set a todas as requisições também pontua todas as requisiçõ
 
 ---
 
+## Alinhe o content type e o tamanho do corpo ao que o WAF faz parsing
+
+Um rule set lê o corpo de um `POST` apenas nos formatos que consegue desmontar, e apenas até um tamanho. Qual desses dois limites o seu tráfego encontra primeiro é o que separa uma API de um endpoint de upload. Uma API encontra com mais frequência o limite de formato, e um upload encontra o de tamanho.
+
+Nenhum dos dois deixa uma requisição passar sem inspeção. O WAF faz o parsing do corpo quando o `Content-Type` é `application/x-www-form-urlencoded`, `multipart/form-data`, `application/json`, `application/vnd.api+json` ou `application/csp-report`. Em `Blocking`, um `POST` cujo header está ausente ou fora desse conjunto é recusado na regra interna `11`, mesmo quando o corpo não carrega nenhum padrão de ataque. Um corpo que não é JSON válido sob `application/json` é recusado na regra interna `15`. Um corpo acima de 131.072 bytes, que são 128 KiB, é recusado na regra interna `2`. As três respondem `400`. Acima do teto de tamanho, a resposta foi medida carregando a página de erro padrão da Azion, então um cliente de upload que espera um `413` não o recebe. Para o parsing, consulte [Como WAF funciona](/pt-br/documentacao/secure/waf/como-funciona/#parsing-do-corpo-da-requisicao). Para o limite, consulte [Limites de WAF](/pt-br/documentacao/secure/waf/limites/#limites-padrao).
+
+Para uma API, a mudança está no cliente, e não no rule set. Envie o content type que o corpo realmente carrega, e mantenha o corpo bem formado sob ele. Um cliente que envia JSON sem o header `Content-Type` é recusado na regra `11`, e um que declara `application/json` em torno de um corpo malformado é recusado na regra `15`. Os dois são defeitos do cliente, e a correção pertence a ele.
+
+Para um upload de arquivo, o content type já é um do qual o WAF faz parsing, porque `multipart/form-data` está na lista. O tamanho é o limite que decide o endpoint. Um arquivo maior que 128 KiB coloca o corpo inteiro acima do teto, portanto um rule set aplicado em `Blocking` a esse path recusa todo upload acima desse tamanho. Resolva isso no critério da regra do Rules Engine, nomeando os paths que você quer inspecionar em vez de corresponder a todas as requisições:
+
+```json
+{
+  "name": "<rule-name>",
+  "active": true,
+  "criteria": [
+    [
+      {
+        "variable": "${request_uri}",
+        "conditional": "if",
+        "operator": "starts_with",
+        "argument": "/api/"
+      }
+    ]
+  ],
+  "behaviors": [
+    {
+      "type": "set_waf",
+      "attributes": { "waf_id": 1234, "mode": "blocking" }
+    }
+  ]
+}
+```
+
+O custo fica dos dois lados dessa linha. Um path dentro do critério recusa os uploads que o endpoint existe para receber, e um path fora dele não é pontuado. Para o sintoma que cada uma dessas regras produz, consulte [Solucionar problemas de WAF](/pt-br/documentacao/secure/waf/solucao-de-problemas/).
+
+---
+
 ## Restrinja uma exceção à condição mais estreita que elimina o falso positivo
 
 Uma exceção remove uma parte de uma requisição da pontuação de uma regra interna. Seu alcance é exatamente o que a sua condição e o seu `rule_id` dizem, e os dois têm um padrão mais largo do que um falso positivo costuma exigir: o padrão de `rule_id` é `0`, que significa todas as regras internas.
@@ -153,6 +190,8 @@ Toda exceção é um buraco no rule set, e ela tem o tamanho que a condição lh
 Um rule set é compartilhado por todas as regras do Rules Engine que o nomeiam. Uma exceção adicionada para eliminar um falso positivo em um ambiente de teste também tira essa parte da pontuação em produção. Ela se aplica na mesma regra interna, para todas as requisições que o rule set vê.
 
 Mantenha um rule set por ambiente, e deixe cada um carregar apenas as exceções que o seu próprio tráfego produziu. Clonar um rule set existente cria um novo com as mesmas famílias e sensibilidades, e ele recebe o nome que você envia, em vez de derivar um do original. Um clone é uma cópia profunda, então ele chega carregando também as exceções da origem: apague as que o tráfego do novo ambiente não produziu, ou o clone herda as brechas que esta prática existe para manter separadas.
+
+Dentro de um rule set que nenhum tráfego de produção usa, uma exceção é um instrumento legítimo. Testar e validar uma nova funcionalidade em um ambiente controlado é um dos usos para os quais uma exceção existe. O que não pode acontecer é essa mesma exceção chegar à produção, que é o que um único rule set compartilhado faz com ela.
 
 O custo são dois objetos a manter em sincronia em vez de um. Uma família que você aumenta em produção tem que ser aumentada de novo no rule set que o outro ambiente usa. Rule sets também são uma das métricas pelas quais o WAF é cobrado. Para o número de rule sets que cada plano de serviço inclui, consulte [Limites de WAF](/pt-br/documentacao/secure/waf/limites/#uso-incluido-por-plano).
 
