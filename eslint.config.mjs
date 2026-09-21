@@ -116,9 +116,9 @@ export default tseslint.config(
 			globals: { ...globals.browser },
 		},
 		rules: {
-			// The content policy: an MDX page is prose plus webkit components — imports come
-			// only from `@aziontech/webkit/<component>`, and no raw HTML elements.
-			'docs/mdx-webkit-imports-only': 'error',
+			// The content policy: an MDX page is prose, webkit components and other content —
+			// imports come only from the allowlist, and no raw HTML elements.
+			'docs/mdx-allowed-imports': 'error',
 			'docs/mdx-no-raw-html': 'error',
 			'webkit/valid-import-path': 'error',
 			'webkit/no-deep-internal-import': 'error',
