@@ -371,6 +371,11 @@ function groupsToMenu(
 		.filter((group) => group.items.length > 0);
 }
 
+function withSectionTitle(groups: MenuGroupNode[], title: string | undefined): MenuGroupNode[] {
+	if (!title || groups.length === 0 || groups[0].label) return groups;
+	return [{ ...groups[0], label: title }, ...groups.slice(1)];
+}
+
 export function resolveTreeMenus(
 	data: NavData,
 	index: NavIndex,
@@ -381,7 +386,7 @@ export function resolveTreeMenus(
 
 	for (const tree of data.trees.values()) {
 		if (tree.inline) continue;
-		out[tree.id] = groupsToMenu(data, tree.groups, lang, tree.id, {
+		const groups = groupsToMenu(data, tree.groups, lang, tree.id, {
 			activePath: '',
 			activeId: '',
 			expanded: [],
@@ -389,6 +394,7 @@ export function resolveTreeMenus(
 			index,
 			treeId: tree.id,
 		});
+		out[tree.id] = withSectionTitle(groups, text(tree.title, lang));
 	}
 
 	return out;
@@ -428,7 +434,10 @@ export function resolveSidebar(
 	}
 
 	const back = backRow(data, tree, lang, labels);
-	const groups = groupsToMenu(data, tree.groups, lang, tree.id, ctx);
+	const groups = withSectionTitle(
+		groupsToMenu(data, tree.groups, lang, tree.id, ctx),
+		text(tree.title, lang)
+	);
 	const catalog = groupsToMenu(data, data.root.groups, lang, 'root', {
 		activePath,
 		activeId: '',
