@@ -26,9 +26,8 @@ export interface MenuNode {
 	href?: string;
 	target?: '_self' | '_blank';
 	tagValue?: string;
+	opensTree?: boolean;
 	children?: MenuNode[];
-	kind?: 'inline' | 'drill';
-	groups?: MenuGroupNode[];
 }
 
 export interface MenuGroupNode {
@@ -263,12 +262,26 @@ export function buildNavIndex(data: NavData, lang: Lang): NavIndex {
 	return byPermalink;
 }
 
+function opensOtherTree(node: NavNode, href: string | undefined, ctx: MenuContext): boolean {
+	if (node.href || node.placeholder || !href) return false;
+	return (ctx.index.get(normalize(href))?.treeId ?? null) !== ctx.treeId;
+}
+
+interface MenuContext {
+	activePath: string;
+	activeId: string;
+	expanded: string[];
+	comingSoonHref?: string;
+	index: NavIndex;
+	treeId: string | null;
+}
+
 function toMenuNodes(
 	data: NavData,
 	nodes: NavNode[],
 	lang: Lang,
 	parentId: string,
-	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string },
+	ctx: MenuContext,
 	ancestors: string[]
 ): MenuNode[] {
 	const out: MenuNode[] = [];
@@ -294,6 +307,8 @@ function toMenuNodes(
 			node.tag ??
 			(node.page && !hasOwnLanguage(data, node.page, lang) && lang !== 'en' ? 'EN' : undefined);
 
+		const opensTree = opensOtherTree(node, href, ctx) || undefined;
+
 		if (children?.length) {
 			if (href) {
 				children.unshift({
@@ -302,6 +317,7 @@ function toMenuNodes(
 					href,
 					target: external ? '_blank' : '_self',
 					tagValue,
+					opensTree,
 				});
 			}
 			out.push({ id, label, icon: node.icon, children });
@@ -315,6 +331,7 @@ function toMenuNodes(
 			href,
 			target: external ? '_blank' : '_self',
 			tagValue,
+			opensTree,
 		});
 	});
 
@@ -330,7 +347,7 @@ function groupsToMenu(
 	groups: NavGroup[],
 	lang: Lang,
 	idPrefix: string,
-	ctx: { activePath: string; activeId: string; expanded: string[]; comingSoonHref?: string }
+	ctx: MenuContext
 ): MenuGroupNode[] {
 	return groups
 		.map((group) => ({
@@ -349,14 +366,16 @@ export function resolveSidebar(
 ): SidebarModel {
 	const activePath = normalize(pathname);
 	const location = index.get(activePath);
-	const ctx = {
+	const tree = location ? data.trees.get(location.treeId) : undefined;
+
+	const ctx: MenuContext = {
 		activePath,
 		activeId: '',
-		expanded: [] as string[],
+		expanded: [],
 		comingSoonHref: pageHref(data, COMING_SOON, lang),
+		index,
+		treeId: tree?.id ?? null,
 	};
-
-	const tree = location ? data.trees.get(location.treeId) : undefined;
 
 	if (!tree) {
 		const groups = groupsToMenu(data, data.root.groups, lang, 'root', ctx);
@@ -377,6 +396,8 @@ export function resolveSidebar(
 		activeId: '',
 		expanded: [],
 		comingSoonHref: ctx.comingSoonHref,
+		index,
+		treeId: null,
 	});
 
 	return {

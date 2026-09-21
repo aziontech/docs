@@ -5,13 +5,33 @@
 		ref="menuRef"
 		v-model:expanded="expanded"
 		v-model:path="path"
-		:groups="menuGroups"
-		:active-id="activeId"
 		:role="presentation ? 'presentation' : undefined"
 		:aria-label="ariaLabel"
-		@navigate="onNavigate"
 	>
 		<MenuBack v-if="backLabel">{{ backLabel }}</MenuBack>
+
+		<MenuGroup
+			v-for="(group, index) in rootGroups"
+			:key="group.label ?? index"
+			:label="group.label ?? ''"
+		>
+			<DocsSidebarRows :nodes="group.items" :active-id="activeId" @navigate="onNavigate" />
+		</MenuGroup>
+
+		<MenuGroup v-if="levelGroups.length">
+			<MenuSub :data-node-id="LEVEL_ID">
+				<MenuSubTrigger kind="drill" :label="levelLabel" />
+				<MenuSubContent>
+					<MenuGroup
+						v-for="(group, index) in levelGroups"
+						:key="group.label ?? index"
+						:label="group.label ?? ''"
+					>
+						<DocsSidebarRows :nodes="group.items" :active-id="activeId" @navigate="onNavigate" />
+					</MenuGroup>
+				</MenuSubContent>
+			</MenuSub>
+		</MenuGroup>
 	</MenuRoot>
 	<p v-else class="px-(--spacing-sm) py-(--spacing-xs) text-body-sm text-(--text-muted)">
 		{{ noMatchesLabel }}
@@ -20,8 +40,14 @@
 
 <script setup lang="ts">
 import MenuBack from '@aziontech/webkit/menu-back';
+import MenuGroup from '@aziontech/webkit/menu-group';
 import MenuRoot from '@aziontech/webkit/menu-root';
+import MenuSub from '@aziontech/webkit/menu-sub';
+import MenuSubContent from '@aziontech/webkit/menu-sub-content';
+import MenuSubTrigger from '@aziontech/webkit/menu-sub-trigger';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
+
+import DocsSidebarRows from './DocsSidebarRows.vue';
 
 import type { MenuGroupNode, MenuNode } from '~/nav/resolve';
 
@@ -83,17 +109,14 @@ const LEVEL_ID = 'docs-sidebar-level';
 const path = ref<string[]>([]);
 const drilled = ref(false);
 
-const menuGroups = computed<MenuGroupNode[]>(() => {
-	if (!drilled.value || !props.catalogGroups?.length) return visibleGroups.value;
-	return [
-		...props.catalogGroups,
-		{
-			items: [
-				{ id: LEVEL_ID, label: props.levelLabel, kind: 'drill', groups: visibleGroups.value },
-			],
-		},
-	];
+const hasCatalog = computed(() => Boolean(props.catalogGroups?.length));
+
+const rootGroups = computed<MenuGroupNode[]>(() => {
+	if (!hasCatalog.value) return visibleGroups.value;
+	return drilled.value ? props.catalogGroups ?? [] : visibleGroups.value;
 });
+
+const levelGroups = computed<MenuGroupNode[]>(() => (drilled.value ? visibleGroups.value : []));
 
 function foldIds(nodes: MenuNode[], out: string[] = []): string[] {
 	for (const node of nodes) {
