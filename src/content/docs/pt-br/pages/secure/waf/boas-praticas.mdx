@@ -1,0 +1,254 @@
+---
+title: Boas práticas de WAF
+description: >-
+  Comece em Logging, inicie na sensibilidade medium e restrinja cada exceção à
+  única condição que elimina o falso positivo.
+meta_tags: 'waf, boas práticas, logging, blocking, sensibilidade, medium, thresholds, família de ameaças, exceção, condição, critérios do rules engine, request uri, content type, corpo da requisição, upload de arquivo, real-time events, tuning, falso positivo'
+namespace: documentation_products_waf_best_practices
+permalink: /documentacao/secure/waf/boas-praticas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Um web application firewall que recusa demais transforma requisições legítimas em erros que o usuário vê e não consegue explicar. Um que recusa de menos registra um ataque que poderia ter recusado. Pouco da distância entre os dois vem de uma única configuração. A maior parte vem da ordem em que você liga as coisas, de quão estreitas são as isenções que o seu próprio tráfego exige e de você ler ou não o que foi recusado.
+
+Estas práticas se aplicam a um rule set do [Web Application Firewall](/pt-br/documentacao/secure/waf/), às exceções dentro dele e à regra do [Rules Engine for Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/) que aplica um rule set ao tráfego. Os mecanismos por trás delas estão em [Como WAF funciona](/pt-br/documentacao/secure/waf/como-funciona/), e o valor de cada limite está em [Limites de WAF](/pt-br/documentacao/secure/waf/limites/).
+
+As seções seguem a ordem em que as decisões aparecem. As três primeiras definem o rule set: o modo em que ele roda, a sensibilidade em que ele começa e o formato do seu array `thresholds`. As três seguintes definem o que o rule set vê e o que ele deixa de pontuar: o critério que seleciona as requisições, os corpos que o WAF consegue ler e quão estreito é o escopo de uma exceção. As três últimas tratam de quantos rule sets manter, de quando remover uma exceção e de como confirmar uma mudança.
+
+---
+
+## Comece em Logging e passe para Blocking depois de ler o que correspondeu
+
+O modo em que um rule set roda pertence ao comportamento `Set WAF` da regra do Rules Engine, e não ao rule set. Alterá-lo edita uma regra, e o mesmo rule set roda em `Logging` em uma regra e em `Blocking` em outra.
+
+Em `Logging`, uma requisição que alcança um limiar é pontuada, registrada e servida. Em `Blocking`, a mesma requisição é recusada com `400` e a página de erro padrão da Azion, que não nomeia nem o WAF nem a regra que correspondeu. Comece em `Logging`, porque esses registros são a única descrição de como o seu próprio tráfego se parece para o rule set.
+
+O Tuning é onde os registros são lidos. Ele lista qual regra interna correspondeu a qual requisição, em uma janela de até os últimos 3 dias, e transforma os registros que você seleciona em exceções. Mova a regra para `Blocking` quando essa janela não contiver nenhuma requisição que deveria ter sido servida.
+
+O custo é real e não é evitável. Tempo em `Logging` é tempo em que um ataque é registrado em vez de recusado, portanto a janela é delimitada pela rapidez com que você lê os registros, e não pela conveniência. Um rule set deixado em `Logging` pontua todas as requisições e não impede nenhuma. Para o procedimento, consulte [Ajuste um WAF rule set](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/tune-waf/).
+
+---
+
+## Comece na sensibilidade medium e aumente uma família por vez
+
+A sensibilidade decide quanta evidência uma família de ameaças precisa antes de o WAF bloquear. Uma sensibilidade maior reduz o score que uma requisição precisa alcançar, portanto ela bloqueia mais ataques e mais tráfego legítimo junto com eles. Toda família de ameaças começa em `medium`.
+
+Um rule set criado sem indicar uma sensibilidade carrega esse padrão em todas as famílias:
+
+```bash
+azion create waf --name "<rule-set-name>"
+```
+
+O rule set que esse comando cria está ativo, roda a versão de engine `2021-Q3` com o tipo de engine `score`, referencia o ruleset `1` e carrega as oito famílias de ameaças em `medium`.
+
+Começar mais alto custa a você a capacidade de ler o resultado. Aumente várias famílias de uma vez e os falsos positivos chegam juntos, sem nada neles que diga qual aumento produziu qual bloqueio. A sensibilidade é definida por família, portanto aumente as famílias com as quais a sua aplicação não tem motivo legítimo para se parecer, e deixe as demais onde estão. Para o que cada nível significa, consulte [WAF Rule Sets](/pt-br/documentacao/secure/waf/rule-sets/).
+
+---
+
+## Envie cada família de ameaças uma única vez em thresholds
+
+Um rule set carrega um array `thresholds`, e cada entrada indica uma família de ameaças e a sensibilidade em que essa família roda. O array não é mesclado entrada por entrada: um `PATCH` que carrega `engine_settings` substitui o array inteiro pelo que você enviou. O que você envia é a configuração completa de limiares do rule set, e não uma emenda a ela.
+
+Um array parcial é aceito, portanto alterar duas famílias não obriga você a reenviar as outras seis. Envie apenas as famílias que você está alterando, cada uma exatamente uma vez:
+
+```json
+{
+  "name": "<rule-set-name>",
+  "engine_settings": {
+    "engine_version": "2021-Q3",
+    "type": "score",
+    "attributes": {
+      "rulesets": [1],
+      "thresholds": [
+        { "threat": "sql_injection", "sensitivity": "high" },
+        { "threat": "cross_site_scripting", "sensitivity": "medium" }
+      ]
+    }
+  }
+}
+```
+
+Um `threat` repetido é a única forma que deve ficar de fora desse array. Ele não volta como um erro de validação. Ele retorna `500` com `A server error occurred.`, que se lê como uma falha no serviço e é um payload rejeitado. Construa o array a partir de um mapa indexado pelo nome da família, para que nenhum gerador emita a mesma família duas vezes. Para o limite e a resposta que ele retorna, consulte [Limites de WAF](/pt-br/documentacao/secure/waf/limites/#limites-padrao).
+
+---
+
+## Corresponda à requisição, não à sua query string
+
+Um rule set não pontua nada até que uma regra do Rules Engine no firewall o aplique, e os critérios dessa regra decidem a quais requisições ele se aplica. Uma regra carrega no máximo um comportamento `Set WAF`, portanto uma regra fixa um rule set e um modo para as requisições com que ela corresponde.
+
+Um critério de `${request_args}` com o operador `matches` e o argumento `.*` se lê como uma correspondência com todas as requisições, e não é. Uma variável vazia não corresponde, portanto uma regra construída assim ignora todas as requisições que não carregam query string. Duas requisições POST idênticas mostram isso: a enviada para `/?x=1` foi bloqueada, e a enviada para `/` alcançou a aplicação.
+
+Essa é a requisição errada a ignorar. Um POST que carrega o payload no corpo é a requisição cujo corpo você mais quer que seja inspecionado, e é exatamente a que esse critério deixa passar. Um critério de `${request_uri}` com o operador `starts_with` e o argumento `/` corresponde a todas as requisições que o workload recebe:
+
+```json
+{
+  "name": "<rule-name>",
+  "active": true,
+  "criteria": [
+    [
+      {
+        "variable": "${request_uri}",
+        "conditional": "if",
+        "operator": "starts_with",
+        "argument": "/"
+      }
+    ]
+  ],
+  "behaviors": [
+    {
+      "type": "set_waf",
+      "attributes": { "waf_id": 1234, "mode": "logging" }
+    }
+  ]
+}
+```
+
+Aplicar um rule set a todas as requisições também pontua todas as requisições, inclusive as que não carregam nada a pontuar, e o WAF é cobrado por requisições. Restrinja o argumento a um path quando o que você quer dizer é um path. Para os critérios que uma regra de firewall aceita, consulte [Crie regras no Rules Engine para o Firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/trabalhar-com-rules-engine/).
+
+---
+
+## Alinhe o content type e o tamanho do corpo ao que o WAF faz parsing
+
+Um rule set lê o corpo de um `POST` apenas nos formatos que consegue desmontar, e apenas até um tamanho. Qual desses dois limites o seu tráfego encontra primeiro é o que separa uma API de um endpoint de upload. Uma API encontra com mais frequência o limite de formato, e um upload encontra o de tamanho.
+
+Nenhum dos dois deixa uma requisição passar sem inspeção. O WAF faz o parsing do corpo quando o `Content-Type` é `application/x-www-form-urlencoded`, `multipart/form-data`, `application/json`, `application/vnd.api+json` ou `application/csp-report`. Em `Blocking`, um `POST` cujo header está ausente ou fora desse conjunto é recusado na regra interna `11`, mesmo quando o corpo não carrega nenhum padrão de ataque. Um corpo que não é JSON válido sob `application/json` é recusado na regra interna `15`. Um corpo acima de 131.072 bytes, que são 128 KiB, é recusado na regra interna `2`. As três respondem `400`. Acima do teto de tamanho, a resposta foi medida carregando a página de erro padrão da Azion, então um cliente de upload que espera um `413` não o recebe. Para o parsing, consulte [Como WAF funciona](/pt-br/documentacao/secure/waf/como-funciona/#parsing-do-corpo-da-requisicao). Para o limite, consulte [Limites de WAF](/pt-br/documentacao/secure/waf/limites/#limites-padrao).
+
+Para uma API, a mudança está no cliente, e não no rule set. Envie o content type que o corpo realmente carrega, e mantenha o corpo bem formado sob ele. Um cliente que envia JSON sem o header `Content-Type` é recusado na regra `11`, e um que declara `application/json` em torno de um corpo malformado é recusado na regra `15`. Os dois são defeitos do cliente, e a correção pertence a ele.
+
+Para um upload de arquivo, o content type já é um do qual o WAF faz parsing, porque `multipart/form-data` está na lista. O tamanho é o limite que decide o endpoint. Um arquivo maior que 128 KiB coloca o corpo inteiro acima do teto, portanto um rule set aplicado em `Blocking` a esse path recusa todo upload acima desse tamanho. Resolva isso no critério da regra do Rules Engine, nomeando os paths que você quer inspecionar em vez de corresponder a todas as requisições:
+
+```json
+{
+  "name": "<rule-name>",
+  "active": true,
+  "criteria": [
+    [
+      {
+        "variable": "${request_uri}",
+        "conditional": "if",
+        "operator": "starts_with",
+        "argument": "/api/"
+      }
+    ]
+  ],
+  "behaviors": [
+    {
+      "type": "set_waf",
+      "attributes": { "waf_id": 1234, "mode": "blocking" }
+    }
+  ]
+}
+```
+
+O custo fica dos dois lados dessa linha. Um path dentro do critério recusa os uploads que o endpoint existe para receber, e um path fora dele não é pontuado. Para o sintoma que cada uma dessas regras produz, consulte [Solucionar problemas de WAF](/pt-br/documentacao/secure/waf/solucao-de-problemas/).
+
+---
+
+## Restrinja uma exceção à condição mais estreita que elimina o falso positivo
+
+Uma exceção remove uma parte de uma requisição da pontuação de uma regra interna. Seu alcance é exatamente o que a sua condição e o seu `rule_id` dizem, e os dois têm um padrão mais largo do que um falso positivo costuma exigir: o padrão de `rule_id` é `0`, que significa todas as regras internas.
+
+Uma condição ou indica um header, um argumento de query string ou um campo do corpo específico, ou cobre todos eles. Qual chave extra a condição carrega é fixado pelo match value que ela usa, e uma chave que esse formato não carrega é descartada, e não rejeitada. A condição abaixo é a forma incorreta. A API responde `202`, e a condição armazenada é lida de volta sem o `name`:
+
+```json
+{
+  "rule_id": 1005,
+  "name": "Allow the session cookie on the storefront",
+  "path": "/",
+  "operator": "contains",
+  "active": true,
+  "conditions": [
+    { "match": "any_http_header_value", "name": "cookie" }
+  ]
+}
+```
+
+Essa exceção se lê como se isentasse o header cookie. Ela isenta todos os headers da requisição, e nada na resposta, na leitura de volta ou na interface reporta a diferença. O match value que indica um header é `specific_http_header_name`, e ele carrega o nome do header em `name`:
+
+```json
+{
+  "rule_id": 1005,
+  "name": "Allow the session cookie on the storefront",
+  "path": "/",
+  "operator": "contains",
+  "active": true,
+  "conditions": [
+    { "match": "specific_http_header_name", "name": "cookie" }
+  ]
+}
+```
+
+Toda exceção é um buraco no rule set, e ela tem o tamanho que a condição lhe dá. Restrita a uma regra, a um path e a um campo nomeado, ela elimina um falso positivo. Deixada genérica, ela tira essa parte de todas as requisições da pontuação dessa regra enquanto o rule set estiver rodando. Para cada match value e a chave que cada um carrega, consulte [WAF Exceptions](/pt-br/documentacao/secure/waf/custom-allowed-rules/). Para o passo a passo, consulte [Crie uma exceção do WAF](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/configurar-waf-allowed-rules/).
+
+---
+
+## Mantenha um rule set separado para cada ambiente
+
+Um rule set é compartilhado por todas as regras do Rules Engine que o nomeiam. Uma exceção adicionada para eliminar um falso positivo em um ambiente de teste também tira essa parte da pontuação em produção. Ela se aplica na mesma regra interna, para todas as requisições que o rule set vê.
+
+Mantenha um rule set por ambiente, e deixe cada um carregar apenas as exceções que o seu próprio tráfego produziu. Clonar um rule set existente cria um novo com as mesmas famílias e sensibilidades, e ele recebe o nome que você envia, em vez de derivar um do original. Um clone é uma cópia profunda, então ele chega carregando também as exceções da origem: apague as que o tráfego do novo ambiente não produziu, ou o clone herda as brechas que esta prática existe para manter separadas.
+
+Dentro de um rule set que nenhum tráfego de produção usa, uma exceção é um instrumento legítimo. Testar e validar uma nova funcionalidade em um ambiente controlado é um dos usos para os quais uma exceção existe. O que não pode acontecer é essa mesma exceção chegar à produção, que é o que um único rule set compartilhado faz com ela.
+
+O custo são dois objetos a manter em sincronia em vez de um. Uma família que você aumenta em produção tem que ser aumentada de novo no rule set que o outro ambiente usa. Rule sets também são uma das métricas pelas quais o WAF é cobrado. Para o número de rule sets que cada plano de serviço inclui, consulte [Limites de WAF](/pt-br/documentacao/secure/waf/limites/#uso-incluido-por-plano).
+
+---
+
+## Trate toda exceção como temporária e registre por que ela existe
+
+Uma exceção não tem prazo de validade. Ela continua subtraindo da pontuação até que alguém a exclua, e a requisição que a justificou pode ter deixado de chegar muito antes disso.
+
+O campo `name` é o ponto de partida de um leitor futuro. Nomeie a exceção pela requisição que a produziu e pela regra que ela elimina, e não pelo sintoma. A próxima pessoa decide então se ela ainda se aplica sem reproduzir o bloqueio.
+
+O Tuning não responde a essa pergunta por ela. O Tuning lista as requisições que corresponderam a uma regra interna, e uma requisição que uma exceção isenta deixa de corresponder a uma. A evidência que justificou a exceção desaparece assim que a exceção funciona. Confirmar que uma exceção ainda é necessária significa definir `active` como `false` e enviar a requisição de novo.
+
+O conjunto também é uma lista do que corrigir. Cada exceção indica um formato de requisição que a sua aplicação produz e que um rule set lê como um ataque. Portanto, o conjunto é tanto um backlog para a aplicação quanto um registro de configuração. Revisá-lo custa tempo, e excluir uma exceção que ainda é necessária traz de volta o falso positivo que ela eliminava.
+
+---
+
+## Confirme cada mudança pelos eventos que ela produz
+
+Nada em uma resposta bloqueada identifica o WAF. A requisição recebe `400` e a página de erro padrão da Azion, sem nenhum header de WAF e sem nenhuma mensagem que nomeie a regra ou o score. O header `x-azion-request-id` dessa resposta é o identificador que encontra o registro.
+
+O [Real-Time Events](/pt-br/documentacao/observe/real-time-events/) guarda o registro. Ele responde a uma query GraphQL em `/v4/events/graphql`, sobre o dataset `workloadEvents`. `wafMatch` indica as regras internas que corresponderam e a zona em que cada uma correspondeu. `wafScore` reporta um score por família de ameaças, e `wafAttackAction` informa o que o WAF fez:
+
+```graphql
+query {
+  workloadEvents(
+    limit: 1
+    filter: { tsGte: "<start>", tsLt: "<end>", requestIdEq: "<request-id>" }
+  ) {
+    ts
+    requestUri
+    status
+    upstreamStatus
+    wafBlock
+    wafMatch
+    wafScore
+    wafAttackFamily
+    wafAttackAction
+  }
+}
+```
+
+Leia o registro antes de escrever uma exceção a partir dele, porque as regras que disparam nem sempre são as que a requisição sugere. A query string `1' OR '1'='1` foi capturada pelas regras `1009` e `1013`, o sinal de igual e o apóstrofo. A regra que roda um parser de SQL injection sobre o mesmo argumento não disparou. Uma exceção escrita para a regra que você supôs mantém o bloqueio no lugar.
+
+O custo é um segundo sistema a consultar e um identificador de requisição a carregar entre os dois. A resposta não diz nada ao usuário e não diz nada a você, que é o que mantém a decisão fora da resposta. Para a query que retorna o score de uma requisição bloqueada, consulte [Encontre o score de uma requisição bloqueada](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf/).
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Como WAF funciona" href="/pt-br/documentacao/secure/waf/como-funciona/">A pontuação, os modos e o loop de tuning sobre os quais estas práticas são construídas.</DocItem>
+  <DocItem title="WAF Rule Sets" href="/pt-br/documentacao/secure/waf/rule-sets/">Os campos, as famílias de ameaças, os níveis de sensibilidade e as regras internas que um rule set carrega.</DocItem>
+  <DocItem title="WAF Exceptions" href="/pt-br/documentacao/secure/waf/custom-allowed-rules/">Todos os campos e match values que uma exceção carrega, e a tela de Tuning que as cria.</DocItem>
+  <DocItem title="Limites de WAF" href="/pt-br/documentacao/secure/waf/limites/">Os limites por trás destas recomendações, e o uso que cada plano de serviço inclui.</DocItem>
+  <DocItem title="Ajuste um WAF rule set" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/tune-waf/">O procedimento que move um rule set de Logging para Blocking.</DocItem>
+  <DocItem title="Crie uma exceção do WAF" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/configurar-waf-allowed-rules/">Os passos que criam uma exceção a partir de uma requisição registrada pelo Tuning.</DocItem>
+</ItemList>
+</FrameBox>
