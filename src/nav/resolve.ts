@@ -50,6 +50,17 @@ export interface SidebarHeader {
 	backLabel: string;
 }
 
+/** The level beneath a nested tree's own on the desktop drill stack: its parent tree. */
+export interface SidebarParent {
+	groups: MenuGroupNode[];
+	title: string;
+	href?: string;
+	/** Id of the parent's row that opens the nested tree; the stack mounts through it. */
+	drillId: string;
+	/** The nested tree, so its rows can fill that level before every tree's menu loads. */
+	tree: string;
+}
+
 export interface SidebarModel {
 	groups: MenuGroupNode[];
 	activeId: string;
@@ -57,6 +68,7 @@ export interface SidebarModel {
 	treeId: string | null;
 	header: SidebarHeader | null;
 	catalog: MenuGroupNode[] | null;
+	parent: SidebarParent | null;
 }
 
 export interface SidebarLabels {
@@ -430,6 +442,7 @@ export function resolveSidebar(
 			treeId: null,
 			header: null,
 			catalog: null,
+			parent: null,
 		};
 	}
 
@@ -459,6 +472,54 @@ export function resolveSidebar(
 			backLabel: back?.label ?? labels.allProducts,
 		},
 		catalog,
+		parent: parentLevel(data, index, tree, lang, ctx.comingSoonHref),
+	};
+}
+
+/**
+ * A tree nested under another (each developer tool under the hub) mounts one level deeper on
+ * desktop, so Back steps to the parent before the docs root. Null when no parent row opens it.
+ */
+function parentLevel(
+	data: NavData,
+	index: NavIndex,
+	tree: NavTree,
+	lang: Lang,
+	comingSoonHref: string | undefined
+): SidebarParent | null {
+	const parent = tree.parent && tree.parent !== 'root' ? data.trees.get(tree.parent) : undefined;
+	if (!parent || parent.inline) return null;
+
+	const title = text(parent.title, lang) ?? parent.id;
+	const groups = withSectionTitle(
+		groupsToMenu(data, parent.groups, lang, parent.id, {
+			activePath: '',
+			activeId: '',
+			expanded: [],
+			comingSoonHref,
+			index,
+			treeId: parent.id,
+		}),
+		title
+	);
+
+	const opener = (nodes: MenuNode[]): string | undefined => {
+		for (const node of nodes) {
+			if (node.opensTree === tree.id) return node.id;
+			const nested = node.children && opener(node.children);
+			if (nested) return nested;
+		}
+		return undefined;
+	};
+	const drillId = groups.map((group) => opener(group.items)).find(Boolean);
+	if (!drillId) return null;
+
+	return {
+		groups,
+		title,
+		href: parent.root ? pageHref(data, parent.root, lang) : undefined,
+		drillId,
+		tree: tree.id,
 	};
 }
 

@@ -20,6 +20,7 @@
 			:back-to-pattern="backToPattern"
 			:level-label="header?.title ?? ''"
 			:level-href="header?.href ?? ''"
+			:parent-level="parentLevel"
 		/>
 
 		<template #footer>
@@ -35,7 +36,11 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import DocsSidebarMenu from './DocsSidebarMenu.vue';
 import DropdownThemeSwitcher from './DropdownThemeSwitcher.vue';
 
-import type { MenuGroupNode, SidebarHeader as SidebarHeaderModel } from '~/nav/resolve';
+import type {
+	MenuGroupNode,
+	SidebarHeader as SidebarHeaderModel,
+	SidebarParent,
+} from '~/nav/resolve';
 
 withDefaults(
 	defineProps<{
@@ -50,6 +55,7 @@ withDefaults(
 		treesHref?: string;
 		backLabel?: string;
 		backToPattern?: string;
+		parentLevel?: SidebarParent | null;
 	}>(),
 	{
 		activeId: '',
@@ -62,6 +68,7 @@ withDefaults(
 		treesHref: '',
 		backLabel: '',
 		backToPattern: 'Back to {name}',
+		parentLevel: null,
 	}
 );
 

@@ -234,5 +234,6 @@ export type {
 	SidebarHeader,
 	SidebarLabels,
 	SidebarModel,
+	SidebarParent,
 	TopNavModel,
 } from './resolve';

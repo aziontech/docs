@@ -1,6 +1,6 @@
 <template>
 	<MenuRoot
-		v-if="visibleGroups.length || pushedDrill"
+		v-if="visibleGroups.length || levelGroups.length || pushedDrill"
 		:key="drilled ? 'level' : 'flat'"
 		ref="menuRef"
 		v-model:expanded="expanded"
@@ -27,7 +27,7 @@
 
 		<MenuGroup v-if="levelGroups.length">
 			<MenuSub :data-node-id="LEVEL_ID">
-				<MenuSubTrigger kind="drill" :label="levelLabel" />
+				<MenuSubTrigger kind="drill" :label="baseLabel" />
 				<MenuSubContent>
 					<MenuGroup
 						v-for="(group, index) in levelGroups"
@@ -63,7 +63,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import DocsSidebarRows from './DocsSidebarRows.vue';
 
-import type { MenuGroupNode, MenuNode } from '~/nav/resolve';
+import type { MenuGroupNode, MenuNode, SidebarParent } from '~/nav/resolve';
 
 interface Props {
 	/** The menu's groups, already resolved for this language. */
@@ -88,6 +88,8 @@ interface Props {
 	backToPattern?: string;
 	levelLabel?: string;
 	levelHref?: string;
+	/** A nested tree's parent: the level the page's own tree is pushed onto, above the catalog. */
+	parentLevel?: SidebarParent | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -103,6 +105,7 @@ const props = withDefaults(defineProps<Props>(), {
 	backToPattern: 'Back to {name}',
 	levelLabel: '',
 	levelHref: '',
+	parentLevel: null,
 });
 
 const query = computed(() => props.filter.trim().toLowerCase());
@@ -172,7 +175,26 @@ const rootGroups = computed<MenuGroupNode[]>(() => {
 	return drilled.value ? props.catalogGroups ?? [] : visibleGroups.value;
 });
 
-const levelGroups = computed<MenuGroupNode[]>(() => (drilled.value ? visibleGroups.value : []));
+/** Only over a catalog, and only while levels can open: the mobile drawer, or a failed load,
+ * mounts the page's tree alone, as before. */
+const parent = computed(() => (hasCatalog.value && drillable.value ? props.parentLevel : null));
+
+const visibleParentGroups = computed<MenuGroupNode[]>(() => {
+	const groups = parent.value?.groups ?? [];
+	if (!query.value) return groups;
+	return groups
+		.map((group) => ({ ...group, items: prune(group.items) }))
+		.filter((group) => group.items.length > 0);
+});
+
+/** The level over the catalog: the parent tree's when nested, else the page's own. */
+const levelGroups = computed<MenuGroupNode[]>(() => {
+	if (!drilled.value) return [];
+	return parent.value ? visibleParentGroups.value : visibleGroups.value;
+});
+
+const baseLabel = computed(() => parent.value?.title ?? props.levelLabel);
+const baseHref = computed(() => parent.value?.href ?? props.levelHref);
 
 /** With no catalog beneath it, the menu's own tree is the level a pop lands on. */
 const baseIsTree = computed(() => !hasCatalog.value && Boolean(props.levelLabel));
@@ -188,6 +210,7 @@ const drillLabels = computed(() => {
 	};
 	for (const group of props.groups) walk(group.items);
 	for (const group of props.catalogGroups ?? []) walk(group.items);
+	for (const group of parent.value?.groups ?? []) walk(group.items);
 	for (const groups of Object.values(trees.value)) for (const group of groups) walk(group.items);
 	return out;
 });
@@ -200,7 +223,7 @@ const backText = computed(() => {
 				? props.levelLabel
 				: ''
 			: below === LEVEL_ID
-			? props.levelLabel
+			? baseLabel.value
 			: drillLabels.value.get(below) ?? '';
 	return name ? props.backToPattern.replace('{name}', name) : props.backLabel;
 });
@@ -236,7 +259,10 @@ onMounted(() => {
 	}
 
 	if (props.catalogGroups?.length && props.groups.length) {
-		path.value = [LEVEL_ID];
+		// A nested tree opens through its parent's row. Its rows fill that level now, so it
+		// never waits on the tree menus; their load replaces them with the same rows and ids.
+		if (parent.value) trees.value = { ...trees.value, [parent.value.tree]: props.groups };
+		path.value = parent.value ? [LEVEL_ID, parent.value.drillId] : [LEVEL_ID];
 		drilled.value = true;
 	}
 
@@ -260,7 +286,7 @@ watch(path, (value, previous) => {
 		const rows = Array.from(root.children)
 			.filter((child) => child.tagName === 'SECTION')
 			.flatMap((section) => Array.from(section.querySelectorAll<HTMLAnchorElement>('a[href]')));
-		const landing = rows.find((row) => row.getAttribute('href') === props.levelHref) ?? rows[0];
+		const landing = rows.find((row) => row.getAttribute('href') === baseHref.value) ?? rows[0];
 		landing?.focus();
 	});
 });
