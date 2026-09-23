@@ -508,6 +508,7 @@ export interface TopNavColumn {
 export interface TopNavModel {
 	products: TopNavColumn[];
 	devtools: TopNavColumn[];
+	devtoolsHome?: TopNavEntry;
 	guides?: TopNavEntry;
 }
 
@@ -525,6 +526,17 @@ export function buildTopNav(data: NavData, lang: Lang): TopNavModel | null {
 		};
 	};
 
+	// A hub landing sits under a trigger (desktop) and a directory row (mobile) that already
+	// carry the hub's title, so it takes the label the hub tree gives its own root row
+	// ("Overview"); the tree title would only repeat its parent.
+	const hubEntry = (treeId: string): TopNavEntry | undefined => {
+		const base = entry(treeId);
+		const tree = data.trees.get(treeId);
+		if (!base || !tree?.root) return base;
+		const rootRow = walkTree(tree, lang).find((row) => row.node.page === tree.root);
+		return rootRow ? { ...base, label: nodeLabel(data, rootRow.node, lang) } : base;
+	};
+
 	const columns = (list: typeof config.products): TopNavColumn[] =>
 		list.map((column) => ({
 			label: text(column.label, lang) ?? '',
@@ -534,6 +546,7 @@ export function buildTopNav(data: NavData, lang: Lang): TopNavModel | null {
 	return {
 		products: columns(config.products),
 		devtools: columns(config.devtools),
+		devtoolsHome: config.devtoolsHome ? hubEntry(config.devtoolsHome) : undefined,
 		guides: entry(config.guides),
 	};
 }
@@ -658,10 +671,17 @@ export function buildDirectory(
 	}
 	if (model.devtools.length) {
 		const tools = model.devtools.flatMap((column) => column.items);
+		// The hub landing leads the list; buildTopNav already names it after the hub root row.
+		const home: MenuNode[] = model.devtoolsHome?.href
+			? [entryNode(model.devtoolsHome, 'directory/devtools/home')]
+			: [];
 		rest.push({
 			id: 'directory/devtools',
 			label: labels.devtools,
-			children: tools.map((tool, index) => entryNode(tool, `directory/devtools/${index}`)),
+			children: [
+				...home,
+				...tools.map((tool, index) => entryNode(tool, `directory/devtools/${index}`)),
+			],
 		});
 	}
 	if (rest.length) groups.push({ items: rest });

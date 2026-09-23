@@ -33,6 +33,23 @@
 								class="grid gap-(--spacing-lg) p-(--spacing-md)"
 								:style="{ gridTemplateColumns: `repeat(${item.columns.length}, 18rem)` }"
 							>
+								<!-- The section's landing, above the columns. The trigger stays a button:
+								     with an `href` it renders as a plain link and never opens its panel.
+								     Design-system gap: a List without `label` is a horizontal row, so the
+								     entry's hover surface spans its text, not the panel. -->
+								<div v-if="item.home?.href" class="col-span-full">
+									<NavigationMenu.List :highlight="false">
+										<NavigationMenu.Item
+											layout="entry"
+											:href="item.home.href"
+											:description="item.home.description"
+											featured
+											close-on-click
+										>
+											{{ item.home.label }}
+										</NavigationMenu.Item>
+									</NavigationMenu.List>
+								</div>
 								<NavigationMenu.List
 									v-for="column in item.columns"
 									:key="column.label"
@@ -87,13 +104,14 @@ interface Column {
 }
 
 type Item =
-	| { value: string; label: string; columns: Column[]; href?: never }
-	| { value: string; label: string; href?: string; columns?: never };
+	| { value: string; label: string; columns: Column[]; home?: Entry | null; href?: never }
+	| { value: string; label: string; href?: string; columns?: never; home?: never };
 
 const props = withDefaults(
 	defineProps<{
 		products?: Column[];
 		devtools?: Column[];
+		devtoolsHome?: Entry | null;
 		guides?: Entry | null;
 		labels?: { products: string; guides: string; devtools: string };
 		ariaLabel?: string;
@@ -101,6 +119,7 @@ const props = withDefaults(
 	{
 		products: () => [],
 		devtools: () => [],
+		devtoolsHome: null,
 		guides: null,
 		labels: () => ({ products: 'Products', guides: 'Guides', devtools: 'Developer tools' }),
 		ariaLabel: 'Documentation',
@@ -115,7 +134,14 @@ const items = computed<Item[]>(() => [
 		? [{ value: 'guides', label: props.labels.guides, href: props.guides.href }]
 		: []),
 	...(props.devtools.length
-		? [{ value: 'devtools', label: props.labels.devtools, columns: props.devtools }]
+		? [
+				{
+					value: 'devtools',
+					label: props.labels.devtools,
+					columns: props.devtools,
+					home: props.devtoolsHome,
+				},
+		  ]
 		: []),
 ]);
 
