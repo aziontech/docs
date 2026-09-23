@@ -1,6 +1,8 @@
 import { allPages } from '~/content';
 import { getLangFromSlug, stripLangFromSlug, getSlugFromPermalink } from '~/util';
 import { docsHomeEntries } from '~/data/docs-home';
+import { DEVTOOLS_HOME_NAMESPACE, devtoolsHomeMarkdown } from '~/data/devtools-home';
+import { getHubDirectory } from '~/nav/index';
 
 function removeFrontMatter(body) {
 	return body.replace(/^---[\s\S]*?---\n?/, '');
@@ -84,7 +86,14 @@ export async function GET({ props }) {
 
 	let content = '';
 
-	if (product_cards && Array.isArray(product_cards)) {
+	if (data.namespace === DEVTOOLS_HOME_NAMESPACE) {
+		// Its MDX holds only frontmatter; the body is built from the same data the page renders.
+		const lang = getLangFromSlug(page.id);
+		content = getMarkdownContent(
+			title,
+			devtoolsHomeMarkdown(lang, await getHubDirectory('devtools', lang))
+		);
+	} else if (product_cards && Array.isArray(product_cards)) {
 		content = getMarkdownBasedOnCards(title, description, product_cards);
 	} else if (body) {
 		content = getMarkdownContent(title, body);

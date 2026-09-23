@@ -612,6 +612,39 @@ export function buildTopNav(data: NavData, lang: Lang): TopNavModel | null {
 	};
 }
 
+export interface HubTool extends TopNavEntry {
+	/** The tool's tree id, which keys its presentation (icon, call-to-action label) on the hub page. */
+	id: string;
+}
+
+export interface HubGroup {
+	label: string;
+	items: HubTool[];
+}
+
+/** A hub tree's tool rows, in the labeled groups its rail shows; the unlabeled Overview group is skipped. */
+export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): HubGroup[] {
+	const hub = data.trees.get(treeId);
+	if (!hub) return [];
+	return hub.groups
+		.map((group) => ({
+			label: text(group.label, lang) ?? '',
+			items: group.items.flatMap((row) => {
+				const tree = row.tree ? data.trees.get(row.tree) : undefined;
+				if (!tree) return [];
+				return [
+					{
+						id: tree.id,
+						label: nodeLabel(data, row, lang),
+						href: treeHref(data, tree, lang),
+						description: text(tree.description, lang),
+					},
+				];
+			}),
+		}))
+		.filter((group) => group.label && group.items.length > 0);
+}
+
 export interface Crumb {
 	label: string;
 	url?: string;
