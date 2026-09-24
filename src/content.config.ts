@@ -15,6 +15,14 @@ export const baseSchema = z.object({
 	githubURL: z.url().optional(),
 	hasREADME: z.boolean().optional(),
 	page_header: z.boolean().default(true),
+	agent: z
+		.object({
+			mark: z.enum(['claude', 'codex', 'gemini', 'cursor', 'windsurf', 'opencode', 'copilot']),
+			vendor: z.string(),
+			tags: z.array(z.string()),
+			links: z.array(z.object({ label: z.string(), href: z.string() })),
+		})
+		.optional(),
 });
 
 export const homeSchema = baseSchema.extend({

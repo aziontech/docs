@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import { getCollection } from 'astro:content';
 
@@ -69,7 +70,7 @@ async function loadPages(): Promise<PageIndex> {
 			permalink: entry.data.permalink?.trim(),
 			title: entry.data.title?.trim(),
 			description: entry.data.description?.trim(),
-			updated: lastUpdated(entry.filePath),
+			updated: pageUpdated(entry.filePath, entry.body),
 		};
 		const existing = pages.get(namespace) ?? {};
 		existing[lang] = facts;
@@ -100,6 +101,7 @@ function lastUpdated(filePath?: string): string | undefined {
 					'--',
 					'src/content/docs',
 					'src/data',
+					'src/includes',
 				],
 				{
 					encoding: 'utf8',
@@ -187,6 +189,52 @@ export async function getNavIndex(lang: Lang): Promise<NavIndex> {
 	return index;
 }
 
+const CONTENT_IMPORT = /^import\s[^;]*?from\s+['"]([^'"]+\.mdx?)['"]/gm;
+const FENCED_CODE = /^(```|~~~)[\s\S]*?^\1/gm;
+
+const cachedPartials = new Map<string, string[]>();
+
+function partialsOf(filePath: string, body: string): string[] {
+	const found: string[] = [];
+	for (const [, source] of body.replace(FENCED_CODE, '').matchAll(CONTENT_IMPORT)) {
+		found.push(
+			source.startsWith('~/') ? join('src', source.slice(2)) : join(dirname(filePath), source)
+		);
+	}
+	return found;
+}
+
+function contentDependencies(filePath: string, body: string): string[] {
+	const seen = new Set<string>();
+	const visit = (partials: string[]) => {
+		for (const partial of partials) {
+			if (seen.has(partial)) continue;
+			seen.add(partial);
+			let nested = cachedPartials.get(partial);
+			if (!nested) {
+				try {
+					nested = partialsOf(partial, readFileSync(partial, 'utf8'));
+				} catch {
+					nested = [];
+				}
+				cachedPartials.set(partial, nested);
+			}
+			visit(nested);
+		}
+	};
+	visit(partialsOf(filePath, body));
+	return [...seen];
+}
+
+function pageUpdated(filePath?: string, body?: string): string | undefined {
+	if (!filePath) return undefined;
+	return [filePath, ...contentDependencies(filePath, body ?? '')]
+		.map(lastUpdated)
+		.filter((date): date is string => Boolean(date))
+		.sort((a, b) => Date.parse(a) - Date.parse(b))
+		.pop();
+}
+
 export async function getTreeId(pathname: string, lang: Lang): Promise<string | undefined> {
 	return (await getNavIndex(lang)).get(withSlashes(pathname.split('?')[0].split('#')[0]))?.treeId;
 }
@@ -204,10 +252,6 @@ export async function getPageFacts(pathname: string, lang: Lang): Promise<PageFa
 		cachedFacts.set(lang, byHref);
 	}
 	return byHref.get(withSlashes(pathname.split('?')[0].split('#')[0]));
-}
-
-export function getLastChange(filePath: string): string | undefined {
-	return lastUpdated(filePath);
 }
 
 export async function getPageHref(namespace: string, lang: Lang): Promise<string | undefined> {
