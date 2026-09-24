@@ -3,12 +3,12 @@
 		<Table border>
 			<Table.Header>
 				<Table.Row>
-					<Table.HeadCell principal>{{ label('columns', 'tool', lang) }}</Table.HeadCell>
-					<Table.HeadCell :grow="2">{{ label('columns', 'what', lang) }}</Table.HeadCell>
+					<Table.HeadCell principal>{{ columns.tool }}</Table.HeadCell>
+					<Table.HeadCell :grow="2">{{ columns.what }}</Table.HeadCell>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
-				<Table.Row v-for="tool in rows" :key="tool.id">
+				<Table.Row v-for="tool in tools" :key="tool.id">
 					<Table.Cell principal>
 						<code
 							class="rounded-(--shape-elements) border border-(--border-default) bg-(--bg-hover) px-(--spacing-xs) py-0.5 text-label-code-sm text-(--text-default)"
@@ -26,16 +26,13 @@
 
 <script setup lang="ts">
 import Table from '@aziontech/webkit/table';
-import { computed } from 'vue';
 
-import { data, label, t, type Lang } from './data';
+defineOptions({ name: 'AgentToolsTable' });
 
-const props = defineProps<{ lang: Lang }>();
+interface Props {
+	tools: { id: string; description: string }[];
+	columns: { tool: string; what: string };
+}
 
-const rows = computed(() =>
-	data.tools.map((tool) => ({
-		id: tool.id,
-		description: t(tool.description, props.lang),
-	}))
-);
+defineProps<Props>();
 </script>
