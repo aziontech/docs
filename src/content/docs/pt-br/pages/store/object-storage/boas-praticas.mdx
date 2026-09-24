@@ -1,0 +1,149 @@
+---
+title: Boas práticas
+description: >-
+  Defina níveis de acesso, chaves de objeto, content types e credenciais para
+  que os objetos sejam servidos e alcançados apenas por quem precisa.
+meta_tags: 'object storage, best practices, workloads access, object key, versioning, content type, s3 credential, prefix, connector'
+namespace: documentation_products_object_storage_best_practices
+permalink: /documentacao/store/object-storage/boas-praticas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+A maior parte do que dá errado com objetos armazenados é decidida antes de qualquer upload. Uma chave que não pode ser substituída com segurança, um bucket em que qualquer um grava, uma credencial que alcança todos os buckets da conta ou um content type que nunca foi definido são baratos de acertar no início e caros de mudar depois que um público passa a depender deles.
+
+As práticas abaixo cobrem o nível de acesso que um bucket carrega, como uma chave é escolhida e versionada, o content type em todo upload, o prefixo que uma aplicação serve, como uma credencial S3 é limitada, o caminho pelo qual os objetos chegam aos usuários e o que esperar quando algo é excluído.
+
+---
+
+## Dê a um bucket o menor nível de acesso de que a aplicação precisa
+
+Defina `workloads_access` como `read_only`, a menos que uma function tenha de gravar objetos durante uma requisição, e como `restricted` quando nenhuma aplicação deva servir o bucket.
+
+O nível governa apenas o que a plataforma da Azion pode fazer quando uma aplicação serve o bucket. Um pipeline de deploy continua gravando em um bucket `read_only` pela API da Azion ou pelo protocolo S3, porque esses se autenticam com um token ou uma credencial. Um bucket definido como `read_write` dá a permissão de gravação à aplicação, então qualquer requisição que chegue a ela pode modificar os objetos, a menos que uma function decida o contrário.
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/storage/buckets \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "site-assets-ro",
+  "workloads_access": "read_only"
+}'
+```
+
+O custo é que elevar o nível depois é uma alteração à parte, e um bucket que já serve tráfego muda de comportamento no momento em que é elevado. Comece baixo e eleve quando uma function precisar da gravação.
+
+---
+
+## Versione o nome de um objeto em vez de substituí-lo no lugar
+
+Dê a um objeto uma chave que muda quando o seu conteúdo muda, e envie o novo conteúdo sob a nova chave.
+
+Um upload para uma chave em uso substitui o objeto por inteiro, e não há histórico de versões: o conteúdo anterior não pode ser recuperado, e todos os leitores dessa chave veem o novo conteúdo de imediato. Durante um deploy que substitui vários objetos um a um, os leitores veem uma mistura de antigo e novo até o último chegar.
+
+```text
+assets/app.4f2a9c.js
+assets/app.9b71e0.js
+assets/styles.4f2a9c.css
+```
+
+Uma chave que carrega um identificador de build permite que as duas versões existam enquanto um deploy acontece, transforma um rollback em apontar para a chave anterior e deixa cada objeto ser cacheado por muito tempo, porque o seu nome nunca serve conteúdo diferente. O custo é que as chaves antigas se acumulam, então um deploy que versiona chaves também precisa de um passo que remova as que nada referencia.
+
+---
+
+## Defina `Content-Type` em todo upload
+
+Envie o cabeçalho `Content-Type` em toda requisição de upload, em vez de contar com a detecção.
+
+O content type é fixado no upload e retornado em toda leitura. Quando uma requisição não envia `Content-Type`, a Azion detecta o tipo, o que costuma estar certo e não é garantido para um arquivo cuja extensão e conteúdo discordam. Um objeto armazenado com o content type errado continua servindo esse tipo até ser gravado de novo, e um navegador que recebe o tipo errado pode baixar uma página em vez de renderizá-la.
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/storage/buckets/site-assets-ro/objects/assets/app.4f2a9c.js \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/javascript' \
+  --data-binary '@./dist/app.4f2a9c.js'
+```
+
+O cabeçalho `Storage-Content-Type` que a API aceita não define o tipo armazenado, então um script que o envia em vez de `Content-Type` guarda silenciosamente o tipo detectado.
+
+---
+
+## Escolha um prefixo que corresponda ao que a aplicação serve
+
+Organize as chaves de modo que um prefixo guarde exatamente o que um connector deve servir.
+
+Um connector nomeia um bucket e, opcionalmente, um prefixo, e serve esse prefixo como a raiz do caminho da aplicação. Quando o arranjo corresponde, um connector expõe um conjunto de objetos e nada mais. Quando não corresponde, ou o connector expõe mais do que se pretendia, ou o mesmo bucket precisa de vários connectors e regras.
+
+```text
+public/index.html
+public/assets/app.4f2a9c.js
+internal/reports/2026-q3.csv
+```
+
+Um connector com o prefixo `public` serve `index.html` em `/` e nunca alcança `internal`. O custo é que um prefixo não pode ser renomeado, assim como uma chave não pode, então um arranjo que se mostra errado é reescrito objeto a objeto.
+
+---
+
+## Limite uma credencial S3 aos buckets e às capabilities de que ela precisa
+
+Nomeie os buckets no array `buckets` e conceda apenas as capabilities que o cliente usa.
+
+Uma credencial criada sem `buckets` alcança todos os buckets da conta, e o campo é um array: enviar um `bucket` no singular é aceito, ignorado e produz exatamente essa credencial válida para a conta inteira. O secret key é retornado uma única vez, então uma credencial ampla demais não pode ser restringida depois e tem de ser substituída.
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/storage/credentials \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "ci-upload",
+  "capabilities": ["listFiles", "readFiles", "writeFiles"],
+  "buckets": ["site-assets-ro"],
+  "expiration_date": "2027-01-31T23:59:59Z"
+}'
+```
+
+Definir `expiration_date` limita o estrago de uma chave vazada sem que ninguém tenha de lembrar de revogá-la. O custo é uma expiração que tem de ser renovada antes de vencer, e é por isso que a data pertence ao mesmo lugar em que a credencial é provisionada.
+
+---
+
+## Sirva objetos aos usuários finais por meio de uma aplicação
+
+Aponte uma aplicação para o bucket com um connector e mantenha os usuários finais fora do endpoint S3.
+
+O endpoint S3 responde a requisições de gerenciamento assinadas. Ele não coloca os objetos atrás da infraestrutura distribuída da Azion, nada armazena as respostas em cache e toda requisição chega a uma única interface de gerenciamento. Uma URL pré-assinada entregue a um navegador tem o mesmo efeito, porque o navegador vai direto a esse endpoint. Servir os mesmos objetos por meio de uma aplicação coloca o [Cache](/pt-br/documentacao/build/cache/) à frente deles e aplica as regras que a aplicação já tem.
+
+O custo é a configuração: um connector e uma regra têm de existir antes que algo seja servido. Guarde o endpoint S3 para aquilo para que ele é dimensionado, que é enviar, listar e remover objetos.
+
+---
+
+## Planeje as exclusões considerando o período de carência
+
+Trate uma exclusão como algo em etapas, e não como algo imediato, e não construa um fluxo que cria um bucket, o esvazia e o exclui em uma única passagem.
+
+Um objeto excluído deixa de ser listado e deixa de ser servido imediatamente, e é removido em definitivo 24 horas depois. Até esse período terminar, o bucket em que ele estava não pode ser excluído, então uma remoção automatizada que esvazia um bucket e o exclui em seguida falha. Um bucket que nunca guardou um objeto é excluído de imediato.
+
+Tanto reutilizar um único bucket de vida longa quanto aceitar que a remoção termine no dia seguinte evitam a falha. O custo da reutilização é que o nome do bucket continua ocupado, o que importa porque os nomes são únicos entre todas as contas Azion.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Como Object Storage funciona" href="/pt-br/documentacao/store/object-storage/como-funciona/">Os mecanismos por trás de cada prática, incluindo o caminho da requisição e o período de carência.</DocItem>
+  <DocItem title="Buckets e objetos" href="/pt-br/documentacao/store/object-storage/buckets-e-objetos/">Cada campo que estas práticas definem, com o erro que cada rejeição retorna.</DocItem>
+  <DocItem title="Compatibilidade com S3" href="/pt-br/documentacao/store/object-storage/compatibilidade-s3/">Os campos da credencial e as capabilities que a prática de limitação usa.</DocItem>
+  <DocItem title="Criar um bucket" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/">O procedimento para definir e alterar um nível de acesso.</DocItem>
+  <DocItem title="Usar um bucket como origem" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/">O procedimento para o connector e a regra de que a prática de entrega precisa.</DocItem>
+  <DocItem title="Limites do Object Storage" href="/pt-br/documentacao/store/object-storage/limites/">Os limites dentro dos quais estas práticas funcionam, e o uso que cada plano inclui.</DocItem>
+</ItemList>
+</FrameBox>

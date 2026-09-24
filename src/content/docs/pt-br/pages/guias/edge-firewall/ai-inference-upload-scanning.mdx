@@ -1,0 +1,233 @@
+---
+title: Analise uploads de arquivos com uma função de firewall do AI Inference
+description: >-
+  Crie uma função que envia um upload a um modelo através de AI Inference e
+  execute-a em um firewall para que um upload malicioso nunca chegue à origem.
+meta_tags: 'AI Inference, firewall function, file upload, PDF injection, Rules Engine, WAF, security'
+namespace: docs_guides_ai_inference_upload_scanning
+permalink: /documentacao/guias/ai/inferencia/analisar-uploads-com-ai-inference/
+---
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Você pode analisar um upload com um modelo e negar um arquivo malicioso, a partir de Azion Console. A função é executada em [Firewall](/pt-br/documentacao/plataforma/firewall/) e chama o modelo através de [AI Inference](/pt-br/documentacao/build/ai-inference/). Para conhecer o design que esta página implementa, consulte [Inspeção autônoma de uploads com AI Inference](/pt-br/documentacao/guias/ai/inferencia/ai-agent-seguranca-autonoma/).
+
+---
+
+## Pré-requisitos
+
+- Uma conta Azion. Para criar uma, consulte [Como criar uma conta na Azion](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- Um firewall com o módulo **Functions** ativado. Para saber o que uma função faz em um firewall, consulte [Functions no Firewall](/pt-br/documentacao/plataforma/firewall/functions/).
+- Um domínio associado a esse firewall, para que o tráfego de upload chegue até ele.
+- As rotas de upload a proteger, como `/upload` ou `/documents/upload`.
+
+---
+
+## Crie a função de firewall
+
+Uma função é executada em um firewall quando registra um handler `firewall`. Esta função lê o corpo da requisição, envia-o ao modelo e aplica o veredito na mesma requisição. Para criá-la:
+
+<DocSteps>
+  <DocStep title="Abra a página de Functions">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Products Menu** > **Libraries** > **Functions**.
+
+  </DocStep>
+  <DocStep title="Selecione + Function" />
+  <DocStep title="Nomeie a função">
+
+  Insira um nome único e descritivo para a função.
+
+  </DocStep>
+  <DocStep title="Cole o código na aba Code">
+
+  Na aba **Code**, cole a função abaixo.
+
+  </DocStep>
+  <DocStep title="Cole os argumentos na aba Arguments">
+
+  Na aba **Arguments**, cole o JSON abaixo.
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+A aba **Code** recebe esta função:
+
+```js
+async function handleRequest(event) {
+  try {
+    const requestBody = await event.request.text();
+    const { model, action, prompt } = event.args;
+    const contentType = event.request.headers.get("content-type");
+
+    // Allows images
+    if (contentType && contentType.startsWith("image/")) {
+      event.continue();
+      return;
+    }
+
+    // Decodes the content if it's base64
+    const decodedBody = contentType && contentType.includes("base64")
+      ? atob(requestBody.split(",")[1])
+      : requestBody;
+
+    // Calls the model via Azion.AI.run
+    const modelResponse = await Azion.AI.run(model, {
+      stream: false,
+      seed: 42,
+      temperature: 0,
+      max_tokens: 1024,
+      messages: [
+        {
+          role: "system",
+          content: `${prompt}`
+        },
+        {
+          role: "user",
+          content: decodedBody
+        }
+      ]
+    });
+
+    // Extracts the model's response
+    const result = modelResponse?.choices?.[0]?.message?.content?.trim();
+
+    if (result === "true") {
+      event.console.warn(`[AI] ${result}`);
+      event[action]();
+      return;
+    }
+  } catch (err) {
+    event.console.error("Error handling request:", err.message);
+    event.continue();
+    return;
+  }
+
+  event.continue(); // If not malicious, let it pass
+}
+
+addEventListener("firewall", event => {
+  event.waitUntil(handleRequest(event));
+});
+```
+
+A aba **Arguments** recebe este JSON:
+
+```json
+{
+  "model": "casperhansen-mistral-small-24b-instruct-2501-awq",
+  "prompt": "You are a security assistant specialized in detecting malicious PDF files. Analyze the provided content carefully and return 'true' only if you identify malicious content, such as embedded scripts, suspicious patterns, or known vulnerabilities. Do not classify a file as malicious based solely on its structure or the presence of a PDF header. If the content is safe or does not contain clear malicious indicators, return 'false'. Do not provide any additional explanation or output.",
+  "action": "deny"
+}
+```
+
+A função está salva e disponível para ser instanciada em um firewall.
+
+A função lê o corpo da requisição e deixa um content type de imagem passar sem alteração. Ela decodifica conteúdo em base64, envia o conteúdo ao modelo com o prompt dos argumentos e aplica a ação. A ação, `deny` neste exemplo, é executada somente quando o modelo responde `true`. Em caso de erro, a função registra a mensagem em log e deixa a requisição continuar.
+
+Os argumentos selecionam [Mistral 3 Small](/pt-br/documentacao/build/ai-inference/mistral-3-small/), cujo id é `casperhansen-mistral-small-24b-instruct-2501-awq`. Certifique-se de que o modelo escolhido está disponível e configurado na sua conta. Para conhecer todos os ids que você pode passar, consulte [Modelos de AI](/pt-br/documentacao/build/ai-inference/modelos/).
+
+O handler é executado em [Functions](/pt-br/documentacao/build/functions/). Para conhecer todos os campos que `Azion.AI.run` aceita, consulte [Invocação de modelos](/pt-br/documentacao/build/ai-inference/invocacao-de-modelos/). Para saber o que acontece depois da chamada, consulte [Como AI Inference funciona](/pt-br/documentacao/build/ai-inference/como-funciona/).
+
+---
+
+## Ative os módulos do firewall
+
+A função é executada em um firewall, e um firewall só executa uma função quando o módulo **Functions** está ativo. Para preparar o firewall:
+
+<DocSteps>
+  <DocStep title="Abra a página de Firewall">
+
+  Em Azion Console, vá para **Products Menu** > **Firewall**.
+
+  </DocStep>
+  <DocStep title="Selecione o firewall que protege as rotas de upload" />
+  <DocStep title="Ative os módulos que esta arquitetura precisa">
+
+  Na aba **Main Settings**, ative os módulos **DDoS Protection**, **Functions**, **Network Shield** e **Web Application Firewall**.
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+O firewall agora executa os módulos de que esta arquitetura depende, e pode conter uma instância de função.
+
+---
+
+## Instancie a função no firewall
+
+Uma instância de função vincula a função a um firewall. Para criar a instância:
+
+<DocSteps>
+  <DocStep title="Vá para a aba Functions Instances" />
+  <DocStep title="Selecione + Function Instance" />
+  <DocStep title="Insira um nome para a instância" />
+  <DocStep title="Selecione a função que você criou" />
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+A instância aparece na aba **Functions Instances**. Ela não é executada até que uma regra do Rules Engine a selecione.
+
+---
+
+## Adicione a regra que executa a função
+
+Uma regra do Rules Engine define os critérios que acionam a instância. Para executá-la nos uploads que sua aplicação recebe:
+
+<DocSteps>
+  <DocStep title="Vá para a aba Rules Engine" />
+  <DocStep title="Selecione + Rule" />
+  <DocStep title="Insira um nome para a regra" />
+  <DocStep title="Selecione a variável Request URI">
+
+  Na seção **Criteria**, selecione a variável `Request URI`.
+
+  </DocStep>
+  <DocStep title="Defina o operador de comparação como starts with" />
+  <DocStep title="Insira a rota de upload">
+
+  Insira uma rota de upload como argumento, por exemplo `/upload`.
+
+  </DocStep>
+  <DocStep title="Selecione Run Function">
+
+  Na seção **Behaviors**, selecione **Run Function**.
+
+  </DocStep>
+  <DocStep title="Selecione a instância que você criou" />
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+A regra executa a função em toda requisição cuja URI começa com essa rota. Um arquivo que o modelo classifica como malicioso é negado antes que a origem o receba. As alterações podem levar alguns minutos para se propagar. Aguarde antes de enviar um upload que corresponda ao critério.
+
+---
+
+## Monitore e ajuste a política
+
+Um modelo decide o que a política bloqueia, então o registro dele é a única forma de verificá-la. Acompanhe estes sinais em [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/) e [Real-Time Events](/pt-br/documentacao/observe/real-time-events/):
+
+- A taxa de uploads bloqueados, permitidos e em quarentena.
+- Padrões por país, IP, ASN, rota e horário.
+- Eventos correlacionados com os incidentes de segurança que sua equipe reporta.
+
+Depois, ajuste a política de acordo com o que você lê:
+
+- O prompt na aba **Arguments**, que define com que rigor o modelo responde.
+- Se um upload suspeito é negado ou retido para revisão em [Object Storage](/pt-br/documentacao/store/object-storage/).
+- As regras de Web Application Firewall e Network Shield no mesmo firewall.
+- O volume que a função envia ao modelo, dentro dos [limites do AI Inference](/pt-br/documentacao/build/ai-inference/limites/).
+- Os falsos positivos e falsos negativos que seus analistas rotulam, realimentados no prompt.
+
+Os sinais mostram o que a função decidiu, e cada ajuste muda o que a próxima leitura mostra.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Inspeção autônoma de uploads com AI Inference" href="/pt-br/documentacao/guias/ai/inferencia/ai-agent-seguranca-autonoma/" label="O design que esta página implementa, com seu fluxo de dados e os componentes que ele coloca no caminho da requisição." />
+  <DocCard title="Boas práticas do AI Inference" href="/pt-br/documentacao/build/ai-inference/boas-praticas/" label="As decisões que a função toma antes da chamada: o id do modelo, a entrada que ela envia e como ela lê a resposta." />
+</DocCardGroup>

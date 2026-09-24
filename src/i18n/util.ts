@@ -1,19 +1,14 @@
 import type { AstroGlobal } from 'astro';
 import { getLanguageFromURL } from '../util';
 import type {
-	NavDict,
 	UIDict,
 	UIDictionaryKeys,
 	UILanguageKeys,
-	HeaderMenuTranslation,
 	FooterTranslations,
-	SearchMenuTranslation
+	SearchMenuTranslation,
 } from './translation-checkers';
 
-/**
- * Convert the map of modules returned by `import.meta.globEager` to an object
- * mapping the language code from each module’s filepath to the module’s default export.
- */
+/** Maps `import.meta.glob` modules to the language code in each filepath. */
 function mapDefaultExports<T>(modules: Record<string, { default: T }>) {
 	const exportMap: Record<string, T> = {};
 	for (const [path, module] of Object.entries(modules)) {
@@ -24,29 +19,8 @@ function mapDefaultExports<T>(modules: Record<string, { default: T }>) {
 	return exportMap;
 }
 
-function mapDefaultNavExports<T>(modules: Record<string, { default: T }>, lang: string) {
-	const exportMap: Record<string, T> = {};
-	for (const [, module] of Object.entries(modules)) {
-		exportMap[lang] = module.default;
-	}
-
-	return exportMap;
-}
-
-export async function mapNavigationMenuByName(menuName: string, lang: string) {
-	const translations = await import(`../i18n/${lang}/${menuName}.ts`)
-		.catch(async () => await import(`../i18n/en/${menuName}.ts`))
-
-	return mapDefaultNavExports<NavDict>([translations], lang)
-}
-
-export const translations = mapDefaultExports<UIDict>(import.meta.glob('./*/ui.ts', { eager: true }));
-
-export const navTranslations = mapDefaultExports<NavDict>(
-	import.meta.glob('./*/nav.ts', { eager: true })
-);
-export const headerMenuTranslations = mapDefaultExports<HeaderMenuTranslation>(
-	import.meta.glob('./*/headerMenu.ts', { eager: true })
+export const translations = mapDefaultExports<UIDict>(
+	import.meta.glob('./*/ui.ts', { eager: true })
 );
 
 export const footerTranslations = mapDefaultExports<FooterTranslations>(
@@ -59,11 +33,6 @@ export const searchTranslations = mapDefaultExports<SearchMenuTranslation>(
 
 export const fallbackLang = 'en';
 
-export function getHeaderMenuStrings(Astro: AstroGlobal): HeaderMenuTranslation {
-	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
-	return { ...headerMenuTranslations[fallbackLang], ...headerMenuTranslations[lang] };
-}
-
 export function getFooterTranslations(Astro: AstroGlobal): FooterTranslations {
 	const lang = getLanguageFromURL(Astro.url.pathname) || fallbackLang;
 	return { ...footerTranslations[fallbackLang], ...footerTranslations[lang] };
@@ -74,22 +43,10 @@ export function getSearchTranslations(Astro: AstroGlobal): SearchMenuTranslation
 	return { ...searchTranslations[fallbackLang], ...searchTranslations[lang] };
 }
 
-/**
- * Create a helper function for getting translated strings.
- *
- * Within an Astro component, prefer the `UIString` component,
- * which only needs the key as it has access to the global Astro object.
- *
- * However, you can’t pass an Astro component as a prop to a framework component,
- * so this function creates a look-up method to get the string instead:
- *
- * @example
- * ---
- * import { useTranslations } from '~/i18n/util';
- * const t = useTranslations(Astro);
- * ---
- * <FrameworkComponent label={t('articleNav.nextPage')} />
- */
+/** Look-up helper for translated strings, keyed by dictionary key. */
+// Inside an Astro component prefer `UIString`. This exists because an Astro component
+// cannot be passed as a prop to a framework component: call `useTranslations(Astro)` and
+// pass the result, e.g. `label={t('articleNav.nextPage')}`.
 export function useTranslations(Astro: Readonly<AstroGlobal>): (key: UIDictionaryKeys) => string {
 	const lang = getLanguageFromURL(Astro.url.pathname) || 'en';
 	return useTranslationsForLang(lang as UILanguageKeys);
@@ -99,19 +56,18 @@ export function useTranslationsForLang(lang: UILanguageKeys): (key: UIDictionary
 	return function getTranslation(key: UIDictionaryKeys) {
 		let str = translations[lang]?.[key] || translations[fallbackLang][key];
 		if (str === undefined) {
-			let jsonKeys = Object.keys(translations[lang]);
+			const jsonKeys = Object.keys(translations[lang]) as UIDictionaryKeys[];
 
-			jsonKeys.map(jsonKey => {
-				if(translations[lang][jsonKey] === key) {
+			jsonKeys.map((jsonKey) => {
+				if (translations[lang][jsonKey] === key) {
 					str = key;
 				}
 			});
 
 			if (str === undefined) {
-				throw new Error(`Missing translation for “${key}” in “${lang}”.`)
+				throw new Error(`Missing translation for “${key}” in “${lang}”.`);
 			}
-
-		};
+		}
 		return str;
 	};
 }

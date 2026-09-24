@@ -9,51 +9,39 @@ type Node = any;
 
 const headingRe = /h([0-6])/;
 
-/**
- * For MDX only, collapse static subtrees of the hast into `set:html`. Subtrees
- * do not include any MDX elements or headings (for `rehypeHeadingIds` to work).
- * This optimization reduces the JS output as more content are represented as a
- * string instead, which also reduces the AST size that Rollup holds in memory.
- */
+/** MDX only: collapses static hast subtrees into `set:html`. */
+// Subtrees exclude MDX elements and headings, so `rehypeHeadingIds` still sees the heading
+// text. Holding content as a string shrinks both the JS output and the AST Rollup keeps.
 export function rehypeOptimizeStatic(): Transformer<Root, Root> {
 	return (tree) => {
-		// All possible elements that could be the root of a subtree
 		const allPossibleElements = new Set<Node>();
-		// The current collapsible element stack while traversing the tree
 		const elementStack: Node[] = [];
 
 		walk(tree, {
 			enter(node) {
 				// @ts-expect-error test tagName naively
 				const isHeading = node.tagName && headingRe.test(node.tagName);
-				// For nodes that can't be optimized, eliminate all elements in the
-				// `elementStack` from the `allPossibleElements` set.
+				// A node that cannot be optimized disqualifies everything on the stack.
 				if (node.type.startsWith('mdx') || isHeading) {
 					for (const el of elementStack) {
 						allPossibleElements.delete(el);
 					}
 				}
-				// If is heading node, skip it and its children. This prevents the content
-				// from being optimized, as the content is used to generate the heading text.
+				// Skip a heading and its children: their content generates the heading text.
 				if (isHeading) {
 					this.skip();
 					return;
 				}
-				// For possible subtree root nodes, record them
 				if (node.type === 'element' || node.type === 'mdxJsxFlowElement') {
 					elementStack.push(node);
 					allPossibleElements.add(node);
 				}
 			},
 			leave(node, parent) {
-				// Similar as above, but pop the `elementStack`
 				if (node.type === 'element' || node.type === 'mdxJsxFlowElement') {
 					elementStack.pop();
-					// Many possible elements could be part of a subtree, in order to find
-					// the root, we check the parent of the element we're popping. If the
-					// parent exists in `allPossibleElements`, then we're definitely not
-					// the root, so remove ourselves. This will work retroactively as we
-					// climb back up the tree.
+					// Only the outermost element is a root: a parent still in the set means
+					// this node is not one. Climbing back up prunes every inner node.
 					if (allPossibleElements.has(parent)) {
 						allPossibleElements.delete(node);
 					}
@@ -61,8 +49,7 @@ export function rehypeOptimizeStatic(): Transformer<Root, Root> {
 			},
 		});
 
-		// For all possible subtree roots, collapse them into `set:html` and
-		// strip of their children
+		// Collapse each subtree root into `set:html`, dropping its children.
 		for (const el of allPossibleElements) {
 			if (el.type === 'mdxJsxFlowElement') {
 				el.attributes.push({

@@ -1,0 +1,329 @@
+---
+title: Solucionar problemas de Bot Manager
+description: >-
+  Descubra por que uma requisição recebe 204 ou 403, por que uma mudança de
+  argumento não teve efeito e por que a CLI não devolve linhas de log.
+meta_tags: 'bot manager, troubleshooting, false positive, 403, 204, logs, function instance'
+namespace: documentation_products_bot_manager_troubleshooting
+permalink: /documentacao/secure/bot-manager/solucao-de-problemas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Cada sintoma abaixo é algo que o [Bot Manager](/pt-br/documentacao/secure/bot-manager/) faz com tráfego real, ou uma recusa que a plataforma devolve enquanto você configura a instância de função que o executa: uma requisição respondida com `204` e sem corpo, uma mudança de argumento que parece não fazer nada, um argumento que a função ignora em silêncio, quatro chamadas de criação recusadas com mensagens próprias, um log que o Azion CLI não devolve, tráfego que é reetiquetado depois de uma mudança de threshold, clientes legítimos recusados, tráfego que fica sob avaliação, uma função que nunca é executada e um método de escrita que pontua mais alto do que um de leitura.
+
+---
+
+## Um cliente recebe 204 e um corpo vazio
+
+Um cliente de API, um health check ou um monitor envia uma requisição e recebe `204` sem corpo, em toda tentativa. A resposta não é `403`, então ela não se lê como um bloqueio. Também não é `200`, então nada do que o cliente pediu chega.
+
+O Bot Manager responde `204` a uma requisição que ele não classifica. A resposta não carrega corpo e carrega dois cabeçalhos `Set-Cookie`:
+
+```text
+HTTP/2 204
+x-azion-request-id: 6aa486762f0a7e6dd84b3e63b5dd4ad4
+set-cookie: az_asm=<84-character opaque signed value>; Domain=<your-workload-domain>; Path=/; Max-Age=86400; Secure; HttpOnly; SameSite=Lax
+set-cookie: az_botm=6aa486762f0a7e6dd84b3e63b5dd4ad4; Domain=<your-workload-domain>; Path=/; Max-Age=86400; Secure; HttpOnly; SameSite=Lax
+```
+
+`az_botm` guarda o `x-azion-request-id` dessa mesma resposta, e `az_asm` guarda um valor assinado opaco. Os dois têm escopo no domínio do workload, com `Path=/`, `Max-Age=86400`, `Secure`, `HttpOnly` e `SameSite=Lax`. Um cliente que não executa JavaScript e não guarda cookies não apresenta nenhum dos dois. Para o mecanismo por trás do par, consulte [Como Bot Manager funciona](/pt-br/documentacao/secure/bot-manager/como-funciona/#cookies-de-sessao).
+
+- **Leia o `204` como uma resposta própria, não como um bloqueio**: a ação `deny` responde `403` e serve a página de erro padrão da Azion. Um `204` sem corpo e com dois cabeçalhos `Set-Cookie` vem de outra decisão.
+- **Não reenvie o par para passar por ele**: a Azion enviou três requisições sequenciais carregando um par de um `204` anterior, e as três foram respondidas com `204`. Uma requisição com formato de navegador que havia passado sem cookie nenhum foi respondida com `204` depois que um par velho foi anexado a ela, então apresentar uma assinatura que não confere custa mais do que não apresentar nenhuma.
+- **Mantenha o cliente fora dos critérios da regra**: a regra do Rules Engine decide quais requisições alcançam a instância, e um critério que não corresponde ao caminho do cliente mantém esse cliente sem pontuação. Para mais informações, consulte [Rules Engine for Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/).
+- **Verifique o formato da requisição antes de mudar um threshold**: no `threshold` padrão de `30`, o `curl` sem user agent e o `curl` com o seu user agent padrão foram ambos respondidos com `204`, enquanto uma requisição com formato de navegador alcançou a aplicação.
+
+Um cliente que a regra deixa de corresponder passa então a alcançar a aplicação, e um `204` em um cliente que continua sendo pontuado identifica uma requisição que a função não classificou, não uma que ela recusou.
+
+---
+
+## Uma mudança de argumento parece não ter efeito
+
+Você muda `threshold` ou `action` na instância, envia a mesma requisição de novo e a plataforma responde exatamente como respondia antes da mudança.
+
+Uma mudança de instância leva cerca de dois minutos para alcançar o caminho da requisição. A Azion mudou uma instância de `action: allow` para `action: deny` e consultou o workload a cada 15 segundos: as tentativas 1 a 7 foram respondidas com `404` pela aplicação, e a tentativa 8 foi respondida com `403`. Isso dá cerca de 105 segundos. Um novo teste enviado poucos segundos depois da mudança mede a propagação, não a configuração.
+
+- **Espere cerca de dois minutos e teste de novo**: uma resposta que não mudou dentro dessa janela ainda não é evidência de nada.
+- **Leia a instância de volta para confirmar que a mudança foi armazenada**: `azion describe firewall-instance --firewall-id <firewall-id> --instance-id <instance-id> --format json` devolve o objeto como a plataforma o guarda:
+
+```json
+{
+ "active": true,
+ "args": { "action": "deny", "log_tag": "storefront-bots", "threshold": 10 },
+ "azion_form": {},
+ "function": 56309,
+ "id": 15825,
+ "name": "storefront-bots"
+}
+```
+
+- **Separe a propagação de uma chave que a função não lê**: uma mudança que está armazenada, e ainda não tem efeito dois minutos depois, é candidata ao modo de falha silenciosa. Para os nomes que a função lê, consulte [Argumentos](/pt-br/documentacao/secure/bot-manager/argumentos/#campos).
+
+O novo teste passa então a medir a configuração, e a resposta muda na tentativa seguinte à chegada da mudança.
+
+---
+
+## Um argumento não tem efeito e nenhum erro é devolvido
+
+Um argumento que você definiu é armazenado, é lido de volta exatamente como você digitou e a função se comporta como se ele não existisse. Nenhuma interface reporta nada, em momento nenhum.
+
+O objeto de argumentos não é validado. A Azion enviou 21 chaves em um payload, incluindo uma `totally_bogus_key_xyz` deliberada, e as 21 foram armazenadas e devolvidas byte a byte. Nada é rejeitado, convertido ou descartado. Um nome escrito errado cria, portanto, uma chave que a função nunca lê: `thresold: 5` deixa o threshold no seu padrão de `30` e não levanta erro.
+
+Ler a instância também não mostra os valores em vigor. Uma instância criada com um objeto vazio armazena `{}`, porque os padrões da função são aplicados quando ela é executada, em vez de copiados para o registro.
+
+- **Compare as chaves armazenadas com a lista de argumentos**: o Bot Manager Lite entrega um padrão para `action`, `bad_fingerprint_list`, `disabled_rules`, `good_fingerprint_list`, `internal_logs`, `log_headers`, `log_tag` e `threshold`. Para cada argumento que cada edição documenta, consulte [Argumentos](/pt-br/documentacao/secure/bot-manager/argumentos/#campos).
+- **Verifique o tipo JSON, além do nome**: a API armazena o tipo que recebe, sem conversão, então um número enviado como string continua string.
+- **Não leia um objeto `args` vazio como uma instância não configurada**: ela é executada com os padrões da própria função, que são `threshold: 30` e `action: deny` no Bot Manager Lite.
+- **Confirme o efeito no log de report, não no objeto armazenado**: os campos `score`, `classified` e `action` de uma linha de report mostram o que a função fez com uma requisição. Para mais informações, consulte [Logs](/pt-br/documentacao/secure/bot-manager/logs/#campos).
+
+O objeto armazenado passa então a carregar apenas chaves que a função lê, e uma mudança em uma delas aparece na próxima linha de report.
+
+---
+
+## Uma instância é recusada pelo runtime da função
+
+A criação da instância de função é recusada, e a mensagem nomeia um runtime:
+
+```text
+Error: failed to create the Firewall Function Instance: ["Invalid edge function runtime. You should use a function designed for Edge Firewall."]
+```
+
+A função que você nomeou é executada no ambiente de execução de aplicação. Um firewall instancia apenas uma função cujo `execution_environment` é `firewall`, e o Bot Manager Lite chega do Marketplace com esse valor já definido.
+
+- **Leia o ambiente de execução da função**: `azion describe function --function-id <function-id> --format json` devolve `execution_environment`, `vendor`, `version` e `azion_form`. A função instalada do Bot Manager Lite devolve `firewall`, `Azion` e `0.2.0`.
+- **Declare `firewall` quando criar uma função sua**: `azion create function --execution-environment firewall`. O texto de ajuda do próprio flag documenta `edge_application` e `edge_firewall`, e a API recusa os dois:
+
+```text
+Error: Failed to create function: ["\"edge_firewall\" is not a valid choice."]. Check your settings and try again. If the error persists, contact Azion support
+```
+
+- **Confirme que você nomeou a função do Bot Manager Lite**: ela aparece na lista de funções da conta assim que a instalação pelo Marketplace termina, como `Bot Manager Lite v0.2.0`.
+
+A chamada passa então a devolver o identificador da instância que criou, no formato `Created Firewall Function Instance with ID 15825`.
+
+---
+
+## Uma instância é recusada porque a função não foi encontrada
+
+A criação da instância de função é recusada, e a mensagem não nomeia mais nada:
+
+```text
+Error: failed to create the Firewall Function Instance: ["The function was not found."]
+```
+
+O id passado em `--function-id`, ou em `function` no corpo da API, não nomeia nenhuma função na conta. A Azion passou `--function-id 99999999` e recebeu essa mensagem. A recusa é sobre existência, e a recusa `Invalid edge function runtime` é sobre uma função que existe no ambiente de execução errado.
+
+- **Liste as funções da conta e copie o id da lista**: `azion list function --format json` devolve uma linha por função, com o id primeiro:
+
+```text
+53145  Bot Manager Lite v0.2.0  true
+```
+
+- **Mantenha os dois identificadores separados**: a instância recebe o id da **função**, e a regra do Rules Engine que a executa recebe o id da **instância**.
+
+A chamada passa então a devolver o identificador da instância que criou.
+
+---
+
+## Uma regra é recusada porque a instância não foi encontrada
+
+A criação da regra do Rules Engine que executa a instância é recusada, e a mensagem cita o número que ela não conseguiu resolver:
+
+```text
+Error: failed to create the Firewall Rule: ["Function Instance '99999999' not found."]
+```
+
+O comportamento `run_function` carrega o id da **instância** de função naquele firewall, no seu atributo `value`. Um número que nenhuma instância daquele firewall carrega é recusado com essas palavras, qualquer que seja o que ele identifique.
+
+- **Leia o id da instância na lista do próprio firewall**: `azion list firewall-instance --firewall-id <firewall-id> --format json` devolve as instâncias que aquele firewall guarda, e `azion create firewall-instance` imprime o id de uma nova.
+- **Use a chave `type` no comportamento, não `name`**: um objeto de comportamento com a chave `name` é recusado com `Failed to decode the given 'json' file`, que não nomeia nem o campo nem o motivo. O arquivo é JSON válido; a chave é que está errada.
+- **Envie o comportamento no formato que a plataforma devolve**: `value` guarda o id da instância, e a plataforma atribui `order` por conta própria:
+
+```json
+{
+  "name": "Run Bot Manager on every request",
+  "active": true,
+  "criteria": [
+    [
+      { "variable": "${request_uri}", "conditional": "if", "operator": "starts_with", "argument": "/" }
+    ]
+  ],
+  "behaviors": [
+    { "type": "run_function", "attributes": { "value": 15842 } }
+  ]
+}
+```
+
+A chamada passa então a devolver o identificador da regra que criou, no formato `Created Firewall Rule with ID 132152`, e uma leitura de volta carrega o comportamento com `order` acrescentado.
+
+---
+
+## Uma chamada de criação é recusada pelo comprimento do nome ou pelo tamanho do payload
+
+A criação da instância de função é recusada por um de dois limites, e a mensagem nomeia o limite que foi alcançado:
+
+```text
+Error: failed to create the Firewall Function Instance: ["Ensure this field has no more than 100 characters."]
+Error: failed to create the Firewall Function Instance: ["Value size (in bytes) is too big. Maximum size allowed is 100000 bytes."]
+```
+
+O nome da instância guarda 100 caracteres e o payload de argumentos guarda 100.000 bytes. A Azion mediu os dois por bisseção: um nome de 100 caracteres criou uma instância e 101 foi recusado, e um payload de 100.000 bytes criou uma instância enquanto 100.001 foi recusado.
+
+- **Dimensione o payload em bytes decimais**: o limite é 100.000 bytes, então um payload de 102.400 bytes, que é 100 KiB, é recusado.
+- **Meça o objeto inteiro**: o limite se aplica ao objeto de argumentos como um valor só, então os arrays dentro dele são o que leva um payload perto do limite.
+- **Não leia nenhuma das duas recusas como um teto de instâncias**: um firewall recebeu doze instâncias criadas uma depois da outra, e a plataforma aceitou todas as chamadas. Para os dois limites com a resposta que cada um devolve, consulte [Limites de Bot Manager](/pt-br/documentacao/secure/bot-manager/limites/).
+
+A chamada passa então a devolver o identificador da instância que criou.
+
+---
+
+## Azion CLI não devolve linhas de log
+
+`azion logs cells --function-id <function-id>` e `azion logs http` não devolvem nada, com e sem filtros, enquanto a instância pontua tráfego real.
+
+O caminho pela CLI ficou vazio durante toda a execução da própria Azion, antes e depois do tráfego real, em uma conta cuja função escreveu linhas o tempo todo. As mesmas linhas voltaram minutos depois pelo dataset `functionConsoleEvents`. Um resultado vazio pela CLI não estabelece, portanto, que a função não escreveu nada.
+
+- **Consulte `functionConsoleEvents` para resolver isso**: envie a consulta para `https://api.azion.com/v4/events/graphql` com um cabeçalho `Authorization: Token [TOKEN VALUE]`:
+
+```graphql
+{
+  functionConsoleEvents(
+    limit: 200
+    filter: { tsRange: { begin: "2026-09-21T11:30:00", end: "2026-09-21T13:00:00" } }
+    orderBy: [ts_ASC]
+  ) {
+    ts
+    line
+    level
+    lineSource
+    functionId
+    configurationId
+  }
+}
+```
+
+A consulta responde `200` e devolve um registro por linha que a função escreveu. `line` carrega a linha de report inteira, que abre com `[Bot-Protection][<log_tag>] Report:` e continua como um objeto JSON. Para cada campo que esse objeto guarda, consulte [Logs](/pt-br/documentacao/secure/bot-manager/logs/#campos).
+
+- **Relacione os registros à instância pela `log_tag`**: o segundo colchete do prefixo carrega esse valor. Duas instâncias que mantêm o `bot-manager-instance` entregue são indistinguíveis nos logs, então dê a cada instância uma tag própria.
+- **Não filtre pelo id do firewall**: `functionId` é o id da função instalada e `configurationId` é o id do **workload** em que a requisição chegou, não o firewall em que a instância é executada.
+- **Verifique `internal_logs` antes de concluir que a função está silenciosa**: ele decide para quais requisições a função escreve uma linha, e é entregue em `0`. Para os valores que ele assume, consulte [Argumentos](/pt-br/documentacao/secure/bot-manager/argumentos/#campos).
+
+A consulta passa então a devolver as linhas que a função escreveu, e um resultado vazio da própria consulta é evidência de que ela não escreveu nenhuma.
+
+---
+
+## Uma mudança de threshold reetiqueta tráfego que já foi pontuado
+
+Você muda `threshold`, e `classified` se lê de outro jeito em tráfego cuja pontuação não mudou. Um dashboard dividido por classificação se move sem nenhuma mudança nas requisições que chegam a ele.
+
+`classified` é um veredito relativo ao threshold em vigor, não uma propriedade independente da requisição. A Azion observou a mesma pontuação de `28`, dos mesmos `matched_rules` de `[1, 10, 18, 19, 20]`, registrada como `legitimate` sob um threshold de 30 e como `bad bot` sob um threshold de 1. Elevar um threshold impede a ação e reetiqueta o tráfego junto.
+
+- **Compare duas janelas por `score` e `matched_rules`**: essas são propriedades da requisição. `classified` é uma propriedade da requisição e do threshold juntos.
+- **Espere que as contagens de classificação se movam depois de uma mudança de ajuste**: os gráficos agregam o mesmo campo. Para os quatro valores que ele assume, consulte [Logs](/pt-br/documentacao/secure/bot-manager/logs/#classificacao).
+- **Não leia `threshold: 0` como um bloqueio geral**: em `0` toda requisição está no threshold ou acima dele, então a ação configurada é executada. Com `action: allow` isso significa que nada é bloqueado e toda requisição é pontuada.
+
+A comparação passa então a se apoiar na pontuação e nas regras que a produziram, e a classificação se lê como o veredito que o threshold em vigor devolveu.
+
+---
+
+## Usuários legítimos são recusados
+
+Uma requisição de um usuário real, ou de um crawler que você quer, é respondida com `403` e a página de erro padrão da Azion.
+
+O padrão entregue não é a causa. Em `threshold: 30` com `action: deny`, uma requisição com formato de navegador — um user agent do Chrome, `Accept`, `Accept-Language`, `Accept-Encoding`, quatro cabeçalhos `Sec-Fetch-*` e `Upgrade-Insecure-Requests` — alcançou a aplicação, enquanto o `curl` sem user agent e o `curl` com o seu user agent padrão foram ambos respondidos com `204`. Um navegador recusado alcançou o threshold pelas regras que correspondeu.
+
+Confirme quais regras fizeram isso antes de mudar qualquer coisa. Leia as linhas de report cujo `classified` é `legitimate` e cujo `score` fica perto do threshold, e depois leia `matched_rules` nessas linhas. No Real-Time Metrics, uma queda súbita em **Good Bot Hits** é o sinal de que crawlers que você quer estão sendo recusados, e uma taxa baixa de resolução em **Bot CAPTCHA** é o sinal contrário, de que os clientes desafiados são bots.
+
+- **Desabilite uma regra pelo ID que os seus próprios logs nomeiam**: `disabled_rules` recebe os IDs no Bot Manager Lite, e `disabled_static_rules` os recebe no Bot Manager. Os IDs vêm de `matched_rules` na requisição recusada, não de uma lista publicada. Para os dois argumentos, consulte [Argumentos](/pt-br/documentacao/secure/bot-manager/argumentos/#regras-desabilitadas).
+- **Eleve o threshold quando os falsos positivos estão espalhados por muitas regras**: um threshold mais alto reduz a parcela de requisições que alcançam a ação, o que uma regra desabilitada não faz.
+- **Deixe passar um cliente confiável pelo fingerprint dele**: `good_fingerprint_list` guarda os fingerprints que a função deixa passar, e o campo `fingerprint` de uma linha de report é onde você lê um.
+- **Pontue sem agir enquanto mede**: uma instância em `action: allow` pontua toda requisição e não aplica nada, então o log de report se enche sem um usuário recusado. Para o ciclo em que isso se encaixa, consulte [Boas práticas de Bot Manager](/pt-br/documentacao/secure/bot-manager/boas-praticas/).
+
+A requisição passa então a alcançar a aplicação, e uma regra que você desabilitou para de somar à pontuação em todo lugar.
+
+---
+
+## O tráfego fica em under evaluation
+
+Uma parcela grande das requisições é classificada como `under evaluation`, e a parcela não cai durante a janela que você observa.
+
+`under evaluation` é o veredito que a função registra quando não identificou um bot e ainda não tem dados de fingerprint suficientes para descartar um ataque. Duas causas produzem um volume alto dele. Uma é uma enxurrada de visitantes de primeira vez, depois de uma campanha ou de um lançamento, cada um chegando com um fingerprint que a função não viu. A outra é um cliente que alterna endereços IP e user agents, o que é uma técnica de evasão que vale investigar.
+
+- **Leia a proporção, não a contagem**: o gráfico **Bot Traffic** divide o tráfego entre legítimo, good bot, bad bot e under evaluation, então uma alta em uma parcela é legível contra as outras três. Para mais informações, consulte [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/#bot-manager).
+- **Alinhe a janela com um lançamento ou uma campanha**: uma onda de visitantes novos eleva a parcela por si só, e ela cai conforme os fingerprints deles são consolidados.
+- **Trate uma parcela persistente com endereços alternados como evasão**: os fingerprints nunca se repetem, então nenhum cliente fica tempo suficiente para ser situado.
+- **Não conte uma linha sob avaliação como tráfego limpo nem como tráfego de bot**: ela é uma ausência de evidência, não um achado. Para mais informações, consulte [Logs](/pt-br/documentacao/secure/bot-manager/logs/#under-evaluation).
+
+A parcela passa então a se ler como o tráfego que a função não situou, e um pico nela é atribuído a visitantes novos ou à alternância, não a uma mudança de configuração.
+
+---
+
+## Nenhuma linha de report nomeia uma requisição que você espera que a função pontue
+
+Uma requisição que você espera que a instância pontue alcança a aplicação intacta, e nenhuma linha de report a carrega. Os dashboards do Bot Manager não reportam contagem para a janela.
+
+O firewall executou as suas regras e nenhuma delas chamou a instância. Os dashboards são construídos a partir da saída da própria função, então uma contagem de zero em uma janela que teve tráfego de bots é compatível com uma função que nunca foi executada, e não com tráfego limpo. Um pico em **Bad Bot Hits** significa o oposto: a função está sendo executada, e uma campanha de ataque está ativa.
+
+O Debug Rules registra quais regras do Rules Engine foram executadas para cada requisição, e em que ordem em relação às outras regras do firewall. Ligue-o no Azion Console pela página **Firewalls**: selecione o firewall, vá até a aba **Main Settings** e ligue o interruptor **Active** da seção **Debug Rules**. Para mais informações, consulte [Como configurar as main settings do Firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/firewall-definir-main-settings/).
+
+- **Leia as regras executadas em `$traceback` ou `stacktrace`**: o campo é `$traceback` no Data Stream e no Real-Time Events, e a variável é `stacktrace` na GraphQL API. Os dois carregam os mesmos dados:
+
+```json
+{"stacktrace": "{\"edge_firewall\":[\"Bot Manager Lite Rule\",\"Set WAF\"]}"}
+```
+
+- **Corrija os critérios quando o nome da regra está ausente desse registro**: a regra não correspondeu à requisição. Revise os critérios dela na aba **Rules Engine**.
+- **Não baseie o critério na query string**: `${request_args}` `matches` `.*` não corresponde a uma requisição que não carrega query string, então uma regra construída assim pula todo `POST` cujo payload está no corpo. `${request_uri}` `starts_with` `/` corresponde a toda requisição. Para mais informações, consulte [Rules Engine for Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/).
+- **Leia onde o tráfego chega assim que a função é executada**: **Top Impacted URLs** nomeia os endpoints que mais recebem tráfego de bots, **Bot Activity Map** a geografia de onde ele vem e **Top Bad Bot IPs** os endereços que se repetem. Uma Network List construída a partir desse último gráfico eleva a pontuação de uma requisição correspondente por meio de `reputation_network_lists`. Para mais informações, consulte [Network Lists](/pt-br/documentacao/secure/network-shield/network-lists/).
+
+A regra passa então a aparecer no registro de regras executadas, e toda requisição que ela corresponde produz uma linha de report.
+
+---
+
+## As regras 18 a 26 do Bot Manager Lite produzem falsos positivos
+
+Requisições que você sabe serem legítimas carregam entradas de `matched_rules` entre 18 e 26, e as pontuações delas ficam no threshold ou acima dele.
+
+As regras 18 a 26 chegaram no Bot Manager Lite v0.2.0 sem calibração prévia, e a referência informa que elas podem gerar falsos positivos. Três delas leem um cabeçalho cada: a regra `18` pontua um `Sec-Fetch-Mode` vazio, a regra `19` um `Sec-Fetch-Dest` vazio e a regra `20` um `Sec-Fetch-Site` vazio, a 4 pontos cada. Um cliente que não envia nenhum dos três acumula 12 pontos antes de qualquer coisa sobre o comportamento dele ser pontuada. A Azion mediu uma requisição `curl` correspondendo a `[1, 10, 18, 19, 20]` com uma pontuação de `28`, que é a soma exata dos incrementos publicados dessas cinco regras.
+
+- **Mantenha a instância em `action: allow` até as regras estarem calibradas para o seu tráfego**: monitore o log de report e defina `disabled_rules` antes de passar para uma ação de bloqueio.
+- **Desabilite pelo ID que os seus próprios logs nomeiam**: `disabled_rules` recebe os IDs das regras, e `matched_rules` é onde você os lê. Para cada regra com a categoria a que pertence e a pontuação que soma, consulte [Bot Manager Lite](/pt-br/documentacao/secure/bot-manager/bot-manager-lite/#regras).
+- **Leia quais categorias dominam a janela**: o gráfico **Top Bot Classifications** agrupa por `bot_category`, que é uma lista unida por vírgula derivada das classes das regras que correspondem. Uma janela dominada por uma classe aponta para as regras dentro dela.
+- **Confira a aritmética contra a tabela de regras**: os incrementos publicados reproduzem uma pontuação medida com exatidão, então uma pontuação que você não consegue explicar significa que as regras correspondidas não são as que você presumiu.
+
+As regras correspondidas passam então a explicar a pontuação, e uma regra que você desabilita para de somar a ela.
+
+---
+
+## Um POST, PUT ou PATCH pontua mais alto do que o esperado
+
+Um `POST`, `PUT` ou `PATCH` de um cliente que você controla pontua mais alto do que um `GET` do mesmo cliente, e os seus `matched_rules` carregam 15, 16 ou 17.
+
+Três regras do Bot Manager Lite leem o par de cookies de sessão em um método de escrita. A regra `15` soma 8 pontos quando o método é `POST`, `PUT` ou `PATCH` e `az_botm` está ausente. A regra `16` soma 8 para os mesmos métodos com `az_asm` ausente. A regra `17` soma 16 em uma violação de integridade do cookie de sessão. Um cliente que não guarda cookies dispara, portanto, 15 e 16 juntas em toda escrita, e um que envia um par cujas duas metades divergem dispara a 17.
+
+- **Guarde o par no cliente e envie-o na escrita**: os dois cookies são `Path=/`, `Max-Age=86400`, `Secure`, `HttpOnly` e `SameSite=Lax`, com escopo no domínio do workload.
+- **Não envie um par de outra sessão**: anexar um par velho a uma requisição com formato de navegador que de outro modo passava transformou essa requisição em um `204`.
+- **Desabilite as três regras para um cliente que não pode carregar cookies**: `disabled_rules` recebe os IDs delas, o que deixa o resto do conjunto pontuando a requisição. Para as três regras e as pontuações delas, consulte [Bot Manager Lite](/pt-br/documentacao/secure/bot-manager/bot-manager-lite/#regras).
+- **Leia o mecanismo antes de ajustar em volta dele**: `az_asm` é uma cópia assinada de `az_botm`, e a regra `17` é o que pontua uma divergência entre os dois. Para mais informações, consulte [Como Bot Manager funciona](/pt-br/documentacao/secure/bot-manager/como-funciona/#cookies-de-sessao).
+
+O método de escrita passa então a pontuar como o de leitura, e uma entrada de `matched_rules` de 15, 16 ou 17 identifica um cliente que não está carregando a sua sessão.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Argumentos" href="/pt-br/documentacao/secure/bot-manager/argumentos/">Cada argumento que estas correções definem, com o tipo, o padrão e os valores que cada um assume.</DocItem>
+  <DocItem title="Logs" href="/pt-br/documentacao/secure/bot-manager/logs/">A linha de report que os diagnósticos leem, campo por campo, e os quatro valores que `classified` assume.</DocItem>
+  <DocItem title="Bot Manager Lite" href="/pt-br/documentacao/secure/bot-manager/bot-manager-lite/">As 26 regras cujos IDs aparecem em `matched_rules`, cada uma com a sua categoria e a sua pontuação.</DocItem>
+  <DocItem title="Como Bot Manager funciona" href="/pt-br/documentacao/secure/bot-manager/como-funciona/">A pontuação por trás do campo `score` e o par de cookies de sessão que o `204` deixa.</DocItem>
+  <DocItem title="Limites de Bot Manager" href="/pt-br/documentacao/secure/bot-manager/limites/">O comprimento do nome e o tamanho do payload por trás das duas recusas de criação.</DocItem>
+  <DocItem title="Boas práticas de Bot Manager" href="/pt-br/documentacao/secure/bot-manager/boas-praticas/">O ciclo de calibração que transforma um log de report de volta em um threshold e uma ação.</DocItem>
+  <DocItem title="Rules Engine for Firewall" href="/pt-br/documentacao/plataforma/firewall/rules-engine/">A regra que chama a instância, e os critérios que decidem quais requisições a alcançam.</DocItem>
+  <DocItem title="Monitore e calibre o Bot Manager" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/monitorar-e-calibrar-bot-manager/">O procedimento para ler os logs e os dashboards para os quais estes sintomas apontam.</DocItem>
+</ItemList>
+</FrameBox>

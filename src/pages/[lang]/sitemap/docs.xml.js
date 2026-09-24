@@ -1,20 +1,25 @@
-import { allPages } from "~/content";
-import { removeTrailingSlash, removeLeadingSlash } from "~/util";
-import { groupPagesByLang } from "~/util/groupPagesByLang";
+import { allPages } from '~/content';
+import { removeTrailingSlash, removeLeadingSlash } from '~/util';
+import { groupPagesByLang } from '~/util/groupPagesByLang';
+import { withDocsHome } from '~/data/docs-home';
 
-const langs = ['en', 'pt-br']
-const data = {}
-const pagesData = groupPagesByLang(allPages)
+const langs = ['en', 'pt-br'];
+const data = {};
+// The docs home is a page in `src/pages`, not a collection entry, so it is
+// merged back in here to keep it in the sitemap.
+const pagesData = withDocsHome(groupPagesByLang(allPages));
 
 langs.forEach((lang) => {
-	if (!pagesData[lang]) return
-	data[lang] = pagesData[lang].map(page => {
+	if (!pagesData[lang]) return;
+	data[lang] = pagesData[lang].map((page) => {
 		return {
 			noindex: false,
-			url: `https://www.azion.com/${lang}/${removeTrailingSlash(removeLeadingSlash(page.data.permalink))}/`
-		}
-	})
-})
+			url: `https://www.azion.com/${lang}/${removeTrailingSlash(
+				removeLeadingSlash(page.data.permalink)
+			)}/`,
+		};
+	});
+});
 
 function createXml(data) {
 	let xml = '';
@@ -36,22 +41,18 @@ function createXml(data) {
 	xml += contentXML;
 	xml += footerXML;
 
-
 	let response = new Response(xml.trim());
 	response.headers.set('Content-Type', 'application/xml; charset=utf-8');
 
-	return response
+	return response;
 }
 
 export async function GET({ params }) {
-	const lang = params.lang ? params.lang : 'en'
-	const response = createXml(data[lang])
-	return response
+	const lang = params.lang ? params.lang : 'en';
+	const response = createXml(data[lang]);
+	return response;
 }
 
 export function getStaticPaths() {
-	return [
-		{ params: { lang: "en" } },
-		{ params: { lang: "pt-br" } }
-	]
+	return [{ params: { lang: 'en' } }, { params: { lang: 'pt-br' } }];
 }

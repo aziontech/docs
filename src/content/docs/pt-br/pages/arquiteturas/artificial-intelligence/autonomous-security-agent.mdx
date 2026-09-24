@@ -1,204 +1,85 @@
 ---
-title: "AI Inference para proteção em uploads de arquivos"
+title: Inspeção autônoma de uploads com AI Inference
 description: >-
-  Implemente um Azion AI Agent de segurança autônoma para inspecionar em tempo
-  real uploads de PDF, detectar ataques de PDF Injection e mitigar automaticamente
-  riscos em aplicações web.
-meta_tags: >-
-  inteligência artificial, segurança autônoma, pdf injection, file upload, waap,
-  firewall, agente de ia, ai agents, web application security, cisos
+  Inspecione um upload de PDF com um modelo no caminho da requisição, para que
+  uma função no Firewall bloqueie um arquivo malicioso antes que a origem o
+  receba.
+meta_tags: 'AI Inference, autonomous security, file upload, PDF injection, firewall, WAF, reference architecture, security function, quarantine'
 namespace: ai_agent_autonomous_security
-permalink: /documentacao/arquiteturas/inteligencia-artificial/ai-agent-seguranca-autonoma/
+permalink: /documentacao/guias/ai/inferencia/ai-agent-seguranca-autonoma/
 ---
 
-import LinkButton from 'azion-webkit/linkbutton';
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
 
-Este documento apresenta um caso de uso específico de análise de arquivos como exemplo de aplicação do **Azion AI Inference** para segurança autônoma. Existem diversos outros cenários nos quais agentes autônomos podem reforçar a segurança de aplicações e APIs.
+Um endpoint de upload aceita um arquivo que ninguém leu. O PDF é o caso difícil. O formato é um contêiner, então um cabeçalho válido pode estar na frente de código embutido, macros ou links maliciosos. Regras que casam com a requisição não veem nada disso, porque a evidência está dentro do payload.
 
-O **Azion AI Inference** aplicado à segurança autônoma atua como um **co-processador inteligente de segurança** no edge, analisando **conteúdo e contexto** dos uploads de arquivos em tempo real, detectando comportamentos maliciosos e **mitigando automaticamente** antes que o arquivo chegue à aplicação de origem.
+Esta arquitetura lê o payload antes da origem. Uma função em execução no Firewall extrai o arquivo enviado, chama um modelo através de AI Inference e aplica o veredito na mesma requisição. O modelo atua como um co-processador de segurança. Ele lê o conteúdo e o contexto do upload em tempo real, e um arquivo que não passa na verificação nunca chega à aplicação.
+
+A inspeção de PDF é um exemplo prático de análise de arquivos. A mesma forma, uma função no Firewall que chama um modelo e age sobre a resposta, cobre outros cenários de segurança autônoma. Ela serve sempre que uma decisão depende do que a requisição carrega, e não de onde ela veio.
+
+[Como AI Inference funciona](/pt-br/documentacao/build/ai-inference/como-funciona/) cobre uma única chamada de modelo. Esta página descreve a arquitetura de segurança construída em torno de uma dessas chamadas.
 
 ---
 
+## Diagrama de arquitetura
 
-## Diagrama de arquitetura do AI Inference de Segurança Autônoma para uploads de PDF
+O diagrama acompanha um upload do usuário até o veredito e de volta:
 
+```mermaid
+flowchart LR
+  User["Usuário envia um upload de PDF por HTTPS"] -->|"Respondido pelo data center mais próximo"| FW["Firewall aplica regras de DDoS Protection, Web Application Firewall e Network Shield"]
+  FW -->|"Rules Engine casa com a rota de upload"| Fn["A função extrai o arquivo e monta a chamada de modelo"]
+  Fn -->|"Chama o modelo com Azion.AI.run"| AI["AI Inference lê os metadados, o payload e o contexto da requisição"]
+  AI -->|"Retorna um veredito, malicioso ou seguro"| Fn
+  Fn -->|"Bloqueado, resposta segura retornada"| User
+  Fn -->|"Arquivo bloqueado guardado para revisão"| Store["Object Storage guarda os uploads em quarentena"]
+  Fn -->|"Permitido, a requisição continua"| App["A aplicação e a origem recebem o upload"]
+  FW -->|"Cada requisição e cada decisão registradas"| Obs["Observe reporta bloqueios, anomalias e volume de uploads"]
+```
 
-![Arquitetura do Azion AI Inference de Segurança Autônoma para uploads de PDF](/assets/docs/images/uploads/diagram-ai-autonomous-security.png)
+Leia o diagrama a partir da função no centro. Tudo à esquerda dela é uma política de firewall comum, decidida pelo envelope da requisição: de onde ela veio, os cabeçalhos, a taxa. A função é onde a arquitetura para de ler o envelope e começa a ler o arquivo. Tudo à direita dela decorre de uma única resposta, então a chamada de modelo é a única dependência nova que esta arquitetura acrescenta ao caminho da requisição. Um upload bloqueado nunca chega à origem, então a origem não recebe nada do tráfego que a política rejeita.
 
 ### Fluxo de dados
 
-1. Um usuário envia uma requisição HTTP(S) para a aplicação web contendo um **upload de arquivo PDF**.  
-2. A requisição chega à **Azion Web Platform** e é roteada para o **edge node** mais próximo.  
-3. O **Firewall** processa a requisição, aplicando:
-   - Regras de **DDoS Protection**.  
-   - Regras de **WAF e Network Shield**, se configuradas.  
-4. Antes de encaminhar a requisição à origem, o **Rules Engine do Firewall** aciona uma **Function de segurança** que implementa o segurança autônoma **usando o Azion AI Inference** para inspeção de upload:
-   - O AI Inference verifica metadados do arquivo (tamanho, tipo, estrutura interna).  
-   - Analisa o **payload do PDF** à procura de:
-     - Objetos suspeitos e código embutido.  
-     - Padrões de **PDF Injection**, scripts, macros e links maliciosos.  
-     - Inconsistências na estrutura do documento que indiquem tentativa de exploração.  
-   - Correlaciona com contexto da requisição e políticas definidas.  
-5. Com base na decisão do AI Inference:
-   - **Bloqueia** a requisição e retorna uma resposta segura ao usuário (ex.: erro genérico, mensagem de arquivo inválido).  
-   - **Permite** o upload e encaminha a requisição para a aplicação e, eventualmente, para a origem.  
-6. Toda a atividade é registrada e pode ser acompanhada pelos produtos **Observe** (Real-Time Events, Real-Time Metrics, Data Stream, GraphQL API).
+Uma requisição percorre a arquitetura nesta ordem:
+
+1. Um usuário envia uma requisição HTTPS com um upload de PDF. O data center mais próximo dele responde a requisição.
+2. Firewall processa a requisição. Ele aplica regras de DDoS Protection e, onde você as configurou, regras de Web Application Firewall e Network Shield Protection.
+3. Antes que a requisição chegue à origem, uma regra do Rules Engine na rota de upload aciona a função de segurança. A função extrai o arquivo e monta a chamada de modelo.
+4. AI Inference inspeciona o upload. Ele verifica os metadados do arquivo: tamanho, tipo e estrutura interna. Em seguida, lê o payload em busca de objetos suspeitos, código embutido, padrões de PDF Injection, scripts, macros, links maliciosos e inconsistências estruturais que indiquem tentativa de exploração. Ele correlaciona o resultado com o contexto da requisição e com as políticas que você definiu.
+5. A função aplica o veredito. Ela bloqueia um upload malicioso e retorna uma resposta segura, como um erro genérico ou uma mensagem de arquivo inválido. Um upload seguro segue para a aplicação e depois para a origem.
+6. Firewall registra cada requisição e cada decisão, e os produtos Observe carregam esse registro.
 
 ---
 
 ## Componentes
 
-
-- **[Firewall](/pt-br/documentacao/produtos/secure/firewall/)**  
-  Camada de proteção que aplica políticas de segurança na borda da rede:
-  - **DDoS Protection** para mitigar ataques volumétricos.  
-  - **Web Application Firewall (WAAP)** para proteger contra OWASP Top 10, incluindo vetores relacionados a upload e manipulação de conteúdo.  
-  - **Network Shield** para bloquear origens suspeitas por IP, ASN ou geolocalização.  
-
-- **[Functions](/pt-br/documentacao/produtos/secure/firewall/functions/)**  
-  Executa a função que orquestra o **Azion AI Inference de Segurança Autônoma**:
-  - Recebe a requisição e extrai o arquivo PDF.  
-  - Invoca o agente de IA para análise de payload.  
-  - Aplica as decisões (permitir, bloquear, quarentena, resposta customizada).
-
-- **[AI Inference](/pt-br/documentacao/produtos/ai/ai-inference/)**  
-  Conjunto de modelos de IA e lógica de decisão que:
-  - Opera em tempo real, no edge.  
-  - Analisa estrutura e conteúdo dos PDFs.  
-  - Aplica políticas de risco alinhadas a requisitos de **GRC** da organização.  
-  - Aprende com feedback humano e eventos históricos para reduzir falsos positivos.
-
-- **[Applications](/pt-br/documentacao/produtos/build/applications/)**  (Opcional)
-  Hospeda a aplicação web que consome uploads de arquivos e expõe endpoints HTTP(S) para usuários finais.
-
-- **[Object Storage](/pt-br/documentacao/produtos/store/object-storage/)** (opcional)  
-  Utilizado para:
-  - Armazenar arquivos em **quarentena** para análise posterior.  
-  - Manter amostras de treinamento para melhoria contínua do AI Inference.  
-
-- **[Observe](/pt-br/documentacao/produtos/observe/visao-geral/)**  
-  Produtos de observabilidade da Azion:
-  - **Real-Time Metrics** e **Real-Time Events** para acompanhar bloqueios, anomalias e volume de uploads.  
-  - **Data Stream** para enviar logs detalhados para SIEM, data lakes e plataformas de fraude.  
-  - **GraphQL API** para consultas avançadas e correlação de eventos de segurança.
-
-## Pré-requisitos
-
-- Conta na Azion.
-- Endpoint do AI Inference (interno ou gerenciado) com contrato de API para análise de eventos maliciosos.
-- Domínio apontado para a Azion Web Platform. (opcional)
+- [Firewall](/pt-br/documentacao/plataforma/firewall/): aplica a política de segurança pela qual um upload passa antes de qualquer inspeção. DDoS Protection absorve ataques volumétricos, e Web Application Firewall cobre o OWASP Top 10, incluindo vetores de upload e de manipulação de conteúdo. Network Shield bloqueia origens suspeitas por IP, ASN ou geolocalização. As verificações baratas executam primeiro, então o modelo só vê requisições que a política já aceitou.
+- [Functions no Firewall](/pt-br/documentacao/plataforma/firewall/functions/): executa a função que carrega a decisão. Ela recebe a requisição, extrai o PDF, invoca o modelo e aplica o resultado: permitir, bloquear, colocar em quarentena ou responder de forma customizada. A decisão fica aqui, e não na aplicação de origem, e é isso que mantém um arquivo rejeitado fora da sua própria infraestrutura.
+- [AI Inference](/pt-br/documentacao/build/ai-inference/): reúne os modelos e a lógica de decisão. Executa em tempo real sobre a estrutura e o conteúdo do PDF e aplica políticas de risco alinhadas aos requisitos de GRC da sua organização. Também aprende com feedback humano e eventos passados, e é isso que reduz a taxa de falsos positivos ao longo do tempo.
+- [Applications](/pt-br/documentacao/plataforma/applications/) (opcional): hospeda a aplicação web que consome os uploads e expõe os endpoints HTTP e HTTPS. Está marcado como opcional porque a inspeção executa no Firewall, antes que a requisição chegue a quem serve o endpoint de upload.
+- [Object Storage](/pt-br/documentacao/store/object-storage/) (opcional): armazena os arquivos mantidos em quarentena, para que um upload bloqueado possa ser reexaminado em vez de desaparecer. Também guarda as amostras de treinamento que alimentam a melhoria posterior do modelo.
+- [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/) e [Real-Time Events](/pt-br/documentacao/observe/real-time-events/): reportam bloqueios, anomalias e volume de uploads, até a requisição individual. Uma política que decide com um modelo precisa de um registro do que decidiu, porque um falso positivo é invisível de fora. Data Stream leva os logs detalhados para um SIEM, um data lake ou uma plataforma de fraude. A GraphQL API responde às consultas de correlação que uma investigação faz.
 
 ---
 
 ## Implementação
 
-### 1. Implantar a função de segurança com AI Inference
-
-Vamos criar uma **Function** que analisa requisições no Azion Firewall, utilizando IA para identificar e bloquear conteúdos maliciosos ou indesejados.
-   - Acesse o console da Azion e navegue até o serviço de Functions.
-   - Clique no botão "+ Function".
-   - Preencha o nome da Function com um nome único e descritivo.
-   - Na seção *Execution Environment*, selecione "Firewall".
-   - Vá para a aba "Code" e cole o código abaixo.
-
-
-```code 
-async function handleRequest(event) {   
-  try {     
-    const requestBody = await event.request.text();     
-    const { model, action, prompt } = event.args; // Now we only need model, action, and prompt     
-    const contentType = event.request.headers.get("content-type");      
-
-    // Allows images     
-    if (contentType && contentType.startsWith("image/")) {       
-      event.continue();       
-      return;     
-    }      
-
-    // Decodes the content if it's base64     
-    const decodedBody = contentType && contentType.includes("base64")       
-      ? atob(requestBody.split(",")[1])       
-      : requestBody;      
-
-    // Calls the model via Azion.AI.run     
-    const modelResponse = await Azion.AI.run(model, {       
-      stream: false,       
-      seed: 42,       
-      temperature: 0,       
-      max_tokens: 1024,       
-      messages: [         
-        {           
-          role: "system",           
-          content: `${prompt}`         
-        },         
-        {           
-          role: "user",           
-          content: decodedBody         
-        }       
-      ]     
-    });      
-
-    // Extracts the model's response     
-    const result = modelResponse?.choices?.[0]?.message?.content?.trim();      
-
-    if (result === "true") {       
-      event.console.warn(`[AI] ${result}`);       
-      event[action](); // Executes the action (e.g., deny)       
-      return;     
-    }   
-  } catch (err) {     
-    event.console.error("Error handling request:", err.message);     
-    event.continue();     
-    return;   
-  }    
-
-  event.continue(); // If not malicious, let it pass 
-}  
-
-// Keeps the event listener 
-addEventListener("firewall", event => {   
-  event.waitUntil(handleRequest(event)); 
-});
-```
-
-   - Agora na aba "Arguments" e cole o código abaixo.
-
-```code
-{
-  "model": "casperhansen-mistral-small-24b-instruct-2501-awq",
-  "prompt": "You are a security assistant specialized in detecting malicious PDF files. Analyze the provided content carefully and return 'true' only if you identify malicious content, such as embedded scripts, suspicious patterns, or known vulnerabilities. Do not classify a file as malicious based solely on its structure or the presence of a PDF header. If the content is safe or does not contain clear malicious indicators, return 'false'. Do not provide any additional explanation or output.",
-  "action": "deny"
-}
-```
-**Observação:** Certifique-se de que o modelo selecionado esteja disponível e configurado corretamente no ambiente Azion. Consulte os [modelos disponíveis](/pt-br/documentacao/produtos/ai/ai-inference/modelos/).
-
-### 2. Configurar o Firewall e políticas básicas
-
-- Crie um **Firewall** ou edite um existente.  
-- Para garantir total segurança, habilite os módulos: **DDoS Protection**, **Functions**, **Network Shield** e **Web Application Firewall (WAF)**.  
-- Na aba Functions Instances, instancie a função no Firewall.
-- Na aba **Rules Engine**, crie uma regra que:
-   - Seja acionada em rotas específicas de upload (ex.: `/upload`, `/documents/upload`). 
-   - **Execute a função** de AI Inference. 
-
-### 3. Observar, ajustar e evoluir o AI Inference
-
-- Use os produtos **Observe** para monitorar:
-   - Taxa de uploads bloqueados, permitidos e em quarentena.  
-   - Padrões por país, IP, ASN, rota e horário.  
-   - Eventos correlacionados com incidentes de segurança reportados.  
-- Ajuste:
-   - Sensibilidade do AI Inference.  
-   - Políticas de bloqueio vs. quarentena.  
-   - Regras do **WAF** e **Network Shield** com base nos insights coletados.  
-- Incorpore feedback dos analistas de segurança, rotulando falsos positivos/negativos para melhorar continuamente o modelo e reduzir atrito com usuários legítimos.
+- [Analise uploads de arquivos com uma função de firewall do AI Inference](/pt-br/documentacao/guias/ai/inferencia/analisar-uploads-com-ai-inference/) - constrói a função, a instancia no Firewall e configura a regra do Rules Engine que a aciona na rota de upload.
+- [Modelos de AI](/pt-br/documentacao/build/ai-inference/modelos/) - os ids que a função pode passar e o que cada modelo aceita.
+- [Invocação de modelos](/pt-br/documentacao/build/ai-inference/invocacao-de-modelos/) - o corpo da requisição que a função envia e o formato em que a resposta retorna.
 
 ---
 
-## Documentação relacionada
+## Recursos relacionados
 
-- [Implemente um assistente Copilot baseado em um agente de IA ReAct](/pt-br/documentacao/arquiteturas/inteligencia-artificial/agente-ai-assistente-copilot/)  
-- [Automação da segurança com Edge Computing](/pt-br/documentacao/arquiteturas/automacao-da-seguranca/automacao-da-seguranca-com-edge-computing/)  
-- [Acelere a modernização da segurança com edge computing](/pt-br/documentacao/arquiteturas/modernizacao-da-seguranca/modernizacao-da-seguranca-com-edge-computing/)  
-- [Proteja aplicações web e APIs com WAAP](/pt-br/documentacao/arquiteturas/edge-firewall/web-application-and-api-protection-waap/)  
-- [Produtos Observe da Azion](/pt-br/documentacao/produtos/observe/visao-geral/)
+<FrameBox>
+<ItemList>
+  <DocItem title="Como AI Inference funciona" href="/pt-br/documentacao/build/ai-inference/como-funciona/">A cadeia de invocação por trás da chamada de modelo que esta arquitetura coloca no caminho da requisição.</DocItem>
+  <DocItem title="Limites do AI Inference" href="/pt-br/documentacao/build/ai-inference/limites/">Os tetos contra os quais uma chamada de modelo executa.</DocItem>
+  <DocItem title="Functions" href="/pt-br/documentacao/build/functions/">O runtime em que a função de segurança executa, e o que o código dela pode fazer.</DocItem>
+  <DocItem title="Object Storage" href="/pt-br/documentacao/store/object-storage/">O bucket em que um upload em quarentena é gravado, e como lê-lo de volta.</DocItem>
+</ItemList>
+</FrameBox>

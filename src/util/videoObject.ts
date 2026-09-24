@@ -1,20 +1,7 @@
-/**
- * Builds a schema.org `VideoObject` JSON-LD node for a video embedded on a
- * documentation page.
- *
- * Single source of truth: the same props that render the embed also feed this
- * builder (see `~/components/Video.astro`), so the embed and its structured
- * data can never diverge.
- *
- * Mirrors the decisions made in the `azion/site` repository:
- * - uses `embedUrl` (never `contentUrl`);
- * - derives `thumbnailUrl` from the YouTube video ID
- *   (`https://i.ytimg.com/vi/{ID}/hqdefault.jpg`) when not provided;
- * - emits a stable `@id` derived from the page URL;
- * - `duration` is optional and omitted when absent.
- *
- * See: https://developers.google.com/search/docs/appearance/structured-data/video
- */
+/** schema.org `VideoObject` JSON-LD for a video embedded on a documentation page. */
+// Fed by the same props that render the embed (`~/components/Video.astro`), so the embed and
+// its structured data cannot diverge. Mirrors azion/site: `embedUrl`, never `contentUrl`.
+// Spec: https://developers.google.com/search/docs/appearance/structured-data/video
 
 export interface VideoObjectInput {
 	/** YouTube embed URL, e.g. `https://www.youtube.com/embed/KB4f4bSyHgI`. */
@@ -39,16 +26,9 @@ export function getYouTubeId(embedUrl: string): string | null {
 	return match ? match[1] : null;
 }
 
-/**
- * Normalizes `uploadDate` to a full ISO 8601 datetime WITH a timezone, which is
- * what Google's VideoObject requires. Fixes the Search Console warnings
- * "Datetime property 'uploadDate' is missing a timezone" and
- * "Invalid datetime value for 'uploadDate'".
- *
- * - date-only `YYYY-MM-DD`            → `YYYY-MM-DDT00:00:00+00:00`
- * - datetime without offset `…T18:00` → append `Z` (UTC)
- * - already has `Z`/offset            → kept as-is
- */
+/** Normalizes `uploadDate` to a full ISO 8601 datetime with a timezone. */
+// Google's VideoObject requires the offset; without it Search Console reports
+// "missing a timezone" and "Invalid datetime value for 'uploadDate'".
 export function normalizeUploadDate(value?: string): string | undefined {
 	if (!value) return undefined;
 	const trimmed = value.trim();
@@ -74,8 +54,7 @@ export function getVideoObjectSchema(input: VideoObjectInput) {
 
 	if (id) schema['@id'] = id;
 	schema.name = title;
-	// `description` is required by Google — always emit a non-empty value,
-	// falling back to the title when no description is provided.
+	// Google requires a non-empty `description`; the title stands in when none is given.
 	schema.description = description || title;
 	if (thumbnailUrl) schema.thumbnailUrl = thumbnailUrl;
 	if (uploadDate) schema.uploadDate = uploadDate;
