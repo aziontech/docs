@@ -197,7 +197,9 @@ const cachedPartials = new Map<string, string[]>();
 function partialsOf(filePath: string, body: string): string[] {
 	const found: string[] = [];
 	for (const [, source] of body.replace(FENCED_CODE, '').matchAll(CONTENT_IMPORT)) {
-		found.push(source.startsWith('~/') ? join('src', source.slice(2)) : join(dirname(filePath), source));
+		found.push(
+			source.startsWith('~/') ? join('src', source.slice(2)) : join(dirname(filePath), source)
+		);
 	}
 	return found;
 }
