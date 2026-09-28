@@ -110,12 +110,18 @@ export const en: DocsHomeContent = {
 					href: '/en/documentation/guides/application-development/frameworks/ai-inference-starter-kit/',
 					body: 'A hosted model behind an OpenAI-compatible endpoint.',
 				},
+				{
+					icon: 'pi pi-sitemap',
+					title: 'Explore architectures',
+					href: '/en/documentation/architectures/',
+					body: 'Validated designs that combine Azion products, grouped by the solution each one serves.',
+					class: 'sm:col-span-2',
+				},
 			],
 			footer: {
 				prefix: 'Also useful:',
 				links: [
 					{ label: 'Observe', href: '/en/documentation/observe/data-stream/' },
-					{ label: 'Architectures', href: '/en/documentation/guides/?kind=architecture' },
 				],
 			},
 		},
@@ -259,7 +265,7 @@ export const en: DocsHomeContent = {
 				{
 					icon: 'pi pi-id-card',
 					title: 'Governance, Risk and Compliance',
-					href: '/en/documentation/guides/application-security/access-and-compliance/governance-risk-compliance/',
+					href: '/en/documentation/architectures/secure-applications-and-networks/governance-risk-compliance/',
 					body: 'The tools and certifications behind your compliance work.',
 				},
 				{

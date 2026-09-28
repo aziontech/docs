@@ -90,6 +90,31 @@ function reachableTrees(data: NavData): string[] {
 		if (!listed.includes(data.topnav.guides)) listed.push(data.topnav.guides);
 	}
 
+	// A page's owner is the tree that lists it as a plain row; a linkOnly row is a cross-link.
+	const owner = new Map<string, string>();
+	for (const tree of data.trees.values()) {
+		const visitRows = (items: NavNode[]) => {
+			for (const item of items) {
+				if (item.page && !item.linkOnly && !owner.has(item.page)) owner.set(item.page, tree.id);
+				if (item.items) visitRows(item.items);
+			}
+		};
+		for (const group of tree.groups) visitRows(group.items);
+	}
+	const crossLinked = (treeId: string): string[] => {
+		const out: string[] = [];
+		const visitRows = (items: NavNode[]) => {
+			for (const item of items) {
+				const target = item.page && item.linkOnly ? owner.get(item.page) : undefined;
+				if (target) out.push(target);
+				if (item.items) visitRows(item.items);
+			}
+		};
+		for (const group of data.trees.get(treeId)?.groups ?? []) visitRows(group.items);
+		return out;
+	};
+
+	// Reachable: listed, descending from a listed tree, or owning a page a reachable tree cross-links.
 	const reachable = new Set(listed);
 	let grew = true;
 	while (grew) {
@@ -98,6 +123,14 @@ function reachableTrees(data: NavData): string[] {
 			if (!reachable.has(tree.id) && reachable.has(tree.parent)) {
 				reachable.add(tree.id);
 				grew = true;
+			}
+		}
+		for (const id of [...reachable]) {
+			for (const target of crossLinked(id)) {
+				if (!reachable.has(target)) {
+					reachable.add(target);
+					grew = true;
+				}
 			}
 		}
 	}
