@@ -109,13 +109,17 @@ export const ptBr: DocsHomeContent = {
 					href: '/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/ai-inference-starter-kit/',
 					body: 'Um modelo hospedado atrás de um endpoint compatível com OpenAI.',
 				},
+				{
+					icon: 'pi pi-sitemap',
+					title: 'Explore as arquiteturas',
+					href: '/pt-br/documentacao/arquiteturas/',
+					body: 'Designs validados que combinam produtos Azion, agrupados pela solução que cada um atende.',
+					class: 'sm:col-span-2',
+				},
 			],
 			footer: {
 				prefix: 'Também útil:',
-				links: [
-					{ label: 'Observe', href: '/pt-br/documentacao/observe/data-stream/' },
-					{ label: 'Arquiteturas', href: '/pt-br/documentacao/guias/?kind=architecture' },
-				],
+				links: [{ label: 'Observe', href: '/pt-br/documentacao/observe/data-stream/' }],
 			},
 		},
 
@@ -258,7 +262,7 @@ export const ptBr: DocsHomeContent = {
 				{
 					icon: 'pi pi-id-card',
 					title: 'Governança, Risco e Conformidade',
-					href: '/pt-br/documentacao/guias/seguranca-de-aplicacoes/acesso-e-compliance/governanca-risco-conformidade/',
+					href: '/pt-br/documentacao/arquiteturas/proteger-aplicacoes-e-redes/governanca-risco-conformidade/',
 					body: 'As ferramentas e certificações por trás do seu trabalho de conformidade.',
 				},
 				{

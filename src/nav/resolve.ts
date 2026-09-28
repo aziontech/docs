@@ -622,10 +622,14 @@ export interface HubGroup {
 	label: string;
 	/** The anchor id of the group's title on the hub page, derived from the label. */
 	slug: string;
+	/** A language-independent key for the group: its English URL segment, else its English label slug. */
+	key: string;
 	items: HubTool[];
 }
 
-/** A hub tree's tool rows, in the labeled groups its rail shows; the unlabeled Overview group is skipped. */
+/** A hub tree's rows, in the labeled groups its rail shows; the unlabeled Overview group is skipped.
+ * A row that points at a tree yields that tree's root (Developer tools); a row that points at a page
+ * yields the page (Architectures). Cross-links and placeholders are not the hub's own rows. */
 export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): HubGroup[] {
 	const hub = data.trees.get(treeId);
 	if (!hub) return [];
@@ -633,15 +637,28 @@ export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): Hu
 		.map((group) => ({
 			label: text(group.label, lang) ?? '',
 			slug: slugify(text(group.label, lang) ?? ''),
-			items: group.items.flatMap((row) => {
+			key: segmentText(group.segment, 'en') ?? slugify(text(group.label, 'en') ?? ''),
+			items: group.items.flatMap((row): HubTool[] => {
 				const tree = row.tree ? data.trees.get(row.tree) : undefined;
-				if (!tree) return [];
+				if (tree) {
+					return [
+						{
+							id: tree.id,
+							label: nodeLabel(data, row, lang),
+							href: treeHref(data, tree, lang),
+							description: text(tree.description, lang),
+						},
+					];
+				}
+				if (!row.page || row.linkOnly || row.placeholder || row.page === hub.root) return [];
+				const href = pageHref(data, row.page, lang);
+				if (!href) return [];
 				return [
 					{
-						id: tree.id,
+						id: row.page,
 						label: nodeLabel(data, row, lang),
-						href: treeHref(data, tree, lang),
-						description: text(tree.description, lang),
+						href,
+						description: pageFacts(data, row.page, lang)?.description,
 					},
 				];
 			}),

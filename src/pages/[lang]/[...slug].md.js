@@ -1,6 +1,7 @@
 import { allPages } from '~/content';
 import { getLangFromSlug, stripLangFromSlug, getSlugFromPermalink } from '~/util';
 import { docsHomeEntries } from '~/data/docs-home';
+import { ARCHITECTURES_HOME_NAMESPACE, architecturesHomeMarkdown } from '~/data/architectures-home';
 import { DEVTOOLS_HOME_NAMESPACE, devtoolsHomeMarkdown } from '~/data/devtools-home';
 import { getHubDirectory } from '~/nav/index';
 
@@ -92,6 +93,12 @@ export async function GET({ props }) {
 		content = getMarkdownContent(
 			title,
 			devtoolsHomeMarkdown(lang, await getHubDirectory('devtools', lang))
+		);
+	} else if (data.namespace === ARCHITECTURES_HOME_NAMESPACE) {
+		const lang = getLangFromSlug(page.id);
+		content = getMarkdownContent(
+			title,
+			architecturesHomeMarkdown(lang, await getHubDirectory('architectures', lang))
 		);
 	} else if (product_cards && Array.isArray(product_cards)) {
 		content = getMarkdownBasedOnCards(title, description, product_cards);
