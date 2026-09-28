@@ -86,6 +86,8 @@ export default {
 	// Used in previous/next page links at the bottom of pages
 	'articleNav.nextPage': 'Next page',
 	'articleNav.prevPage': 'Previous page',
+	'sectionLinks.inThisSection': 'In this section',
+	'sectionLinks.otherGuides': 'Other guides for {product}',
 	// Installation Guide
 	'install.autoTab': 'Automatic CLI',
 	'install.manualTab': 'Manual Setup',
