@@ -29,6 +29,8 @@ import {
 	type SidebarModel,
 	type TopNavModel,
 	withSlashes,
+	resolveSectionLinks,
+	type SectionLinks,
 } from './resolve';
 import rootJson from './root.json';
 import topNavJson from './topnav.json';
@@ -185,6 +187,10 @@ export async function getNeighbours(
 	lang: Lang
 ): Promise<{ previous?: Neighbour; next?: Neighbour }> {
 	return resolveNeighbours(await getNavData(), await getNavIndex(lang), pathname, lang);
+}
+
+export async function getSectionLinks(pathname: string, lang: Lang): Promise<SectionLinks | undefined> {
+	return resolveSectionLinks(await getNavData(), await getNavIndex(lang), pathname, lang);
 }
 
 export async function getNavIndex(lang: Lang): Promise<NavIndex> {
