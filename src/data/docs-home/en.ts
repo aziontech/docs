@@ -115,7 +115,7 @@ export const en: DocsHomeContent = {
 				prefix: 'Also useful:',
 				links: [
 					{ label: 'Observe', href: '/en/documentation/observe/data-stream/' },
-					{ label: 'Architectures', href: '/en/documentation/guides/?kind=reference-architecture' },
+					{ label: 'Architectures', href: '/en/documentation/guides/?kind=architecture' },
 				],
 			},
 		},

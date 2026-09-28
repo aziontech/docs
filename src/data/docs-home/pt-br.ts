@@ -114,7 +114,7 @@ export const ptBr: DocsHomeContent = {
 				prefix: 'Também útil:',
 				links: [
 					{ label: 'Observe', href: '/pt-br/documentacao/observe/data-stream/' },
-					{ label: 'Arquiteturas', href: '/pt-br/documentacao/guias/?kind=reference-architecture' },
+					{ label: 'Arquiteturas', href: '/pt-br/documentacao/guias/?kind=architecture' },
 				],
 			},
 		},
