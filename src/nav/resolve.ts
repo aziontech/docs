@@ -619,6 +619,8 @@ export interface HubTool extends TopNavEntry {
 
 export interface HubGroup {
 	label: string;
+	/** The anchor id of the group's title on the hub page, derived from the label. */
+	slug: string;
 	items: HubTool[];
 }
 
@@ -629,6 +631,7 @@ export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): Hu
 	return hub.groups
 		.map((group) => ({
 			label: text(group.label, lang) ?? '',
+			slug: slugify(text(group.label, lang) ?? ''),
 			items: group.items.flatMap((row) => {
 				const tree = row.tree ? data.trees.get(row.tree) : undefined;
 				if (!tree) return [];
