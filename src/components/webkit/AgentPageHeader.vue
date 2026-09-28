@@ -1,8 +1,6 @@
 <template>
 	<DocPageHeader
-		v-if="agent"
-		data-doc-chrome
-		class="mb-8 mt-2"
+		v-bind="$attrs"
 		:title="title"
 		:description="description"
 		:breadcrumb="breadcrumb"
@@ -18,10 +16,10 @@
 				<span
 					class="flex size-14 shrink-0 items-center justify-center rounded-(--shape-elements) border border-(--border-muted) bg-(--bg-surface-raised) sm:size-16 [&>svg]:size-7 sm:[&>svg]:size-8"
 				>
-					<AgentMark :name="agent.mark" />
+					<AgentMark :name="mark" />
 				</span>
 				<div class="min-w-0 flex-1">
-					<span class="block text-overline-sm uppercase text-(--primary)">{{ agent.vendor }}</span>
+					<span class="block text-overline-sm uppercase text-(--primary)">{{ vendor }}</span>
 					<h1 id="overview" class="m-0 text-heading-xl text-(--text-default)">
 						{{ title }}
 					</h1>
@@ -63,34 +61,31 @@
 
 <script setup lang="ts">
 import Tag from '@aziontech/webkit/tag';
-import { computed } from 'vue';
 
-import AgentMark from '~/components/webkit/AgentMark.vue';
-import DocPageHeader, { type DocPageHeaderLabels } from '~/components/webkit/DocPageHeader.vue';
+import AgentMark, { type AgentName } from './AgentMark.vue';
+import DocPageHeader, { type DocPageHeaderLabels } from './DocPageHeader.vue';
 
-import { agentBySlug, agentTags, data, fill, t, type AgentLink, type Lang } from './data';
+defineOptions({ name: 'AgentPageHeader', inheritAttrs: false });
 
-const props = defineProps<{
-	agent: string;
-	lang: Lang;
-	breadcrumb: { label: string; href?: string }[];
+interface Props {
+	title: string;
+	description?: string;
+	breadcrumb?: { label: string; href?: string }[];
 	markdownHref: string;
 	locale: string;
 	labels: DocPageHeaderLabels;
 	lastUpdated?: string;
-	links: AgentLink[];
-}>();
+	mark: AgentName;
+	vendor: string;
+	tags?: string[];
+	links?: { label: string; href: string }[];
+}
 
-const agent = computed(() => agentBySlug(props.agent));
-const title = computed(() =>
-	agent.value ? fill(t(data.labels.plusAzion, props.lang), { name: agent.value.name }) : ''
-);
-const description = computed(() =>
-	agent.value
-		? `${t(agent.value.description, props.lang)} ${fill(t(data.labels.madeBy, props.lang), {
-				vendor: agent.value.vendor,
-		  })}`
-		: ''
-);
-const tags = computed(() => (agent.value ? agentTags(agent.value, props.lang) : []));
+withDefaults(defineProps<Props>(), {
+	description: '',
+	breadcrumb: () => [],
+	lastUpdated: undefined,
+	tags: () => [],
+	links: () => [],
+});
 </script>

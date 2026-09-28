@@ -15,7 +15,7 @@
 				>
 					<!-- eslint-enable webkit/no-style-override -->
 					<p class="m-0">
-						<InlineText :text="item.answer" :lang="lang" />
+						<AgentInlineText :text="item.answer" :tooltips="tooltips" />
 					</p>
 				</Accordion.Content>
 			</Accordion.Item>
@@ -25,26 +25,20 @@
 
 <script setup lang="ts">
 import Accordion from '@aziontech/webkit/accordion';
-import { computed } from 'vue';
 
-import { agentBySlug, data, fill, t, type Lang } from './data';
-import InlineText from './InlineText.vue';
+import AgentInlineText, { type AgentTooltip } from './AgentInlineText.vue';
 
-const props = defineProps<{ agent: string; group: 'faq' | 'troubleshooting'; lang: Lang }>();
+defineOptions({ name: 'AgentFaq' });
 
-const items = computed(() => {
-	const agent = agentBySlug(props.agent);
-	if (!agent) return [];
-	const lang = props.lang;
-	const surfaceKey = agent.workflows.includes('Terminal') ? 'terminal' : 'editor';
-	const surface = t(data.surface[surfaceKey], lang);
-	const vars: Record<string, string> = { name: agent.name, surface, surfaceDe: surface };
-	return data[props.group].map((entry) => ({
-		question: fill(t(entry.question, lang), vars),
-		answer: fill(t(entry.answer, lang), {
-			...vars,
-			note: agent.connect.note ? t(agent.connect.note, lang) : t(entry.fallbackNote, lang),
-		}),
-	}));
-});
+export interface AgentFaqItem {
+	question: string;
+	answer: string;
+}
+
+interface Props {
+	items: AgentFaqItem[];
+	tooltips?: Record<string, AgentTooltip>;
+}
+
+withDefaults(defineProps<Props>(), { tooltips: () => ({}) });
 </script>

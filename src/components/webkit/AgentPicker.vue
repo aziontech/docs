@@ -14,12 +14,12 @@
 							:key="agent.slug"
 							:title="agent.name"
 							:overline="agent.vendor"
-							:href="hrefs[agent.slug]"
+							:href="agent.href"
 						>
 							<template #icon>
 								<AgentMark :name="agent.mark" />
 							</template>
-							{{ t(agent.description, lang) }}
+							{{ agent.description }}
 						</DocCard>
 					</DocCardGroup>
 				</TabView.Panel>
@@ -34,21 +34,42 @@ import DocCardGroup from '@aziontech/webkit/doc-card-group';
 import TabView from '@aziontech/webkit/tab-view';
 import { computed, ref } from 'vue';
 
-import AgentMark from '~/components/webkit/AgentMark.vue';
+import AgentMark, { type AgentName } from './AgentMark.vue';
 
-import { agents, label, t, type Lang } from './data';
+defineOptions({ name: 'AgentPicker' });
 
-const props = defineProps<{ lang: Lang; hrefs: Record<string, string> }>();
+export interface AgentPickerAgent {
+	slug: string;
+	name: string;
+	vendor: string;
+	mark: AgentName;
+	href: string;
+	description: string;
+	workflows: string[];
+}
 
-const FILTERS = ['All', 'Terminal', 'IDE', 'Extension'] as const;
+export interface AgentPickerFilter {
+	key: string;
+	label: string;
+	workflow?: string;
+}
 
-const filter = ref<string>('All');
+interface Props {
+	agents: AgentPickerAgent[];
+	filters: AgentPickerFilter[];
+}
+
+const props = defineProps<Props>();
+
+const filter = ref<string>(props.filters[0]?.key ?? '');
 
 const groups = computed(() =>
-	FILTERS.map((key) => ({
-		key,
-		label: label('filters', key, props.lang),
-		agents: key === 'All' ? agents : agents.filter((agent) => agent.workflows.includes(key)),
+	props.filters.map((entry) => ({
+		key: entry.key,
+		label: entry.label,
+		agents: entry.workflow
+			? props.agents.filter((agent) => agent.workflows.includes(entry.workflow as string))
+			: props.agents,
 	}))
 );
 </script>
