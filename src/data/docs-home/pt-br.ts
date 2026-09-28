@@ -119,9 +119,7 @@ export const ptBr: DocsHomeContent = {
 			],
 			footer: {
 				prefix: 'Também útil:',
-				links: [
-					{ label: 'Observe', href: '/pt-br/documentacao/observe/data-stream/' },
-				],
+				links: [{ label: 'Observe', href: '/pt-br/documentacao/observe/data-stream/' }],
 			},
 		},
 

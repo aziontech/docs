@@ -120,9 +120,7 @@ export const en: DocsHomeContent = {
 			],
 			footer: {
 				prefix: 'Also useful:',
-				links: [
-					{ label: 'Observe', href: '/en/documentation/observe/data-stream/' },
-				],
+				links: [{ label: 'Observe', href: '/en/documentation/observe/data-stream/' }],
 			},
 		},
 
