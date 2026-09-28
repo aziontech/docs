@@ -189,7 +189,10 @@ export async function getNeighbours(
 	return resolveNeighbours(await getNavData(), await getNavIndex(lang), pathname, lang);
 }
 
-export async function getSectionLinks(pathname: string, lang: Lang): Promise<SectionLinks | undefined> {
+export async function getSectionLinks(
+	pathname: string,
+	lang: Lang
+): Promise<SectionLinks | undefined> {
 	return resolveSectionLinks(await getNavData(), await getNavIndex(lang), pathname, lang);
 }
 

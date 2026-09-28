@@ -772,7 +772,9 @@ export function resolveSectionLinks(
 			.map(leaf)
 			.filter((l): l is Neighbour => Boolean(l))
 			.slice(0, limit);
-		return links.length ? { kind: 'guides', product: text(data.trees.get(product)?.title, lang) ?? product, links } : undefined;
+		return links.length
+			? { kind: 'guides', product: text(data.trees.get(product)?.title, lang) ?? product, links }
+			: undefined;
 	}
 
 	const parentId = location.ancestors[location.ancestors.length - 1];

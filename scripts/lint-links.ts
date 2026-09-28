@@ -113,7 +113,9 @@ const deadEnds: string[] = [];
 const spine: string[] = [];
 
 const homeTree = (page: CorpusPage, at: Placement) =>
-	at.treeId === 'guides' && at.products?.[0] && data.trees.has(at.products[0]) ? at.products[0] : at.treeId;
+	at.treeId === 'guides' && at.products?.[0] && data.trees.has(at.products[0])
+		? at.products[0]
+		: at.treeId;
 
 for (const page of corpus) {
 	const at = placement.get(page.namespace);
@@ -160,7 +162,8 @@ for (const tree of data.trees.values()) {
 			if (text(node.label, 'en') === 'Guides and tutorials') continue;
 			const page = corpus.find((p) => p.lang === lang && p.namespace === node.page);
 			if (!page) continue;
-			if (!rootLinks.has(node.page)) spine.push(`${lang} ${root.file}: overview does not link "${node.page}"`);
+			if (!rootLinks.has(node.page))
+				spine.push(`${lang} ${root.file}: overview does not link "${node.page}"`);
 			const back = links(readBody(page), lang).some((t) => t.namespace === tree.root);
 			if (!back) spine.push(`${lang} ${page.file}: does not link the "${tree.id}" overview`);
 		}
