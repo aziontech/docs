@@ -102,7 +102,10 @@ function reachableTrees(data: NavData): string[] {
 		}
 	}
 	// Listed order first, then the descendants in file order.
-	return [...listed, ...[...data.trees.keys()].filter((id) => reachable.has(id) && !listed.includes(id))];
+	return [
+		...listed,
+		...[...data.trees.keys()].filter((id) => reachable.has(id) && !listed.includes(id)),
+	];
 }
 
 function indexTree(data: NavData, tree: NavTree, lang: Lang, rootLabel?: string): IndexedTree {
@@ -130,7 +133,9 @@ function indexTree(data: NavData, tree: NavTree, lang: Lang, rootLabel?: string)
 						(node.page === tree.root
 							? 'overview'
 							: inheritedKind ??
-								(tree.id === 'guides' ? 'tutorial' : SLOT_KIND[label.en ?? ''] ?? SLOT_KIND[parentEn ?? '']));
+							  (tree.id === 'guides'
+									? 'tutorial'
+									: SLOT_KIND[label.en ?? ''] ?? SLOT_KIND[parentEn ?? '']));
 					const url = `${SITE_URL}${href}`;
 					const page: IndexedPage = {
 						namespace: node.page,
@@ -224,7 +229,11 @@ export async function getMachineIndex(lang: Lang): Promise<MachineIndex> {
 		const tree = data.trees.get(id);
 		if (!tree) continue;
 		let ancestor = tree.id;
-		while (!groupOf.has(ancestor) && data.trees.get(ancestor)?.parent && data.trees.get(ancestor)!.parent !== 'root')
+		while (
+			!groupOf.has(ancestor) &&
+			data.trees.get(ancestor)?.parent &&
+			data.trees.get(ancestor)!.parent !== 'root'
+		)
 			ancestor = data.trees.get(ancestor)!.parent;
 		const group = groupOf.get(ancestor) ?? rootGroups[rootGroups.length - 1];
 		const indexed = indexTree(data, tree, lang, group.label ?? group.listed.join(', '));

@@ -1,14 +1,19 @@
 import type { APIRoute, GetStaticPaths } from 'astro';
 
 import { LANGS, type Lang } from '~/nav/schema';
-import { getMachineIndex, llmsEntry, type IndexedTree, type MachineIndex } from '~/util/machineIndex';
+import {
+	getMachineIndex,
+	llmsEntry,
+	type IndexedTree,
+	type MachineIndex,
+} from '~/util/machineIndex';
 
 /** llms.txt at the docs root (one entry per section) and at every section root (every
  * page it lists). The site root belongs to the marketing site, so the docs root is the
  * conventional path here. Entries link the Markdown twin of each page. */
 
 const SUMMARY: Record<Lang, string> = {
-	en: 'Documentation for the Azion Web Platform: build, store, secure, and observe applications on Azion\'s distributed infrastructure. Every page is served as Markdown at its URL with .md appended, and every section publishes its own llms.txt.',
+	en: "Documentation for the Azion Web Platform: build, store, secure, and observe applications on Azion's distributed infrastructure. Every page is served as Markdown at its URL with .md appended, and every section publishes its own llms.txt.",
 	'pt-br':
 		'Documentação da Azion Web Platform: construa, armazene, proteja e observe aplicações na infraestrutura distribuída da Azion. Toda página é servida como Markdown na própria URL com .md ao final, e toda seção publica o próprio llms.txt.',
 };
@@ -38,7 +43,8 @@ function renderTree(index: MachineIndex, tree: IndexedTree): string {
 	if (tree.description) lines.push(`> ${tree.description}`, '');
 	for (const group of tree.groups) {
 		lines.push(`## ${group.label ?? PAGES[index.lang]}`, '');
-		for (const page of group.pages) lines.push(llmsEntry(page.title, page.markdownUrl, page.description));
+		for (const page of group.pages)
+			lines.push(llmsEntry(page.title, page.markdownUrl, page.description));
 		lines.push('');
 	}
 	return lines.join('\n');
@@ -50,7 +56,10 @@ export const getStaticPaths = (async () => {
 		const index = await getMachineIndex(lang);
 		paths.push({ params: { lang, path: index.docsBase }, props: {} });
 		for (const tree of index.trees) {
-			paths.push({ params: { lang, path: `${index.docsBase}/${tree.path}` }, props: { tree: tree.id } });
+			paths.push({
+				params: { lang, path: `${index.docsBase}/${tree.path}` },
+				props: { tree: tree.id },
+			});
 		}
 	}
 	return paths;

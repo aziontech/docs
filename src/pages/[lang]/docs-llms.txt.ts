@@ -20,7 +20,8 @@ const SUMMARY: Record<Lang, string> = {
 		'Todas as páginas que a navegação da documentação lista, na ordem do menu, com links em Markdown. O índice de seções está em',
 };
 
-export const getStaticPaths = (() => LANGS.map((lang) => ({ params: { lang } }))) satisfies GetStaticPaths;
+export const getStaticPaths = (() =>
+	LANGS.map((lang) => ({ params: { lang } }))) satisfies GetStaticPaths;
 
 export const GET: APIRoute = async ({ params }) => {
 	const lang = params.lang as Lang;
@@ -29,7 +30,8 @@ export const GET: APIRoute = async ({ params }) => {
 	const lines = [`# ${TITLE[lang]}`, '', `> ${SUMMARY[lang]} ${sectionIndex}`, ''];
 	for (const tree of index.trees) {
 		lines.push(`## ${tree.title}`, '');
-		for (const page of tree.pages) lines.push(llmsEntry(page.title, page.markdownUrl, page.description));
+		for (const page of tree.pages)
+			lines.push(llmsEntry(page.title, page.markdownUrl, page.description));
 		lines.push('');
 	}
 	return new Response(lines.join('\n'), {

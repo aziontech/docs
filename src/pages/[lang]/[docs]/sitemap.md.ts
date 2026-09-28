@@ -49,7 +49,8 @@ export const GET: APIRoute = async ({ params }) => {
 			lines.push(`  - ${l.section}: ${page.section.join(' > ')}`);
 			if (page.topics.length) lines.push(`  - ${l.topics}: ${page.topics.join(', ')}`);
 			if (page.updated) lines.push(`  - ${l.updated}: ${page.updated}`);
-			if (page.description) lines.push(`  - ${l.summaryKey}: ${page.description.replace(/\s+/g, ' ').trim()}`);
+			if (page.description)
+				lines.push(`  - ${l.summaryKey}: ${page.description.replace(/\s+/g, ' ').trim()}`);
 			lines.push(`  - ${l.markdown}: ${page.markdownUrl}`);
 		}
 		lines.push('');
