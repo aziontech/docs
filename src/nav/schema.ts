@@ -22,7 +22,13 @@ const localizedSegment = z.union([
 export type LocalizedSegment = z.infer<typeof localizedSegment>;
 
 /** The content types the guides hub files a page under: the catalog kinds a guide can be. */
-export const guideKind = z.enum(['tutorial', 'how-to-guide', 'multi-product-guide', 'use-case', 'architecture']);
+export const guideKind = z.enum([
+	'tutorial',
+	'how-to-guide',
+	'multi-product-guide',
+	'use-case',
+	'architecture',
+]);
 export type GuideKind = z.infer<typeof guideKind>;
 
 const baseNode = z.object({
