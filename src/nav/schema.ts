@@ -89,6 +89,7 @@ const topNavColumn = z.object({
 export const topNav = z.object({
 	products: z.array(topNavColumn).min(1),
 	devtools: z.array(topNavColumn).min(1),
+	devtoolsHome: z.string().min(1).optional(),
 	guides: z.string().min(1),
 });
 

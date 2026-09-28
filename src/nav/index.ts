@@ -9,6 +9,7 @@ import {
 	buildNavIndex,
 	buildDirectory,
 	buildGuidesHome,
+	buildHubDirectory,
 	buildTopNav,
 	pageHref,
 	resolveBreadcrumb,
@@ -20,6 +21,7 @@ import {
 	type Crumb,
 	type PageFacts,
 	type GuidesHomeModel,
+	type HubGroup,
 	type MenuGroupNode,
 	type Neighbour,
 	type PageIndex,
@@ -166,6 +168,10 @@ export async function getDirectory(
 	return buildDirectory(await getNavData(), lang, labels);
 }
 
+export async function getHubDirectory(treeId: string, lang: Lang): Promise<HubGroup[]> {
+	return buildHubDirectory(await getNavData(), treeId, lang);
+}
+
 export async function getGuidesHome(treeId: string, lang: Lang): Promise<GuidesHomeModel> {
 	return buildGuidesHome(await getNavData(), treeId, lang);
 }
@@ -278,5 +284,8 @@ export type {
 	SidebarHeader,
 	SidebarLabels,
 	SidebarModel,
+	SidebarParent,
 	TopNavModel,
+	HubGroup,
+	HubTool,
 } from './resolve';

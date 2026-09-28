@@ -102,6 +102,8 @@ if (data.topnav) {
 	}
 	if (!data.trees.has(data.topnav.guides))
 		fail(`topnav.json: unknown guides tree "${data.topnav.guides}"`);
+	if (data.topnav.devtoolsHome && !data.trees.has(data.topnav.devtoolsHome))
+		fail(`topnav.json: unknown devtoolsHome tree "${data.topnav.devtoolsHome}"`);
 }
 
 for (const [index, video] of (data.videos ?? []).entries()) {

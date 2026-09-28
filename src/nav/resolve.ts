@@ -50,6 +50,17 @@ export interface SidebarHeader {
 	backLabel: string;
 }
 
+/** The level beneath a nested tree's own on the desktop drill stack: its parent tree. */
+export interface SidebarParent {
+	groups: MenuGroupNode[];
+	title: string;
+	href?: string;
+	/** Id of the parent's row that opens the nested tree; the stack mounts through it. */
+	drillId: string;
+	/** The nested tree, so its rows can fill that level before every tree's menu loads. */
+	tree: string;
+}
+
 export interface SidebarModel {
 	groups: MenuGroupNode[];
 	activeId: string;
@@ -57,6 +68,7 @@ export interface SidebarModel {
 	treeId: string | null;
 	header: SidebarHeader | null;
 	catalog: MenuGroupNode[] | null;
+	parent: SidebarParent | null;
 }
 
 export interface SidebarLabels {
@@ -430,6 +442,7 @@ export function resolveSidebar(
 			treeId: null,
 			header: null,
 			catalog: null,
+			parent: null,
 		};
 	}
 
@@ -459,6 +472,54 @@ export function resolveSidebar(
 			backLabel: back?.label ?? labels.allProducts,
 		},
 		catalog,
+		parent: parentLevel(data, index, tree, lang, ctx.comingSoonHref),
+	};
+}
+
+/**
+ * A tree nested under another (each developer tool under the hub) mounts one level deeper on
+ * desktop, so Back steps to the parent before the docs root. Null when no parent row opens it.
+ */
+function parentLevel(
+	data: NavData,
+	index: NavIndex,
+	tree: NavTree,
+	lang: Lang,
+	comingSoonHref: string | undefined
+): SidebarParent | null {
+	const parent = tree.parent && tree.parent !== 'root' ? data.trees.get(tree.parent) : undefined;
+	if (!parent || parent.inline) return null;
+
+	const title = text(parent.title, lang) ?? parent.id;
+	const groups = withSectionTitle(
+		groupsToMenu(data, parent.groups, lang, parent.id, {
+			activePath: '',
+			activeId: '',
+			expanded: [],
+			comingSoonHref,
+			index,
+			treeId: parent.id,
+		}),
+		title
+	);
+
+	const opener = (nodes: MenuNode[]): string | undefined => {
+		for (const node of nodes) {
+			if (node.opensTree === tree.id) return node.id;
+			const nested = node.children && opener(node.children);
+			if (nested) return nested;
+		}
+		return undefined;
+	};
+	const drillId = groups.map((group) => opener(group.items)).find(Boolean);
+	if (!drillId) return null;
+
+	return {
+		groups,
+		title,
+		href: parent.root ? pageHref(data, parent.root, lang) : undefined,
+		drillId,
+		tree: tree.id,
 	};
 }
 
@@ -508,6 +569,7 @@ export interface TopNavColumn {
 export interface TopNavModel {
 	products: TopNavColumn[];
 	devtools: TopNavColumn[];
+	devtoolsHome?: TopNavEntry;
 	guides?: TopNavEntry;
 }
 
@@ -525,6 +587,17 @@ export function buildTopNav(data: NavData, lang: Lang): TopNavModel | null {
 		};
 	};
 
+	// A hub landing sits under a trigger (desktop) and a directory row (mobile) that already
+	// carry the hub's title, so it takes the label the hub tree gives its own root row
+	// ("Overview"); the tree title would only repeat its parent.
+	const hubEntry = (treeId: string): TopNavEntry | undefined => {
+		const base = entry(treeId);
+		const tree = data.trees.get(treeId);
+		if (!base || !tree?.root) return base;
+		const rootRow = walkTree(tree, lang).find((row) => row.node.page === tree.root);
+		return rootRow ? { ...base, label: nodeLabel(data, rootRow.node, lang) } : base;
+	};
+
 	const columns = (list: typeof config.products): TopNavColumn[] =>
 		list.map((column) => ({
 			label: text(column.label, lang) ?? '',
@@ -534,8 +607,45 @@ export function buildTopNav(data: NavData, lang: Lang): TopNavModel | null {
 	return {
 		products: columns(config.products),
 		devtools: columns(config.devtools),
+		devtoolsHome: config.devtoolsHome ? hubEntry(config.devtoolsHome) : undefined,
 		guides: entry(config.guides),
 	};
+}
+
+export interface HubTool extends TopNavEntry {
+	/** The tool's tree id, which keys its presentation (icon, call-to-action label) on the hub page. */
+	id: string;
+}
+
+export interface HubGroup {
+	label: string;
+	/** The anchor id of the group's title on the hub page, derived from the label. */
+	slug: string;
+	items: HubTool[];
+}
+
+/** A hub tree's tool rows, in the labeled groups its rail shows; the unlabeled Overview group is skipped. */
+export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): HubGroup[] {
+	const hub = data.trees.get(treeId);
+	if (!hub) return [];
+	return hub.groups
+		.map((group) => ({
+			label: text(group.label, lang) ?? '',
+			slug: slugify(text(group.label, lang) ?? ''),
+			items: group.items.flatMap((row) => {
+				const tree = row.tree ? data.trees.get(row.tree) : undefined;
+				if (!tree) return [];
+				return [
+					{
+						id: tree.id,
+						label: nodeLabel(data, row, lang),
+						href: treeHref(data, tree, lang),
+						description: text(tree.description, lang),
+					},
+				];
+			}),
+		}))
+		.filter((group) => group.label && group.items.length > 0);
 }
 
 export interface Crumb {
@@ -658,10 +768,17 @@ export function buildDirectory(
 	}
 	if (model.devtools.length) {
 		const tools = model.devtools.flatMap((column) => column.items);
+		// The hub landing leads the list; buildTopNav already names it after the hub root row.
+		const home: MenuNode[] = model.devtoolsHome?.href
+			? [entryNode(model.devtoolsHome, 'directory/devtools/home')]
+			: [];
 		rest.push({
 			id: 'directory/devtools',
 			label: labels.devtools,
-			children: tools.map((tool, index) => entryNode(tool, `directory/devtools/${index}`)),
+			children: [
+				...home,
+				...tools.map((tool, index) => entryNode(tool, `directory/devtools/${index}`)),
+			],
 		});
 	}
 	if (rest.length) groups.push({ items: rest });
