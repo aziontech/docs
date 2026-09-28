@@ -1,3 +1,4 @@
+import { guideKind, type GuideKind } from './schema';
 import type {
 	Lang,
 	Localized,
@@ -786,20 +787,9 @@ export function buildDirectory(
 	return groups;
 }
 
-export type GuideKind =
-	| 'learning-path'
-	| 'tutorial'
-	| 'how-to-guide'
-	| 'reference-architecture'
-	| 'video';
+export type { GuideKind };
 
-const GUIDE_KINDS: GuideKind[] = [
-	'learning-path',
-	'tutorial',
-	'how-to-guide',
-	'reference-architecture',
-	'video',
-];
+const GUIDE_KINDS: GuideKind[] = guideKind.options;
 
 export interface CatalogEntry {
 	label: string;
@@ -810,6 +800,8 @@ export interface CatalogEntry {
 	topic: string;
 	updated?: string;
 	external?: boolean;
+	/** Set when the entry is a video rather than a page; the kind says what it teaches. */
+	format?: 'video';
 }
 
 export interface GuidesHomeModel {
@@ -859,10 +851,11 @@ export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): Guid
 			label: text(video.title, lang) ?? video.href,
 			href: video.href,
 			description: text(video.description, lang),
-			kind: 'video',
+			kind: video.kind ?? 'tutorial',
 			products,
 			topic: products[0] ? productLabel(products[0]) : 'YouTube',
 			external: true,
+			format: 'video',
 		});
 	}
 

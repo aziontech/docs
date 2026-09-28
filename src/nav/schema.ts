@@ -21,6 +21,10 @@ const localizedSegment = z.union([
 
 export type LocalizedSegment = z.infer<typeof localizedSegment>;
 
+/** The content types the guides hub files a page under: the catalog kinds a guide can be. */
+export const guideKind = z.enum(['tutorial', 'how-to-guide', 'multi-product-guide', 'use-case', 'architecture']);
+export type GuideKind = z.infer<typeof guideKind>;
+
 const baseNode = z.object({
 	page: z.string().min(1).optional(),
 	tree: z.string().min(1).optional(),
@@ -39,7 +43,7 @@ const baseNode = z.object({
 	linkOnly: z.boolean().optional(),
 	placeholder: z.boolean().optional(),
 	products: z.array(z.string().min(1)).optional(),
-	kind: z.enum(['learning-path', 'tutorial', 'how-to-guide', 'reference-architecture']).optional(),
+	kind: guideKind.optional(),
 });
 
 export type NavNode = z.infer<typeof baseNode> & { items?: NavNode[] };
@@ -101,6 +105,7 @@ export const navVideos = z.array(
 		title: localized,
 		description: localized.optional(),
 		products: z.array(z.string().min(1)).optional(),
+		kind: guideKind.optional(),
 	})
 );
 

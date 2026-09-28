@@ -212,13 +212,13 @@
 <script lang="ts">
 export const PAGE_SIZE = 24;
 
-/** The five content types the guides tree tags a page with. */
+/** The content types the guides tree files a page under: the catalog kinds a guide can be. */
 export type GuideKind =
-	| 'learning-path'
 	| 'tutorial'
 	| 'how-to-guide'
-	| 'reference-architecture'
-	| 'video';
+	| 'multi-product-guide'
+	| 'use-case'
+	| 'architecture';
 
 /** One catalogued page: what it takes to filter it and to draw its card. */
 export interface GuidesEntry {
@@ -229,6 +229,8 @@ export interface GuidesEntry {
 	products: string[];
 	topic: string;
 	external?: boolean;
+	/** Set when the entry is a video rather than a page; the kind says what it teaches. */
+	format?: 'video';
 }
 
 /** Every string the surface renders, resolved on the server. */
@@ -238,6 +240,8 @@ export interface GuidesLabels {
 	contentType: string;
 	topics: string;
 	kinds: Partial<Record<GuideKind, string>>;
+	/** The format tag shown beside the kind on a video entry. */
+	video: string;
 	countOne: string;
 	countMany: string;
 	clear: string;
@@ -301,6 +305,7 @@ const props = withDefaults(defineProps<Props>(), {
 		contentType: 'Content type',
 		topics: 'Topics',
 		kinds: {},
+		video: 'Video',
 		countOne: '{count} page',
 		countMany: '{count} pages',
 		clear: 'Clear filters',
@@ -470,8 +475,10 @@ async function goTo(next: number) {
 
 // The content type, alone. Pairing it with the topic ran to two uppercase lines above
 // most titles, and the topic is already a facet in the rail and usually in the title.
+// A video carries its format after the kind: the format is not a kind, so it is not a facet.
 function overline(entry: GuidesEntry) {
-	return props.labels.kinds[entry.kind] ?? entry.kind;
+	const kind = props.labels.kinds[entry.kind] ?? entry.kind;
+	return entry.format === 'video' ? `${kind} · ${props.labels.video}` : kind;
 }
 
 function toggleKind(kind: GuideKind, on: boolean) {
