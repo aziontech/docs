@@ -88,8 +88,6 @@ export default UIDictionary({
 	// Used in previous/next page links at the bottom of pages
 	'articleNav.nextPage': 'Próxima página',
 	'articleNav.prevPage': 'Página anterior',
-	'sectionLinks.inThisSection': 'Nesta seção',
-	'sectionLinks.otherGuides': 'Outros guias de {product}',
 	// Installation Guide
 	'install.autoTab': 'Interface de Linha de Comando Automática',
 	'install.manualTab': 'Instalação Manual',
