@@ -98,6 +98,9 @@ export interface WalkEntry {
 
 export const DOCS_BASE: Record<Lang, string> = { en: 'documentation', 'pt-br': 'documentacao' };
 
+/** The label of the index row a dropdown that is itself a page gets: the page opens the dropdown. */
+const OVERVIEW: Record<Lang, string> = { en: 'Overview', 'pt-br': 'Visão geral' };
+
 export const COMING_SOON = 'documentation_coming_soon';
 
 export function text(value: Localized | undefined, lang: Lang): string | undefined {
@@ -350,7 +353,7 @@ function toMenuNodes(
 			if (href) {
 				children.unshift({
 					id: `${id}__index`,
-					label,
+					label: OVERVIEW[lang],
 					href,
 					target: external ? '_blank' : '_self',
 					tagValue,
@@ -845,11 +848,26 @@ export interface GuidesHomeModel {
 	products: { id: string; label: string }[];
 }
 
+/** Every id a catalog row may be tagged with, and its label: a tree, or a Product that owns no tree
+ * because it lives as a dropdown row (`product`) inside its Platform resource. A tree wins over a row. */
+export function productLabels(data: NavData, lang: Lang): Map<string, string> {
+	const out = new Map<string, string>();
+	for (const tree of data.trees.values()) out.set(tree.id, text(tree.title, lang) ?? tree.id);
+	for (const tree of data.trees.values()) {
+		for (const { node } of walkTree(tree, lang)) {
+			if (node.product && !out.has(node.product))
+				out.set(node.product, nodeLabel(data, node, lang));
+		}
+	}
+	return out;
+}
+
 export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): GuidesHomeModel {
 	const tree = data.trees.get(treeId);
 	const entries: CatalogEntry[] = [];
 	const tagged = new Set<string>();
-	const productLabel = (id: string) => text(data.trees.get(id)?.title, lang) ?? id;
+	const labels = productLabels(data, lang);
+	const productLabel = (id: string) => labels.get(id) ?? id;
 
 	const push = (entry: CatalogEntry) => {
 		for (const product of entry.products) tagged.add(product);

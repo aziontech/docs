@@ -9,7 +9,6 @@ export const en: PlatformTopologyContent = {
 	lang: 'en',
 	ariaLabel: 'Platform resources topology',
 	referenceLabel: 'Read the reference',
-	links: [{ from: 'connector', to: 'store-ai' }],
 	columns: [
 		[
 			{
@@ -27,7 +26,7 @@ export const en: PlatformTopologyContent = {
 					{
 						id: 'certificate-manager',
 						label: 'Certificate Manager',
-						href: '/en/documentation/platform/certificate-manager/',
+						href: '/en/documentation/platform/workloads/certificate-manager/',
 					},
 				],
 				href: '/en/documentation/platform/workloads/',
@@ -42,21 +41,21 @@ export const en: PlatformTopologyContent = {
 				role: 'Filters requests',
 				terminal: true,
 				items: [
-					{ id: 'waf', label: 'WAF', href: '/en/documentation/secure/waf/' },
+					{ id: 'waf', label: 'WAF', href: '/en/documentation/platform/firewall/waf/' },
 					{
 						id: 'ddos-protection',
 						label: 'DDoS Protection',
-						href: '/en/documentation/platform/ddos-protection/',
+						href: '/en/documentation/platform/workloads/ddos-protection/',
 					},
 					{
 						id: 'bot-manager',
 						label: 'Bot Manager',
-						href: '/en/documentation/secure/bot-manager/',
+						href: '/en/documentation/platform/firewall/bot-manager/',
 					},
 					{
 						id: 'network-shield',
 						label: 'Network Shield',
-						href: '/en/documentation/secure/network-shield/',
+						href: '/en/documentation/platform/firewall/network-shield/',
 					},
 				],
 				href: '/en/documentation/platform/firewall/',
@@ -71,18 +70,18 @@ export const en: PlatformTopologyContent = {
 					{
 						id: 'functions',
 						label: 'Functions',
-						href: '/en/documentation/build/functions/',
+						href: '/en/documentation/platform/functions/',
 					},
 					{
 						id: 'rules-engine',
 						label: 'Rules Engine',
 						href: '/en/documentation/platform/applications/rules-engine/',
 					},
-					{ id: 'cache', label: 'Cache', href: '/en/documentation/build/cache/' },
+					{ id: 'cache', label: 'Cache', href: '/en/documentation/platform/applications/cache/' },
 					{
 						id: 'image-processor',
 						label: 'Image Processor',
-						href: '/en/documentation/build/image-processor/',
+						href: '/en/documentation/platform/applications/image-processor/',
 					},
 				],
 				href: '/en/documentation/platform/applications/',
@@ -94,41 +93,10 @@ export const en: PlatformTopologyContent = {
 				tag: OPTIONAL,
 				role: 'Error pages',
 				terminal: true,
-				href: '/en/documentation/platform/custom-pages/',
+				href: '/en/documentation/platform/workloads/custom-pages/',
 			},
 		],
 		[
-			{
-				id: 'store-ai',
-				icon: 'ai ai-store',
-				kind: 'Store and AI',
-				tag: OPTIONAL,
-				role: 'Data and models',
-				terminal: true,
-				items: [
-					{
-						id: 'sql-database',
-						label: 'SQL Database',
-						href: '/en/documentation/store/sql-database/',
-					},
-					{
-						id: 'kv-store',
-						label: 'KV Store',
-						href: '/en/documentation/store/kv-store/',
-					},
-					{
-						id: 'ai-inference',
-						label: 'AI Inference',
-						href: '/en/documentation/build/ai-inference/',
-					},
-					{
-						id: 'object-storage',
-						label: 'Object Storage',
-						href: '/en/documentation/store/object-storage/',
-					},
-				],
-				href: '/en/documentation/build/functions/',
-			},
 			{
 				id: 'connector',
 				icon: 'ai ai-edge-connectors',
@@ -137,17 +105,62 @@ export const en: PlatformTopologyContent = {
 				role: 'HTTP or storage',
 				items: [
 					{
+						id: 'storage-connector',
+						label: 'Storage connector',
+						href: '/en/documentation/platform/connectors/#object-storage',
+					},
+					{
 						id: 'load-balancer',
 						label: 'Load Balancer',
-						href: '/en/documentation/platform/load-balancer/',
+						href: '/en/documentation/platform/connectors/load-balancer/',
 					},
 					{
 						id: 'origin-shield',
 						label: 'Origin Shield',
-						href: '/en/documentation/secure/origin-shield/',
+						href: '/en/documentation/platform/connectors/origin-shield/',
 					},
 				],
 				href: '/en/documentation/platform/connectors/',
+			},
+			{
+				id: 'store',
+				icon: 'ai ai-store',
+				kind: 'Store',
+				tag: OPTIONAL,
+				role: 'Data and files',
+				terminal: true,
+				items: [
+					{
+						id: 'sql-database',
+						label: 'SQL Database',
+						href: '/en/documentation/platform/sql-database/',
+					},
+					{
+						id: 'kv-store',
+						label: 'KV Store',
+						href: '/en/documentation/platform/kv-store/',
+					},
+					{
+						id: 'object-storage',
+						label: 'Object Storage',
+						href: '/en/documentation/platform/object-storage/',
+					},
+				],
+			},
+			{
+				id: 'ai',
+				icon: 'ai ai-ai-pillar',
+				kind: 'AI',
+				tag: OPTIONAL,
+				role: 'Runs models',
+				terminal: true,
+				items: [
+					{
+						id: 'ai-inference',
+						label: 'AI Inference',
+						href: '/en/documentation/platform/ai-inference/',
+					},
+				],
 			},
 		],
 		[
@@ -155,10 +168,10 @@ export const en: PlatformTopologyContent = {
 				id: 'origin',
 				icon: 'pi pi-server',
 				kind: 'Origin',
-				tag: { label: 'Yours', severity: 'contrast' },
 				role: 'Your server',
+				examples: ['On-premises', 'Cloud', 'Colocation'],
 				terminal: true,
-				href: '/en/documentation/platform/connectors/origins/',
+				href: '/en/documentation/platform/connectors/',
 			},
 		],
 	],

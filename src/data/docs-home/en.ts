@@ -120,7 +120,7 @@ export const en: DocsHomeContent = {
 			],
 			footer: {
 				prefix: 'Also useful:',
-				links: [{ label: 'Observe', href: '/en/documentation/observe/data-stream/' }],
+				links: [{ label: 'Observe', href: '/en/documentation/platform/data-stream/' }],
 			},
 		},
 
@@ -236,10 +236,10 @@ export const en: DocsHomeContent = {
 			footer: {
 				prefix: 'Reference, when you need the details:',
 				links: [
-					{ label: 'DDoS Protection', href: '/en/documentation/platform/ddos-protection/' },
-					{ label: 'WAF Rule Sets', href: '/en/documentation/secure/waf/rules-set/' },
-					{ label: 'WAF Exceptions', href: '/en/documentation/secure/waf/custom-allowed-rules/' },
-					{ label: 'Bot Manager', href: '/en/documentation/secure/bot-manager/' },
+					{ label: 'DDoS Protection', href: '/en/documentation/platform/workloads/ddos-protection/' },
+					{ label: 'WAF Rule Sets', href: '/en/documentation/platform/firewall/waf/rules-set/' },
+					{ label: 'WAF Exceptions', href: '/en/documentation/platform/firewall/waf/custom-allowed-rules/' },
+					{ label: 'Bot Manager', href: '/en/documentation/platform/firewall/bot-manager/' },
 				],
 			},
 		},

@@ -72,8 +72,14 @@
 			:selected="activeId !== '' && node.id === activeId"
 			@click="emit('navigate', $event, node)"
 		>
-			<template v-if="node.tagValue" #tag>
-				<Tag :label="node.tagValue" severity="info" rounded />
+			<template v-if="node.tagValue || isExternal(node.href)" #tag>
+				<Tag v-if="node.tagValue" :label="node.tagValue" severity="info" rounded />
+				<!-- A row that leaves the site carries the arrow the docs use for external links. -->
+				<i
+					v-else
+					class="pi pi-arrow-up-right text-label-sm leading-none text-(--text-muted)"
+					aria-hidden="true"
+				/>
 			</template>
 		</MenuItem>
 	</template>
@@ -121,4 +127,7 @@ function rowsFor(node: MenuNode): MenuGroupNode[] | undefined {
 function forward(event: MouseEvent, node: MenuNode) {
 	emit('navigate', event, node);
 }
+
+/** An absolute http(s) destination leaves the site; a relative one, such as an llms.txt, does not. */
+const isExternal = (href?: string) => /^https?:\/\//.test(href ?? '');
 </script>

@@ -46,14 +46,14 @@ export const en: UseCaseCatalogContent = {
 			id: 'build-e-commerce-storefronts',
 			solution: 'build-and-run-applications',
 			title: 'Build e-commerce storefronts',
-			href: '/en/documentation/store/object-storage/',
+			href: '/en/documentation/platform/object-storage/',
 			featured: true,
 		},
 		{
 			id: 'deploy-frontend-applications',
 			solution: 'build-and-run-applications',
 			title: 'Deploy frontend applications',
-			href: '/en/documentation/store/object-storage/',
+			href: '/en/documentation/platform/object-storage/',
 			featured: true,
 		},
 		{
@@ -76,7 +76,7 @@ export const en: UseCaseCatalogContent = {
 			id: 'keep-an-application-online-when-an-origin-fails',
 			solution: 'improve-performance-and-reliability',
 			title: 'Keep an application online when an origin fails',
-			href: '/en/documentation/platform/load-balancer/',
+			href: '/en/documentation/platform/connectors/load-balancer/',
 			featured: true,
 		},
 		{
@@ -90,7 +90,7 @@ export const en: UseCaseCatalogContent = {
 			id: 'monitor-website-and-api-performance',
 			solution: 'improve-performance-and-reliability',
 			title: 'Monitor website and API performance',
-			href: '/en/documentation/observe/edge-pulse/',
+			href: '/en/documentation/platform/edge-pulse/',
 			featured: true,
 		},
 		{
@@ -179,7 +179,7 @@ export const en: UseCaseCatalogContent = {
 			id: 'deliver-an-on-demand-video-library',
 			solution: 'deliver-media-and-streaming',
 			title: 'Deliver an on-demand video library',
-			href: '/en/documentation/store/object-storage/',
+			href: '/en/documentation/platform/object-storage/',
 			featured: true,
 		},
 	],
