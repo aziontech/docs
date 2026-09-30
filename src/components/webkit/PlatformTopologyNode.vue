@@ -1,14 +1,18 @@
 <template>
 	<FlowNode unstyled :terminal="node.terminal ?? false" :data-testid="testId">
-		<!-- The Console's topology card. The width is a quarter of the container less the flow's
-		     padding and gaps, clamped to 132px (four columns fit the article) and 224px (the
-		     Console's card), so it grows with the space and never forces a horizontal scroll. -->
+		<!-- The Console's topology card: a quarter of the container less the flow's padding and
+		     gaps, plus what the margins take from the flow's gap to leave 32px (2rem) between
+		     cards at every width; the lines attach to the header anchor, so the ports stay on the
+		     card edge. Clamped to 150px, the narrowest header that shows "Custom Pages" whole, and
+		     224px, the Console's card, so four columns fit the article with no scroll. -->
 		<div
 			:data-state="open ? 'open' : 'closed'"
-			class="flex w-[clamp(8.25rem,calc((100cqw_-_2*var(--spacing-md)_-_3*var(--spacing-xl))/4),14rem)] flex-col rounded-(--shape-card) border border-(--border-default) bg-(--bg-surface) shadow-(--shadow-sm) transition-colors duration-moderate-01 ease-productive-entrance hover:border-(--border-strong) has-[:focus-visible]:border-(--border-strong) motion-reduce:transition-none data-[state=open]:border-(--primary)"
+			class="mx-[calc((2rem_-_var(--spacing-xl))/2)] flex w-[clamp(9.375rem,calc((100cqw_-_2*var(--spacing-md)_-_3*var(--spacing-xl))/4_+_var(--spacing-xl)_-_2rem),14rem)] flex-col rounded-(--shape-card) border border-(--border-default) bg-(--bg-surface) shadow-(--shadow-sm) transition-colors duration-moderate-01 ease-productive-entrance hover:border-(--border-strong) has-[:focus-visible]:border-(--border-strong) motion-reduce:transition-none data-[state=open]:border-(--primary)"
 		>
 			<!-- The anchor pins the connector ports to the header, so an expanding body never
-			     moves a card's lines. -->
+			     moves a card's lines. Header, identity row and body share one side padding, so
+			     the icon lines up with the text under it; 12px leaves the links' hover surface,
+			     which bleeds 8px past the text, clear of the card border. -->
 			<FlowAnchor>
 				<button
 					:id="triggerId"
@@ -16,7 +20,7 @@
 					:aria-expanded="open"
 					:aria-controls="bodyId"
 					:data-state="open ? 'open' : 'closed'"
-					class="group flex w-full items-center gap-(--spacing-xxs) rounded-t-(--shape-card) px-(--spacing-xxs) pt-(--spacing-xs) pb-(--spacing-xxs) text-left outline-none transition-colors duration-moderate-01 ease-productive-entrance hover:bg-(--bg-hover) focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-inset motion-reduce:transition-none"
+					class="group flex w-full items-center gap-(--spacing-xxs) rounded-t-(--shape-card) px-(--spacing-sm) pt-(--spacing-xs) pb-(--spacing-xxs) text-left outline-none transition-colors duration-moderate-01 ease-productive-entrance hover:bg-(--bg-hover) focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-inset motion-reduce:transition-none"
 					@click="toggle"
 				>
 					<i
@@ -34,7 +38,7 @@
 				</button>
 			</FlowAnchor>
 			<p
-				class="m-0 truncate px-(--spacing-xs) pb-(--spacing-xs) text-label-sm text-(--text-default)"
+				class="m-0 truncate px-(--spacing-sm) pb-(--spacing-xs) text-label-sm text-(--text-default)"
 			>
 				{{ node.role }}
 			</p>
@@ -48,15 +52,40 @@
 			>
 				<div class="overflow-hidden">
 					<div
-						class="flex flex-col items-start gap-(--spacing-xs) border-t border-(--border-muted) px-(--spacing-xs) py-(--spacing-xs)"
+						class="flex flex-col items-start gap-(--spacing-xs) border-t border-(--border-muted) px-(--spacing-sm) py-(--spacing-xs)"
 					>
-						<Tag size="small" :severity="node.tag.severity" :label="node.tag.label" />
+						<!-- The tags are pulled left by their own padding and border, so their text starts
+						     on the same line as the links under them. -->
+						<div
+							v-if="node.tag || node.examples?.length"
+							class="-ml-[calc(var(--spacing-xxs)_+_var(--border-width-default,1px))] flex flex-wrap gap-(--spacing-xxs)"
+						>
+							<Tag
+								v-if="node.tag"
+								size="small"
+								:severity="node.tag.severity"
+								:label="node.tag.label"
+							/>
+							<Tag
+								v-for="example in node.examples"
+								:key="example"
+								size="small"
+								severity="secondary"
+								:label="example"
+							/>
+						</div>
 						<ul v-if="node.items?.length" class="m-0 flex list-none flex-col p-0">
 							<li v-for="item in node.items" :key="item.id">
 								<Link :href="item.href" :label="item.label" size="small" :show-icon="false" />
 							</li>
 						</ul>
-						<Link :href="node.href" :label="referenceLabel" size="small" icon="pi pi-arrow-right" />
+						<Link
+							v-if="node.href"
+							:href="node.href"
+							:label="referenceLabel"
+							size="small"
+							:show-icon="false"
+						/>
 					</div>
 				</div>
 			</div>

@@ -1,5 +1,5 @@
 import { LANGS, type Lang } from '../src/nav/schema';
-import { buildNavIndex, targetPermalink, walkTree } from '../src/nav/resolve';
+import { buildNavIndex, productLabels, targetPermalink, walkTree } from '../src/nav/resolve';
 import { loadNav } from './nav/lib/load';
 
 const MAX_DEPTH = 3;
@@ -106,10 +106,21 @@ if (data.topnav) {
 		fail(`topnav.json: unknown devtoolsHome tree "${data.topnav.devtoolsHome}"`);
 }
 
+const productIds = productLabels(data, 'en');
 for (const [index, video] of (data.videos ?? []).entries()) {
 	for (const product of video.products ?? []) {
-		if (!data.trees.has(product))
-			fail(`videos.json: entry ${index} is tagged with unknown tree "${product}"`);
+		if (!productIds.has(product))
+			fail(`videos.json: entry ${index} is tagged with unknown product "${product}"`);
+	}
+}
+for (const tree of data.trees.values()) {
+	for (const entry of walkTree(tree, 'en')) {
+		for (const product of entry.node.products ?? []) {
+			if (!productIds.has(product))
+				fail(
+					`tree "${tree.id}": row "${entry.nodeId}" is tagged with unknown product "${product}"`
+				);
+		}
 	}
 }
 

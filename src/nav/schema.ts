@@ -54,6 +54,8 @@ const baseNode = z.object({
 	placeholder: z.boolean().optional(),
 	products: z.array(z.string().min(1)).optional(),
 	kind: guideKind.optional(),
+	/** The catalog product this row stands for when it owns no tree: a Product nested as a dropdown row inside its Platform resource. */
+	product: segmentString.optional(),
 });
 
 export type NavNode = z.infer<typeof baseNode> & { items?: NavNode[] };
