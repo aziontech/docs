@@ -107,7 +107,7 @@ export default defineConfig({
 			external: ['vue'],
 		},
 		optimizeDeps: {
-			include: ['vue'],
+			include: ['vue', 'mermaid'],
 		},
 	},
 });
