@@ -25,7 +25,6 @@ export function architecturesHomeMarkdown(lang: Lang, groups: HubGroup[]): strin
 
 	return [
 		hero.description,
-		`[${hero.buttonLabel}](${hero.buttonLink})`,
 		`## ${directory.heading.text}`,
 		directory.intro,
 		...groups.map((group) => [`### ${group.label}`, '', ...group.items.map(entry)].join('\n')),

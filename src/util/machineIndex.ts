@@ -88,6 +88,8 @@ function reachableTrees(data: NavData): string[] {
 	if (data.topnav) {
 		for (const column of [...data.topnav.products, ...data.topnav.devtools]) visit(column.items);
 		if (!listed.includes(data.topnav.guides)) listed.push(data.topnav.guides);
+		const hub = data.topnav.devtoolsHome;
+		if (hub && !listed.includes(hub)) listed.push(hub);
 	}
 
 	// A page's owner is the tree that lists it as a plain row; a linkOnly row is a cross-link.

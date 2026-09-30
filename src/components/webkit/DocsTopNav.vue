@@ -10,7 +10,10 @@
 				<!-- eslint-enable webkit/no-style-override -->
 				<template v-for="item in items" :key="item.value">
 					<NavigationMenu.Item v-if="item.columns" :value="item.value">
-						<NavigationMenu.Trigger>
+						<!-- Hover opens the panel; a click on the trigger itself visits the section's
+						     landing. webkit's Trigger is a button — given an `href` it renders as a
+						     plain link and never opens its panel — so the visit is made by hand. -->
+						<NavigationMenu.Trigger @click="visit(item.href)">
 							{{ item.label }}
 							<NavigationMenu.Icon>
 								<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
@@ -33,23 +36,6 @@
 								class="grid gap-(--spacing-lg) p-(--spacing-md)"
 								:style="{ gridTemplateColumns: `repeat(${item.columns.length}, 18rem)` }"
 							>
-								<!-- The section's landing, above the columns. The trigger stays a button:
-								     with an `href` it renders as a plain link and never opens its panel.
-								     Design-system gap: a List without `label` is a horizontal row, so the
-								     entry's hover surface spans its text, not the panel. -->
-								<div v-if="item.home?.href" class="col-span-full">
-									<NavigationMenu.List :highlight="false">
-										<NavigationMenu.Item
-											layout="entry"
-											:href="item.home.href"
-											:description="item.home.description"
-											featured
-											close-on-click
-										>
-											{{ item.home.label }}
-										</NavigationMenu.Item>
-									</NavigationMenu.List>
-								</div>
 								<NavigationMenu.List
 									v-for="column in item.columns"
 									:key="column.label"
@@ -104,8 +90,8 @@ interface Column {
 }
 
 type Item =
-	| { value: string; label: string; columns: Column[]; home?: Entry | null; href?: never }
-	| { value: string; label: string; href?: string; columns?: never; home?: never };
+	| { value: string; label: string; columns: Column[]; href?: string }
+	| { value: string; label: string; href?: string; columns?: never };
 
 const props = withDefaults(
 	defineProps<{
@@ -139,11 +125,15 @@ const items = computed<Item[]>(() => [
 					value: 'devtools',
 					label: props.labels.devtools,
 					columns: props.devtools,
-					home: props.devtoolsHome,
+					href: props.devtoolsHome?.href,
 				},
 		  ]
 		: []),
 ]);
+
+function visit(href?: string) {
+	if (href) window.location.assign(href);
+}
 
 // `NavigationMenu.Portal` may only mount client-side; webkit publishes no
 // `use-mounted` composable, so guard it with the plain Vue equivalent.
