@@ -152,6 +152,7 @@ async function render() {
 			startOnLoad: false,
 			securityLevel: 'strict',
 			theme: 'base',
+			look: 'classic',
 			themeVariables: themeVariables(),
 			flowchart: { useMaxWidth: false, htmlLabels: true },
 			sequence: { useMaxWidth: false },
