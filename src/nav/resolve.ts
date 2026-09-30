@@ -159,7 +159,7 @@ function nodeLabel(data: NavData, node: NavNode, lang: Lang): string {
 	return node.tree ?? node.page ?? '';
 }
 
-function nodeHref(data: NavData, node: NavNode, lang: Lang): string | undefined {
+function nodeHref(data: NavData, node: NavNode, lang: Lang, owner?: NavTree): string | undefined {
 	// A row may land on a section of its target page: `hash` carries the heading's
 	// slug, which rehype-slug derives from the heading text and keeps identical in
 	// both locales when the heading is a product name. Order matters: path?query#hash.
@@ -171,6 +171,7 @@ function nodeHref(data: NavData, node: NavNode, lang: Lang): string | undefined 
 	};
 
 	if (node.href) return node.href;
+	if (node.llms) return owner ? `${treeBase(owner, lang)}llms.txt` : undefined;
 	if (node.tree) {
 		const tree = data.trees.get(node.tree);
 		if (!tree) return undefined;
@@ -190,15 +191,21 @@ export function pageHref(data: NavData, namespace: string, lang: Lang): string |
 	return undefined;
 }
 
+/** The section's URL base: where its llms.txt and its rootless index live. */
+function treeBase(tree: NavTree, lang: Lang): string {
+	return `/${lang}/${DOCS_BASE[lang]}/${trimSlashes(text(tree.path, lang) ?? tree.id)}/`;
+}
+
 export function treeHref(data: NavData, tree: NavTree, lang: Lang): string | undefined {
 	if (tree.root) return pageHref(data, tree.root, lang);
-	return `/${lang}/${DOCS_BASE[lang]}/${trimSlashes(text(tree.path, lang) ?? tree.id)}/`;
+	return treeBase(tree, lang);
 }
 
 function nodeIdentity(node: NavNode, lang: Lang, index: number): string {
 	if (node.page) return node.page;
 	if (node.tree) return `tree:${node.tree}`;
 	if (node.href) return `href:${slugify(node.href)}`;
+	if (node.llms) return 'llms';
 	const label = text(node.label, lang);
 	return label ? slugify(label) : `row-${index}`;
 }
@@ -286,7 +293,7 @@ function openedTree(
 	href: string | undefined,
 	ctx: MenuContext
 ): string | undefined {
-	if (node.href || node.placeholder || !href) return undefined;
+	if (node.href || node.llms || node.placeholder || !href) return undefined;
 	const target = ctx.index.get(normalize(href))?.treeId;
 	if (!target || target === ctx.treeId) return undefined;
 	return data.trees.get(target)?.inline ? undefined : target;
@@ -307,7 +314,8 @@ function toMenuNodes(
 	lang: Lang,
 	parentId: string,
 	ctx: MenuContext,
-	ancestors: string[]
+	ancestors: string[],
+	owner: NavTree | undefined = ctx.treeId ? data.trees.get(ctx.treeId) : undefined
 ): MenuNode[] {
 	const out: MenuNode[] = [];
 
@@ -318,10 +326,10 @@ function toMenuNodes(
 
 		const inlined = inlineTree(data, node);
 		const rows = inlined ? inlined.groups.flatMap((group) => group.items) : node.items;
-		const href = inlined ? undefined : nodeHref(data, node, lang);
-		const external = Boolean(node.href);
+		const href = inlined ? undefined : nodeHref(data, node, lang, owner);
+		const external = Boolean(node.href || node.llms);
 		const children = rows?.length
-			? toMenuNodes(data, rows, lang, id, ctx, [...ancestors, id])
+			? toMenuNodes(data, rows, lang, id, ctx, [...ancestors, id], inlined ?? owner)
 			: undefined;
 
 		const claimsActive = Boolean(href) && href !== ctx.comingSoonHref;

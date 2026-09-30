@@ -8,7 +8,7 @@ export const ptBr: DevtoolsHomeContent = {
 		description:
 			'Conecte um agente de código, execute um projeto localmente, faça o deploy e automatize a plataforma com Azion CLI, APIs, Go SDK e o servidor MCP.',
 		buttonLabel: 'Faça o deploy do seu site',
-		buttonLink: '/pt-br/documentacao/primeiro-deploy/',
+		buttonLink: '/pt-br/documentacao/fundamentos/primeiro-deploy/',
 	},
 
 	promptPreview: {

@@ -58,7 +58,7 @@ const listData = [
 			},
 			{
 				title: 'Visão geral da plataforma',
-				link: '/pt-br/documentacao/produtos/visao-geral-da-plataforma-da-azion/',
+				link: '/pt-br/documentacao/fundamentos/como-funciona/',
 			},
 			{
 				title: 'Preços',

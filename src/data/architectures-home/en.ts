@@ -26,7 +26,7 @@ export const en: ArchitecturesHomeContent = {
 			prefix: 'Also useful:',
 			links: [
 				{ label: 'Guides', href: '/en/documentation/guides/' },
-				{ label: 'How Azion works', href: '/en/documentation/platform/' },
+				{ label: 'How Azion works', href: '/en/documentation/fundamentals/how-it-works/' },
 				{ label: 'architectures llms.txt', href: '/en/documentation/architectures/llms.txt' },
 			],
 		},

@@ -47,6 +47,8 @@ const baseNode = z.object({
 	tag: z.string().min(1).optional(),
 	segment: localizedSegment.optional(),
 	linkOnly: z.boolean().optional(),
+	/** The owning section's llms.txt: the row links the index the section publishes for agents. */
+	llms: z.boolean().optional(),
 	placeholder: z.boolean().optional(),
 	products: z.array(z.string().min(1)).optional(),
 	kind: guideKind.optional(),
@@ -56,12 +58,16 @@ export type NavNode = z.infer<typeof baseNode> & { items?: NavNode[] };
 
 export const navNode: z.ZodType<NavNode> = baseNode
 	.extend({ items: z.lazy(() => z.array(navNode)).optional() })
-	.refine((n) => [n.page, n.tree, n.href].filter(Boolean).length <= 1, {
-		message: 'a row points at a page, a tree or an href — never more than one',
+	.refine((n) => [n.page, n.tree, n.href, n.llms].filter(Boolean).length <= 1, {
+		message:
+			'a row points at a page, a tree, an href or the section llms.txt — never more than one',
 	})
-	.refine((n) => Boolean(n.page || n.tree || n.href || n.items?.length || n.placeholder), {
-		message: 'a row needs a destination or children',
-	})
+	.refine(
+		(n) => Boolean(n.page || n.tree || n.href || n.llms || n.items?.length || n.placeholder),
+		{
+			message: 'a row needs a destination or children',
+		}
+	)
 	.refine((n) => Boolean(n.label || n.page || n.tree), {
 		message: 'a row with no page or tree needs an explicit label',
 	});

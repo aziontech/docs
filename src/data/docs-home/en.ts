@@ -26,7 +26,7 @@ export const en: DocsHomeContent = {
 		description:
 			'We make every application fast and reliable. Deploy on a global network, with enterprise-grade security and no cold starts.',
 		buttonLabel: 'Get started',
-		buttonLink: '/en/documentation/first-deploy/',
+		buttonLink: '/en/documentation/fundamentals/first-deploy/',
 		note: 'The prompt hands your coding agent the CLI, live docs over MCP, and this project linked.',
 		prompt: AGENT_PROMPT,
 		promptLabel: 'Copy prompt',
@@ -89,7 +89,7 @@ export const en: DocsHomeContent = {
 				{
 					icon: 'ai ai-build-pillar',
 					title: 'Build your application',
-					href: '/en/documentation/first-deploy/',
+					href: '/en/documentation/fundamentals/first-deploy/',
 					body: 'Deploy from a template, a repo, or the CLI.',
 				},
 				{
@@ -174,7 +174,7 @@ export const en: DocsHomeContent = {
 			footer: {
 				prefix: 'Also useful:',
 				links: [
-					{ label: 'First deploy', href: '/en/documentation/first-deploy/' },
+					{ label: 'First deploy', href: '/en/documentation/fundamentals/first-deploy/' },
 					{
 						label: 'Frameworks compatibility',
 						href: '/en/documentation/devtools/runtime/frameworks/frameworks-compatibility/',
@@ -228,7 +228,7 @@ export const en: DocsHomeContent = {
 				{
 					icon: 'pi pi-arrow-right-arrow-left',
 					title: 'Stream to SIEM',
-					href: '/en/documentation/products/secure/automate/integrate-siems/',
+					href: '/en/documentation/guides/',
 					class: 'sm:col-span-2 lg:col-span-3',
 					body: 'Stream WAF and firewall events where your team watches.',
 				},
