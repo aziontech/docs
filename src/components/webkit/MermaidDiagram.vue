@@ -8,15 +8,22 @@
 	>
 		<Skeleton v-if="loading" kind="shape" width="100%" height="12rem" />
 		<CodeBlock v-else-if="error" :code="code" lang="mermaid" />
-		<!-- eslint-disable vue/no-v-html -- mermaid output; `securityLevel: 'strict'` runs it through DOMPurify -->
 		<div
 			v-else
-			role="img"
-			:aria-label="title || diagramLabel"
-			class="w-full overflow-x-auto rounded-(--shape-card) border border-(--border-default) bg-(--bg-surface) p-(--spacing-md) [&_svg]:mx-auto [&_svg]:h-auto"
-			v-html="svg"
-		></div>
-		<!-- eslint-enable vue/no-v-html -->
+			class="w-full overflow-hidden rounded-(--shape-card) border border-(--border-default) bg-(--bg-surface)"
+		>
+			<!-- The same scroll region the right rail uses: thin bar, token thumb, keyboard scroll. -->
+			<ScrollArea orientation="horizontal" :aria-label="title || diagramLabel">
+				<!-- eslint-disable vue/no-v-html -- mermaid output; `securityLevel: 'strict'` runs it through DOMPurify -->
+				<div
+					role="img"
+					:aria-label="title || diagramLabel"
+					class="p-(--spacing-md) [&_svg]:mx-auto [&_svg]:h-auto"
+					v-html="svg"
+				></div>
+				<!-- eslint-enable vue/no-v-html -->
+			</ScrollArea>
+		</div>
 		<figcaption v-if="title && !loading && !error" class="text-body-sm text-(--text-muted)">
 			{{ title }}
 		</figcaption>
@@ -26,6 +33,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useAttrs, useId } from 'vue';
 
+import ScrollArea from '@aziontech/webkit/scroll-area';
 import Skeleton from '@aziontech/webkit/skeleton';
 
 import CodeBlock from '~/components/webkit/CodeBlock.vue';
