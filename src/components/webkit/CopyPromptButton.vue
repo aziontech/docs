@@ -1,15 +1,50 @@
 <template>
 	<Tooltip :text="tooltip" placement="top">
-		<span aria-live="polite">
-			<ButtonHighlight :label="copied ? copiedLabel : label" @click="copy" />
-		</span>
+		<!-- The webkit highlight button takes a label only, so the button is composed here with
+		     the same layers: a spinning glow, the accent base, and a scrim that lifts on hover. -->
+		<button
+			type="button"
+			:data-state="copied ? 'copied' : 'default'"
+			:data-testid="testId"
+			class="group/highlight relative isolate inline-flex h-10 max-w-full items-center justify-center overflow-hidden rounded-(--shape-elements) border-(length:--border-width-default) border-(--border-default) p-px transition-colors duration-fast-02 ease-productive-entrance focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-canvas) motion-reduce:transition-none"
+			@click="copy"
+		>
+			<span
+				aria-hidden="true"
+				class="pointer-events-none absolute inset-0 animate-spin [animation-duration:8s] [animation-timing-function:linear] [background:linear-gradient(90deg,var(--color-base-white),var(--color-blue-500),var(--color-brand-primary-500))] filter-[blur(12px)] motion-reduce:animate-none"
+			/>
+			<span
+				aria-hidden="true"
+				class="pointer-events-none absolute inset-px rounded-[inherit] bg-[linear-gradient(120deg,var(--color-brand-accent-900)_17%,var(--color-brand-accent-100)_53%,var(--color-brand-accent-600)_96%)] transition-opacity duration-moderate-02 ease-out group-hover/highlight:opacity-25 motion-reduce:transition-none"
+			/>
+			<span
+				aria-hidden="true"
+				class="pointer-events-none absolute inset-px rounded-[inherit] bg-(--bg-backdrop) transition-opacity duration-moderate-02 ease-out group-hover/highlight:opacity-25 motion-reduce:transition-none"
+			/>
+			<span
+				class="relative z-1 flex h-full w-full min-w-0 items-center justify-center gap-(--spacing-xs) px-(--spacing-md) text-label-md text-(--color-base-white) sm:gap-(--spacing-sm)"
+			>
+				<span aria-live="polite" class="min-w-0 truncate sm:whitespace-nowrap">
+					{{ copied ? copiedLabel : label }}
+				</span>
+				<span
+					aria-hidden="true"
+					class="ml-(--spacing-xxs) flex shrink-0 items-center gap-(--spacing-xxs) sm:gap-(--spacing-xs)"
+				>
+					<AgentMark v-for="name in MARKS" :key="name" :name="name" mono class="size-(--size-5)" />
+				</span>
+			</span>
+		</button>
 	</Tooltip>
 </template>
 
 <script setup lang="ts">
-import ButtonHighlight from '@aziontech/webkit/button-highlight';
 import Tooltip from '@aziontech/webkit/tooltip';
-import { onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, useAttrs } from 'vue';
+
+import AgentMark, { type AgentName } from './AgentMark.vue';
+
+defineOptions({ name: 'CopyPromptButton' });
 
 interface Props {
 	/** Text copied to the clipboard on activation. */
@@ -28,8 +63,15 @@ const props = withDefaults(defineProps<Props>(), {
 	tooltip: 'Copies a setup prompt for your AI coding tool',
 });
 
+/** The agents shown after the label, in the order the Console shows them. */
+const MARKS: AgentName[] = ['claude', 'codex', 'gemini', 'cursor'];
+
+const attrs = useAttrs();
+
 const copied = ref(false);
 let timer: ReturnType<typeof setTimeout> | null = null;
+
+const testId = computed(() => (attrs['data-testid'] as string | undefined) ?? 'copy-prompt-button');
 
 async function copy() {
 	try {

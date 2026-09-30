@@ -172,6 +172,7 @@ function nodeHref(data: NavData, node: NavNode, lang: Lang, owner?: NavTree): st
 
 	if (node.href) return node.href;
 	if (node.llms) return owner ? `${treeBase(owner, lang)}llms.txt` : undefined;
+	if (node.home) return `/${lang}/${DOCS_BASE[lang]}/`;
 	if (node.tree) {
 		const tree = data.trees.get(node.tree);
 		if (!tree) return undefined;
@@ -206,6 +207,7 @@ function nodeIdentity(node: NavNode, lang: Lang, index: number): string {
 	if (node.tree) return `tree:${node.tree}`;
 	if (node.href) return `href:${slugify(node.href)}`;
 	if (node.llms) return 'llms';
+	if (node.home) return 'home';
 	const label = text(node.label, lang);
 	return label ? slugify(label) : `row-${index}`;
 }
@@ -293,7 +295,7 @@ function openedTree(
 	href: string | undefined,
 	ctx: MenuContext
 ): string | undefined {
-	if (node.href || node.llms || node.placeholder || !href) return undefined;
+	if (node.href || node.llms || node.home || node.placeholder || !href) return undefined;
 	const target = ctx.index.get(normalize(href))?.treeId;
 	if (!target || target === ctx.treeId) return undefined;
 	return data.trees.get(target)?.inline ? undefined : target;
@@ -635,13 +637,21 @@ export interface HubGroup {
 	items: HubTool[];
 }
 
-/** A hub tree's rows, in the labeled groups its rail shows; the unlabeled Overview group is skipped.
- * A row that points at a tree yields that tree's root (Developer tools); a row that points at a page
- * yields the page (Architectures). Cross-links and placeholders are not the hub's own rows. */
+/** A hub tree's rows, in the labeled sections its rail shows: a labeled group (Developer tools)
+ * or a dropdown row inside an unlabeled group (Use Cases); the Overview row is skipped. A row
+ * that points at a tree yields that tree's root; a row that points at a page yields the page.
+ * Cross-links and placeholders are not the hub's own rows. */
 export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): HubGroup[] {
 	const hub = data.trees.get(treeId);
 	if (!hub) return [];
-	return hub.groups
+	const sections: NavGroup[] = hub.groups.flatMap((group) =>
+		group.label
+			? [group]
+			: group.items
+					.filter((row) => row.label && row.items?.length)
+					.map((row) => ({ label: row.label, segment: row.segment, items: row.items ?? [] }))
+	);
+	return sections
 		.map((group) => ({
 			label: text(group.label, lang) ?? '',
 			slug: slugify(text(group.label, lang) ?? ''),

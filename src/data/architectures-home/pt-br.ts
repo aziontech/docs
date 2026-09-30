@@ -4,17 +4,15 @@ export const ptBr: ArchitecturesHomeContent = {
 	lang: 'pt-br',
 
 	hero: {
-		title: 'Arquiteturas',
+		title: 'Casos de uso',
 		description:
-			'Designs validados que mostram como os produtos Azion se combinam para implementar um caso de uso: os componentes, os fluxos e as decisões por trás de cada um.',
-		buttonLabel: 'Implante um template',
-		buttonLink: '/pt-br/documentacao/marketplace/templates/',
+			'Cada caso de uso é um design validado que mostra como os produtos Azion se combinam para resolvê-lo: os componentes, os fluxos e as decisões por trás de cada um.',
 	},
 
 	directory: {
-		heading: { depth: 2, slug: 'todas-as-arquiteturas', text: 'Todas as arquiteturas' },
-		intro: 'Toda arquitetura, agrupada pela solução que atende.',
-		cardLink: 'Leia a arquitetura',
+		heading: { depth: 2, slug: 'todos-os-casos-de-uso', text: 'Todos os casos de uso' },
+		intro: 'Todo caso de uso, agrupado pela solução que atende.',
+		cardLink: 'Leia o caso de uso',
 		icons: {
 			'build-and-run-applications': 'ai ai-build-pillar',
 			'improve-performance-and-reliability': 'pi pi-gauge',
@@ -27,7 +25,7 @@ export const ptBr: ArchitecturesHomeContent = {
 			links: [
 				{ label: 'Guias', href: '/pt-br/documentacao/guias/' },
 				{ label: 'Como a Azion funciona', href: '/pt-br/documentacao/fundamentos/como-funciona/' },
-				{ label: 'llms.txt das arquiteturas', href: '/pt-br/documentacao/arquiteturas/llms.txt' },
+				{ label: 'llms.txt dos casos de uso', href: '/pt-br/documentacao/arquiteturas/llms.txt' },
 			],
 		},
 	},
