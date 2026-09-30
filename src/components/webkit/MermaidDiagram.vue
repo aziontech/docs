@@ -1,38 +1,58 @@
 <template>
-	<figure
-		data-doc-chrome
+	<!-- Three roots, one per state: the diagram IS the design system's figure once it
+	     renders, so it takes the block rung of the prose ladder like any DocFrame. -->
+	<Skeleton
+		v-if="loading"
+		kind="shape"
+		width="100%"
+		height="12rem"
 		:data-testid="testId"
-		:data-loading="loading || null"
-		:data-error="error || null"
-		class="not-prose my-6 flex flex-col gap-(--spacing-sm)"
-	>
-		<Skeleton v-if="loading" kind="shape" width="100%" height="12rem" />
-		<CodeBlock v-else-if="error" :code="code" lang="mermaid" />
-		<div
-			v-else
-			class="w-full overflow-hidden rounded-(--shape-card) border border-(--border-default) bg-(--bg-surface)"
-		>
-			<!-- The same scroll region the right rail uses: thin bar, token thumb, keyboard scroll. -->
-			<ScrollArea orientation="horizontal" :aria-label="title || diagramLabel">
+		data-loading
+	/>
+	<CodeBlock v-else-if="error" :code="code" lang="mermaid" :data-testid="testId" data-error />
+	<DocFrame v-else :caption="title" :data-testid="testId">
+		<!-- data-doc-chrome stops the prose ladder at this boundary: mermaid's own
+		     label markup (`p`, `span`) must not take the page's paragraph rhythm. -->
+		<div data-doc-chrome class="relative w-full min-w-0">
+			<!-- Same anchor the code block uses: the source is text an agent can read, so
+			     the reader can take it the same way. -->
+			<div
+				class="absolute top-(--spacing-xs) right-(--spacing-xs) z-2"
+				:data-testid="`${testId}__copy-anchor`"
+			>
+				<CopyButton
+					:value="code"
+					aria-label="Copy diagram source"
+					copied-label="Copied"
+					kind="outlined"
+					size="small"
+					:data-testid="`${testId}__copy`"
+				/>
+			</div>
+			<ScrollArea
+				orientation="horizontal"
+				:aria-label="title || diagramLabel"
+				:data-testid="`${testId}__scroll`"
+			>
 				<!-- eslint-disable vue/no-v-html -- mermaid output; `securityLevel: 'strict'` runs it through DOMPurify -->
 				<div
 					role="img"
 					:aria-label="title || diagramLabel"
-					class="p-(--spacing-md) [&_svg]:mx-auto [&_svg]:h-auto"
+					:data-testid="`${testId}__diagram`"
+					class="p-(--spacing-sm) [&_svg]:mx-auto [&_svg]:h-auto"
 					v-html="svg"
 				></div>
 				<!-- eslint-enable vue/no-v-html -->
 			</ScrollArea>
 		</div>
-		<figcaption v-if="title && !loading && !error" class="text-body-sm text-(--text-muted)">
-			{{ title }}
-		</figcaption>
-	</figure>
+	</DocFrame>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useAttrs, useId } from 'vue';
 
+import CopyButton from '@aziontech/webkit/copy-button';
+import DocFrame from '@aziontech/webkit/doc-frame';
 import ScrollArea from '@aziontech/webkit/scroll-area';
 import Skeleton from '@aziontech/webkit/skeleton';
 
@@ -57,7 +77,7 @@ const error = ref(false);
 const svg = ref('');
 const diagramType = ref('');
 
-const testId = computed(() => (attrs['data-testid'] as string) ?? 'content-mermaid-diagram');
+const testId = computed(() => (attrs['data-testid'] as string) ?? 'documentation-mermaid-diagram');
 const diagramLabel = computed(() =>
 	diagramType.value ? `${diagramType.value} diagram` : 'Diagram'
 );
@@ -108,12 +128,12 @@ function themeVariables() {
 		darkMode: dark,
 		fontFamily,
 		fontSize: '14px',
-		background: surface,
-		mainBkg: raised,
-		primaryColor: raised,
+		background: raised,
+		mainBkg: canvas,
+		primaryColor: canvas,
 		primaryTextColor: text,
 		primaryBorderColor: border,
-		secondaryColor: canvas,
+		secondaryColor: surface,
 		secondaryTextColor: text,
 		secondaryBorderColor: border,
 		tertiaryColor: surface,
@@ -121,33 +141,33 @@ function themeVariables() {
 		tertiaryBorderColor: border,
 		lineColor: strong,
 		textColor: text,
-		nodeBkg: raised,
+		nodeBkg: canvas,
 		nodeBorder: border,
 		nodeTextColor: text,
-		clusterBkg: canvas,
+		clusterBkg: surface,
 		clusterBorder: border,
 		titleColor: text,
-		edgeLabelBackground: surface,
-		labelBackground: surface,
+		edgeLabelBackground: raised,
+		labelBackground: raised,
 		labelTextColor: text,
-		actorBkg: raised,
+		actorBkg: canvas,
 		actorBorder: border,
 		actorTextColor: text,
 		actorLineColor: strong,
 		signalColor: text,
 		signalTextColor: text,
-		noteBkgColor: canvas,
+		noteBkgColor: surface,
 		noteBorderColor: border,
 		noteTextColor: text,
-		activationBkgColor: surface,
+		activationBkgColor: raised,
 		activationBorderColor: primary,
-		sequenceNumberColor: surface,
+		sequenceNumberColor: raised,
 		loopTextColor: muted,
-		attributeBackgroundColorOdd: surface,
-		attributeBackgroundColorEven: raised,
+		attributeBackgroundColorOdd: raised,
+		attributeBackgroundColorEven: canvas,
 		pie1: primary,
 		git0: primary,
-		errorBkgColor: surface,
+		errorBkgColor: raised,
 		errorTextColor: text,
 	};
 }
