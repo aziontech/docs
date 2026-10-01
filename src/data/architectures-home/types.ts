@@ -1,9 +1,11 @@
 import type { Heading, Lang, SectionFooter } from '~/data/docs-home/types';
-import type { DevtoolsHero } from '~/data/devtools-home/types';
 
 export interface ArchitecturesHomeContent {
 	lang: Lang;
-	hero: DevtoolsHero;
+	hero: {
+		title: string;
+		description: string;
+	};
 	directory: {
 		heading: Heading;
 		intro: string;

@@ -111,9 +111,9 @@ export const ptBr: DocsHomeContent = {
 				},
 				{
 					icon: 'pi pi-sitemap',
-					title: 'Explore as arquiteturas',
+					title: 'Explore os casos de uso',
 					href: '/pt-br/documentacao/arquiteturas/',
-					body: 'Designs validados que combinam produtos Azion, agrupados pela solução que cada um atende.',
+					body: 'Designs validados que mostram como os produtos Azion se combinam para resolver cada caso de uso, agrupados por solução.',
 					class: 'sm:col-span-2',
 				},
 			],

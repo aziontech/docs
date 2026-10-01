@@ -112,9 +112,9 @@ export const en: DocsHomeContent = {
 				},
 				{
 					icon: 'pi pi-sitemap',
-					title: 'Explore architectures',
+					title: 'Explore use cases',
 					href: '/en/documentation/architectures/',
-					body: 'Validated designs that combine Azion products, grouped by the solution each one serves.',
+					body: 'Validated designs that show how Azion products combine to solve each use case, grouped by solution.',
 					class: 'sm:col-span-2',
 				},
 			],
