@@ -26,7 +26,7 @@ export const ptBr: PlatformTopologyContent = {
 					{
 						id: 'certificate-manager',
 						label: 'Certificate Manager',
-						href: '/pt-br/documentacao/plataforma/workloads/certificate-manager/',
+						href: '/pt-br/documentacao/plataforma/workloads/#certificate-manager',
 					},
 				],
 				href: '/pt-br/documentacao/plataforma/workloads/',
@@ -45,7 +45,7 @@ export const ptBr: PlatformTopologyContent = {
 					{
 						id: 'ddos-protection',
 						label: 'DDoS Protection',
-						href: '/pt-br/documentacao/plataforma/workloads/ddos-protection/',
+						href: '/pt-br/documentacao/plataforma/workloads/#ddos-protection',
 					},
 					{
 						id: 'bot-manager',
@@ -97,7 +97,7 @@ export const ptBr: PlatformTopologyContent = {
 				tag: OPCIONAL,
 				role: 'Páginas de erro',
 				terminal: true,
-				href: '/pt-br/documentacao/plataforma/workloads/custom-pages/',
+				href: '/pt-br/documentacao/plataforma/workloads/#custom-pages',
 			},
 		],
 		[
