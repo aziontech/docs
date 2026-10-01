@@ -41,28 +41,11 @@
 							@node-toggle="onToggle"
 						/>
 					</template>
-					<!-- The flow draws lines only between consecutive columns. A link between two
-					     cards stacked in the same column is measured here and drawn in the flow's
-					     own connector style, over the same container the flow paints in. -->
-					<svg
-						v-if="content.links.length"
-						ref="linksRef"
-						:viewBox="linksViewBox"
-						preserveAspectRatio="none"
-						fill="none"
-						aria-hidden="true"
-						class="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-						:data-testid="`${testId}__links`"
-					>
-						<path
-							v-for="(d, index) in linkPaths"
-							:key="index"
-							:d="d"
-							stroke-width="1"
-							stroke-dasharray="4 4"
-							class="animate-flow-dash stroke-(--accent) motion-reduce:animate-none"
-						/>
-					</svg>
+					<!-- The flow measures its lines when its container resizes, and a card closing
+					     under a taller column moves the cards below it without resizing the
+					     container. Flipping `data-flow-disabled` on this element, which the flow
+					     watches, makes it measure again once every transition ends. -->
+					<span ref="nudgeRef" hidden aria-hidden="true" />
 				</FlowRoot>
 			</div>
 		</div>
@@ -112,76 +95,21 @@ function onToggle(event: MouseEvent, node: TopologyNode) {
 	emit('node-toggle', event, node);
 }
 
-/* Links between two cards of one column: a straight vertical line from the top edge of the
-   lower card to the bottom edge of the upper one, measured in the flow container's space. The
-   svg stays mounted while the diagram declares a link, so a measurement can never unmount it. */
-const linksRef = ref<SVGSVGElement | null>(null);
-const linkPaths = ref<string[]>([]);
-const linksViewBox = ref('0 0 0 0');
-let observer: ResizeObserver | null = null;
-
-function measureLinks() {
-	const svg = linksRef.value;
-	const container = svg?.parentElement;
-	if (!svg || !container) return;
-	const base = container.getBoundingClientRect();
-	const paths: string[] = [];
-	for (const link of content.value.links) {
-		const from = container.querySelector<HTMLElement>(
-			`[data-testid="${testId.value}__node-${link.from}"]`
-		);
-		const to = container.querySelector<HTMLElement>(
-			`[data-testid="${testId.value}__node-${link.to}"]`
-		);
-		if (!from || !to) continue;
-		const a = from.getBoundingClientRect();
-		const b = to.getBoundingClientRect();
-		const x = a.left - base.left + a.width / 2;
-		paths.push(`M${x},${a.top - base.top} L${x},${b.bottom - base.top}`);
-	}
-	linksViewBox.value = `0 0 ${container.clientWidth} ${container.clientHeight}`;
-	linkPaths.value = paths;
-}
-
-/* The flow measures its own lines on container resizes. A card animating shut stops resizing
-   the container as soon as a taller column takes over, while the cards below it keep moving,
-   so the container alone is not enough: the cards at both ends of a link are observed too, and
-   the end of every transition triggers one more measurement. Flipping `data-flow-disabled` on
-   the overlay, which the flow watches, makes the flow re-measure its lines at that point. */
+const nudgeRef = ref<HTMLElement | null>(null);
 let nudge = 0;
 function settle() {
-	measureLinks();
-	const svg = linksRef.value;
-	if (!svg) return;
+	const el = nudgeRef.value;
+	if (!el) return;
 	nudge = (nudge + 1) % 2;
-	if (nudge) svg.setAttribute('data-flow-disabled', 'false');
-	else svg.removeAttribute('data-flow-disabled');
+	if (nudge) el.setAttribute('data-flow-disabled', 'false');
+	else el.removeAttribute('data-flow-disabled');
 }
 
 onMounted(() => {
-	globalThis.requestAnimationFrame(() => {
-		measureLinks();
-		const container = linksRef.value?.parentElement;
-		if (!container) return;
-		container.addEventListener('transitionend', settle);
-		if ('ResizeObserver' in globalThis) {
-			observer = new ResizeObserver(() => measureLinks());
-			observer.observe(container);
-			for (const link of content.value.links) {
-				for (const id of [link.from, link.to]) {
-					const el = container.querySelector<HTMLElement>(
-						`[data-testid="${testId.value}__node-${id}"]`
-					);
-					if (el) observer.observe(el);
-				}
-			}
-		}
-	});
+	nudgeRef.value?.parentElement?.addEventListener('transitionend', settle);
 });
 
 onBeforeUnmount(() => {
-	linksRef.value?.parentElement?.removeEventListener('transitionend', settle);
-	observer?.disconnect();
-	observer = null;
+	nudgeRef.value?.parentElement?.removeEventListener('transitionend', settle);
 });
 </script>

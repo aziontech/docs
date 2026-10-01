@@ -9,7 +9,6 @@ export const ptBr: PlatformTopologyContent = {
 	lang: 'pt-br',
 	ariaLabel: 'Topologia dos Recursos de Plataforma',
 	referenceLabel: 'Ler a referência',
-	links: [{ from: 'connector', to: 'store-ai' }],
 	columns: [
 		[
 			{
@@ -27,7 +26,7 @@ export const ptBr: PlatformTopologyContent = {
 					{
 						id: 'certificate-manager',
 						label: 'Certificate Manager',
-						href: '/pt-br/documentacao/plataforma/certificate-manager/',
+						href: '/pt-br/documentacao/plataforma/workloads/certificate-manager/',
 					},
 				],
 				href: '/pt-br/documentacao/plataforma/workloads/',
@@ -42,21 +41,21 @@ export const ptBr: PlatformTopologyContent = {
 				role: 'Filtra requisições',
 				terminal: true,
 				items: [
-					{ id: 'waf', label: 'WAF', href: '/pt-br/documentacao/secure/waf/' },
+					{ id: 'waf', label: 'WAF', href: '/pt-br/documentacao/plataforma/firewall/waf/' },
 					{
 						id: 'ddos-protection',
 						label: 'DDoS Protection',
-						href: '/pt-br/documentacao/plataforma/ddos-protection/',
+						href: '/pt-br/documentacao/plataforma/workloads/ddos-protection/',
 					},
 					{
 						id: 'bot-manager',
 						label: 'Bot Manager',
-						href: '/pt-br/documentacao/secure/bot-manager/',
+						href: '/pt-br/documentacao/plataforma/firewall/bot-manager/',
 					},
 					{
 						id: 'network-shield',
 						label: 'Network Shield',
-						href: '/pt-br/documentacao/secure/network-shield/',
+						href: '/pt-br/documentacao/plataforma/firewall/network-shield/',
 					},
 				],
 				href: '/pt-br/documentacao/plataforma/firewall/',
@@ -71,18 +70,22 @@ export const ptBr: PlatformTopologyContent = {
 					{
 						id: 'functions',
 						label: 'Functions',
-						href: '/pt-br/documentacao/build/functions/',
+						href: '/pt-br/documentacao/plataforma/functions/',
 					},
 					{
 						id: 'rules-engine',
 						label: 'Rules Engine',
 						href: '/pt-br/documentacao/plataforma/applications/rules-engine/',
 					},
-					{ id: 'cache', label: 'Cache', href: '/pt-br/documentacao/build/cache/' },
+					{
+						id: 'cache',
+						label: 'Cache',
+						href: '/pt-br/documentacao/plataforma/applications/cache/',
+					},
 					{
 						id: 'image-processor',
 						label: 'Image Processor',
-						href: '/pt-br/documentacao/build/image-processor/',
+						href: '/pt-br/documentacao/plataforma/applications/image-processor/',
 					},
 				],
 				href: '/pt-br/documentacao/plataforma/applications/',
@@ -94,41 +97,10 @@ export const ptBr: PlatformTopologyContent = {
 				tag: OPCIONAL,
 				role: 'Páginas de erro',
 				terminal: true,
-				href: '/pt-br/documentacao/plataforma/custom-pages/',
+				href: '/pt-br/documentacao/plataforma/workloads/custom-pages/',
 			},
 		],
 		[
-			{
-				id: 'store-ai',
-				icon: 'ai ai-store',
-				kind: 'Store e AI',
-				tag: OPCIONAL,
-				role: 'Dados e modelos',
-				terminal: true,
-				items: [
-					{
-						id: 'sql-database',
-						label: 'SQL Database',
-						href: '/pt-br/documentacao/store/sql-database/',
-					},
-					{
-						id: 'kv-store',
-						label: 'KV Store',
-						href: '/pt-br/documentacao/store/kv-store/',
-					},
-					{
-						id: 'ai-inference',
-						label: 'AI Inference',
-						href: '/pt-br/documentacao/build/ai-inference/',
-					},
-					{
-						id: 'object-storage',
-						label: 'Object Storage',
-						href: '/pt-br/documentacao/store/object-storage/',
-					},
-				],
-				href: '/pt-br/documentacao/build/functions/',
-			},
 			{
 				id: 'connector',
 				icon: 'ai ai-edge-connectors',
@@ -137,17 +109,62 @@ export const ptBr: PlatformTopologyContent = {
 				role: 'HTTP ou storage',
 				items: [
 					{
+						id: 'storage-connector',
+						label: 'Connector storage',
+						href: '/pt-br/documentacao/plataforma/connectors/#object-storage',
+					},
+					{
 						id: 'load-balancer',
 						label: 'Load Balancer',
-						href: '/pt-br/documentacao/plataforma/load-balancer/',
+						href: '/pt-br/documentacao/plataforma/connectors/load-balancer/',
 					},
 					{
 						id: 'origin-shield',
 						label: 'Origin Shield',
-						href: '/pt-br/documentacao/secure/origin-shield/',
+						href: '/pt-br/documentacao/plataforma/connectors/origin-shield/',
 					},
 				],
 				href: '/pt-br/documentacao/plataforma/connectors/',
+			},
+			{
+				id: 'store',
+				icon: 'ai ai-store',
+				kind: 'Store',
+				tag: OPCIONAL,
+				role: 'Dados e arquivos',
+				terminal: true,
+				items: [
+					{
+						id: 'sql-database',
+						label: 'SQL Database',
+						href: '/pt-br/documentacao/plataforma/sql-database/',
+					},
+					{
+						id: 'kv-store',
+						label: 'KV Store',
+						href: '/pt-br/documentacao/plataforma/kv-store/',
+					},
+					{
+						id: 'object-storage',
+						label: 'Object Storage',
+						href: '/pt-br/documentacao/plataforma/object-storage/',
+					},
+				],
+			},
+			{
+				id: 'ai',
+				icon: 'ai ai-ai-pillar',
+				kind: 'AI',
+				tag: OPCIONAL,
+				role: 'Executa modelos',
+				terminal: true,
+				items: [
+					{
+						id: 'ai-inference',
+						label: 'AI Inference',
+						href: '/pt-br/documentacao/plataforma/ai-inference/',
+					},
+				],
 			},
 		],
 		[
@@ -155,10 +172,10 @@ export const ptBr: PlatformTopologyContent = {
 				id: 'origin',
 				icon: 'pi pi-server',
 				kind: 'Origem',
-				tag: { label: 'Sua', severity: 'contrast' },
 				role: 'Seu servidor',
+				examples: ['On-premises', 'Nuvem', 'Colocation'],
 				terminal: true,
-				href: '/pt-br/documentacao/plataforma/connectors/origins/',
+				href: '/pt-br/documentacao/plataforma/connectors/',
 			},
 		],
 	],

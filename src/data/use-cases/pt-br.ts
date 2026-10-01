@@ -47,14 +47,14 @@ export const ptBr: UseCaseCatalogContent = {
 			id: 'build-e-commerce-storefronts',
 			solution: 'build-and-run-applications',
 			title: 'Criar vitrines de e-commerce',
-			href: '/pt-br/documentacao/store/object-storage/',
+			href: '/pt-br/documentacao/plataforma/object-storage/',
 			featured: true,
 		},
 		{
 			id: 'deploy-frontend-applications',
 			solution: 'build-and-run-applications',
 			title: 'Implantar aplicações front-end',
-			href: '/pt-br/documentacao/store/object-storage/',
+			href: '/pt-br/documentacao/plataforma/object-storage/',
 			featured: true,
 		},
 		{
@@ -77,7 +77,7 @@ export const ptBr: UseCaseCatalogContent = {
 			id: 'keep-an-application-online-when-an-origin-fails',
 			solution: 'improve-performance-and-reliability',
 			title: 'Manter uma aplicação no ar quando uma origem falha',
-			href: '/pt-br/documentacao/plataforma/load-balancer/',
+			href: '/pt-br/documentacao/plataforma/connectors/load-balancer/',
 			featured: true,
 		},
 		{
@@ -91,7 +91,7 @@ export const ptBr: UseCaseCatalogContent = {
 			id: 'monitor-website-and-api-performance',
 			solution: 'improve-performance-and-reliability',
 			title: 'Monitorar a performance de sites e APIs',
-			href: '/pt-br/documentacao/observe/edge-pulse/',
+			href: '/pt-br/documentacao/plataforma/edge-pulse/',
 			featured: true,
 		},
 		{
@@ -180,7 +180,7 @@ export const ptBr: UseCaseCatalogContent = {
 			id: 'deliver-an-on-demand-video-library',
 			solution: 'deliver-media-and-streaming',
 			title: 'Entregar uma biblioteca de vídeos sob demanda',
-			href: '/pt-br/documentacao/store/object-storage/',
+			href: '/pt-br/documentacao/plataforma/object-storage/',
 			featured: true,
 		},
 	],
