@@ -222,7 +222,7 @@ export const en: DocsHomeContent = {
 				{
 					icon: 'pi pi-key',
 					title: 'Install TLS certificates',
-					href: '/en/documentation/guides/application-security/tls-and-certificates/create-a-digital-certificate/',
+					href: '/en/documentation/guides/application-security/tls-and-certificates/digital-certificates/',
 					body: 'Upload a certificate and key, then check the handshake.',
 				},
 				{
@@ -238,7 +238,7 @@ export const en: DocsHomeContent = {
 				links: [
 					{
 						label: 'DDoS Protection',
-						href: '/en/documentation/platform/workloads/ddos-protection/',
+						href: '/en/documentation/platform/workloads/#ddos-protection',
 					},
 					{ label: 'WAF Rule Sets', href: '/en/documentation/platform/firewall/waf/rules-set/' },
 					{

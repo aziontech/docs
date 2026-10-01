@@ -1,0 +1,143 @@
+---
+title: Workloads best practices
+description: Stage changes before production, close the workload domain once your own domain serves traffic, and replace certificates without downtime.
+meta_tags: 'workloads, best practices, staging, workload domain, mtls, sni, certificate manager, certificate replacement, lets encrypt'
+namespace: documentation_products_workloads_best_practices
+permalink: /documentation/platform/workloads/best-practices/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+The entry point of a site decides who can reach it and whether a connection is trusted. Mistakes there rarely surface as an error in your code. A change tried on live traffic reaches every visitor at once, an address you forgot stays open to anyone who finds it, and a certificate that expires stops protecting traffic on the day it lapses.
+
+These practices apply to a [workload](/en/documentation/platform/workloads/), the hostnames and TLS settings it holds, and the certificates it uses. The mechanisms behind them are on [How Workloads works](/en/documentation/platform/workloads/how-it-works/), and every field is on [Workload settings](/en/documentation/platform/workloads/settings/).
+
+A change to a workload takes several minutes to reach all of Azion's distributed infrastructure, and requests can meet the old or the new configuration meanwhile, as [Propagation](/en/documentation/platform/workloads/how-it-works/#propagation) describes. Every check on this page holds only once repeated requests agree.
+
+The first four practices apply to every workload: test a change on a staging workload, close the workload domain once your own domain serves traffic, keep permissive mTLS for tests, and make sure clients send SNI. The practices for the certificates a workload uses follow, under Certificate Manager.
+
+---
+
+## Test a change on a staging workload before production
+
+A workload created on _Staging Infrastructure_ runs on the Staging Network, apart from production, so a mistake there reaches no visitor of your site. It answers only on its workload domain, `<id>.preview.azionedge.net`, because a staging workload takes no custom domain. The cost is a second workload with its own deployment, which you keep in step with production yourself. The infrastructure is fixed at creation, so a tested configuration reaches production as a new workload, not as an edit of the staging one.
+
+This file, sent with `azion create workload --file`, creates a staging workload through `"infrastructure": 2`:
+
+```json
+{
+  "name": "my-workload-staging",
+  "active": true,
+  "infrastructure": 2,
+  "tls": { "certificate": null, "ciphers": 4, "minimum_version": "tls_1_2" },
+  "protocols": { "http": { "versions": ["http1", "http2"], "http_ports": [80, 8080], "https_ports": [443, 8443], "quic_ports": null } },
+  "domains": [],
+  "workload_domain_allow_access": true
+}
+```
+
+The CLI answers `Created Workload with ID <workload-id>`, and `azion describe workload --workload-id <workload-id> --format json` reads back a `workload_domain` that ends in `.preview.azionedge.net`. To try a production hostname before its DNS records change, list it on a production workload and map it to the workload domain's address in your hosts file, as [Test an application through the hosts file](/en/documentation/guides/application-development/getting-started/stage-applications-through-hosts-file/) describes.
+
+---
+
+## Close the workload domain once your own domain serves traffic
+
+While **Workload Domain Allow Access** is on, which is the default, a workload answers on its workload domain as well as on your own hostnames. Turning it off leaves the hostnames in `domains` as the only way in, so every client arrives by a name you chose to list. The cost is a dependency: the API refuses the change on a workload whose `domains` list is empty, with `When the workload hostname access is blocked, the workload requires alternate domains or domains.`
+
+Send this body with `azion update workload --file`, which reads the workload ID from the `"id"` key:
+
+```json
+{
+  "id": <workload-id>,
+  "workload_domain_allow_access": false
+}
+```
+
+The CLI answers `Updated Workload with ID <workload-id>`. Once the change propagates, a request to the workload domain answers `404`, while your own domains keep serving. Turn the switch off only after your own hostnames answer everywhere, so that clients always have a hostname that works. To point your domain at the workload first, refer to [Point a domain to a workload](/en/documentation/guides/platform/migration/point-domain-to-azion/).
+
+---
+
+## Use permissive mTLS only to test
+
+With [mTLS](/en/documentation/platform/workloads/mtls/) on, `mtls.config.verification` decides what a workload does with a client that presents no certificate, or one that your Trusted CA did not sign. In `enforce` mode, the handshake fails for those clients. In `permissive` mode, it completes and the request reaches the application, so a misconfigured permissive workload admits the clients that mTLS was meant to refuse.
+
+Use `permissive` to test access under specific conditions, and serve production with `enforce`, as in this body for `azion update workload --file`:
+
+```json
+{
+  "id": <workload-id>,
+  "mtls": {
+    "enabled": true,
+    "config": { "certificate": <trusted-ca-id>, "crl": [<crl-id>], "verification": "enforce" }
+  }
+}
+```
+
+While a workload stays in `permissive`, a firewall rule on the Client Certificate Validation variable is what refuses a client without a valid certificate, as [Verification modes](/en/documentation/platform/workloads/mtls/#verification-modes) explains. To check the mode in force, send `curl -skv https://<your-domain>/ -o /dev/null` with no client certificate: in `enforce`, the handshake fails and curl exits with code `56`. For the steps, refer to [Configure mTLS on a workload](/en/documentation/guides/application-security/tls-and-certificates/associate-an-mtls-certificate/).
+
+---
+
+## Make sure every client application sends SNI
+
+Server Name Indication (SNI) is the TLS extension in which a client names the host it wants during the handshake. Domains served with a certificate you upload rely on it. A connection without SNI reaches the default configuration, which presents the Azion SAN certificate instead of yours. On a workload with mTLS in `enforce` mode, Azion closes such a connection before it resolves a route of your application.
+
+The setting lives in each client, such as a partner's API client or a service that calls your workload, so Azion cannot add it for them. Confirm with the owner of every client application that its TLS library sends the hostname it calls as the server name. A client that presents a certificate your Trusted CA signed, and still never reaches the application, is the first one to check. For the rest of the mTLS requirements, refer to [mTLS](/en/documentation/platform/workloads/mtls/#requirements).
+
+---
+
+## Certificate Manager
+
+[Certificate Manager](/en/documentation/platform/workloads/#certificate-manager) stores the server certificates a workload presents and the Trusted CA certificates that mTLS checks clients against. The practices below replace a server certificate before it expires, keep the challenge record of a domain hosted elsewhere, choose a validation level, scope DNS credentials, and keep wildcard certificates off critical systems.
+
+### Replace a server certificate before it expires
+
+A server certificate you upload does not renew itself, and once its `validity` date passes, it no longer protects traffic. Switching while the old certificate is still valid leaves time to confirm that the new one works, and to switch back if it does not. The old entry stays in Certificate Manager after the switch, so the cost is one more certificate to delete. Azion renews the Let's Encrypt certificates it manages, as [Issuance and renewal](/en/documentation/platform/workloads/certificate-manager/issuance-and-renewal/) describes.
+
+Upload the new certificate, then point `tls.certificate` at its ID with `azion update workload --file`. Keep `ciphers` and `minimum_version` at the values the workload already holds, so the certificate is the only value that changes:
+
+```json
+{
+  "id": <workload-id>,
+  "tls": { "certificate": <new-certificate-id>, "ciphers": 7, "minimum_version": "tls_1_3" }
+}
+```
+
+The CLI answers `Updated Workload with ID <workload-id>`. `azion list digital-certificate --details` then shows the new certificate as `active`, and the old one as `inactive` once no workload names it. When the new certificate is `active` and the change has propagated, delete the old entry. For the upload itself, refer to [Upload a digital certificate](/en/documentation/guides/application-security/tls-and-certificates/digital-certificates/).
+
+### Keep the challenge record of a domain hosted outside Edge DNS
+
+Azion renews a managed Let's Encrypt certificate before it expires by running its challenge again. For a DNS-01 certificate whose zone is in [Edge DNS](/en/documentation/platform/edge-dns/), Azion writes the `_acme-challenge` record itself. For a zone hosted at another DNS provider, you add that record. Deleting it later makes the next renewal fail, and the certificate then expires.
+
+Keep the record at your provider for as long as a workload uses the certificate. To check, confirm before each renewal that the record still exists, and that the certificate's status in Certificate Manager is not `failed`. For the record to create, refer to [Request a Let's Encrypt certificate](/en/documentation/guides/application-security/tls-and-certificates/how-to-generate-a-lets-encrypt-certificate/).
+
+### Choose a domain-validated certificate unless you need more
+
+The certificate authority that issues a certificate you upload validates the request at one of three levels. Domain Validation (DV) confirms your right to use the domain. Organization Validation (OV) adds checks on the requesting organization, and Extended Validation (EV) asks for documents that prove its physical, legal, and operational existence.
+
+Azion recommends DV for most companies. OV and EV are more complex to obtain, and the extra checks buy assurance about your organization, not about the domain. Order OV or EV only when a requirement you can name asks for those checks. For the three levels, refer to [Validation levels](/en/documentation/platform/workloads/certificate-manager/certificates/#validation-levels).
+
+### Limit DNS-01 credentials to the challenge records
+
+When a zone is hosted outside Edge DNS and your own automation writes the `_acme-challenge` record at that DNS provider, the automation holds the provider's API credentials. Credentials that reach every record give whoever obtains them control of the domain and all of its records.
+
+Restrict those credentials to `_acme-challenge` records, so that a leak exposes only the challenge. The cost is a separate credential to create and keep for that automation alone. A zone in Edge DNS needs no credential of yours, because Azion writes the record itself. To check, confirm at your provider that the credential's permissions name only `_acme-challenge` records.
+
+### Keep wildcard certificates off critical production systems
+
+A wildcard certificate, such as one for `*.example.com`, covers every subdomain with one private key. If that key leaks, or the certificate is revoked, every subdomain is affected at once. Azion recommends a wildcard certificate where centralized management is a priority, the same team manages the subdomains, a well-defined reverse proxy architecture exists, and your security policies allow controlled key sharing.
+
+Under stricter requirements, give each critical production system its own certificate, keep separate certificates for development environments, and leave the wildcard to lower-criticality services. The cost is one replacement per certificate instead of one for all. Keep a wildcard's private key in Certificate Manager, bound to workloads, rather than spread across servers: once saved, the key cannot be read back from the Console or the API. To check, list the workloads that name each wildcard certificate in `tls.certificate`, and give any critical production workload a certificate of its own.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Workload settings" href="/en/documentation/platform/workloads/settings/">Every field these practices change, from the infrastructure and domains to TLS and mTLS, with its type and default.</DocItem>
+  <DocItem title="Certificates" href="/en/documentation/platform/workloads/certificate-manager/certificates/">The certificate types, statuses, and validation levels behind the Certificate Manager practices.</DocItem>
+  <DocItem title="mTLS" href="/en/documentation/platform/workloads/mtls/">What enforce and permissive mode do with each client, and the requirements a workload must meet.</DocItem>
+  <DocItem title="Troubleshoot Workloads" href="/en/documentation/platform/workloads/troubleshooting/">Symptoms along the request path, with their causes and fixes, for when a practice was skipped.</DocItem>
+</ItemList>
+</FrameBox>

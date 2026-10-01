@@ -221,7 +221,7 @@ export const ptBr: DocsHomeContent = {
 				{
 					icon: 'pi pi-key',
 					title: 'Instale certificados TLS',
-					href: '/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/criar-certificado-digital/',
+					href: '/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/certificado-digital/',
 					body: 'Envie um certificado e uma chave e verifique o handshake.',
 				},
 				{
@@ -237,7 +237,7 @@ export const ptBr: DocsHomeContent = {
 				links: [
 					{
 						label: 'DDoS Protection',
-						href: '/pt-br/documentacao/plataforma/workloads/ddos-protection/',
+						href: '/pt-br/documentacao/plataforma/workloads/#ddos-protection',
 					},
 					{
 						label: 'WAF Rule Sets',
