@@ -1,0 +1,92 @@
+---
+title: Correspondência de listas
+description: >-
+  Veja como uma network list corresponde ao endereço do cliente, quando os itens
+  dela expiram e por que uma lista sustenta muitas regras em muitos firewalls.
+meta_tags: 'network shield, network lists, list matching, ip cidr, asn, countries, allowlist, blocklist, due date, tor exit nodes, origin shield'
+namespace: documentation_products_network_shield_how_it_works
+permalink: /documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Bloquear pela fonte compara o endereço do cliente de cada requisição com uma lista de endereços, redes ou países. O que a lista guarda define quanto um item cobre, e a regra que lê a lista decide se ela bloqueia ou permite. Para saber onde Network Shield age no caminho de uma requisição em um firewall, consulte [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#network-shield).
+
+As seções cobrem correspondência de listas, expiração e anotações, uma lista por trás de muitas regras e listas mantidas pela Azion.
+
+---
+
+## Correspondência de listas
+
+Uma [network list](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/) guarda itens de um único tipo, fixado quando a lista é criada. _IP/CIDR_ (`ip_cidr`) guarda endereços e intervalos IPv4 e IPv6, _ASN_ (`asn`) guarda Autonomous System Numbers e _Countries_ (`countries`) guarda códigos de país de duas letras. Os três comparam o mesmo valor: o endereço IP do cliente que enviou a requisição. Uma lista `ip_cidr` corresponde quando esse endereço é um item ou está dentro de um intervalo. Uma lista `asn` ou `countries` corresponde quando o endereço pertence a uma rede ou a um país listado.
+
+A Azion resolve o país e o ASN de um endereço a partir de bancos de dados mantidos por fornecedores externos. Essa resolução pode ser imprecisa em algumas situações, e o controle de acesso por país ou ASN é aplicado em regime de melhor esforço, como determinam os termos de serviço da Azion. Para mais informações, consulte [Termos de Serviço](/pt-br/documentacao/contratos/tds/).
+
+O tipo define quanto um item cobre. Um item IP cobre um endereço ou um intervalo, enquanto um item de país ou de ASN cobre todos os endereços dentro dele, incluindo clientes legítimos. Uma lista estreita bloqueia menos por engano e precisa de mais itens, e uma lista ampla é curta e bloqueia todos os que nomeia.
+
+Nem a lista nem o tipo dela a tornam uma blocklist ou uma allowlist, porque quem faz isso é o operador. _matches_ (`is_in_list`) é verdadeiro para um cliente na lista, e _does not match_ (`is_not_in_list`) é verdadeiro para um cliente fora dela. Com _Deny (403 Forbidden)_, _matches_ bloqueia os clientes da lista, o que a torna uma blocklist. Com o mesmo comportamento, _does not match_ bloqueia todo cliente fora da lista, o que transforma a mesma lista em uma allowlist.
+
+Este corpo de regra é uma allowlist, porque nega todo cliente cujo endereço não está na lista:
+
+```json
+{
+  "name": "Allow only listed addresses",
+  "active": true,
+  "criteria": [
+    [
+      { "variable": "${network}", "conditional": "if", "operator": "is_not_in_list", "argument": <network-list-id> }
+    ]
+  ],
+  "behaviors": [ { "type": "deny" } ]
+}
+```
+
+O `argument` é o ID da lista como inteiro JSON, e o mesmo ID enviado como string é recusado com `25042`. Com essa regra, um cliente na lista passa para a aplicação, e um cliente fora dela recebe `403`.
+
+Uma regra de allowlist não admite uma requisição. Para um cliente na lista, o critério dela é falso, então a regra não executa nada e o firewall passa para a próxima regra. Uma requisição que corresponde tanto a uma regra de allowlist quanto a uma regra de blocklist é, portanto, negada pela regra de blocklist, em qualquer ordem.
+
+---
+
+## Expiração e anotações
+
+Um item `ip_cidr` pode carregar duas anotações depois do endereço: uma data de expiração, escrita como `--LT` seguido de uma data e hora em UTC, e um comentário depois de `#`. Itens dos tipos `asn` e `countries` não aceitam nenhuma das duas. Para a sintaxe das duas, consulte [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#anotacoes-de-item).
+
+A Azion verifica uma data de expiração quando os itens da lista são gravados, não quando a data chega. Uma gravação descarta, sem aviso, todo item cuja data já passou. Uma gravação em que todos os itens estão vencidos é recusada com `22019`.
+
+Um item cuja data passa depois da gravação continua armazenado e continua correspondendo. Por exemplo, um endereço com data de expiração ainda era negado 26 minutos e 42 segundos depois dessa data, depois que uma mudança de regra não relacionada já tinha chegado ao mesmo firewall. Renomear a lista também não removeu o item. A próxima gravação dos itens da lista descarta todo item com data vencida, e esse endereço passou 62 segundos depois da gravação. `azion update network-list --remove-item` remove o único item que nomeia, escrito exatamente como a lista o armazena, incluindo a data de expiração e o comentário.
+
+Verificar no momento da gravação significa que uma data de expiração nunca desbloqueia um endereço sozinha. Para bloquear um endereço por um dia, dê a ele uma data de expiração e agende uma tarefa que envie os itens da lista de novo depois desse dia. Conte com essa gravação, não com a data.
+
+Um comentário é armazenado com o seu item e fica por último na linha, depois de qualquer data de expiração. Uma linha que começa com `#` não é uma linha desativada: a API a recusa como item inválido, com `22005`.
+
+---
+
+## Uma lista por trás de muitas regras
+
+Uma regra nomeia a sua lista pelo ID, então uma lista pode sustentar muitas regras em muitos firewalls. Uma mudança nos itens da lista muda o que cada uma dessas regras corresponde, sem nenhuma mudança nas regras. Por exemplo, uma lista de endereços que abusaram de um formulário de login pode sustentar uma regra de negação em cada um dos seus firewalls. Uma atualização da lista alcança, então, todos eles. Como as regras dependem dela, uma lista em uso não pode ser excluída: a exclusão é recusada com `22018`, que não nomeia as regras.
+
+Os dois relógios favorecem as listas. Uma mudança nos itens de uma lista que regras já referenciam chega ao tráfego entre 46 segundos e cerca de 100 segundos. Uma regra nova leva de 6 minutos e 29 segundos a 9 minutos e 18 segundos, e uma regra nova sobre uma lista `countries` ou `asn` fica no extremo lento desse intervalo. Acrescentar um endereço a uma lista que uma regra já usa, portanto, o bloqueia minutos antes de uma regra nova que nomeia o mesmo endereço. Uma lista comporta até 20.000 itens, e todo limite de uma lista está em [Limites de Firewall](/pt-br/documentacao/plataforma/firewall/limites/#network-shield).
+
+---
+
+## Listas mantidas pela Azion
+
+Algumas listas são mantidas pela Azion, não por você. Toda conta tem `Azion IP Tor Exit Nodes`, a lista `2`, uma lista `ip_cidr` com os endereços de exit nodes do Tor. A Azion atualiza os itens dela, e o `last_editor` dela mostra `Azion`. Uma regra a referencia como qualquer outra lista, com `2` como argumento de `${network}`.
+
+Qualquer gravação em uma lista mantida pela Azion é recusada com `22004 Cannot Change Global Network List`, mesmo uma gravação que não altera nada. Essa é a troca: o conteúdo continua atualizado sem trabalho da sua parte, e você não pode remover um endereço dele. Para a regra que bloqueia exit nodes do Tor, consulte [Bloqueie exit nodes do Tor](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/bloquear-redes-tor/).
+
+Contas com [Origin Shield](/pt-br/documentacao/plataforma/connectors/origin-shield/) também recebem `Azion Origin Shield`, que guarda os prefixos IPv4 e IPv6 que a infraestrutura da Azion usa. Essa lista é destinada à sua origem: você configura o próprio firewall da origem para aceitar tráfego de entrada apenas desses prefixos. Como a Azion atualiza e anuncia essa lista está documentado com Origin Shield. Para as listas que toda conta tem, consulte [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#listas-mantidas-pela-azion).
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Network Lists" href="/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/">Os tipos de lista, as anotações de item e as listas mantidas pela Azion com que o critério Network compara.</DocItem>
+  <DocItem title="Rules Engine para Firewall" href="/pt-br/documentacao/plataforma/firewall/rules-engine/#operadores">Os operadores que cada critério aceita, incluindo os dois que comparam o endereço do cliente com uma network list.</DocItem>
+  <DocItem title="Bloqueie exit nodes do Tor" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/bloquear-redes-tor/">A regra que descarta toda requisição de um exit node do Tor por meio da lista mantida pela Azion.</DocItem>
+  <DocItem title="Limites de Firewall" href="/pt-br/documentacao/plataforma/firewall/limites/#network-shield">Todo limite de uma network list, incluindo os seus 20.000 itens.</DocItem>
+</ItemList>
+</FrameBox>

@@ -236,10 +236,16 @@ export const en: DocsHomeContent = {
 			footer: {
 				prefix: 'Reference, when you need the details:',
 				links: [
-					{ label: 'DDoS Protection', href: '/en/documentation/platform/workloads/ddos-protection/' },
+					{
+						label: 'DDoS Protection',
+						href: '/en/documentation/platform/workloads/ddos-protection/',
+					},
 					{ label: 'WAF Rule Sets', href: '/en/documentation/platform/firewall/waf/rules-set/' },
-					{ label: 'WAF Exceptions', href: '/en/documentation/platform/firewall/waf/custom-allowed-rules/' },
-					{ label: 'Bot Manager', href: '/en/documentation/platform/firewall/bot-manager/' },
+					{
+						label: 'WAF Exceptions',
+						href: '/en/documentation/platform/firewall/waf/custom-allowed-rules/',
+					},
+					{ label: 'Bot Manager', href: '/en/documentation/platform/firewall/#bot-manager' },
 				],
 			},
 		},
