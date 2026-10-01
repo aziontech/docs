@@ -5,8 +5,10 @@ import { visit } from 'unist-util-visit';
 import { makeComponentNode } from './utils/makeComponentNode';
 
 const CodeBlockTagname = 'AutoImportedCodeBlock';
+const MermaidTagname = 'AutoImportedMermaid';
 export const codeBlockAutoImport: Record<string, [string, string][]> = {
 	'~/components/CodeBlock/CodeBlock.astro': [['default', CodeBlockTagname]],
+	'~/components/Mermaid/Mermaid.astro': [['default', MermaidTagname]],
 };
 
 function parseTitle(meta: string | null | undefined): string | undefined {
@@ -19,6 +21,15 @@ function remarkCodeBlocks(): unified.Plugin<[], mdast.Root> {
 	const transformer: unified.Transformer<mdast.Root> = (tree) => {
 		visit(tree, 'code', (node: mdast.Code, index, parent) => {
 			if (!parent || index === null || index === undefined) return;
+
+			// A `mermaid` fence is a diagram, not source to highlight. The markdown twin
+			// still serves the fence itself, so agents read the text form.
+			if (node.lang === 'mermaid') {
+				parent.children[index] = makeComponentNode(MermaidTagname, {
+					attributes: { code: node.value || ' ', title: parseTitle(node.meta) },
+				});
+				return;
+			}
 
 			parent.children[index] = makeComponentNode(CodeBlockTagname, {
 				attributes: {
