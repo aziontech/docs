@@ -247,7 +247,7 @@ export const ptBr: DocsHomeContent = {
 						label: 'WAF Exceptions',
 						href: '/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/',
 					},
-					{ label: 'Bot Manager', href: '/pt-br/documentacao/plataforma/firewall/bot-manager/' },
+					{ label: 'Bot Manager', href: '/pt-br/documentacao/plataforma/firewall/#bot-manager' },
 				],
 			},
 		},

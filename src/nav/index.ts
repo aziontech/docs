@@ -12,6 +12,7 @@ import {
 	buildHubDirectory,
 	buildTopNav,
 	pageHref,
+	productFamily,
 	resolveBreadcrumb,
 	resolveNeighbours,
 	resolveSidebar,
@@ -174,6 +175,10 @@ export async function getHubDirectory(treeId: string, lang: Lang): Promise<HubGr
 
 export async function getGuidesHome(treeId: string, lang: Lang): Promise<GuidesHomeModel> {
 	return buildGuidesHome(await getNavData(), treeId, lang);
+}
+
+export async function getProductFamily(id: string): Promise<string[]> {
+	return productFamily(await getNavData(), id);
 }
 
 export async function getBreadcrumb(pathname: string, lang: Lang): Promise<Crumb[]> {

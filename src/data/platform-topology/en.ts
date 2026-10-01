@@ -41,7 +41,7 @@ export const en: PlatformTopologyContent = {
 				role: 'Filters requests',
 				terminal: true,
 				items: [
-					{ id: 'waf', label: 'WAF', href: '/en/documentation/platform/firewall/waf/' },
+					{ id: 'waf', label: 'WAF', href: '/en/documentation/platform/firewall/#waf' },
 					{
 						id: 'ddos-protection',
 						label: 'DDoS Protection',
@@ -50,12 +50,12 @@ export const en: PlatformTopologyContent = {
 					{
 						id: 'bot-manager',
 						label: 'Bot Manager',
-						href: '/en/documentation/platform/firewall/bot-manager/',
+						href: '/en/documentation/platform/firewall/#bot-manager',
 					},
 					{
 						id: 'network-shield',
 						label: 'Network Shield',
-						href: '/en/documentation/platform/firewall/network-shield/',
+						href: '/en/documentation/platform/firewall/#network-shield',
 					},
 				],
 				href: '/en/documentation/platform/firewall/',
@@ -77,11 +77,11 @@ export const en: PlatformTopologyContent = {
 						label: 'Rules Engine',
 						href: '/en/documentation/platform/applications/rules-engine/',
 					},
-					{ id: 'cache', label: 'Cache', href: '/en/documentation/platform/applications/cache/' },
+					{ id: 'cache', label: 'Cache', href: '/en/documentation/platform/applications/#cache' },
 					{
 						id: 'image-processor',
 						label: 'Image Processor',
-						href: '/en/documentation/platform/applications/image-processor/',
+						href: '/en/documentation/platform/applications/#image-processor',
 					},
 				],
 				href: '/en/documentation/platform/applications/',

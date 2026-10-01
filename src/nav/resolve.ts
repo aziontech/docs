@@ -862,6 +862,15 @@ export function productLabels(data: NavData, lang: Lang): Map<string, string> {
 	return out;
 }
 
+/** The catalog ids a Guides and tutorials hub lists: the id itself and, when it names a tree, every
+ * Product nested in that tree as a dropdown row (`product`), so a resource hub lists its Products' guides. */
+export function productFamily(data: NavData, id: string): string[] {
+	const tree = data.trees.get(id);
+	if (!tree) return [id];
+	const nested = walkTree(tree, 'en').flatMap(({ node }) => (node.product ? [node.product] : []));
+	return [...new Set([id, ...nested])];
+}
+
 export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): GuidesHomeModel {
 	const tree = data.trees.get(treeId);
 	const entries: CatalogEntry[] = [];
