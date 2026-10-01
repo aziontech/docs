@@ -41,7 +41,7 @@ export const ptBr: PlatformTopologyContent = {
 				role: 'Filtra requisições',
 				terminal: true,
 				items: [
-					{ id: 'waf', label: 'WAF', href: '/pt-br/documentacao/plataforma/firewall/waf/' },
+					{ id: 'waf', label: 'WAF', href: '/pt-br/documentacao/plataforma/firewall/#waf' },
 					{
 						id: 'ddos-protection',
 						label: 'DDoS Protection',
@@ -50,12 +50,12 @@ export const ptBr: PlatformTopologyContent = {
 					{
 						id: 'bot-manager',
 						label: 'Bot Manager',
-						href: '/pt-br/documentacao/plataforma/firewall/bot-manager/',
+						href: '/pt-br/documentacao/plataforma/firewall/#bot-manager',
 					},
 					{
 						id: 'network-shield',
 						label: 'Network Shield',
-						href: '/pt-br/documentacao/plataforma/firewall/network-shield/',
+						href: '/pt-br/documentacao/plataforma/firewall/#network-shield',
 					},
 				],
 				href: '/pt-br/documentacao/plataforma/firewall/',
@@ -80,12 +80,12 @@ export const ptBr: PlatformTopologyContent = {
 					{
 						id: 'cache',
 						label: 'Cache',
-						href: '/pt-br/documentacao/plataforma/applications/cache/',
+						href: '/pt-br/documentacao/plataforma/applications/#cache',
 					},
 					{
 						id: 'image-processor',
 						label: 'Image Processor',
-						href: '/pt-br/documentacao/plataforma/applications/image-processor/',
+						href: '/pt-br/documentacao/plataforma/applications/#image-processor',
 					},
 				],
 				href: '/pt-br/documentacao/plataforma/applications/',
