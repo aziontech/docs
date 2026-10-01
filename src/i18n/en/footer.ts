@@ -58,7 +58,7 @@ const listData = [
 			},
 			{
 				title: 'How to start',
-				link: '/en/documentation/platform/',
+				link: '/en/documentation/fundamentals/how-it-works/',
 			},
 			{
 				title: 'Pricing',

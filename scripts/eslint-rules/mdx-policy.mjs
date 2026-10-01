@@ -55,6 +55,9 @@ const WRAPPER_ALLOWED = [
 	/^@aziontech\/icons$/, // the icon font side-effect import
 	/^\.\/[^/]+\.vue$/, // a sibling wrapper, relative
 	/^~\/components\/webkit\/[^/]+\.vue$/, // a sibling wrapper, aliased
+	// A copy module under src/data: structured content with no UI dependency, the same
+	// argument the MDX rule makes for .md partials.
+	/^~\/data\/[^/]+$/,
 	// The docs search is an Algolia client; the dialog around it is webkit. A functional
 	// dependency, not a UI one — the single named exception.
 	/^algoliasearch(\/.+)?$/,

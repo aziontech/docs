@@ -25,7 +25,7 @@ export const ptBr: DocsHomeContent = {
 		description:
 			'Tornamos toda aplicação rápida e confiável. Faça o deploy em uma rede global, com segurança de nível corporativo e sem cold starts.',
 		buttonLabel: 'Começar',
-		buttonLink: '/pt-br/documentacao/primeiro-deploy/',
+		buttonLink: '/pt-br/documentacao/fundamentos/primeiro-deploy/',
 		note: 'O prompt entrega ao seu agente de código a CLI, a documentação ao vivo via MCP e este projeto vinculado.',
 		prompt: AGENT_PROMPT,
 		promptLabel: 'Copiar prompt',
@@ -88,7 +88,7 @@ export const ptBr: DocsHomeContent = {
 				{
 					icon: 'ai ai-build-pillar',
 					title: 'Construa sua aplicação',
-					href: '/pt-br/documentacao/primeiro-deploy/',
+					href: '/pt-br/documentacao/fundamentos/primeiro-deploy/',
 					body: 'Faça o deploy a partir de um template, de um repositório ou da CLI.',
 				},
 				{
@@ -173,7 +173,7 @@ export const ptBr: DocsHomeContent = {
 			footer: {
 				prefix: 'Também útil:',
 				links: [
-					{ label: 'Primeiro deploy', href: '/pt-br/documentacao/primeiro-deploy/' },
+					{ label: 'Primeiro deploy', href: '/pt-br/documentacao/fundamentos/primeiro-deploy/' },
 					{
 						label: 'Compatibilidade de frameworks',
 						href: '/pt-br/documentacao/devtools/runtime/frameworks/compatibilidade-frameworks/',
@@ -227,7 +227,7 @@ export const ptBr: DocsHomeContent = {
 				{
 					icon: 'pi pi-arrow-right-arrow-left',
 					title: 'Envie para um SIEM',
-					href: '/pt-br/documentacao/produtos/secure/automatizar/integrar-siems/',
+					href: '/pt-br/documentacao/guias/',
 					class: 'sm:col-span-2 lg:col-span-3',
 					body: 'Transmita eventos do WAF e do firewall para onde sua equipe acompanha.',
 				},

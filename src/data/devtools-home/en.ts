@@ -8,7 +8,7 @@ export const en: DevtoolsHomeContent = {
 		description:
 			'Connect a coding agent, run a project locally, deploy it, and automate the platform with Azion CLI, APIs, Go SDK, and the MCP server.',
 		buttonLabel: 'Deploy your site',
-		buttonLink: '/en/documentation/first-deploy/',
+		buttonLink: '/en/documentation/fundamentals/first-deploy/',
 	},
 
 	promptPreview: {
