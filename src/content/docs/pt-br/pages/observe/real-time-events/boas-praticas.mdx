@@ -1,0 +1,107 @@
+---
+title: Boas práticas de Real-Time Events
+description: Escreva consultas que respondem dentro do limite de linhas lidas, considere a retenção e escolha entre Real-Time Events, Real-Time Metrics e Data Stream.
+meta_tags: 'real-time events, boas práticas, consulta, filtro, retenção, data scan, real-time metrics, data stream'
+namespace: documentation_products_real_time_events_best_practices
+permalink: /documentacao/plataforma/real-time-events/boas-praticas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Uma busca nos registros do tráfego passado só é útil quando ela volta. Três erros impedem que ela volte. Uma pergunta feita de forma ampla demais lê mais do que o sistema lê para uma resposta e falha sem retornar nenhuma linha. Uma pergunta feita ao repositório errado não retorna nada, porque o registro nunca foi escrito ali. Uma pergunta feita tarde demais não retorna nada, porque o registro já foi removido. De fora, essas três se parecem: um resultado vazio ou um erro sem nenhuma linha por trás.
+
+Essas práticas se aplicam a uma busca executada no Azion Console e a uma consulta enviada à API GraphQL do [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/). O mecanismo em que cada uma se apoia está em [Como Real-Time Events funciona](/pt-br/documentacao/plataforma/real-time-events/como-funciona/), e o valor de cada limite está em [Limites](/pt-br/documentacao/plataforma/real-time-events/limites/).
+
+As práticas abaixo estreitam uma consulta antes de ampliar o período dela, leem a fonte de dados que é dona da pergunta, escolhem entre Real-Time Events, Real-Time Metrics e Data Stream e movem os registros para fora antes que a retenção os remova.
+
+---
+
+## Filtre antes de ampliar o período
+
+O banco de dados de logs conta as linhas que uma consulta lê, não as linhas que ela retorna. Um período ampliado sem filtro lê todos os registros dentro dele e pode alcançar o limite de linhas lidas respondendo com quase nada. Um filtro sobre um valor que o registro carrega reduz a leitura antes que o período tenha de reduzi-la. O custo é que um filtro definido errado esconde o registro que você procura, portanto estreite por um valor do qual você tem certeza: um id de requisição, um host ou um código de status HTTP.
+
+Esta consulta lê os registros de HTTP Requests de um id de requisição, dentro de uma janela em torno dele:
+
+```graphql
+{
+  workloadEvents(
+    limit: 10
+    filter: {
+      tsRange: { begin: "<start>", end: "<end>" }
+      requestIdEq: "<request-id>"
+    }
+    orderBy: [ts_ASC]
+  ) {
+    ts
+    requestId
+    host
+    requestUri
+    status
+    upstreamStatus
+  }
+}
+```
+
+O id da requisição limita a leitura antes do período, portanto ampliar a janela custa pouco. Verifique executando a consulta: uma leitura dentro do limite retorna suas linhas e uma leitura além dele retorna um erro. Para estreitar uma busca pelos mesmos valores no Azion Console, consulte [Filtrar eventos](/pt-br/documentacao/guias/plataforma/observabilidade/adicionar-filtros-events/).
+
+---
+
+## Consulte a fonte de dados que é dona da pergunta
+
+Cada fonte de dados é um índice separado, e uma consulta lê as linhas daquela que ela nomeia e de nenhuma outra. Uma pergunta sobre uma function respondida a partir dos registros de HTTP Requests lê uma linha para cada requisição que o workload serviu, enquanto os registros de Functions guardam uma linha para cada requisição que invocou uma function. O custo é que você precisa saber qual produto escreve o registro antes de poder pedi-lo. Uma pergunta que abrange dois produtos exige, portanto, duas consultas, uma por fonte de dados.
+
+Esta consulta lê os registros de Functions, que carregam as instâncias que uma requisição executou e o tempo que elas levaram:
+
+```graphql
+{
+  functionEvents(
+    limit: 100
+    filter: { tsRange: { begin: "<start>", end: "<end>" } }
+    orderBy: [ts_ASC]
+  ) {
+    ts
+    functionsList
+    functionsInstanceIdList
+    functionsTime
+    functionLanguage
+    configurationId
+  }
+}
+```
+
+A mesma pergunta feita ao `workloadEvents` lê uma linha para cada requisição do período, para responder sobre as poucas que executaram uma function. Verifique perguntando às duas: a fonte de dados mais estreita retorna a mesma resposta e lê menos, que é o que o Data Scan mede. Para a fonte de dados em que cada produto escreve, consulte [Fontes de dados](/pt-br/documentacao/plataforma/real-time-events/fontes-de-dados/), e para os campos de cada dataset, consulte [Campos da API GraphQL do Real-Time Events](/pt-br/documentacao/devtools/graphql/campos-gql-real-time-events/). Para construir uma consulta em torno de um registro, consulte [Investigar uma requisição com a API GraphQL](/pt-br/documentacao/guias/plataforma/observabilidade/investigar-requisicoes-api-graphql/).
+
+---
+
+## Escolha o produto que corresponde ao formato da pergunta
+
+Três produtos leem o mesmo tráfego e respondem a perguntas diferentes. Real-Time Events responde o que aconteceu com uma requisição: ele retorna os próprios registros, uma linha por evento, com todos os campos que aquele evento escreveu. [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/) responde quantos, ao longo do tempo: ele retorna contadores já agregados, portanto nenhuma requisição individual fica visível neles. [Data Stream](/pt-br/documentacao/plataforma/data-stream/) sozinho não responde a nenhuma das duas perguntas e envia todos os registros continuamente a um endpoint que você controla, onde a pergunta é feita com as suas próprias ferramentas.
+
+O custo da escolha é que cada produto compromete você com o formato dele. Um contador não pode ser aberto para mostrar a requisição por trás dele. Uma busca de registros por toda a janela de retenção e sem filtro alcança o limite de linhas lidas em vez de contar o que encontrou. Um stream não responde nada até que o destino que o recebe esteja em execução.
+
+Verifique a escolha contra a pergunta como você a fez: uma única requisição nomeada pertence aqui, uma contagem ao longo do tempo pertence ao Real-Time Metrics e uma resposta lida em outro lugar pertence ao Data Stream.
+
+---
+
+## Mova os registros para fora antes que a retenção os remova
+
+Real-Time Events mantém um registro de evento por 7 dias, ou seja, 168 horas, e mantém um registro de [Activity History](/pt-br/documentacao/fundamentos/activity-history/) por 2 anos. Ao fim desse período o registro é removido, tenha alguém o lido ou não, e nada o recupera depois. A retenção não é aplicada retroativamente, portanto um registro que precisa sobreviver à janela precisa estar saindo enquanto ainda existe. Esse é um trabalho do [Data Stream](/pt-br/documentacao/plataforma/data-stream/), configurado antes do incidente, e não depois dele.
+
+O custo é um segundo sistema. Um stream tem um endpoint que você executa e um storage que você paga, e uma entrega que o destino recusa é mais uma coisa para observar: a fonte de dados do Data Stream guarda um registro por entrega, com o status com que o endpoint respondeu.
+
+Verifique no destino, e não aqui: quando o registro mais antigo lá está dentro da janela de retenção do Real-Time Events, nada está saindo. Para os dois períodos de retenção junto com todos os outros limites, consulte [Limites](/pt-br/documentacao/plataforma/real-time-events/limites/).
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Como Real-Time Events funciona" href="/pt-br/documentacao/plataforma/real-time-events/como-funciona/">Como um registro é escrito, como uma consulta é limitada e quando a retenção o remove.</DocItem>
+  <DocItem title="Limites" href="/pt-br/documentacao/plataforma/real-time-events/limites/">Os períodos de retenção, os limites que uma consulta carrega e o que uma consulta além de um deles recebe.</DocItem>
+  <DocItem title="Fontes de dados" href="/pt-br/documentacao/plataforma/real-time-events/fontes-de-dados/">As oito fontes de dados, as variáveis que cada uma carrega e o dataset que as guarda.</DocItem>
+  <DocItem title="Filtrar eventos" href="/pt-br/documentacao/guias/plataforma/observabilidade/adicionar-filtros-events/">Os passos que estreitam uma busca por uma variável, para as práticas desta página que precisam deles.</DocItem>
+</ItemList>
+</FrameBox>
