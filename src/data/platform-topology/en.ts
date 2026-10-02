@@ -107,17 +107,17 @@ export const en: PlatformTopologyContent = {
 					{
 						id: 'storage-connector',
 						label: 'Storage connector',
-						href: '/en/documentation/platform/connectors/#object-storage',
+						href: '/en/documentation/platform/connectors/settings/#storage',
 					},
 					{
 						id: 'load-balancer',
 						label: 'Load Balancer',
-						href: '/en/documentation/platform/connectors/load-balancer/',
+						href: '/en/documentation/platform/connectors/#load-balancer',
 					},
 					{
 						id: 'origin-shield',
 						label: 'Origin Shield',
-						href: '/en/documentation/platform/connectors/origin-shield/',
+						href: '/en/documentation/platform/connectors/#origin-shield',
 					},
 				],
 				href: '/en/documentation/platform/connectors/',

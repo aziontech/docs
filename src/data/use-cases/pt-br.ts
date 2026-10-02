@@ -77,7 +77,7 @@ export const ptBr: UseCaseCatalogContent = {
 			id: 'keep-an-application-online-when-an-origin-fails',
 			solution: 'improve-performance-and-reliability',
 			title: 'Manter uma aplicação no ar quando uma origem falha',
-			href: '/pt-br/documentacao/plataforma/connectors/load-balancer/',
+			href: '/pt-br/documentacao/plataforma/connectors/#load-balancer',
 			featured: true,
 		},
 		{
