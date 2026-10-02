@@ -1,0 +1,154 @@
+---
+title: Best practices for Data Stream
+description: Scope, shape, and secure each stream so that several streams run together, log lines carry what you analyze, and failed sends stay visible.
+meta_tags: 'data stream, best practices, sampling, templates, kafka, s3, monitoring'
+namespace: documentation_products_data_stream_best_practices
+permalink: /documentation/platform/data-stream/best-practices/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+A log stream is only as useful as the copy it leaves on your platform. That copy depends on choices made before the first log line leaves. A stream scoped the wrong way switches off the other streams of the account. A template with every variable sends bytes that nobody reads, and an endpoint that refuses the log lines is accepted at save time and fails later, out of sight.
+
+These practices apply to the streams of [Data Stream](/en/documentation/platform/data-stream/) in Azion Console and the Azion API. The mechanisms behind them are on [How Data Stream works](/en/documentation/platform/data-stream/how-it-works/), and every field is on [Stream settings](/en/documentation/platform/data-stream/stream-settings/). The Console labels the endpoint field **Connector**, and the API carries the endpoint in `outputs`.
+
+In order, the practices cover the scope of a stream, the preset for a SIEM, the variables a template sends, the Apache Kafka bootstrap servers, TLS for Apache Kafka, the Object Storage credential, the first sends to an untested endpoint, and the status of every send. The specimens are JSON in the shape the API takes.
+
+---
+
+## Use a workload filter instead of sampling when several streams must run
+
+Every stream needs a scope: a `sampling` transform over all workloads, or a `filter_workloads` transform with the workloads you choose. The API refuses a stream with neither. Sampling reduces the volume, and the cost, of the data you collect and analyze. However, saving an active stream with sampling, at any rate including `100`, deactivates every other stream on the account, and the API returns no error.
+
+A workload filter leaves the other streams active. This stream sends the requests of one workload, rendered by the *Applications Event Collector* preset, to an Apache Kafka cluster:
+
+```json
+{
+  "name": "applications-to-kafka",
+  "active": true,
+  "inputs": [
+    { "type": "raw_logs", "attributes": { "data_source": "workloads" } }
+  ],
+  "transform": [
+    { "type": "filter_workloads", "attributes": { "workloads": [1785202161] } },
+    { "type": "render_template", "attributes": { "template": 2 } }
+  ],
+  "outputs": [
+    {
+      "type": "kafka",
+      "attributes": {
+        "bootstrap_servers": "kafka1.example.com:9092,kafka2.example.com:9092",
+        "kafka_topic": "azion.logs",
+        "use_tls": true
+      }
+    }
+  ]
+}
+```
+
+Replace `1785202161` with the IDs of your workloads, up to 600. The cost is upkeep: a workload created later is not collected until you add it to the filter. *Activity History* events belong to the account rather than to a workload, so an *Activity History* stream uses sampling and runs alone. For the trade-off, refer to [Sampling and workload filters](/en/documentation/platform/data-stream/how-it-works/#sampling-and-workload-filters), and for the steps, to [Associate workloads with a stream](/en/documentation/guides/platform/observability/data-stream-associate-workloads/).
+
+To check it, list the streams with `GET /v4/workspace/stream/streams` two minutes after you save: every stream you expect to run reads `"active": true`.
+
+---
+
+## Use the Applications + WAF Event Collector preset to feed a SIEM
+
+A SIEM correlates the requests to your applications with the security decisions made on them. The *Applications + WAF Event Collector* preset carries both in one log line. It sends the request, response, and cache data of the *Applications Event Collector*, plus WAF, session, TLS, and server address variables, in 51 keys.
+
+With the *Applications* data source, set the template to `184` instead of `2` in the stream above: `{ "type": "render_template", "attributes": { "template": 184 } }`. When the platform needs the request data and no WAF data, the *Applications Event Collector*, `2`, sends 36 keys.
+
+The cost is volume: 51 keys are the most of the five presets, and Data Stream is billed on Requests and Data Transfer, as listed in [Pricing](/en/documentation/fundamentals/pricing/#data-stream). For what each preset carries, refer to [Preset templates](/en/documentation/platform/data-stream/templates-and-payload/#preset-templates), and for the steps, to [Stream WAF events to a SIEM](/en/documentation/guides/application-security/firewall-and-waf/integrate-siems/).
+
+To check it, read one log line at the SIEM: it carries WAF keys such as `waf_score` and `waf_match`.
+
+---
+
+## Send only the variables you analyze
+
+A preset sends every variable it carries in each log line. A custom template sends only the keys of its data set, so a stream built for one question sends fewer bytes per line. For an analysis of response status, a few variables answer the question. This custom template keeps the time, the host, the request, and two status variables:
+
+```json
+{
+  "name": "status-analysis",
+  "data_set": "{\"time\": \"$time\", \"host\": \"$host\", \"status\": \"$status\", \"request_uri\": \"$request_uri\", \"upstream_status\": \"$upstream_status\"}"
+}
+```
+
+A `POST` to `/v4/workspace/stream/templates` with this body creates the template with `custom: true`. Add `\"proxy_status\": \"$proxy_status\"` to the data set to also record the status Azion returns when the origin gives no response. To start from a preset in Azion Console, **Duplicate Template** in the **Render Template** section opens the create drawer filled with the preset's data set, and you delete the keys you do not need.
+
+The cost is reach: a variable left out of the template is missing from every log line sent before you add it. For the data set format, refer to [Custom templates](/en/documentation/platform/data-stream/templates-and-payload/#custom-templates), and for the steps, to [Create a custom template](/en/documentation/guides/application-development/frameworks/data-stream-custom-template/).
+
+To check it, read one delivered log line: it holds only the keys of the data set.
+
+---
+
+## List more than one Apache Kafka bootstrap server
+
+**Bootstrap Servers** needs only the servers that the stream uses for its initial connection to the cluster, not every server of the cluster. Listing more than one adds redundancy and keeps the cluster reachable when one of them is down. The stream above lists two, separated by a comma and no space: `"bootstrap_servers": "kafka1.example.com:9092,kafka2.example.com:9092"`.
+
+The cost is the length of the field, which takes up to 150 characters. The other endpoint types take a single URL or host, so their delivery depends on that address. While Data Stream marks an endpoint unavailable, it discards the log lines of that interval, as [Endpoint availability and failures](/en/documentation/platform/data-stream/how-it-works/#endpoint-availability-and-failures) describes. For the field, refer to [Apache Kafka](/en/documentation/platform/data-stream/endpoints/#apache-kafka).
+
+To check it, read `outputs[0].attributes.bootstrap_servers` of the stream: it holds two or more `host:port` pairs.
+
+---
+
+## Turn on TLS for Apache Kafka
+
+A log line can carry the client address, the requested URL, and other request data, such as `$remote_addr` and `$request_uri`. With TLS on, the stream sends that data to the cluster encrypted with Transport Layer Security. The stream above sets `"use_tls": true`. The API requires the field, and the Console shows it as the **Enable Transport Layer Security (TLS)** switch.
+
+The cost is on the cluster side: the receiving servers need a certificate from a trusted certificate authority, as listed in [Apache Kafka](/en/documentation/platform/data-stream/endpoints/#apache-kafka). For the steps, refer to [Send logs to Apache Kafka](/en/documentation/guides/platform/observability/endpoint-apache-kafka/).
+
+To check it, read `outputs[0].attributes.use_tls` of the stream: it reads `true`.
+
+---
+
+## Give an Object Storage credential the bucket list capabilities
+
+A stream that writes to an Azion [Object Storage](/en/documentation/platform/object-storage/) bucket uses an S3 credential. A credential that can write objects is not enough: without `listAllBucketNames` and `listBuckets`, every send is recorded with status `503`, and no object reaches the bucket. Give the credential these capabilities, limited to the bucket the stream writes to:
+
+```json
+{
+  "capabilities": ["listAllBucketNames", "listBuckets", "listFiles", "readFiles", "writeFiles", "deleteFiles"],
+  "buckets": ["<your-bucket>"]
+}
+```
+
+A credential limited to one bucket keeps the keys that the stream stores from reaching your other buckets. The cost is one credential per bucket. Azion Console masks the S3 **Access Key** and **Secret Key**, and an account with **View Data Stream** only sees a lock icon instead of the reveal icon. Keep **Edit Data Stream** for the people who manage streams. For the masked fields, refer to [Credentials and masked fields](/en/documentation/platform/data-stream/endpoints/#credentials-and-masked-fields), and for the steps, to [Send Data Stream data to Object Storage](/en/documentation/guides/platform/observability/connector-azion-object-storage/).
+
+To check it, find the first send in Real-Time Events: it reads `200`, and an object appears under the **Object Key Prefix**.
+
+---
+
+## Confirm an untested endpoint with its first delivery records
+
+Saving a stream checks the format of its fields, not the endpoint. The API saved streams with placeholder credentials, and a stream whose URL answered `405` to every send, with `201`. A wrong credential or URL shows only as failed sends.
+
+Before you send production traffic to an endpoint, test it with a stream filtered to one workload, as in the first practice. The test leaves the other streams active and keeps the volume small. Then allow the one to two minutes that a change of active state takes, as [Activation and changes](/en/documentation/platform/data-stream/how-it-works/#activation-and-changes) describes, and read the first delivery records. The cost is real traffic: the test stream sends the log lines of that workload, billed like any other stream. An *Activity History* stream uses sampling, so its test deactivates the other streams of the account.
+
+To check it, confirm that the first records read `200` and that the log lines arrive on your platform.
+
+---
+
+## Watch the status code of every send in Real-Time Events
+
+A failed send does not stop a stream, and its log lines are not sent again. Real-Time Events records every send in the `dataStreamedEvents` dataset, failed sends included, with `endpointType`, `statusCode`, `streamedLines`, `dataStreamed`, and `url`. A status other than `200` marks a send that did not deliver. `503` marks an endpoint that Data Stream found unavailable, and `504` an HTTP POST send that timed out. Any other code is the status your endpoint returned, such as `405`.
+
+Query `dataStreamedEvents` through the [Real-Time Events GraphQL API](/en/documentation/devtools/graphql/gql-real-time-events-fields/#datastreamedevents-data-stream) from the tool that watches your platform, and act on any status other than `200`. The **Data Stream** tab of the [Real-Time Metrics Observe dashboards](/en/documentation/platform/real-time-metrics/observe-dashboards/#data-stream) totals bytes and log lines, but not the status of a single send. The cost is retention: Real-Time Events keeps these records for 7 days, so a failure that you do not read within that period leaves no record. For the status of each failure, refer to [Troubleshoot Data Stream](/en/documentation/platform/data-stream/troubleshooting/).
+
+To check it, query the last hour of `dataStreamedEvents` for the stream: records that read only `200` confirm that every send was delivered.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How Data Stream works" href="/en/documentation/platform/data-stream/how-it-works/">The scope, batching, availability check, and delivery records behind each practice on this page.</DocItem>
+  <DocItem title="Stream settings" href="/en/documentation/platform/data-stream/stream-settings/">Every field of a stream, with its values, defaults, and the errors the API returns.</DocItem>
+  <DocItem title="Endpoints" href="/en/documentation/platform/data-stream/endpoints/">The fields and credentials of each of the 11 endpoint types.</DocItem>
+  <DocItem title="Data Stream guides and tutorials" href="/en/documentation/platform/data-stream/guides/">The steps that apply these practices, one task per guide.</DocItem>
+</ItemList>
+</FrameBox>
