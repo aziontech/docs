@@ -1,6 +1,5 @@
 <template>
 	<Sidebar
-		ref="sidebarRef"
 		v-model:collapsed="collapsed"
 		v-model:width="width"
 		resizable
@@ -20,6 +19,7 @@
 			:back-to-pattern="backToPattern"
 			:level-label="header?.title ?? ''"
 			:level-href="header?.href ?? ''"
+			:back-href="header?.backHref ?? ''"
 			:parent-level="parentLevel"
 		/>
 
@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 import Sidebar from '@aziontech/webkit/sidebar';
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { nextTick, onMounted, ref, watch } from 'vue';
 
 import DocsSidebarMenu from './DocsSidebarMenu.vue';
 import DropdownThemeSwitcher from './DropdownThemeSwitcher.vue';
@@ -74,39 +74,46 @@ withDefaults(
 
 const filter = ref('');
 
+// Also read before the rail paints, by the inline script in LeftSidebar.astro.
 const COLLAPSED_KEY = 'docs-sidebar-collapsed';
 const WIDTH_KEY = 'docs-sidebar-width';
 
-const collapsed = ref(false);
-const width = ref<number | null>(null);
-/** The webkit `Sidebar` instance; only its `measure()` affordance is used. */
-const sidebarRef = ref<{ measure?: () => void } | null>(null);
+/** The rail's width until the reader drags it; the unhydrated wrapper in BaseLayout seeds the same token. */
+const DEFAULT_WIDTH_TOKEN = '--container-2xs';
+const DEFAULT_WIDTH_FALLBACK = 300;
 
-const railQuery = typeof window !== 'undefined' ? window.matchMedia('(min-width: 1024px)') : null;
-const isRail = ref(false);
-const remeasure = () => {
-	isRail.value = Boolean(railQuery?.matches);
-	if (width.value != null) return;
-	nextTick(() => sidebarRef.value?.measure?.());
+const readDefaultWidth = () => {
+	const value = Number.parseFloat(
+		getComputedStyle(document.documentElement).getPropertyValue(DEFAULT_WIDTH_TOKEN)
+	);
+	return Number.isFinite(value) && value > 0 ? value : DEFAULT_WIDTH_FALLBACK;
 };
 
+// Both start at what the server rendered, so hydration matches; the reader's own state lands in
+// the mount tick, which the rail applies without motion.
+const collapsed = ref(false);
+const width = ref<number | null>(null);
+
+/** Off while the mount restores state, so only the reader's own drags and collapses are stored. */
+let persisting = false;
+
 onMounted(() => {
+	let stored = 0;
 	try {
 		collapsed.value = localStorage.getItem(COLLAPSED_KEY) === 'true';
-		const stored = Number(localStorage.getItem(WIDTH_KEY));
-		if (Number.isFinite(stored) && stored > 0) width.value = stored;
+		stored = Number(localStorage.getItem(WIDTH_KEY));
 	} catch {
 		// storage unavailable
 	}
-	remeasure();
-	railQuery?.addEventListener('change', remeasure);
-});
-
-onBeforeUnmount(() => {
-	railQuery?.removeEventListener('change', remeasure);
+	// Always a set width: left null, the rail would size to its rows once the wrapper stops seeding it.
+	width.value = Number.isFinite(stored) && stored > 0 ? stored : readDefaultWidth();
+	nextTick(() => {
+		persisting = true;
+	});
 });
 
 watch(collapsed, (value) => {
+	if (!persisting) return;
 	try {
 		localStorage.setItem(COLLAPSED_KEY, String(value));
 	} catch {
@@ -115,7 +122,7 @@ watch(collapsed, (value) => {
 });
 
 watch(width, (value) => {
-	if (value == null) return;
+	if (!persisting || value == null) return;
 	try {
 		localStorage.setItem(WIDTH_KEY, String(Math.round(value)));
 	} catch {
