@@ -24,74 +24,78 @@
 					</PanelHeader>
 				</div>
 
-				<div class="min-h-0 w-full grow overflow-y-auto p-(--spacing-md) text-body-sm">
-					<DocsSidebarFilter
-						v-model="filter"
-						class="mb-(--spacing-sm)"
-						:header="menuHeader"
-						:placeholder="menuFilterPlaceholder"
-						:hotkey="open"
-					/>
+				<div class="flex min-h-0 w-full grow flex-col">
+					<ScrollArea tabindex="-1">
+						<div class="p-(--spacing-md) text-body-sm">
+							<DocsSidebarFilter
+								v-model="filter"
+								class="mb-(--spacing-sm)"
+								:header="menuHeader"
+								:placeholder="menuFilterPlaceholder"
+								:hotkey="open"
+							/>
 
-					<DocsSidebarMenu
-						v-if="menuGroups?.length"
-						:groups="menuGroups"
-						:active-id="menuActiveId"
-						:initial-expanded="menuExpanded"
-						:aria-label="menuAriaLabel"
-						:filter="filter"
-						:no-matches-label="menuNoMatchesLabel"
-						:trees-href="menuTreesHref"
-						:back-label="menuBackLabel"
-						:back-to-pattern="menuBackToPattern"
-						:level-label="menuHeader?.title ?? ''"
-					/>
+							<DocsSidebarMenu
+								v-if="menuGroups?.length"
+								:groups="menuGroups"
+								:active-id="menuActiveId"
+								:initial-expanded="menuExpanded"
+								:aria-label="menuAriaLabel"
+								:filter="filter"
+								:no-matches-label="menuNoMatchesLabel"
+								:trees-href="menuTreesHref"
+								:back-label="menuBackLabel"
+								:back-to-pattern="menuBackToPattern"
+								:level-label="menuHeader?.title ?? ''"
+							/>
 
-					<DocsSidebarMenu
-						v-if="directoryGroups?.length"
-						:groups="directoryGroups"
-						:aria-label="directoryAriaLabel"
-						class="mt-(--spacing-md)"
-					/>
+							<DocsSidebarMenu
+								v-if="directoryGroups?.length"
+								:groups="directoryGroups"
+								:aria-label="directoryAriaLabel"
+								class="mt-(--spacing-md)"
+							/>
 
-					<slot name="main-content" />
+							<slot name="main-content" />
 
-					<template v-if="menuSecondary">
-						<div
-							class="my-8 w-full border-t border-t-[var(--border-default)]"
-							role="separator"
-						></div>
-						<div class="w-full p-0 bg-transparent">
-							<ul class="list-none p-0 m-0" role="menu">
-								<template v-for="(entry, entryIndex) in menuSecondary" :key="entryIndex">
-									<li
-										v-if="entry.items && entry.label"
-										class="px-2 py-2 text-label-sm font-medium uppercase tracking-wider text-muted"
-									>
-										{{ entry.label }}
-									</li>
-									<li
-										v-for="(item, itemIndex) in entry.items || [entry]"
-										:key="itemIndex"
-										role="menuitem"
-									>
-										<a
-											v-if="item.url"
-											:target="item.target"
-											:href="item.url"
-											class="p-2 flex gap-2 items-center no-underline rounded-[var(--shape-elements)] text-default hover:bg-[var(--bg-hover)]"
-										>
-											<span v-if="item.icon" :class="item.icon"></span>
-											<span class="ml-2 font-medium text-label-md">
-												{{ item.label }}
-											</span>
-											<Tag v-for="tag in item.tags" :key="tag" :value="tag" severity="info" />
-										</a>
-									</li>
-								</template>
-							</ul>
+							<template v-if="menuSecondary">
+								<div
+									class="my-8 w-full border-t border-t-[var(--border-default)]"
+									role="separator"
+								></div>
+								<div class="w-full p-0 bg-transparent">
+									<ul class="list-none p-0 m-0" role="menu">
+										<template v-for="(entry, entryIndex) in menuSecondary" :key="entryIndex">
+											<li
+												v-if="entry.items && entry.label"
+												class="px-2 py-2 text-label-sm font-medium uppercase tracking-wider text-muted"
+											>
+												{{ entry.label }}
+											</li>
+											<li
+												v-for="(item, itemIndex) in entry.items || [entry]"
+												:key="itemIndex"
+												role="menuitem"
+											>
+												<a
+													v-if="item.url"
+													:target="item.target"
+													:href="item.url"
+													class="p-2 flex gap-2 items-center no-underline rounded-[var(--shape-elements)] text-default hover:bg-[var(--bg-hover)]"
+												>
+													<span v-if="item.icon" :class="item.icon"></span>
+													<span class="ml-2 font-medium text-label-md">
+														{{ item.label }}
+													</span>
+													<Tag v-for="tag in item.tags" :key="tag" :value="tag" severity="info" />
+												</a>
+											</li>
+										</template>
+									</ul>
+								</div>
+							</template>
 						</div>
-					</template>
+					</ScrollArea>
 				</div>
 
 				<template v-if="bottomButtons">
@@ -130,6 +134,7 @@ import DrawerTitle from '@aziontech/webkit/drawer-title';
 import IconButton from '@aziontech/webkit/icon-button';
 import PanelFooter from '@aziontech/webkit/panel-footer';
 import PanelHeader from '@aziontech/webkit/panel-header';
+import ScrollArea from '@aziontech/webkit/scroll-area';
 
 import DocsSidebarFilter from '~/components/webkit/DocsSidebarFilter.vue';
 import DocsSidebarMenu from '~/components/webkit/DocsSidebarMenu.vue';
