@@ -76,7 +76,7 @@ export const en: UseCaseCatalogContent = {
 			id: 'keep-an-application-online-when-an-origin-fails',
 			solution: 'improve-performance-and-reliability',
 			title: 'Keep an application online when an origin fails',
-			href: '/en/documentation/platform/connectors/load-balancer/',
+			href: '/en/documentation/platform/connectors/#load-balancer',
 			featured: true,
 		},
 		{
