@@ -1,0 +1,190 @@
+---
+title: Boas práticas para Real-Time Metrics
+description: Escolha o intervalo, o escopo e a fonte de cada número de Real-Time Metrics para manter precisas as comparações, as verificações de cache e as queries da API.
+meta_tags: 'real-time metrics, best practices, dashboards, time range, filters, graphql'
+namespace: documentation_products_real_time_metrics_best_practices
+permalink: /documentacao/plataforma/real-time-metrics/boas-praticas/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Uma métrica responde a uma pergunta sobre uma tendência: se o tráfego cresceu, se o cache serve uma parte maior dele, quando os erros começaram. A resposta só vale quando o período, o escopo e a fonte do número correspondem à pergunta. Sem essa correspondência, uma comparação que inclui minutos ainda em contagem mostra uma queda que não aconteceu. Uma média da conta inteira esconde o único domínio cujo cache parou de funcionar, e uma query da API sem limite de linhas retorna as suas 10 primeiras linhas sem nenhum erro.
+
+Estas práticas se aplicam aos dashboards de [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/) no Azion Console e às queries para a API GraphQL dele. Os mecanismos por trás delas estão em [Como Real-Time Metrics funciona](/pt-br/documentacao/plataforma/real-time-metrics/como-funciona/), e o valor de cada limite está em [Limites de Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/limites/).
+
+Em ordem, as práticas cobrem qual número usar como referência para a cobrança, a duração do intervalo, os minutos mais recentes de um intervalo, o escopo dos gráficos de cache, o caminho de um pico até as suas requisições, as queries copiadas e o limite de linhas de uma query da API. Cada exemplo é uma query que foi executada na API GraphQL, com a sua resposta.
+
+---
+
+## Concilie cobranças com os dados de Billing, não com Real-Time Metrics
+
+Real-Time Metrics e Billing contam o mesmo uso de duas formas. Real-Time Metrics conta cada evento no máximo uma vez, e Billing exatamente uma vez. Os dois diferem em menos de 1% em média e, quando diferem, o número de Billing é o correto.
+
+Use Real-Time Metrics para operações, como ver uma mudança no tráfego em poucos minutos, e Billing para o que você paga. O custo é uma segunda fonte: um relatório de uso montado a partir dos dashboards carrega uma pequena diferença em relação à fatura, então ele não serve para resolver uma cobrança. Para as duas abordagens de contagem, consulte [Real-Time Metrics e faturamento](/pt-br/documentacao/fundamentos/billing-and-subscriptions/#real-time-metrics-e-faturamento).
+
+Para verificar, compare o total de um mês nos dois: uma diferença de cerca de 1% é a diferença esperada entre as duas abordagens.
+
+---
+
+## Escolha um intervalo curto o bastante para manter a resolução de que você precisa
+
+Real-Time Metrics dimensiona cada ponto de um gráfico de tempo pela duração do intervalo selecionado, não pela idade dos dados. Um intervalo menor que 2,5 dias plota um ponto por minuto, e um mais longo plota um ponto por hora ou por dia, como detalha [Como Real-Time Metrics funciona](/pt-br/documentacao/plataforma/real-time-metrics/como-funciona/). Um pico de poucos minutos se destaca na resolução de minutos e se achata dentro do seu bucket de hora ou de dia em um intervalo mais longo.
+
+Escolha o intervalo mais curto que cobre a pergunta. Por exemplo, **Last 24 hours** plota um ponto por minuto e mostra quando uma mudança começou, enquanto **Last 7 days** e **Last 90 days** plotam horas e dias e mostram uma tendência. O custo é o alcance: a resolução de minutos nunca cobre mais de 2,5 dias.
+
+Na API, `tsRange` define o intervalo. Esta query de um dia retorna buckets de um minuto:
+
+```graphql
+query {
+  httpMetrics(
+    limit: 10000
+    filter: { tsRange: { begin: "2026-10-01T14:21:50", end: "2026-10-02T14:21:50" } }
+    aggregate: { sum: requests }
+    groupBy: [ts]
+    orderBy: [ts_ASC]
+  ) {
+    ts
+    sum
+  }
+}
+```
+
+A API responde `200`:
+
+```json
+{
+  "data": {
+    "httpMetrics": [
+      {
+        "ts": "2026-10-01T16:04:00Z",
+        "sum": 74
+      },
+      {
+        "ts": "2026-10-01T16:06:00Z",
+        "sum": 14
+      },
+      {
+        "ts": "2026-10-01T16:07:00Z",
+        "sum": 82
+      },
+      …
+    ]
+  }
+}
+```
+
+Com `begin` definido como `"2026-07-04T14:21:50"`, 90 dias antes de `end`, a mesma query retorna buckets de um dia, como `"ts": "2026-07-24T00:00:00Z"`. O dataset `httpBreakdownMetrics`, por trás do dashboard **Request Breakdown**, retorna buckets de uma hora mesmo para um intervalo de 1 hora.
+
+Para verificar a resolução de um resultado, leia a diferença entre dois valores consecutivos de `ts`: 60 segundos para minutos, 3.600 segundos para horas.
+
+---
+
+## Termine todo intervalo que você compara ou armazena pelo menos 10 minutos no passado
+
+Uma métrica leva até 10 minutos para ser agregada, então um intervalo que termina agora pode ficar abaixo da janela completa anterior a ele. A [tag de variação](/pt-br/documentacao/plataforma/real-time-metrics/filtros-e-intervalo-de-tempo/#tag-de-variacao), que compara o intervalo selecionado com a janela anterior de mesma duração, pode mostrar uma queda que desaparece alguns minutos depois.
+
+No Console, defina **End date** na aba **Absolute** como um horário pelo menos 10 minutos no passado. Na API, defina o `end` de `tsRange` pelo menos 10 minutos antes da execução da query. Um período que terminou há mais de 10 minutos está completo e retorna os mesmos valores em toda execução. Então consulte esse período uma vez, guarde o resultado e, depois, consulte apenas o período seguinte. Em `httpBreakdownMetrics`, comece e termine cada período na hora cheia: um intervalo que começou às 13:21:50 retornou uma linha para o bucket que começa às 13:00, então duas queries que dividem uma hora podem contá-la duas vezes.
+
+O custo são os 10 minutos mais recentes, que esses intervalos deixam de fora: leia esses minutos em um intervalo que termina agora, como valores provisórios. Para o atraso da agregação e a retenção de cada dataset, consulte [Limites de Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/limites/).
+
+Para verificar, execute a mesma query de novo alguns minutos depois: valores idênticos confirmam que o período estava completo.
+
+---
+
+## Filtre um único domínio antes de ler os gráficos de cache
+
+Os gráficos de cache cobrem a conta inteira até que você os filtre. São eles **Edge Offload**, **Saved Data** e **Missed Data** no dashboard [Data Transferred](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#data-transferred), e **Requests Offloaded** em [Requests](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#requests), todos de [Applications](/pt-br/documentacao/plataforma/applications/). Um offload da conta inteira mistura aplicações com configurações de cache diferentes, então um domínio cujo conteúdo deixou de vir do cache pode ficar escondido atrás dos outros.
+
+No Console, filtre o dashboard por **Domain** ou **Workload**, o rótulo que a sua conta mostrar, para manter um único workload. Na API, o filtro `hostEq` mantém as requisições de um hostname:
+
+```graphql
+query CacheOffloadForHost {
+  httpMetrics(
+    limit: 1
+    filter: {
+      tsRange: { begin: "2026-10-01T14:25:25", end: "2026-10-02T14:25:25" }
+      hostEq: "www.example.com"
+    }
+  ) {
+    requestsTotal
+    requestsOffloaded
+    savedRequests
+    missedRequests
+    dataTransferredTotal
+    offload
+    savedData
+    missedData
+    bandwidthOffload
+  }
+}
+```
+
+A API responde `200` com uma linha para o hostname:
+
+```json
+{
+  "data": {
+    "httpMetrics": [
+      {
+        "requestsTotal": 982,
+        "requestsOffloaded": 5.19,
+        "savedRequests": 51.0,
+        "missedRequests": 931.0,
+        "dataTransferredTotal": 114490585.0,
+        "offload": 0.51,
+        "savedData": 577373.0,
+        "missedData": 113387464.0,
+        "bandwidthOffload": 0.51
+      }
+    ]
+  }
+}
+```
+
+O custo é o escopo: um filtro do Console se aplica a todos os gráficos do dashboard, e mudar para um dashboard que lê outro dataset o limpa. Para medir um domínio passo a passo, consulte [Meça o offload de cache de um domínio](/pt-br/documentacao/guias/plataforma/observabilidade/medir-offload-de-cache/).
+
+Para verificar, some `savedRequests` e `missedRequests`: o resultado é igual a `requestsTotal`, e `requestsOffloaded` é a parcela servida do cache, 51 de 982 requisições, ou 5,19%.
+
+---
+
+## Encontre as requisições por trás de um pico em Real-Time Events
+
+Real-Time Metrics guarda contagens agregadas por bucket de tempo, não as requisições por trás delas. Um gráfico mostra quando um pico aconteceu e qual foi o tamanho dele, mas não quais requisições o formaram. [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/) guarda o evento bruto de cada requisição.
+
+Primeiro, restrinja o dashboard: defina o intervalo nos minutos do pico e filtre pelo campo que o isola, como **Status**, ou **Domain** ou **Workload**. Depois, abra Real-Time Events para o mesmo período. Por exemplo, se **Missed Requests** sobe às 14:05, um intervalo de 14:00 a 14:30 filtrado para um domínio diz qual domínio e quais 30 minutos ler em Real-Time Events. O custo é um segundo produto: Real-Time Events é cobrado por Storage e Data Scan, enquanto Real-Time Metrics está incluído na plataforma sem custo adicional.
+
+Para verificar, confirme que o período que você lê em Real-Time Events começa e termina nos mesmos minutos do pico no gráfico.
+
+---
+
+## Comece uma query da API pela query copiada de um gráfico
+
+**Copy query**, no menu de um gráfico, coloca na área de transferência a query GraphQL por trás desse gráfico, com o dataset, os campos, a agregação e os filtros dela. Uma query da API, ou um painel em um [dashboard personalizado do Grafana](/pt-br/documentacao/guias/plataforma/observabilidade/azion-plugin-grafana/), passa então a começar de uma query que o Console já executa. O texto contém a linha `# QUERY`, a query, a linha `# VARIABLES` e as variáveis como um objeto JSON.
+
+O custo é um passo a mais. A query lê os valores dos filtros nas variáveis, então ela não executa sozinha: cole a query no [Playground GraphiQL](/pt-br/documentacao/devtools/graphql/playground-graphql/) e o JSON depois de `# VARIABLES` no painel de variáveis dele. A query copiada também mantém o `limit` do próprio gráfico, então confira esse valor antes de ampliar o intervalo. Para o formato da área de transferência, consulte [Copy query](/pt-br/documentacao/plataforma/real-time-metrics/filtros-e-intervalo-de-tempo/#copy-query) e, para os passos, [Exporte os dados e a query de um gráfico](/pt-br/documentacao/guias/plataforma/observabilidade/analisar-metricas/).
+
+Para verificar, execute a query uma vez antes de alterá-la: um `200` com linhas confirma que as variáveis vieram junto.
+
+---
+
+## Defina um limite explícito de linhas em toda query da API
+
+Uma query sem o argumento `limit` retorna 10 linhas e nenhum erro. Uma query de um dia por minuto que tinha 110 linhas retornou as suas 10 primeiras. Defina `limit` como o número de linhas que você espera, até 10.000, e defina `orderBy`, para saber quais linhas o limite mantém. A query em [Escolha um intervalo curto o bastante para manter a resolução de que você precisa](/pt-br/documentacao/plataforma/real-time-metrics/boas-praticas/#escolha-um-intervalo-curto-o-bastante-para-manter-a-resolucao-de-que-voce-precisa) define `limit: 10000` e `orderBy: [ts_ASC]`.
+
+O custo é um teto: acima de 10.000 linhas, a API recusa a query com `400`. Encurte o intervalo ou percorra as linhas em páginas com `offset`, como descreve [Recursos da API GraphQL](/pt-br/documentacao/devtools/graphql/recursos/). Para o erro exato, consulte [Limites da API GraphQL](/pt-br/documentacao/devtools/graphql/limites/#limite-de-linhas-por-query).
+
+Para verificar, conte as linhas do resultado: uma contagem igual ao `limit` significa que podem faltar linhas, então aumente o limite ou encurte o intervalo.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Como Real-Time Metrics funciona" href="/pt-br/documentacao/plataforma/real-time-metrics/como-funciona/">A abordagem de contagem por trás de cada gráfico e as durações de intervalo que mudam a resolução.</DocItem>
+  <DocItem title="Limites de Real-Time Metrics" href="/pt-br/documentacao/plataforma/real-time-metrics/limites/">A retenção de cada dataset e os limites do Console e da API GraphQL.</DocItem>
+  <DocItem title="Filtros e intervalo de tempo" href="/pt-br/documentacao/plataforma/real-time-metrics/filtros-e-intervalo-de-tempo/">Todos os controles acima dos gráficos, do seletor de intervalo de tempo ao menu do gráfico.</DocItem>
+  <DocItem title="Guias e tutoriais de Real-Time Metrics" href="/pt-br/documentacao/plataforma/real-time-metrics/guias/">Os procedimentos que aplicam estas práticas, uma tarefa por guia.</DocItem>
+</ItemList>
+</FrameBox>
