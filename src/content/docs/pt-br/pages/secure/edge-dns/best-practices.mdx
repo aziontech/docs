@@ -1,0 +1,166 @@
+---
+title: Boas práticas para Edge DNS
+description: Planeje delegação, TTLs, registros com pesos, o registro do apex e o DNSSEC para que os registros do Edge DNS respondam quando você espera.
+meta_tags: 'edge dns, best practices, dns ttl, nameserver delegation, aname, weighted records, dnssec'
+namespace: documentation_products_edge_dns_best_practices
+permalink: /documentacao/plataforma/edge-dns/boas-praticas/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Uma alteração de DNS só chega aos seus usuários depois que cada cache que guarda a resposta antiga a libera. A ordem das suas alterações decide quanto tempo isso leva. Um domínio delegado antes de os registros existirem fica indisponível para todos os usuários de uma vez. Um nome consultado alguns segundos antes de o registro ser salvo recebe a resposta `NXDOMAIN` por até uma hora. Um TTL longo mantém um endereço antigo nos resolvers depois que você o substitui.
+
+Estas práticas se aplicam às zonas e aos registros do [Edge DNS](/pt-br/documentacao/plataforma/edge-dns/) no Azion Console, na Azion CLI e na Azion API. Um registro salvo não precisa de nenhuma etapa de deploy, mas uma alteração em um registro existente pode levar alguns minutos para chegar a todos os nameservers. O cache por trás desse atraso está em [Como o Edge DNS funciona](/pt-br/documentacao/plataforma/edge-dns/como-funciona/#cache-e-propagacao), e cada campo está em [Zonas e registros](/pt-br/documentacao/plataforma/edge-dns/zonas-e-registros/).
+
+Na ordem, as práticas tratam dos registros a verificar, dos nameservers para os quais delegar, do TTL antes de uma alteração e da primeira consulta a um nome. Em seguida, tratam do registro do apex, da retirada de um registro com política *Weighted*, dos destinos de CNAME, do suporte a DNSSEC no TLD e da desativação do DNSSEC.
+
+---
+
+## Consulte cada registro nos nameservers da Azion antes de delegar
+
+A delegação envia todos os resolvers da internet para os nameservers da Azion de uma vez. Um registro que falta na zona nesse momento falta para todos os usuários, e o serviço para o qual ele aponta fica indisponível. Os nameservers da Azion respondem por uma zona antes de qualquer registrador delegá-la. Crie a zona, adicione cada registro que o domínio serve e consulte cada um primeiro em `ns1.aziondns.net`:
+
+```bash
+dig +short @ns1.aziondns.net www.example.com A
+```
+
+```text
+192.0.2.1
+```
+
+Execute a mesma consulta para cada nome e tipo que o domínio usa, como os registros MX e TXT de `example.com`. Consulte um nome apenas depois de salvar o registro dele, como explica [uma prática adiante](#consulte-um-nome-apenas-depois-de-criar-o-registro-dele). O custo é a antecedência: os primeiros registros de uma zona recém-criada podem levar alguns minutos para responder. Crie a zona bem antes da alteração no registrador. Para os passos, consulte [Crie, edite ou exclua uma zona](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/edge-dns-definir-main-settings/).
+
+Para verificar, compare cada resposta com o que os nameservers atuais do domínio retornam para a mesma consulta.
+
+---
+
+## Delegue o domínio aos três nameservers
+
+Uma delegação lista os nameservers que um resolver pode consultar para o domínio. Um resolver nunca consulta um nameserver que o registrador não lista. A Azion recomenda os três nameservers do Edge DNS para mais confiabilidade. Cada nome fica sob o próprio domínio de primeiro nível, então copie os nomes em vez de digitá-los. **Copy Nameserver Values**, na página **Zones** do Azion Console, copia os três em uma única string:
+
+```text
+ns1.aziondns.net;ns2.aziondns.com;ns3.aziondns.org
+```
+
+Insira cada nome como um nameserver separado no seu registrador. O custo é uma etapa fora da Azion: os resolvers públicos só alcançam a zona depois que o registrador publica a delegação, no prazo do registrador. Para a migração completa, consulte [Migre nameservers para a Azion](/pt-br/documentacao/guias/plataforma/migracao/migrar-ns-para-a-azion/).
+
+Para verificar, consulte um nome da zona em um resolver público, como `8.8.8.8`. Depois que a delegação é publicada, ele retorna o que `ns1.aziondns.net` retorna.
+
+---
+
+## Reduza o TTL alguns dias antes de uma alteração planejada
+
+Um resolver guarda uma resposta pelo TTL que ela trazia. Depois de uma alteração, ele pode servir o valor antigo até esse TTL acabar. Um TTL menor encurta a janela em que respostas desatualizadas são servidas. Para uma zona que ainda roda em outro provedor, reduza o TTL lá alguns dias antes de delegar. No Edge DNS, alguns dias antes de uma alteração planejada, como um outro endereço, reduza o TTL dos registros que ela afeta:
+
+```bash
+azion update dns-record --zone-id <zone-id> --record-id <record-id> --ttl 300
+```
+
+```text
+DNS record 100214 was updated
+```
+
+O TTL menor é ele próprio uma alteração, e os resolvers só o adotam quando o TTL antigo, de 3.600 segundos por padrão, acaba. O custo é o volume de consultas: os resolvers consultam com mais frequência, e o Edge DNS conta cada consulta no [uso incluído](/pt-br/documentacao/plataforma/edge-dns/limites/#uso-incluido-por-plano) do seu plano. Aumente o TTL de novo quando a alteração terminar.
+
+Para verificar, execute `dig @ns1.aziondns.net www.example.com A`: a resposta traz um TTL de `300` ou menos, porque os nameservers fazem a contagem regressiva dele.
+
+---
+
+## Consulte um nome apenas depois de criar o registro dele
+
+Os nameservers da Azion fazem cache de uma resposta negativa como de qualquer outra. Uma consulta a um nome que ainda não tem registro recebe a resposta `NXDOMAIN`, e os nameservers guardam essa resposta. O nome recebe `NXDOMAIN` por até uma hora, o mínimo do SOA, mesmo depois que você adiciona o registro. Os resolvers que fizeram a consulta guardam a própria resposta negativa por até a mesma hora. Um nome que ninguém consultou antes de existir responde em segundos.
+
+Salve o registro primeiro, depois consulte o nome, e impeça que ferramentas de monitoramento e scripts consultem repetidamente um nome antes de o registro dele existir. O custo é a ordem: uma verificação que você quer executar durante a configuração espera até o salvamento retornar. Para saber como a resposta negativa fica em cache, consulte [Como o Edge DNS funciona](/pt-br/documentacao/plataforma/edge-dns/como-funciona/#cache-e-propagacao).
+
+Para verificar, confirme que a primeira consulta a cada nome vem depois que o registro dele é salvo, ou espere até uma hora para que um `NXDOMAIN` em cache expire.
+
+---
+
+## Use um registro ANAME no apex, não um CNAME
+
+O apex de uma zona, `@`, já contém os registros SOA e NS que a Azion grava. Um CNAME bloqueia todos os outros tipos no nome dele, então a API recusa um CNAME com o nome `@` com `19005`. Um registro ANAME aponta o apex para um hostname da Azion e é respondido com os endereços do destino. O apex mantém os registros MX e TXT. Um `POST` para `/v4/workspace/dns/zones/<zone-id>/records` com este corpo serve `example.com` a partir de um workload:
+
+```json
+{
+  "name": "@",
+  "type": "ANAME",
+  "rdata": ["<your-workload>.map.azionedge.net"],
+  "ttl": 20
+}
+```
+
+Mantenha `ttl` em `20`: qualquer outro valor, inclusive o padrão de 3.600, é recusado com `19011`. O custo é o alcance: o destino de um ANAME é apenas um nome sob `azioncdn.net`, `azionedge.net` ou `azionedge.com`. Para as regras dele, consulte [Tipos de registro](/pt-br/documentacao/plataforma/edge-dns/tipos-de-registro/#aname), e para os passos, [Aponte um domínio raiz com ANAME](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/acessar-root-domain/).
+
+Para verificar, execute `dig @ns1.aziondns.net example.com A`: a resposta traz registros A com um TTL de `20` e nenhum CNAME.
+
+---
+
+## Defina o peso 0 antes de excluir um registro com política Weighted
+
+Os registros com política *Weighted* compartilham um nome e um tipo, e cada resposta traz o valor de um registro, escolhido em proporção ao peso dele. Um peso `0` mantém um registro na zona e nunca o usa em uma resposta. Isso tira o valor da rotação e permite trazê-lo de volta restaurando o peso. Os mesmos pesos permitem enviar uma parcela pequena das respostas para um valor que você introduz antes que ele receba todas.
+
+Antes de excluir um registro com política *Weighted*, defina o peso dele como `0`. O registro mantém a política *Weighted*, então a flag não precisa de `--policy`:
+
+```bash
+azion update dns-record --zone-id <zone-id> --record-id <record-id> --weight 0
+```
+
+```text
+DNS record 100189 was updated
+```
+
+Na API, a mesma alteração é um `PATCH` com `{"weight":0}`. Exclua o registro quando os outros valores estiverem levando o tráfego. O custo é o tempo: os resolvers que guardaram em cache o valor do registro o mantêm pelo TTL do registro. Para saber como os pesos escolhem uma resposta, consulte [Como o Edge DNS funciona](/pt-br/documentacao/plataforma/edge-dns/como-funciona/#politicas-de-registro), e para os passos, [Distribua o tráfego com pesos](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/balanceamento-de-carga-dns/).
+
+Para verificar, execute `dig +short @ns1.aziondns.net lb.example.com A` ao longo de vários períodos de TTL: o valor do registro com peso `0` nunca aparece.
+
+---
+
+## Aponte cada CNAME para o hostname final
+
+Um resolver que recebe um CNAME repete a consulta com o hostname para o qual o CNAME aponta. Quando esse hostname é outro CNAME, cada alias da cadeia adiciona uma etapa antes de o resolver chegar a um endereço. Quando o destino é um nome da mesma zona, o Edge DNS retorna o CNAME e os registros do destino em uma única resposta: `blog` com o valor `www.example.com` é respondido com o CNAME e o registro A de `www`. Um destino fora da zona custa ao resolver mais uma consulta para cada alias.
+
+Aponte cada CNAME para o hostname que contém o endereço, e não para outro alias. O custo é a manutenção: quando esse hostname muda, cada CNAME que o nomeia também muda, onde uma cadeia precisava de uma única edição. Para as regras de um CNAME, consulte [Tipos de registro](/pt-br/documentacao/plataforma/edge-dns/tipos-de-registro/#cname).
+
+Para verificar, execute `dig @ns1.aziondns.net blog.example.com A`: a resposta traz um CNAME seguido do endereço.
+
+---
+
+## Confirme que o TLD aceita DNSSEC antes de ativá-lo
+
+As assinaturas DNSSEC só protegem um domínio quando os resolvers que validam confiam nas chaves da zona. Essa confiança vem do registro DS que o seu registrador e o registry do TLD (domínio de primeiro nível) do domínio publicam. Um registry de TLD que não aceita DNSSEC não consegue publicar o registro DS, então nenhum resolver valida uma zona assinada sob esse TLD.
+
+Antes de planejar o DNSSEC para um domínio, confirme que o registry do TLD dele aceita DNSSEC. O custo é uma pergunta que a Azion não pode responder por você. O status de DNSSEC de uma zona mostra `ready` assim que a Azion a assina, quer algum registry possa publicar o registro DS, quer não. Para os quatro valores do registro DS, consulte [DNSSEC](/pt-br/documentacao/plataforma/edge-dns/dnssec/#registro-ds).
+
+Para verificar, confirme com o seu registrador que ele aceita um registro DS para o domínio.
+
+---
+
+## Remova o registro DS antes de desativar o DNSSEC
+
+Enquanto o registrador publica um registro DS para o domínio, ou os resolvers ainda o guardam em cache, os resolvers que validam esperam respostas assinadas. Desativar o DNSSEC primeiro interrompe as assinaturas enquanto esse registro DS ainda é confiável, e o domínio pode ficar indisponível para os resolvers que validam. Remova o registro DS no seu registrador, espere que ele expire dos caches dos resolvers e só então desative o DNSSEC da zona:
+
+```bash
+azion update dnssec --zone-id <zone-id> --enabled=false
+```
+
+```text
+DNSSEC of DNS zone 1234 was updated
+```
+
+O custo é o tempo: a zona continua assinada durante a espera, sem registro DS para validá-la. Para os passos em cada interface, consulte [Ative o DNSSEC em uma zona](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/ativar-dnssec/#desative-o-dnssec).
+
+Para verificar, execute `azion describe dnssec --zone-id <zone-id>`: o comando imprime `Enabled: false`.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Como o Edge DNS funciona" href="/pt-br/documentacao/plataforma/edge-dns/como-funciona/">O caminho da resolução, o cache e as políticas de registro por trás de cada prática desta página.</DocItem>
+  <DocItem title="Zonas e registros" href="/pt-br/documentacao/plataforma/edge-dns/zonas-e-registros/">Cada campo de zona e de registro, com os valores, os padrões e os erros que a API retorna.</DocItem>
+  <DocItem title="DNSSEC" href="/pt-br/documentacao/plataforma/edge-dns/dnssec/">A configuração de DNSSEC de uma zona, os valores de status e o que a desativação muda.</DocItem>
+  <DocItem title="Migre nameservers para a Azion" href="/pt-br/documentacao/guias/plataforma/migracao/migrar-ns-para-a-azion/">Os passos para mover os registros de um domínio para o Edge DNS e delegá-lo no registrador.</DocItem>
+</ItemList>
+</FrameBox>
