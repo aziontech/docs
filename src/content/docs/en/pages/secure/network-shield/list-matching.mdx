@@ -1,0 +1,92 @@
+---
+title: List matching
+description: >-
+  See how a Network List matches a client address, when its items expire, and
+  why one list can back many rules on many firewalls.
+meta_tags: 'network shield, network lists, list matching, ip cidr, asn, countries, allowlist, blocklist, due date, tor exit nodes, origin shield'
+namespace: documentation_products_network_shield_how_it_works
+permalink: /documentation/platform/firewall/network-shield/list-matching/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Blocking traffic by origin compares the client address of each request with a list of addresses, networks, or countries. What the list holds sets how much one entry covers, and the rule that reads the list decides whether it blocks or allows. For where Network Shield acts in a firewall's request path, refer to [How Firewall works](/en/documentation/platform/firewall/how-it-works/#network-shield).
+
+The sections cover list matching, expiration and annotations, one list behind many rules, and Azion-maintained lists.
+
+---
+
+## List matching
+
+A [Network List](/en/documentation/platform/firewall/network-shield/network-lists/) holds items of one type, fixed when the list is created. _IP/CIDR_ (`ip_cidr`) holds IPv4 and IPv6 addresses and ranges, _ASN_ (`asn`) holds Autonomous System Numbers, and _Countries_ (`countries`) holds two-letter country codes. All three compare the same value: the IP address of the client that sent the request. An `ip_cidr` list matches when that address is an item or falls inside a range. An `asn` or `countries` list matches when the address belongs to a listed network or country.
+
+Azion resolves the country and the ASN of an address from databases kept by external suppliers. That resolution can be inaccurate in some situations, and access control by country or ASN is applied on a best-effort basis, as the Azion terms of service state. For more information, refer to [Terms of Service](/en/documentation/agreements/tos/).
+
+The type sets how much one item covers. An IP item covers one address or one range, while one country or ASN item covers every address in it, legitimate clients included. A narrow list blocks less by mistake and needs more items, and a broad list is short and blocks everyone it names.
+
+Neither the list nor its type makes it a blocklist or an allowlist, because the operator does. _matches_ (`is_in_list`) is true for a client in the list, and _does not match_ (`is_not_in_list`) is true for a client outside it. With _Deny (403 Forbidden)_, _matches_ blocks the clients in the list, which makes it a blocklist. With the same behavior, _does not match_ blocks every client outside the list, which turns the same list into an allowlist.
+
+This rule body is an allowlist, because it denies every client whose address is not in the list:
+
+```json
+{
+  "name": "Allow only listed addresses",
+  "active": true,
+  "criteria": [
+    [
+      { "variable": "${network}", "conditional": "if", "operator": "is_not_in_list", "argument": <network-list-id> }
+    ]
+  ],
+  "behaviors": [ { "type": "deny" } ]
+}
+```
+
+The `argument` is the list ID as a JSON integer, and the same ID sent as a string is refused with `25042`. With this rule, a client in the list passes to the application, and a client outside it receives `403`.
+
+An allowlist rule does not admit a request. For a client in the list, its criterion is false, so the rule runs nothing and the firewall moves to the next rule. A request that matches both an allowlist rule and a blocklist rule is therefore denied by the blocklist rule, in either order.
+
+---
+
+## Expiration and annotations
+
+An `ip_cidr` item can carry two annotations after the address: a due date, written as `--LT` followed by a UTC date and time, and a comment after `#`. Items of the `asn` and `countries` types accept neither. For the syntax of both, refer to [Network Lists](/en/documentation/platform/firewall/network-shield/network-lists/#item-annotations).
+
+Azion checks a due date when the list's items are written, not when the date arrives. A write drops every item whose date has already passed, without a warning. A write in which every item is past due is refused with `22019`.
+
+An item whose date passes after the write stays stored, and it keeps matching. For example, an address with a due date was still denied 26 minutes 42 seconds after that date, after an unrelated rule change had reached the same firewall. Renaming the list did not remove the item either. The next write of the list's items drops every past-dated item, and that address passed 62 seconds after the write. `azion update network-list --remove-item` removes the one item it names, written exactly as the list stores it, due date and comment included.
+
+Checking at write time means that a due date never unblocks an address by itself. To block an address for one day, give it a due date and schedule a job that sends the list's items again after that day. Rely on that write, not on the date.
+
+A comment is stored with its item and sits last on the line, after any due date. A line that starts with `#` is not a disabled line: the API refuses it as an invalid item, with `22005`.
+
+---
+
+## One list behind many rules
+
+A rule names its list by ID, so one list can back many rules on many firewalls. A change to the list's items changes what every one of those rules matches, with no change to the rules. For example, a list of addresses that abused a login form can back a deny rule on each of your firewalls. One update to the list then reaches all of them. Because rules depend on it, a list in use cannot be deleted: the deletion is refused with `22018`, which does not name the rules.
+
+The two clocks favor lists. A change to the items of a list that rules already reference reaches traffic in 46 seconds to about 100 seconds. A new rule takes 6 minutes 29 seconds to 9 minutes 18 seconds, and a new rule on a `countries` or `asn` list sits at the slow end of that range. Adding an address to a list a rule already uses therefore blocks it minutes sooner than a new rule that names the same address. A list holds up to 20,000 items, and every bound on a list is on [Firewall limits](/en/documentation/platform/firewall/limits/#network-shield).
+
+---
+
+## Azion-maintained lists
+
+Some lists are kept by Azion rather than by you. Every account holds `Azion IP Tor Exit Nodes`, list `2`, an `ip_cidr` list of the addresses of Tor exit nodes. Azion refreshes its items, and its `last_editor` reads `Azion`. A rule references it like any other list, with `2` as the `${network}` argument.
+
+Any write to an Azion-maintained list is refused with `22004 Cannot Change Global Network List`, even a write that changes nothing. That is the tradeoff: the contents stay current with no work from you, and you cannot remove an address from them. For the rule that blocks Tor exit nodes, refer to [Block Tor exit nodes](/en/documentation/guides/application-security/bots-and-network/block-tor-networks/).
+
+Accounts with [Origin Shield](/en/documentation/platform/connectors/#origin-shield) also receive `Azion Origin Shield`, which holds the IPv4 and IPv6 prefixes that Azion's infrastructure uses. That list is meant for your origin: you configure the origin's own firewall to accept inbound traffic only from those prefixes. How Azion updates and announces it is documented with Origin Shield. For the lists every account holds, refer to [Network Lists](/en/documentation/platform/firewall/network-shield/network-lists/#azion-maintained-lists).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Network Lists" href="/en/documentation/platform/firewall/network-shield/network-lists/">The list types, item annotations, and Azion-maintained lists the Network criterion matches.</DocItem>
+  <DocItem title="Rules Engine for Firewall" href="/en/documentation/platform/firewall/rules-engine/#operators">The operators each criterion takes, including the two that compare the client address with a Network List.</DocItem>
+  <DocItem title="Block Tor exit nodes" href="/en/documentation/guides/application-security/bots-and-network/block-tor-networks/">The rule that drops every request from a Tor exit node through the Azion-maintained list.</DocItem>
+  <DocItem title="Firewall limits" href="/en/documentation/platform/firewall/limits/#network-shield">Every bound on a Network List, its 20,000 items included.</DocItem>
+</ItemList>
+</FrameBox>

@@ -1,28 +1,10 @@
-/**
- *
- * @param  {List} pageLangs [{
-      langPrefix: 'en',
-      lang: 'English',
-      slug: '/en/blog/how-edge-computing-improves-api-security/'
-    },
-    {
-      langPrefix: 'es',
-      lang: 'Español',
-      slug: '/es/blog/como-edge-computing-mejora-la-seguridad-de-las-api/'
-    },
-    {
-      langPrefix: 'pt-br',
-      lang: 'Português',
-      slug: '/pt-br/blog/como-edge-computing-melhora-a-seguranca-das-apis/'
-    }
-  }]
- * @returns {Object} The default hreflang object
- *
- */
+/** The hreflang default for a page: English, else Portuguese, else Spanish. */
+// Takes the page's translation list, each entry `{ langPrefix, lang, slug }`.
 
-	export function getHreflangDefault (pageLangs) {
-		return pageLangs?.find((item) => item.langPrefix === 'en') ||
-			pageLangs?.find((item) => item.langPrefix === 'pt-br') ||
-			pageLangs?.find((item) => item.langPrefix === 'es')
-	}
-	
+export function getHreflangDefault(pageLangs) {
+	return (
+		pageLangs?.find((item) => item.langPrefix === 'en') ||
+		pageLangs?.find((item) => item.langPrefix === 'pt-br') ||
+		pageLangs?.find((item) => item.langPrefix === 'es')
+	);
+}

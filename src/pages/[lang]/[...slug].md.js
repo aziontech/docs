@@ -1,5 +1,9 @@
 import { allPages } from '~/content';
 import { getLangFromSlug, stripLangFromSlug, getSlugFromPermalink } from '~/util';
+import { docsHomeEntries } from '~/data/docs-home';
+import { ARCHITECTURES_HOME_NAMESPACE, architecturesHomeMarkdown } from '~/data/architectures-home';
+import { DEVTOOLS_HOME_NAMESPACE, devtoolsHomeMarkdown } from '~/data/devtools-home';
+import { getHubDirectory } from '~/nav/index';
 
 function removeFrontMatter(body) {
 	return body.replace(/^---[\s\S]*?---\n?/, '');
@@ -15,12 +19,12 @@ function getMarkdownBasedOnCards(title, description, productCards) {
 	}
 
 	let content = '';
-	
+
 	// Adicionar título principal e descrição
 	if (title) {
 		content += `# ${title}\n\n`;
 	}
-	
+
 	if (description) {
 		content += `${description}\n\n`;
 	}
@@ -64,10 +68,10 @@ function getMarkdownBasedOnCards(title, description, productCards) {
 }
 
 export async function getStaticPaths() {
-	return allPages.map((page) => {
+	return [...allPages, ...docsHomeEntries].map((page) => {
 		const permalink = getSlugFromPermalink(page);
-		const lang = getLangFromSlug(page.slug);
-		const slug = typeof permalink === 'string' ? permalink : stripLangFromSlug(page.slug);
+		const lang = getLangFromSlug(page.id);
+		const slug = typeof permalink === 'string' ? permalink : stripLangFromSlug(page.id);
 
 		return {
 			params: { lang, slug: slug },
@@ -83,7 +87,20 @@ export async function GET({ props }) {
 
 	let content = '';
 
-	if (product_cards && Array.isArray(product_cards)) {
+	if (data.namespace === DEVTOOLS_HOME_NAMESPACE) {
+		// Its MDX holds only frontmatter; the body is built from the same data the page renders.
+		const lang = getLangFromSlug(page.id);
+		content = getMarkdownContent(
+			title,
+			devtoolsHomeMarkdown(lang, await getHubDirectory('devtools', lang))
+		);
+	} else if (data.namespace === ARCHITECTURES_HOME_NAMESPACE) {
+		const lang = getLangFromSlug(page.id);
+		content = getMarkdownContent(
+			title,
+			architecturesHomeMarkdown(lang, await getHubDirectory('architectures', lang))
+		);
+	} else if (product_cards && Array.isArray(product_cards)) {
 		content = getMarkdownBasedOnCards(title, description, product_cards);
 	} else if (body) {
 		content = getMarkdownContent(title, body);

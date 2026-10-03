@@ -25,12 +25,8 @@ interface PullRequest {
 	}[];
 }
 
-/**
- * Uses the git commit history to build an HTML-based overview of
- * the current Astro Docs translation status.
- *
- * This code is designed to be run on every push to the `main` branch.
- */
+/** Builds the HTML translation-status overview from the git commit history. */
+// Designed to run on every push to `main`.
 export class TranslationStatusBuilder {
 	constructor(config: {
 		pageSourceDir: string;
@@ -418,12 +414,7 @@ export class TranslationStatusBuilder {
 		return lines.join('\n');
 	}
 
-	/**
-	 * Render a link to a pre-filled GitHub UI for creating a new file.
-	 *
-	 * @param lang Language tag to create page for
-	 * @param filename Subpath of page to create
-	 */
+	/** A link to GitHub's new-file UI, pre-filled for `filename` in `lang`. */
 	renderCreatePageButton(lang: string, filename: string): string {
 		// We include `lang` twice because GitHub eats the last path segment when setting filename.
 		const createUrl = new URL(`https://github.com/${this.githubRepo}/new/main/src/content/docs`);

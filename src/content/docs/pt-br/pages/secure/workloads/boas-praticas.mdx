@@ -1,0 +1,143 @@
+---
+title: Boas práticas de Workloads
+description: Teste mudanças em staging antes da produção, feche o workload domain quando o seu domínio servir tráfego e substitua certificados sem interrupção.
+meta_tags: 'workloads, best practices, staging, workload domain, mtls, sni, certificate manager, certificate replacement, lets encrypt'
+namespace: documentation_products_workloads_best_practices
+permalink: /documentacao/plataforma/workloads/boas-praticas/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+O ponto de entrada de um site decide quem pode alcançá-lo e se uma conexão é confiável. Erros nesse ponto raramente aparecem como um erro no seu código. Uma mudança testada no tráfego real alcança todos os visitantes de uma vez, um endereço que você esqueceu fica aberto a qualquer pessoa que o encontre e um certificado que expira deixa de proteger o tráfego no dia em que vence.
+
+Estas práticas se aplicam a um [workload](/pt-br/documentacao/plataforma/workloads/), aos hostnames e às configurações de TLS que ele guarda e aos certificados que ele usa. Os mecanismos por trás delas estão em [Como Workloads funciona](/pt-br/documentacao/plataforma/workloads/como-funciona/), e cada campo está em [Configurações de workload](/pt-br/documentacao/plataforma/workloads/configuracoes/).
+
+Uma mudança em um workload leva vários minutos para alcançar toda a infraestrutura distribuída da Azion e, nesse meio-tempo, as requisições podem encontrar a configuração antiga ou a nova, como descreve [Propagação](/pt-br/documentacao/plataforma/workloads/como-funciona/#propagacao). Cada verificação desta página só vale quando requisições repetidas concordam.
+
+As quatro primeiras práticas se aplicam a todo workload: testar uma mudança em um workload de staging, fechar o workload domain quando o seu próprio domínio servir tráfego, manter o mTLS permissive para testes e garantir que os clientes enviem SNI. As práticas para os certificados que um workload usa vêm em seguida, em Certificate Manager.
+
+---
+
+## Teste uma mudança em um workload de staging antes da produção
+
+Um workload criado em _Staging Infrastructure_ roda na Staging Network, separado da produção, então um erro ali não alcança nenhum visitante do seu site. Ele responde apenas no seu workload domain, `<id>.preview.azionedge.net`, porque um workload de staging não aceita domínio personalizado. O custo é um segundo workload com o seu próprio deployment, que você mesmo mantém em sincronia com a produção. A infraestrutura é fixada na criação, então uma configuração testada chega à produção como um novo workload, não como uma edição do workload de staging.
+
+Este arquivo, enviado com `azion create workload --file`, cria um workload de staging por meio de `"infrastructure": 2`:
+
+```json
+{
+  "name": "my-workload-staging",
+  "active": true,
+  "infrastructure": 2,
+  "tls": { "certificate": null, "ciphers": 4, "minimum_version": "tls_1_2" },
+  "protocols": { "http": { "versions": ["http1", "http2"], "http_ports": [80, 8080], "https_ports": [443, 8443], "quic_ports": null } },
+  "domains": [],
+  "workload_domain_allow_access": true
+}
+```
+
+A CLI responde `Created Workload with ID <workload-id>`, e `azion describe workload --workload-id <workload-id> --format json` retorna um `workload_domain` que termina em `.preview.azionedge.net`. Para testar um hostname de produção antes que os registros DNS dele mudem, liste-o em um workload de produção e mapeie-o para o endereço do workload domain no seu arquivo hosts, como descreve [Teste uma aplicação pelo arquivo hosts](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/testar-edge-application-atraves-do-arquivo-hosts/).
+
+---
+
+## Feche o workload domain quando o seu domínio servir tráfego
+
+Enquanto **Workload Domain Allow Access** está ativado, que é o padrão, um workload responde no seu workload domain e também nos seus próprios hostnames. Desativá-lo deixa os hostnames em `domains` como a única entrada, então todo cliente chega por um nome que você escolheu listar. O custo é uma dependência: a API recusa a mudança em um workload cuja lista `domains` está vazia, com `When the workload hostname access is blocked, the workload requires alternate domains or domains.`
+
+Envie este corpo com `azion update workload --file`, que lê o ID do workload da chave `"id"`:
+
+```json
+{
+  "id": <workload-id>,
+  "workload_domain_allow_access": false
+}
+```
+
+A CLI responde `Updated Workload with ID <workload-id>`. Depois que a mudança se propaga, uma requisição ao workload domain responde `404`, enquanto os seus próprios domínios continuam servindo. Desative a opção somente depois que os seus próprios hostnames responderem em todos os lugares, para que os clientes sempre tenham um hostname que funcione. Para apontar o seu domínio para o workload antes, consulte [Aponte um domínio para um workload](/pt-br/documentacao/guias/plataforma/migracao/apontar-dominio-para-a-azion/).
+
+---
+
+## Use mTLS permissive apenas para testes
+
+Com o [mTLS](/pt-br/documentacao/plataforma/workloads/mtls/) ativado, `mtls.config.verification` decide o que um workload faz com um cliente que não apresenta certificado, ou que apresenta um que a sua Trusted CA não assinou. No modo `enforce`, o handshake falha para esses clientes. No modo `permissive`, ele se completa e a requisição alcança a aplicação, então um workload permissive mal configurado admite os clientes que o mTLS deveria recusar.
+
+Use `permissive` para testar o acesso em condições específicas e sirva a produção com `enforce`, como neste corpo para `azion update workload --file`:
+
+```json
+{
+  "id": <workload-id>,
+  "mtls": {
+    "enabled": true,
+    "config": { "certificate": <trusted-ca-id>, "crl": [<crl-id>], "verification": "enforce" }
+  }
+}
+```
+
+Enquanto um workload permanece em `permissive`, uma regra de firewall sobre a variável Client Certificate Validation é o que recusa um cliente sem um certificado válido, como explica [Modos de verificação](/pt-br/documentacao/plataforma/workloads/mtls/#modos-de-verificacao). Para verificar o modo em vigor, envie `curl -skv https://<your-domain>/ -o /dev/null` sem certificado de cliente: em `enforce`, o handshake falha e o curl sai com o código `56`. Para os passos, consulte [Configure mTLS em um workload](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/associar-um-certificado-mtls/).
+
+---
+
+## Garanta que toda aplicação cliente envie SNI
+
+Server Name Indication (SNI) é a extensão de TLS na qual um cliente nomeia o host que deseja durante o handshake. Os domínios servidos com um certificado que você envia dependem dela. Uma conexão sem SNI alcança a configuração padrão, que apresenta o certificado SAN da Azion em vez do seu. Em um workload com mTLS no modo `enforce`, a Azion fecha essa conexão antes de resolver uma rota da sua aplicação.
+
+A configuração fica em cada cliente, como o cliente de API de um parceiro ou um serviço que chama o seu workload, então a Azion não pode adicioná-la por eles. Confirme com o responsável por cada aplicação cliente que a biblioteca TLS dela envia, como nome do servidor, o hostname que ela chama. Um cliente que apresenta um certificado que a sua Trusted CA assinou e, ainda assim, nunca alcança a aplicação é o primeiro a verificar. Para os demais requisitos do mTLS, consulte [mTLS](/pt-br/documentacao/plataforma/workloads/mtls/#requisitos).
+
+---
+
+## Certificate Manager
+
+[Certificate Manager](/pt-br/documentacao/plataforma/workloads/#certificate-manager) armazena os certificados de servidor que um workload apresenta e os certificados de CA confiável com os quais o mTLS verifica os clientes. As práticas abaixo tratam de substituir um certificado de servidor antes que ele expire, manter o registro de desafio de um domínio hospedado em outro lugar, escolher um nível de validação, restringir as credenciais de DNS e manter certificados wildcard fora de sistemas críticos.
+
+### Substitua um certificado de servidor antes que ele expire
+
+Um certificado de servidor que você envia não se renova sozinho e, depois que a data em `validity` passa, ele deixa de proteger o tráfego. Trocar enquanto o certificado antigo ainda é válido deixa tempo para confirmar que o novo funciona e para voltar ao antigo se ele não funcionar. A entrada antiga permanece em Certificate Manager depois da troca, então o custo é mais um certificado para excluir. A Azion renova os certificados Let's Encrypt que gerencia, como descreve [Emissão e renovação](/pt-br/documentacao/plataforma/workloads/certificate-manager/emissao-e-renovacao/).
+
+Envie o novo certificado e, depois, aponte `tls.certificate` para o ID dele com `azion update workload --file`. Mantenha `ciphers` e `minimum_version` nos valores que o workload já tem, para que o certificado seja o único valor que muda:
+
+```json
+{
+  "id": <workload-id>,
+  "tls": { "certificate": <new-certificate-id>, "ciphers": 7, "minimum_version": "tls_1_3" }
+}
+```
+
+A CLI responde `Updated Workload with ID <workload-id>`. Em seguida, `azion list digital-certificate --details` mostra o novo certificado como `active` e o antigo como `inactive` quando nenhum workload o nomeia mais. Quando o novo certificado estiver `active` e a mudança tiver se propagado, exclua a entrada antiga. Para o envio em si, consulte [Envie um certificado digital](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/certificado-digital/).
+
+### Mantenha o registro de desafio de um domínio hospedado fora do Edge DNS
+
+A Azion renova um certificado Let's Encrypt gerenciado antes que ele expire, executando o desafio dele novamente. Para um certificado DNS-01 cuja zona está no [Edge DNS](/pt-br/documentacao/plataforma/edge-dns/), a própria Azion escreve o registro `_acme-challenge`. Para uma zona hospedada em outro provedor de DNS, você adiciona esse registro. Excluí-lo depois faz a próxima renovação falhar, e o certificado então expira.
+
+Mantenha o registro no seu provedor enquanto um workload usar o certificado. Para verificar, confirme antes de cada renovação que o registro ainda existe e que o status do certificado em Certificate Manager não é `failed`. Para o registro a criar, consulte [Solicite um certificado Let's Encrypt](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/como-gerar-um-certificado-lets-encrypt/).
+
+### Escolha um certificado validado por domínio, a menos que precise de mais
+
+A autoridade certificadora que emite um certificado que você envia valida a solicitação em um de três níveis. Domain Validation (DV) confirma o seu direito de usar o domínio. Organization Validation (OV) acrescenta verificações sobre a organização solicitante, e Extended Validation (EV) pede documentos que comprovem a existência física, jurídica e operacional dela.
+
+A Azion recomenda DV para a maioria das empresas. OV e EV são mais complexos de obter, e as verificações extras dão garantias sobre a sua organização, não sobre o domínio. Peça OV ou EV somente quando um requisito que você consiga nomear exigir essas verificações. Para os três níveis, consulte [Níveis de validação](/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/#niveis-de-validacao).
+
+### Limite as credenciais de DNS-01 aos registros de desafio
+
+Quando uma zona está hospedada fora do Edge DNS e a sua própria automação escreve o registro `_acme-challenge` nesse provedor de DNS, a automação guarda as credenciais de API do provedor. Credenciais que alcançam todos os registros dão a quem as obtiver o controle do domínio e de todos os registros dele.
+
+Restrinja essas credenciais a registros `_acme-challenge`, para que um vazamento exponha apenas o desafio. O custo é uma credencial separada para criar e manter só para essa automação. Uma zona no Edge DNS não precisa de nenhuma credencial sua, porque a própria Azion escreve o registro. Para verificar, confirme no seu provedor que as permissões da credencial nomeiam apenas registros `_acme-challenge`.
+
+### Mantenha certificados wildcard fora de sistemas críticos de produção
+
+Um certificado wildcard, como um para `*.example.com`, cobre todos os subdomínios com uma única chave privada. Se essa chave vazar, ou se o certificado for revogado, todos os subdomínios são afetados de uma vez. A Azion recomenda um certificado wildcard quando a gestão centralizada é uma prioridade, a mesma equipe gerencia os subdomínios, existe uma arquitetura de proxy reverso bem definida e as suas políticas de segurança permitem o compartilhamento controlado de chaves.
+
+Sob requisitos mais rígidos, dê a cada sistema crítico de produção o seu próprio certificado, mantenha certificados separados para ambientes de desenvolvimento e deixe o wildcard para serviços de menor criticidade. O custo é uma substituição por certificado em vez de uma para todos. Mantenha a chave privada de um wildcard em Certificate Manager, vinculada a workloads, em vez de espalhada por servidores: depois de salva, a chave não pode ser lida de volta pelo Azion Console nem pela API. Para verificar, liste os workloads que nomeiam cada certificado wildcard em `tls.certificate` e dê a qualquer workload crítico de produção um certificado próprio.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Configurações de workload" href="/pt-br/documentacao/plataforma/workloads/configuracoes/">Cada campo que estas práticas alteram, da infraestrutura e dos domínios ao TLS e ao mTLS, com o seu tipo e valor padrão.</DocItem>
+  <DocItem title="Certificados" href="/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/">Os tipos, os status e os níveis de validação de certificado por trás das práticas de Certificate Manager.</DocItem>
+  <DocItem title="mTLS" href="/pt-br/documentacao/plataforma/workloads/mtls/">O que os modos enforce e permissive fazem com cada cliente e os requisitos que um workload precisa atender.</DocItem>
+  <DocItem title="Solucionar problemas de Workloads" href="/pt-br/documentacao/plataforma/workloads/solucao-de-problemas/">Sintomas ao longo do caminho da requisição, com as suas causas e correções, para quando uma prática foi ignorada.</DocItem>
+</ItemList>
+</FrameBox>

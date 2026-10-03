@@ -1,0 +1,237 @@
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { LANGS, type Lang } from '../../src/nav/schema';
+import { DOCS_BASE, text, walkTree, withSlashes } from '../../src/nav/resolve';
+import { loadNav, REPO_ROOT } from './lib/load';
+import { readField } from './lib/frontmatter';
+
+const SITE = 'https://www.azion.com';
+const OUT_DIR = path.join(REPO_ROOT, 'redirects');
+const CONTENT = 'src/content/docs';
+
+function escapeMarkdownTableCell(value: string): string {
+	return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+}
+
+const refArg = process.argv.find((arg) => arg.startsWith('--baseline='));
+const baselineRef = refArg ? refArg.split('=')[1] : 'HEAD';
+
+function baselinePermalink(relative: string): string | null {
+	try {
+		const source = execFileSync('git', ['show', `${baselineRef}:${CONTENT}/${relative}`], {
+			cwd: REPO_ROOT,
+			encoding: 'utf8',
+			maxBuffer: 1 << 26,
+		});
+		return readField(source, 'permalink');
+	} catch {
+		return null;
+	}
+}
+
+const { data, redirects, corpus } = loadNav();
+
+interface Move {
+	lang: Lang;
+	title: string;
+	from: string;
+	to: string;
+	tree: string;
+}
+
+const treeOf = new Map<string, string>();
+for (const tree of data.trees.values()) {
+	for (const { node } of walkTree(tree, 'en')) {
+		if (node.page && !node.linkOnly && !node.placeholder && !treeOf.has(node.page))
+			treeOf.set(node.page, tree.id);
+	}
+}
+
+interface Kept {
+	lang: Lang;
+	permalink: string;
+}
+
+const moves: Move[] = [];
+const kept: Kept[] = [];
+for (const page of corpus) {
+	const before = baselinePermalink(page.file);
+	if (!before) continue;
+	if (withSlashes(before) === withSlashes(page.permalink)) {
+		kept.push({ lang: page.lang, permalink: page.permalink });
+		continue;
+	}
+	moves.push({
+		lang: page.lang,
+		title: page.title,
+		from: before,
+		to: page.permalink,
+		tree: treeOf.get(page.namespace) ?? 'other',
+	});
+}
+
+const landing = (namespace: string, lang: Lang) => data.pages.get(namespace)?.[lang]?.permalink;
+
+function replacementFor(namespace: string, lang: Lang): string | undefined {
+	const target = redirects[namespace];
+	if (!target) return undefined;
+	if (target.page) return landing(target.page, lang);
+	if (target.tree) {
+		const tree = data.trees.get(target.tree);
+		if (!tree) return undefined;
+		if (tree.root) return landing(tree.root, lang);
+		return `/${DOCS_BASE[lang]}/${text(tree.path, lang) ?? tree.id}/`;
+	}
+	if (target.path) return target.path.replace('/documentation/', `/${DOCS_BASE[lang]}/`);
+	return undefined;
+}
+
+interface Removal {
+	lang: Lang;
+	title: string;
+	from: string;
+	to: string;
+	reason: string;
+}
+
+const removals: Removal[] = [];
+for (const namespace of Object.keys(redirects)) {
+	for (const lang of LANGS) {
+		const page = data.pages.get(namespace)?.[lang];
+		if (!page?.permalink) continue;
+		const to = replacementFor(namespace, lang);
+		if (!to) {
+			console.error(`no replacement URL for retired page "${namespace}" (${lang})`);
+			continue;
+		}
+		removals.push({
+			lang,
+			title: page.title ?? '',
+			from: page.permalink,
+			to,
+			reason: redirects[namespace].reason,
+		});
+	}
+}
+
+const url = (lang: Lang, permalink: string) => `${SITE}/${lang}${withSlashes(permalink)}`;
+const lastSegment = (permalink: string) =>
+	withSlashes(permalink).split('/').filter(Boolean).pop() ?? '';
+const csvField = (value: string) =>
+	/[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+
+function moveReason(move: Move): string {
+	const tree = data.trees.get(move.tree);
+	const where = tree
+		? `now under /${text(tree.path, move.lang) ?? tree.id}/ (${tree.title.en})`
+		: 'moved with its section';
+	return lastSegment(move.from) === lastSegment(move.to) ? where : `${where}; slug renamed`;
+}
+
+fs.mkdirSync(OUT_DIR, { recursive: true });
+
+const csv = ['old link,new link,status,reason'];
+
+for (const lang of LANGS) {
+	const rows = [
+		...moves
+			.filter((move) => move.lang === lang)
+			.map((move) => ({ from: url(lang, move.from), moved: url(lang, move.to) })),
+		...removals
+			.filter((row) => row.lang === lang)
+			.map((row) => ({ from: url(lang, row.from), moved: url(lang, row.to) })),
+	].filter((row) => row.from !== row.moved);
+	fs.writeFileSync(
+		path.join(OUT_DIR, `url-map.${lang}.json`),
+		JSON.stringify(rows, null, 1) + '\n'
+	);
+
+	for (const move of moves.filter((row) => row.lang === lang)) {
+		csv.push(`${url(lang, move.from)},${url(lang, move.to)},changed,${csvField(moveReason(move))}`);
+	}
+	for (const page of kept.filter((row) => row.lang === lang)) {
+		const same = url(lang, page.permalink);
+		csv.push(`${same},${same},unchanged,`);
+	}
+}
+
+fs.writeFileSync(path.join(OUT_DIR, 'url-map.csv'), csv.join('\n') + '\n');
+
+const lines: string[] = [];
+lines.push('# URL map');
+lines.push('');
+lines.push(
+	'Every documentation URL this navigation rework moves or retires, old on the left, new on the right.'
+);
+lines.push(
+	`Generated by \`pnpm nav:url-map\` against \`${baselineRef}\`; the machine-readable twins are \`url-map.en.json\`, \`url-map.pt-br.json\` and \`url-map.csv\`.`
+);
+lines.push('');
+lines.push(
+	`- Pages moved: ${moves.filter((m) => m.lang === 'en').length} English, ${
+		moves.filter((m) => m.lang === 'pt-br').length
+	} Portuguese`
+);
+lines.push(
+	`- Pages retired: ${removals.filter((r) => r.lang === 'en').length} English, ${
+		removals.filter((r) => r.lang === 'pt-br').length
+	} Portuguese`
+);
+lines.push('');
+lines.push(
+	'A retired page keeps its file and its content; it leaves the navigation, and its URL points at the replacement.'
+);
+lines.push('');
+
+for (const treeId of [...data.trees.keys(), 'other']) {
+	const mine = moves.filter((move) => move.tree === treeId);
+	if (!mine.length) continue;
+	lines.push(`## ${data.trees.get(treeId)?.title.en ?? 'Elsewhere'}`);
+	lines.push('');
+	for (const lang of LANGS) {
+		const rows = mine.filter((move) => move.lang === lang);
+		if (!rows.length) continue;
+		lines.push(`### ${lang}`);
+		lines.push('');
+		lines.push('| Page | Old URL | New URL |');
+		lines.push('| --- | --- | --- |');
+		for (const row of rows.sort((a, b) => a.to.localeCompare(b.to))) {
+			lines.push(`| ${escapeMarkdownTableCell(row.title)} | \`${row.from}\` | \`${row.to}\` |`);
+		}
+		lines.push('');
+	}
+}
+
+lines.push('## Retired pages');
+lines.push('');
+for (const lang of LANGS) {
+	const rows = removals.filter((row) => row.lang === lang);
+	if (!rows.length) continue;
+	lines.push(`### ${lang}`);
+	lines.push('');
+	lines.push('| Page | URL | Replaced by | Why |');
+	lines.push('| --- | --- | --- | --- |');
+	for (const row of rows.sort((a, b) => a.from.localeCompare(b.from))) {
+		lines.push(
+			`| ${escapeMarkdownTableCell(row.title)} | \`${row.from}\` | \`${row.to}\` | ${row.reason} |`
+		);
+	}
+	lines.push('');
+}
+
+fs.writeFileSync(path.join(OUT_DIR, 'url-map.md'), lines.join('\n'));
+
+if (moves.length === 0 && Object.keys(redirects).length > 0) {
+	console.warn(
+		`no permalink differs from ${baselineRef}. If the migration is already committed, ` +
+			'pass the commit before it, e.g. --baseline=<migration-commit>^, or the map will list only retired pages.'
+	);
+}
+
+console.log(`baseline ${baselineRef}`);
+console.log(`moved   ${moves.length} page/language pairs`);
+console.log(`retired ${removals.length} page/language pairs`);
+console.log(`kept    ${kept.length} page/language pairs`);
+console.log('wrote   redirects/url-map.md, url-map.en.json, url-map.pt-br.json, url-map.csv');

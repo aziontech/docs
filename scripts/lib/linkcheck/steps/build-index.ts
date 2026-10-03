@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { dedentMd } from '../../output.mjs';
 import type { LinkCheckerOptions } from '../base/base';
-import { AllPagesByPathname, HtmlPage } from '../base/page';
+import { HtmlPage } from '../base/page';
+import type { AllPagesByPathname } from '../base/page';
 
 /**
  * Reads sitemaps from the build output and extracts all unique pathnames.
@@ -60,8 +61,11 @@ function parsePage(pathname: string, options: LinkCheckerOptions): HtmlPage {
 
 		return htmlPage;
 	} catch (err: unknown) {
-		throw new Error(dedentMd`Error parsing HTML file "${htmlFilePath}"
-			referenced by sitemap: ${err instanceof Error ? err.message : err}`);
+		throw new Error(
+			dedentMd`Error parsing HTML file "${htmlFilePath}"
+			referenced by sitemap: ${err instanceof Error ? err.message : err}`,
+			{ cause: err }
+		);
 	}
 }
 

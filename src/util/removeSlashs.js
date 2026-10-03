@@ -7,5 +7,5 @@ export function removeLeadingSlash(path) {
 }
 
 export function removeTrailingLeadingSlashs(path) {
-  return removeTrailingSlash(removeLeadingSlash(path))
+	return removeTrailingSlash(removeLeadingSlash(path));
 }

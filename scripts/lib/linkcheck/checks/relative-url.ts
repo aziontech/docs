@@ -1,5 +1,6 @@
 import kleur from 'kleur';
-import { CheckBase, CheckHtmlPageContext } from '../base/check';
+import { CheckBase } from '../base/check';
+import type { CheckHtmlPageContext } from '../base/check';
 import { IssueType } from '../base/issue';
 
 export class RelativeUrl extends CheckBase {

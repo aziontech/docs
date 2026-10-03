@@ -9,7 +9,10 @@ export function getGithubEditUrl(Astro: Readonly<AstroGlobal>) {
 	const currentPage = Astro.url.pathname;
 	const currentFileId = Astro.props.id;
 	const lang = getLanguageFromURL(currentPage);
-	const filePath = `src/content/docs/${currentFileId.replace(/\/$/, '')}`;
+	// Pages that live in `src/pages` rather than the collection pass their own
+	// path, since their id no longer names a file under `src/content/docs`.
+	const editFilePath = Astro.props.editFilePath as string | undefined;
+	const filePath = editFilePath ?? `src/content/docs/${currentFileId.replace(/\/$/, '')}`;
 	const currentFile = isFallback ? filePath.replace(`/${lang}/`, '/en/') : filePath;
 	const githubEditUrl =
 		content.githubURL && (lang === 'en' || isFallback)

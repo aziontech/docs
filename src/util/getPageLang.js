@@ -4,5 +4,5 @@ export function getLanguageFromURL(pathname) {
 }
 
 export function getLangFromSlug(slug) {
-	return slug.split('/')[0]
+	return slug.split('/')[0];
 }

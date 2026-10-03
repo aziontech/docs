@@ -5,13 +5,7 @@ interface NodeProps {
 	attributes?: Record<string, string | boolean | number | undefined | null>;
 }
 
-/**
- * Create AST node for a custom component injection.
- *
- * @example
- * makeComponentNode('MyComponent', { prop: 'val' }, h('p', 'Paragraph inside component'))
- *
- */
+/** MDX AST node for a component injection: `makeComponentNode('Aside', { attributes }, ...children)`. */
 export function makeComponentNode(
 	name: string,
 	{ attributes = {} }: NodeProps = {},

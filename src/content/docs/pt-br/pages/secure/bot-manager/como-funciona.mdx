@@ -1,0 +1,109 @@
+---
+title: Score de bots
+description: >-
+  Veja como Bot Manager calcula um score, o que o limite decide e como
+  fingerprints, cookies de sessão e modos moldam esse score.
+meta_tags: 'bot manager, bot manager lite, bot scoring, threshold, action, fingerprint, engine version, dynamic score, under evaluation, session cookies, api mode'
+namespace: documentation_products_bot_manager_how_it_works
+permalink: /documentacao/plataforma/firewall/bot-manager/score-de-bots/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+O gerenciamento de bots julga uma requisição por um score, não por um único teste decisivo. Cada verificação que encontra algo soma pontos, e um limite que você define decide quais scores recebem uma ação. Para saber onde Bot Manager age no caminho de uma requisição em um firewall, consulte [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#bot-manager).
+
+As seções cobrem o cálculo do score, do score à ação, fingerprints e versões do engine, o score dinâmico, em avaliação, cookies de sessão e modos web e API.
+
+---
+
+## Cálculo do score
+
+Bot Manager não decide por um único sinal. Cada regra a que uma requisição corresponde soma um número fixo de pontos, e o score é a soma desses incrementos, então `0` significa que nenhuma regra correspondeu. Uma regra estática verifica um atributo de uma única requisição, como um header ou um dado de metadados, sem referência ao que o mesmo cliente fez antes. As regras se dividem em classes: bad bot signatures, scripted bots, malicious browser behavior, malicious intent, reputation intelligence e cloud provider. Bot Manager não inspeciona uma requisição em busca de vulnerabilidades de aplicação: isso cabe ao [WAF](/pt-br/documentacao/plataforma/firewall/como-funciona/#waf), e os dois rodam no mesmo firewall.
+
+Toda regra carrega um ID, que nomeia uma correspondência no report log. [Bot Manager Lite](/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/) não processa uma regra listada no seu argumento `disabled_rules`, então essa regra não soma nada. Bot Manager mantém em execução uma regra listada em `disabled_static_rules` e reporta as correspondências dela em `disabled_matched_rules`, sem somar ao score. Para os dois argumentos, consulte [Argumentos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#regras-desabilitadas).
+
+Toda regra carrega o seu próprio incremento, então uma requisição que dispara várias verificações leves alcança o mesmo total que uma que dispara uma única verificação pesada. É isso que um score compra, e também o que ele custa: um cliente que se parece com automação de várias maneiras pequenas pontua como um bot que falhou em uma verificação decisiva.
+
+Dois registros nomeiam o que o cálculo do score encontrou, e a requisição não declara nenhum deles. `bot_category` une as classes das regras que corresponderam. Uma requisição que corresponde a regras das classes bad bot signatures e malicious intent é registrada como `Bad Bot Signatures, Malicious Intent detected`. `classified` é o veredito: tráfego legítimo, um bot bom ou um bot ruim, com um quarto valor para uma requisição que Bot Manager ainda não consegue situar. Para os valores dos dois, consulte [Logs](/pt-br/documentacao/plataforma/firewall/bot-manager/logs/#classificacao).
+
+`classified` é um veredito sobre o score, não uma propriedade da requisição: ele compara o score com o limite em vigor quando a requisição chegou. Uma requisição com score `28` pelas mesmas cinco regras foi classificada como `legitimate` sob um limite de `30` e como `bad bot` sob um limite de `1`. Elevar um limite, portanto, reetiqueta o tráfego, além de impedir a ação. Uma contagem de classificações só é comparável entre dois períodos quando o limite foi o mesmo nos dois.
+
+A verificação de reputação roda nas duas edições. Bot Manager verifica o endereço do cliente contra network lists que a Azion mantém, cobrindo exit nodes do Tor, reputação, proxies, malware e fraude. Um endereço encontrado em uma delas eleva o score. Bot Manager Lite executa a mesma verificação como a regra `14`, contra as listas nomeadas em `reputation_network_lists`, e soma 6 pontos para cada lista em que o endereço é encontrado. Bot Manager também executa um score dinâmico, o que Bot Manager Lite não faz.
+
+Um score só tem sentido contra o limite com que é comparado. Bot Manager documenta um limite de `18` como valor de partida, e Bot Manager Lite vem com `30`. Para onde movê-lo a partir daí é uma pergunta sobre o seu próprio tráfego, não sobre o score. Para mais informações, consulte [Boas práticas de Firewall](/pt-br/documentacao/plataforma/firewall/boas-praticas/).
+
+---
+
+## Do score à ação
+
+Bot Manager compara o score de uma requisição com o argumento `threshold` da instância, e o próprio limite conta. Um score igual ou maior que o limite recebe a ação, e um score menor segue para a aplicação. Uma instância guarda um limite e uma ação, então pontuar duas fatias de tráfego contra dois limites exige duas instâncias, cada uma nomeada pela sua própria regra.
+
+Sete ações respondem a uma requisição de três maneiras. `allow`, `deny` e `drop` a decidem: `deny` responde `403` com a página de erro padrão da Azion, e `drop` encerra a requisição sem resposta. `random_delay` e `hold_connection` atrasam a resposta, o que eleva o custo de um ataque, porque o atacante espera por uma requisição em vez de enviar a seguinte. `redirect` e `custom_html` substituem a resposta por uma sua. Para o que cada ação faz, e o segundo argumento de que duas delas precisam, consulte [Argumentos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#action).
+
+Um desafio por trás da ação `redirect`, como um desafio ALTCHA, pede ao cliente que prove ser uma pessoa. Uma requisição que o score situou errado mantém, portanto, um caminho de passagem. A requisição redirecionada volta ao firewall, então a função de desafio precisa ser executada antes do Bot Manager no Rules Engine do firewall. Um score do Bot Manager calculado antes que a função de desafio veja a requisição a redireciona de novo. Para mais informações, consulte [Proteja uma rota com um desafio ALTCHA](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/altcha/).
+
+Um `threshold` de `0` não bloqueia todas as requisições. Todo score é `0` ou maior, então a ação dispara em toda requisição, e o resultado é o que a ação fizer. Com `action` definido como `deny`, toda requisição é recusada, e com `action` definido como `allow`, nada é bloqueado.
+
+---
+
+## Fingerprints e versões do engine
+
+Um fingerprint é o identificador que Bot Manager deriva para o cliente por trás de uma requisição, um para cada dispositivo que vê. Ele é construído a partir do que a requisição e a sessão do dispositivo carregam, como o endereço IP e o header `User-Agent`. O fingerprint faz um score ser sobre um cliente, não sobre uma única requisição: quando o mesmo fingerprint volta, ele traz o que Bot Manager já sabe sobre ele.
+
+A versão do engine seleciona como o fingerprint é derivado. A versão `1` é o padrão e o fallback sempre que `engine_version` está ausente ou é inválido. A fonte primária dela é o fingerprint de cliente que a JavaScript Tag ou um SDK reporta, e a fonte secundária é um fingerprint de servidor JA4. A versão `2` mantém a mesma fonte primária e adota um fingerprint JA4H como secundária. O JA4H lê dados de nível mais alto, como headers HTTP, o que reduz colisões, em que dois usuários ou dispositivos distintos compartilham um fingerprint e são pontuados como uma única identidade.
+
+Quanto mais rica a fonte, menos o engine infere. A JavaScript Tag coleta dados não sensíveis de um navegador apenas para calcular o fingerprint desse navegador, e os SDKs reportam dados de dispositivo de uma aplicação móvel. Nenhum dos dois é obrigatório. Sem um deles, o fingerprint se apoia no que a requisição já carrega, o que torna uma colisão mais provável. Para mais informações, consulte [Instale a JavaScript Tag](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/javascript-tag-js-tag/). Para o fingerprint como uma linha de report o registra, consulte [Logs](/pt-br/documentacao/plataforma/firewall/bot-manager/logs/#campos).
+
+---
+
+## O score dinâmico
+
+Bot Manager executa um segundo método de cálculo de score ao lado das regras estáticas, e Bot Manager Lite não: um score do Bot Manager Lite vem apenas das regras estáticas. O método dinâmico compara o histórico de comportamento de um fingerprint de dispositivo com o padrão geral de tráfego do host. Uma requisição que não quebra nenhuma regra ainda pode ser anômala quando o fingerprint por trás dela se comporta de forma diferente do resto do tráfego desse host.
+
+Dois argumentos controlam o método. `dynamic_rules_tolerance` define o quão rigoroso ele é, e `disable_dynamic_rules` definido como `true` o desativa. A referência dele é o tráfego do próprio host, então o método acompanha esse tráfego conforme ele muda, o que permite detectar anomalias para as quais as regras estáticas não foram escritas. Para os valores que cada argumento aceita, consulte [Argumentos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#regras-dinamicas).
+
+Essa adaptação custa tempo. Consolidar os dados por trás de um fingerprint leva até 15 minutos. Dentro dessa janela, o método não tem nada a dizer sobre um fingerprint que está vendo pela primeira vez.
+
+---
+
+## Em avaliação
+
+Um fingerprint que Bot Manager está vendo pela primeira vez ainda não está classificado. O score dele leva até 15 minutos para se consolidar, e registrá-lo como legítimo ou como bot antes disso colocaria dados imprecisos no score do host. Em vez disso, Bot Manager registra `under evaluation` para essas requisições, então um visitante que chega pela primeira vez não é recusado por ser novo.
+
+Outras duas condições devolvem um fingerprint a esse estado. Um fingerprint que não é visto há 15 minutos ou mais volta a ele. O mesmo acontece com todo fingerprint de um host cujo tráfego geral parou por mais de 15 minutos. Nenhuma das duas interfere na detecção posterior. As duas significam que os dados por trás de um veredito ficaram desatualizados, não que a requisição é suspeita.
+
+O estado é uma ausência de evidência, não um achado, então um volume alto dele diz quanto tráfego Bot Manager ainda não situou. Para os valores de veredito e onde cada um é registrado, consulte [Logs](/pt-br/documentacao/plataforma/firewall/bot-manager/logs/#under-evaluation).
+
+---
+
+## Cookies de sessão
+
+Bot Manager Lite pede que um cliente carregue uma sessão. Com o limite de fábrica, `30`, uma requisição com formato de navegador e sem cookie passa para a aplicação: uma com user agent do Chrome, `Accept`, `Accept-Language`, `Accept-Encoding`, quatro headers `Sec-Fetch-*` e `Upgrade-Insecure-Requests`. Uma requisição sem os headers de um navegador, como uma enviada pelo `curl` com ou sem o seu user agent padrão, recebe em vez disso um `204` sem corpo e com dois cookies.
+
+`az_botm` carrega o `x-azion-request-id` da resposta que o definiu. `az_asm` carrega uma cópia assinada desse valor, um HMAC opaco de 84 caracteres assinado com a chave do argumento `session_signature_key`. Em uma requisição posterior, a função verifica um contra o outro. Três regras leem o par. As regras `15` e `16` pontuam um `POST`, `PUT` ou `PATCH` que chega sem `az_botm` ou sem `az_asm`, e a regra `17` pontua uma falha na verificação de integridade entre eles.
+
+Os dois cookies carregam os mesmos atributos: `Domain` definido como o domínio do workload, `Path=/`, `Max-Age=86400`, que são 24 horas, `Secure`, `HttpOnly` e `SameSite=Lax`. `HttpOnly` mantém o par fora do alcance dos scripts da página, e `Secure` o mantém fora do HTTP simples.
+
+A sessão custa a cooperação do cliente. Um cliente que não guarda cookies nunca apresenta um par, então toda requisição que ele envia é uma primeira requisição. Um par desatualizado também não passa em silêncio. Uma requisição com formato de navegador que passa sem cookie recebe uma nova troca `204` quando leva anexado um par que não passa na verificação, e três requisições seguidas que reenviaram o par de um `204` anterior receberam `204` de novo. Isso serve a um navegador e falha com um monitor, um health check ou um consumidor de API que não guarda cookies. Um cliente assim recebe um `204` sem corpo, indefinidamente. Para esse sintoma, consulte [Solucionar problemas de Firewall](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/).
+
+---
+
+## Modos web e API
+
+Bot Manager roda em um de dois modos, definido pelo argumento `mode`. `web`, o padrão, é para clientes compatíveis com cookies, como navegadores, e `api` é para web services e tráfego de API que não carrega cookies. A comparação diferencia maiúsculas de minúsculas e é em minúsculas, então qualquer valor diferente de `api` seleciona `web`, incluindo `API`. Bot Manager documenta o argumento `mode`, e Bot Manager Lite não vem com um padrão para ele.
+
+No modo `api`, Bot Manager não define cookie e ignora toda regra que lê o par de sessão. Isso torna o modo utilizável na frente de uma API, porque um cliente que nunca guardaria um cookie não é pontuado por não guardá-lo. Isso também tira a sessão da evidência, então as verificações restantes carregam a decisão sozinhas, e o mesmo tráfego pontua de forma diferente nos dois modos. Para os valores que o argumento aceita, consulte [Argumentos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#mode).
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Bot Manager Lite" href="/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/#regras">As regras estáticas contra as quais essa edição pontua, cada uma com o seu ID, os pontos que soma e a sua classe.</DocItem>
+  <DocItem title="Argumentos" href="/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/">Todo argumento que uma instância carrega, com o tipo, o padrão e os valores que ele aceita.</DocItem>
+  <DocItem title="Logs" href="/pt-br/documentacao/plataforma/firewall/bot-manager/logs/">Os campos de uma linha de report e os vereditos que Bot Manager registra sobre uma requisição pontuada.</DocItem>
+  <DocItem title="Monitore e calibre o Bot Manager" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/monitorar-e-calibrar-bot-manager/">O procedimento que define um limite e regras a partir dos scores que o seu próprio tráfego produz.</DocItem>
+</ItemList>
+</FrameBox>

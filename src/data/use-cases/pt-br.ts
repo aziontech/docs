@@ -1,0 +1,187 @@
+import type { UseCaseCatalogContent } from './types';
+
+// As 27 entradas e as suas Solutions seguem o catálogo de Use Cases (2026-09-25). `featured` marca
+// a seleção que Como a Azion funciona mostra; um link só existe onde uma página implementa o use case.
+export const ptBr: UseCaseCatalogContent = {
+	lang: 'pt-br',
+	solutions: {
+		'build-and-run-applications': 'Construir e executar aplicações',
+		'improve-performance-and-reliability':
+			'Melhorar a performance e a confiabilidade das aplicações',
+		'build-and-run-ai-workloads': 'Construir e executar workloads de AI',
+		'secure-applications-and-networks': 'Proteger aplicações e redes',
+		'deliver-media-and-streaming': 'Entregar mídia e conteúdo de streaming',
+	},
+	useCases: [
+		{
+			id: 'build-and-run-marketing-websites',
+			solution: 'build-and-run-applications',
+			title: 'Criar e operar sites de marketing',
+			href: '/pt-br/documentacao/arquiteturas/construir-e-executar-aplicacoes/implantacao-aplicacoes-jamstack/',
+		},
+		{
+			id: 'deploy-full-stack-applications-globally',
+			solution: 'build-and-run-applications',
+			title: 'Implantar aplicações full-stack globalmente',
+			href: '/pt-br/documentacao/arquiteturas/construir-e-executar-aplicacoes/aplicacoes-edge-native/',
+		},
+		{
+			id: 'build-rest-and-graphql-apis',
+			solution: 'build-and-run-applications',
+			title: 'Criar APIs REST e GraphQL',
+			href: '/pt-br/documentacao/arquiteturas/construir-e-executar-aplicacoes/serverless-applications/',
+			featured: true,
+		},
+		{
+			id: 'build-event-driven-apis',
+			solution: 'build-and-run-applications',
+			title: 'Criar APIs orientadas a eventos',
+		},
+		{
+			id: 'modernize-a-monolithic-application-without-a-rewrite',
+			solution: 'build-and-run-applications',
+			title: 'Modernizar uma aplicação monolítica sem reescrevê-la',
+			href: '/pt-br/documentacao/arquiteturas/construir-e-executar-aplicacoes/modernizacao-de-aplicacoes/',
+		},
+		{
+			id: 'build-e-commerce-storefronts',
+			solution: 'build-and-run-applications',
+			title: 'Criar vitrines de e-commerce',
+			href: '/pt-br/documentacao/plataforma/object-storage/',
+			featured: true,
+		},
+		{
+			id: 'deploy-frontend-applications',
+			solution: 'build-and-run-applications',
+			title: 'Implantar aplicações front-end',
+			href: '/pt-br/documentacao/plataforma/object-storage/',
+			featured: true,
+		},
+		{
+			id: 'run-multi-tenant-saas-applications',
+			solution: 'build-and-run-applications',
+			title: 'Executar aplicações SaaS multi-tenant',
+		},
+		{
+			id: 'migrate-an-application-to-a-new-origin-without-downtime',
+			solution: 'build-and-run-applications',
+			title: 'Migrar uma aplicação para uma nova origem sem downtime',
+		},
+		{
+			id: 'accelerate-websites-and-apis-with-a-cdn',
+			solution: 'improve-performance-and-reliability',
+			title: 'Acelerar sites e APIs com uma CDN',
+			href: '/pt-br/documentacao/arquiteturas/melhorar-performance-e-confiabilidade/application-acceleration/',
+		},
+		{
+			id: 'keep-an-application-online-when-an-origin-fails',
+			solution: 'improve-performance-and-reliability',
+			title: 'Manter uma aplicação no ar quando uma origem falha',
+			href: '/pt-br/documentacao/plataforma/connectors/#load-balancer',
+			featured: true,
+		},
+		{
+			id: 'optimize-images-for-websites-and-mobile-apps',
+			solution: 'improve-performance-and-reliability',
+			title: 'Otimizar imagens para sites e aplicações móveis',
+			href: '/pt-br/documentacao/arquiteturas/melhorar-performance-e-confiabilidade/processamento-de-imagens/',
+			featured: true,
+		},
+		{
+			id: 'monitor-website-and-api-performance',
+			solution: 'improve-performance-and-reliability',
+			title: 'Monitorar a performance de sites e APIs',
+			href: '/pt-br/documentacao/plataforma/edge-pulse/',
+			featured: true,
+		},
+		{
+			id: 'route-users-to-regional-origins',
+			solution: 'improve-performance-and-reliability',
+			title: 'Rotear usuários para origens regionais',
+		},
+		{
+			id: 'build-and-run-customer-support-ai-assistants',
+			solution: 'build-and-run-ai-workloads',
+			title: 'Criar e executar assistentes de IA para suporte ao cliente',
+			href: '/pt-br/documentacao/arquiteturas/construir-e-executar-workloads-de-ai/agente-ai-assistente-copilot/',
+			featured: true,
+		},
+		{
+			id: 'add-ai-features-to-existing-applications',
+			solution: 'build-and-run-ai-workloads',
+			title: 'Adicionar funcionalidades de IA a aplicações existentes',
+			href: '/pt-br/documentacao/arquiteturas/construir-e-executar-workloads-de-ai/ai-inference-architecture/',
+			featured: true,
+		},
+		{
+			id: 'build-ai-agents',
+			solution: 'build-and-run-ai-workloads',
+			title: 'Criar agentes de IA',
+			href: '/pt-br/documentacao/arquiteturas/construir-e-executar-workloads-de-ai/ai-agent-third-party-llm/',
+			featured: true,
+		},
+		{
+			id: 'deploy-remote-mcp-servers',
+			solution: 'build-and-run-ai-workloads',
+			title: 'Implantar servidores MCP remotos',
+		},
+		{
+			id: 'govern-access-to-multiple-ai-models',
+			solution: 'build-and-run-ai-workloads',
+			title: 'Governar o acesso a múltiplos modelos de IA',
+		},
+		{
+			id: 'protect-web-applications-from-owasp-top-10-and-zero-day-attacks',
+			solution: 'secure-applications-and-networks',
+			title: 'Proteger aplicações web contra ataques do OWASP Top 10 e zero-day',
+			href: '/pt-br/documentacao/arquiteturas/proteger-aplicacoes-e-redes/web-application-and-api-protection-waap/',
+			featured: true,
+		},
+		{
+			id: 'protect-public-apis-from-abuse',
+			solution: 'secure-applications-and-networks',
+			title: 'Proteger APIs públicas contra abuso',
+			href: '/pt-br/documentacao/arquiteturas/proteger-aplicacoes-e-redes/implementar-seguranca-api-gateways/',
+			featured: true,
+		},
+		{
+			id: 'block-account-takeover-on-login-and-checkout-flows',
+			solution: 'secure-applications-and-networks',
+			title: 'Bloquear account takeover em fluxos de login e checkout',
+			href: '/pt-br/documentacao/arquiteturas/proteger-aplicacoes-e-redes/prevencao-fraudes-online/',
+			featured: true,
+		},
+		{
+			id: 'block-attackers-automatically-from-siem-detections',
+			solution: 'secure-applications-and-networks',
+			title: 'Bloquear atacantes automaticamente a partir de detecções do SIEM',
+			href: '/pt-br/documentacao/arquiteturas/proteger-aplicacoes-e-redes/automacao-da-seguranca-com-edge-computing/',
+		},
+		{
+			id: 'screen-file-uploads-for-malicious-content',
+			solution: 'secure-applications-and-networks',
+			title: 'Inspecionar uploads de arquivos em busca de conteúdo malicioso',
+			href: '/pt-br/documentacao/arquiteturas/construir-e-executar-workloads-de-ai/ai-agent-seguranca-autonoma/',
+		},
+		{
+			id: 'prepare-regulated-web-applications-for-security-audits',
+			solution: 'secure-applications-and-networks',
+			title: 'Preparar aplicações web reguladas para auditorias de segurança',
+			href: '/pt-br/documentacao/arquiteturas/proteger-aplicacoes-e-redes/governanca-risco-conformidade/',
+		},
+		{
+			id: 'stream-live-events-to-large-audiences',
+			solution: 'deliver-media-and-streaming',
+			title: 'Transmitir eventos ao vivo para grandes audiências',
+			href: '/pt-br/documentacao/arquiteturas/entregar-midia-e-streaming/live-streaming-delivery-com-hls/',
+			featured: true,
+		},
+		{
+			id: 'deliver-an-on-demand-video-library',
+			solution: 'deliver-media-and-streaming',
+			title: 'Entregar uma biblioteca de vídeos sob demanda',
+			href: '/pt-br/documentacao/plataforma/object-storage/',
+			featured: true,
+		},
+	],
+};

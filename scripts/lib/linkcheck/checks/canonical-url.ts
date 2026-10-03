@@ -1,16 +1,12 @@
 import kleur from 'kleur';
 import { dedentMd } from '../../output.mjs';
-import { CheckBase, CheckHtmlPageContext } from '../base/check';
+import { CheckBase } from '../base/check';
+import type { CheckHtmlPageContext } from '../base/check';
 import { IssueType } from '../base/issue';
 
 export interface CanonicalUrlOptions {
-	/**
-	 * A list of page pathnames that are allowed not to contain a
-	 * <link rel="canonical" href="..."> element.
-	 *
-	 * Subpaths of the given pathnames are automatically ignored as well,
-	 * so adding `/example/` will also ignore `/example/some-subpath/`.
-	 * */
+	/** Pathnames allowed to ship without a `<link rel="canonical">` element. */
+	// Subpaths are ignored too: `/example/` also covers `/example/some-subpath/`.
 	ignoreMissingCanonicalUrl?: string[];
 }
 
@@ -40,21 +36,17 @@ export class CanonicalUrl extends CheckBase {
 	}
 
 	checkHtmlPage(context: CheckHtmlPageContext) {
-		// Skip all checks if the current page is a language fallback page
-		// to avoid reporting duplicates for all missing translations
+		// A fallback page would report one duplicate per missing translation.
 		if (context.page.isLanguageFallback) return;
 
 		this.forEachLocalLink(context, (linkHref, url) => {
 			const linkedPage = this.findPageByPathname(context, url.pathname);
 			if (!linkedPage) return;
 
-			// Ignore links that do not contain a pathname
 			const rawUrl = new URL(linkHref, 'https://example.com/no-pathname/');
 			if (rawUrl.pathname === '/no-pathname/') return;
 
-			// Report links to redirect pages
 			if (linkedPage.redirectTargetUrl) {
-				// Attempt to find the page targeted by the redirect and get its proper pathname
 				const redirectTargetPage = this.findPageByPathname(
 					context,
 					linkedPage.redirectTargetUrl.pathname
@@ -76,10 +68,7 @@ export class CanonicalUrl extends CheckBase {
 				return;
 			}
 
-			// Handle cases where the linked page does not define its canonical URL
 			if (!linkedPage.canonicalUrl) {
-				// If the linked page is not on the ignore list,
-				// report the missing canonical URL
 				const isOnIgnoreList = this.ignoreMissingCanonicalUrl.some((ignoredPath) =>
 					url.pathname.startsWith(ignoredPath)
 				);
@@ -92,15 +81,13 @@ export class CanonicalUrl extends CheckBase {
 							to the page.`,
 					});
 				}
-				// Always skip further processing
 				return;
 			}
 
 			// Skip links that point to the wrong language (those are handled by SameLanguage)
 			if (linkedPage.pathnameLang !== context.page.pathnameLang) return;
 
-			// It's an error if the link URL pathname does not match the
-			// canonical URL pathname of the linked page
+			// The link must use the target's canonical pathname.
 			const expectedPathname = linkedPage.getExpectedLinkPathname(context.page.pathnameLang);
 			if (url.pathname !== expectedPathname) {
 				const autofixHref = expectedPathname + decodeURIComponent(url.hash);
