@@ -1,0 +1,223 @@
+---
+title: Troubleshoot Data Stream
+description: Find why a stream sends nothing or fewer log lines than expected, why its endpoint refuses the batches, and what an API error means.
+meta_tags: 'data stream, troubleshooting, 503, 504, delivery, sampling, real-time events'
+namespace: documentation_products_data_stream_troubleshooting
+permalink: /documentation/platform/data-stream/troubleshooting/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+This page lists the symptoms of a stream in [Data Stream](/en/documentation/platform/data-stream/), each with its cause and its fix. Delivery symptoms come first, read from your endpoint and from [Real-Time Events](/en/documentation/platform/real-time-events/). Symptoms in the log lines, in API responses, and in Azion Console follow. In the Console, the endpoint field is labeled **Connector**.
+
+---
+
+## A stream is active but nothing reaches the endpoint
+
+Your endpoint receives no log line, while the stream list shows the stream with the **Status** *Active*.
+
+Either the stream has not sent anything yet, or it sends and the endpoint does not accept the batches. Real-Time Events tells the two cases apart, because it records every send, delivered or not.
+
+To find the case that applies:
+
+1. In [Real-Time Events](/en/documentation/platform/real-time-events/#data-stream), open the *Data Stream* data source.
+2. Find the records whose `url` is your endpoint. Each record is one send, with its `statusCode` and its `streamedLines`.
+3. When records exist, read `statusCode`. A `200` is a delivered batch. For `503`, `504`, or another status, follow the entry for it below.
+4. When no record exists, wait. A change of active state takes one to two minutes, and delivery takes up to 3 minutes.
+5. Check that the **Status** column still reads *Active*. A stream with sampling saved after yours deactivates it, as [Another stream stopped sending after you saved one](#another-stream-stopped-sending-after-you-saved-one) explains.
+6. Check that the data source produced an event. An *Activity History* stream sends only after an action in the account, such as an edit in Azion Console.
+
+For an [Object Storage](/en/documentation/platform/object-storage/) bucket, list the objects of the bucket as well:
+
+```bash
+curl --request GET \
+  --url 'https://api.azion.com/v4/workspace/storage/buckets/<your-bucket>/objects' \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]'
+```
+
+Each object holds one batch, named after the **Object Key Prefix**, the time, and a unique ID:
+
+```json
+{
+  "continuation_token": null,
+  "results": [
+    {
+      "key": "activity/2026/10/02/19/47/55f2bb11-532e-49db-bc9d-631c8e46e82c",
+      "last_modified": "2026-10-02T19:47:03.744000Z",
+      "size": 2797,
+      "is_folder": false
+    },
+    …
+  ]
+}
+```
+
+To watch the volume of your streams over time, read the **Data Stream** tab of the [Real-Time Metrics Observe dashboards](/en/documentation/platform/real-time-metrics/observe-dashboards/#data-stream). The [GraphQL API](/en/documentation/devtools/graphql/overview/) serves the same data and the raw records.
+
+A record with `statusCode` `200` and an object under the prefix together confirm that the endpoint receives the stream.
+
+---
+
+## Real-Time Events shows status 503 and nothing reaches the endpoint
+
+The records of the stream carry `statusCode` `503`, and no log line reaches the endpoint.
+
+Data Stream checks each endpoint once a minute and discards the batches of an endpoint it marks unavailable. One Azion server that reports the endpoint unavailable is enough, and which server reported it cannot be known.
+
+- **Check the endpoint**: confirm that the service at the `url` of the record is running and reachable.
+- **Give an Object Storage credential the bucket capabilities**: the credential needs `listAllBucketNames`, `listBuckets`, `listFiles`, and `writeFiles`. Without the first two, every send is recorded with `503`. Create a credential with the four, and set its keys in **Access Key** and **Secret Key**. For the fields, refer to [Azion Object Storage](/en/documentation/platform/data-stream/endpoints/#azion-object-storage).
+- **Recover the missed interval elsewhere**: the lines of a `503` send are never delivered later. Query that interval in Real-Time Events, which keeps the raw events for 7 days.
+
+Once the edit takes effect, the sends are recorded with `statusCode` `200`, and their batches reach the endpoint.
+
+---
+
+## Real-Time Events shows status 504
+
+The records of an HTTP POST endpoint carry `statusCode` `504`.
+
+The endpoint passed the availability check, but did not receive the batch within the send timeout of 20 seconds.
+
+- **Check the response time of the endpoint**: it must receive each batch within 20 seconds, per [Data Stream limits](/en/documentation/platform/data-stream/limits/#default-limits).
+- **Locate the slow send**: `url` names the endpoint, and `streamedLines` and `dataStreamed` give the size of the batch.
+
+Sends that the endpoint receives within 20 seconds are recorded with `statusCode` `200`.
+
+---
+
+## Real-Time Events shows the endpoint's own error status, such as 405
+
+The records of the stream carry a status other than `200`, `503`, or `504`, such as `405`.
+
+The endpoint received the batch and refused it, and the record keeps the status the endpoint returned. For example, a URL that accepts no `POST` answered `405` to every send.
+
+- **Fix the receiving side**: look up the status in the documentation or the logs of your endpoint. Then correct the URL, the credential, or what the endpoint accepts.
+- **Check where the batch went**: the `url` field of the record shows the destination the stream used.
+- **Expect a gap**: Data Stream does not send the lines of a refused batch again.
+
+Once the endpoint accepts the batches, the records of the next sends show `statusCode` `200`.
+
+---
+
+## Another stream stopped sending after you saved one
+
+After you save a stream, another stream of the account shows the **Status** *Inactive* and sends nothing.
+
+Saving an active stream with sampling, at any rate including `100`, deactivates every other stream on the account. The API returns no error, and the Console warns before it saves.
+
+- **Use a workload filter on streams that run together**: in **Transform**, select **Option** › *Filter Workloads* and pick the workloads. A stream without sampling leaves the other streams active. For the steps, refer to [Associate workloads with a stream](/en/documentation/guides/platform/observability/data-stream-associate-workloads/).
+- **Reactivate the stopped stream**: turn on **Active** in its **Status** section, and select **Save**. For the steps, refer to [Edit, stop, or delete a stream](/en/documentation/guides/platform/observability/delete-data-stream/).
+- **Keep one sampled stream per account**: an *Activity History* stream uses sampling, so saving it active stops the others.
+
+Each filtered stream shows *Active* in the list once saved, and its sends appear in Real-Time Events within one to two minutes.
+
+---
+
+## The endpoint receives fewer log lines than requests
+
+An *Applications* stream delivers fewer log lines than the requests your workloads served.
+
+Each event the stream collects becomes one log line, so the missing lines are events outside its scope. Two settings narrow the scope: a sampling rate below `100`, and a workload filter that leaves a workload out.
+
+- **Raise the sampling rate**: set **Sampling Rate (%)** to `100` to collect every event. The Console states that sampling is statistical and not absolutely precise. It also states: `When multiple Data Streams have different sampling rates, the system uses the lowest percentage.`
+- **Add the missing workload to the filter**: the stream skips a workload created later until you add it. *All Current and Future Workloads* covers later workloads, but it uses sampling. For its effect on other streams, refer to [Another stream stopped sending after you saved one](#another-stream-stopped-sending-after-you-saved-one).
+
+Sends recorded with `503` or with an endpoint error also lose their lines, as the entries above explain. At a rate of `100` over every workload in scope, the stream sends one log line per request.
+
+---
+
+## Batches arrive every minute with only a few lines
+
+The endpoint receives a batch about once a minute, with one or two log lines in each.
+
+A batch closes at 2,000 log lines or after 60 seconds, whichever comes first. A quiet stream reaches 60 seconds first, so it sends the lines it holds.
+
+- **Read small batches as low traffic**: this is the expected behavior, not an error. An *Activity History* stream with a few events sent batches of 1 and 2 log lines, one per minute.
+- **Expect no setting to change it**: no field changes the 2,000-line count or the 60-second interval. On a *Standard HTTP/HTTPS POST* endpoint, **Payload Max Size** only closes a batch earlier. The bounds are in [Data Stream limits](/en/documentation/platform/data-stream/limits/#default-limits).
+
+As the traffic grows, the batches fill toward 2,000 log lines and leave before the 60 seconds pass.
+
+---
+
+## Some fields of a log line show a dash
+
+Some keys of the delivered log lines hold `-` instead of a value.
+
+The variable behind the key has no value for that event. Four cases account for it.
+
+- **Read upstream fields of cached responses as empty**: on a cache hit, `$upstream_status`, `$proxy_status`, and the upstream timings hold `-`. For the full list, refer to [Values served from cache](/en/documentation/platform/data-stream/data-sources-and-variables/#values-served-from-cache).
+- **Turn on Debug Rules for the rules a request ran**: no preset carries `$traceback`. It needs a custom template and Debug Rules on the application, as [Rules a request ran](/en/documentation/platform/data-stream/data-sources-and-variables/#rules-a-request-ran) explains.
+- **Expect headers only on blocked requests**: `$headers` and `$waf_headers` hold the request headers only when WAF blocked the request. The *WAF Event Collector* preset always sends `-` under its `headers` key. For the variables, refer to [WAF Events](/en/documentation/platform/data-stream/data-sources-and-variables/#waf-events).
+- **Read `$truncated_body` as empty**: the variable is deprecated and always holds `-`.
+
+Each remaining key holds the value of its variable for the event.
+
+---
+
+## The API refuses a stream with 400
+
+A `POST` to `/v4/workspace/stream/streams` returns `400` with an `errors` array, and the API creates nothing. The `code` and the `source.pointer` of each error name the cause.
+
+- `400` `32002` `Workloads Must Be Provided`: `transform` has neither a `sampling` nor a `filter_workloads` item. Add one of them.
+- `400` `32007` `Sampling And Workloads Are Exclusive`: `transform` has both. Keep one of them.
+- `400` `32008` `Template Must Be Provided`: `transform` has no `render_template` item. Add one with a template ID.
+- `400` `10059` `Required Field` at `/data/outputs/0/headers`: a `standard` endpoint has no `headers`. Send `{}` for none.
+
+Every code, with its cause and its fix, is in [Stream settings](/en/documentation/platform/data-stream/stream-settings/#errors). With the field corrected, the API answers `201` and returns the stream.
+
+---
+
+## Only one endpoint is kept after you save a stream
+
+You sent two entries in `outputs`, the API answered `201`, and the stream holds only the first one.
+
+A stream sends to one endpoint. The API drops a second `outputs` entry without an error.
+
+- **Create one stream per endpoint**: give the second stream the same data source and template, and the other endpoint.
+- **Keep both streams active**: give each one a workload filter, not sampling, or the second save stops the first.
+
+Each stream then shows its own endpoint in the **Connector** column, and its own sends in Real-Time Events.
+
+---
+
+## A wrong endpoint credential shows only after the stream saves
+
+The stream saved without an error, but Real-Time Events records its sends with `503` or an endpoint error.
+
+Saving checks the format of the fields, not the endpoint. The API accepts a wrong credential or an unreachable URL, and the problem shows at the first send.
+
+- **Read the first records after each save**: the save response confirms the format only. Real-Time Events shows whether the endpoint accepts the credential.
+- **Correct the credential and save the stream**: for the fields each endpoint takes, refer to [Endpoints](/en/documentation/platform/data-stream/endpoints/). For an Azion Object Storage bucket, see [Real-Time Events shows status 503 and nothing reaches the endpoint](#real-time-events-shows-status-503-and-nothing-reaches-the-endpoint).
+- **Read a failed save as a format error**: it returns `400` with a code. For the common codes, refer to [The API refuses a stream with 400](#the-api-refuses-a-stream-with-400).
+
+Once the change takes effect, the sends of the stream are recorded with `statusCode` `200`.
+
+---
+
+## You cannot create a stream or change its fields
+
+**+ Stream** is disabled, the fields of a stream cannot be changed, or a template's **Data Set** is read-only.
+
+The account lacks the edit permission or holds too many workloads, or the template is a preset. A data source can also depend on a product the account does not have.
+
+- **Ask for the edit permission**: **View Data Stream** shows streams only. Creating, editing, and deleting need **Edit Data Stream**. For how permissions are granted, refer to [Teams and permissions](/en/documentation/fundamentals/teams-permissions/).
+- **Use the API on large accounts**: at 3,000 workloads or more, the Console blocks the stream forms. For the bound, refer to [Data Stream limits](/en/documentation/platform/data-stream/limits/#default-limits).
+- **Duplicate a preset to change its variables**: **Duplicate Template** opens the **Create Custom Template** drawer with the preset's data set. For custom templates, refer to [Custom templates](/en/documentation/platform/data-stream/templates-and-payload/#custom-templates).
+- **Activate the product behind the data source**: *Functions* needs [Functions](/en/documentation/platform/functions/), and *WAF Events* needs [Firewall](/en/documentation/platform/firewall/) with WAF.
+
+With the permission and the products in place, the form accepts your changes, and **Save** stores them.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How Data Stream works" href="/en/documentation/platform/data-stream/how-it-works/#endpoint-availability-and-failures">How the availability check, discarded intervals, and refused sends shape what reaches your endpoint.</DocItem>
+  <DocItem title="Stream settings errors" href="/en/documentation/platform/data-stream/stream-settings/#errors">Every error code the API returns for a stream, with its cause and its fix.</DocItem>
+  <DocItem title="Endpoints" href="/en/documentation/platform/data-stream/endpoints/">The fields and credentials each endpoint type takes, including the Object Storage capabilities.</DocItem>
+  <DocItem title="Real-Time Events" href="/en/documentation/platform/real-time-events/#data-stream">The delivery record of each send, with its status code, its log lines, and its destination.</DocItem>
+</ItemList>
+</FrameBox>

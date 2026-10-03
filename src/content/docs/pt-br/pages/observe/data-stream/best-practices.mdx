@@ -1,0 +1,154 @@
+---
+title: Boas práticas para Data Stream
+description: Defina escopo, formato e segurança de cada stream para que vários streams rodem juntos, as linhas de log tragam o que você analisa e as falhas apareçam.
+meta_tags: 'data stream, best practices, sampling, templates, kafka, s3, monitoring'
+namespace: documentation_products_data_stream_best_practices
+permalink: /documentacao/plataforma/data-stream/boas-praticas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Um stream de logs vale o que vale a cópia que ele deixa na sua plataforma. Essa cópia depende de escolhas feitas antes de a primeira linha de log sair. Um stream com o escopo errado desativa os outros streams da conta. Um template com todas as variáveis envia bytes que ninguém lê, e um endpoint que recusa as linhas de log é aceito no momento de salvar e falha depois, fora de vista.
+
+Estas práticas se aplicam aos streams do [Data Stream](/pt-br/documentacao/plataforma/data-stream/) no Azion Console e na Azion API. Os mecanismos por trás delas estão em [Como o Data Stream funciona](/pt-br/documentacao/plataforma/data-stream/como-funciona/), e cada campo está em [Configurações do stream](/pt-br/documentacao/plataforma/data-stream/configuracoes-do-stream/). O Console chama o campo do endpoint de **Connector**, e a API leva o endpoint em `outputs`.
+
+Na ordem, as práticas tratam do escopo de um stream, do template predefinido para um SIEM, das variáveis que um template envia, dos bootstrap servers do Apache Kafka, do TLS para o Apache Kafka, da credencial do Object Storage, dos primeiros envios para um endpoint não testado e do status de cada envio. Os exemplos são JSON no formato que a API recebe.
+
+---
+
+## Use um filtro de workloads em vez de sampling quando vários streams precisam rodar
+
+Todo stream precisa de um escopo: um transform `sampling` sobre todos os workloads, ou um transform `filter_workloads` com os workloads que você escolher. A API recusa um stream sem nenhum dos dois. O sampling reduz o volume, e o custo, dos dados que você coleta e analisa. No entanto, salvar um stream ativo com sampling, em qualquer taxa, inclusive `100`, desativa todos os outros streams da conta, e a API não retorna erro.
+
+Um filtro de workloads mantém os outros streams ativos. Este stream envia as requisições de um workload, renderizadas pelo template predefinido *Applications Event Collector*, para um cluster do Apache Kafka:
+
+```json
+{
+  "name": "applications-to-kafka",
+  "active": true,
+  "inputs": [
+    { "type": "raw_logs", "attributes": { "data_source": "workloads" } }
+  ],
+  "transform": [
+    { "type": "filter_workloads", "attributes": { "workloads": [1785202161] } },
+    { "type": "render_template", "attributes": { "template": 2 } }
+  ],
+  "outputs": [
+    {
+      "type": "kafka",
+      "attributes": {
+        "bootstrap_servers": "kafka1.example.com:9092,kafka2.example.com:9092",
+        "kafka_topic": "azion.logs",
+        "use_tls": true
+      }
+    }
+  ]
+}
+```
+
+Substitua `1785202161` pelos IDs dos seus workloads, até 600. O custo é a manutenção: um workload criado depois não é coletado até que você o adicione ao filtro. Os eventos de *Activity History* pertencem à conta, e não a um workload, então um stream de *Activity History* usa sampling e roda sozinho. Para comparar as duas opções, consulte [Sampling e filtros de workloads](/pt-br/documentacao/plataforma/data-stream/como-funciona/#sampling-e-filtros-de-workloads), e para os passos, [Associe workloads a um stream](/pt-br/documentacao/guias/plataforma/observabilidade/data-stream-associar-workloads/).
+
+Para verificar, liste os streams com `GET /v4/workspace/stream/streams` dois minutos depois de salvar: todo stream que você espera que rode mostra `"active": true`.
+
+---
+
+## Use o template predefinido Applications + WAF Event Collector para alimentar um SIEM
+
+Um SIEM correlaciona as requisições às suas aplicações com as decisões de segurança tomadas sobre elas. O template predefinido *Applications + WAF Event Collector* leva as duas coisas em uma linha de log. Ele envia os dados de requisição, resposta e cache do *Applications Event Collector*, mais variáveis de WAF, sessão, TLS e endereço do servidor, em 51 chaves.
+
+Com a fonte de dados *Applications*, defina o template como `184` em vez de `2` no stream acima: `{ "type": "render_template", "attributes": { "template": 184 } }`. Quando a plataforma precisa dos dados de requisição e de nenhum dado de WAF, o *Applications Event Collector*, `2`, envia 36 chaves.
+
+O custo é o volume: 51 chaves é o máximo entre os cinco templates predefinidos, e Data Stream é cobrado por Requests e Data Transfer, conforme [Preços](/pt-br/documentacao/fundamentos/precos/#data-stream). Para o que cada template predefinido leva, consulte [Templates predefinidos](/pt-br/documentacao/plataforma/data-stream/templates-e-payload/#templates-predefinidos), e para os passos, [Envie eventos do WAF para um SIEM](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/integrar-siems/).
+
+Para verificar, leia uma linha de log no SIEM: ela traz chaves de WAF como `waf_score` e `waf_match`.
+
+---
+
+## Envie apenas as variáveis que você analisa
+
+Um template predefinido envia, em cada linha de log, todas as variáveis que carrega. Um template personalizado envia apenas as chaves do seu data set, então um stream criado para uma pergunta envia menos bytes por linha. Para uma análise do status das respostas, poucas variáveis respondem à pergunta. Este template personalizado mantém o horário, o host, a requisição e duas variáveis de status:
+
+```json
+{
+  "name": "status-analysis",
+  "data_set": "{\"time\": \"$time\", \"host\": \"$host\", \"status\": \"$status\", \"request_uri\": \"$request_uri\", \"upstream_status\": \"$upstream_status\"}"
+}
+```
+
+Um `POST` para `/v4/workspace/stream/templates` com este corpo cria o template com `custom: true`. Adicione `\"proxy_status\": \"$proxy_status\"` ao data set para registrar também o status que a Azion retorna quando a origem não dá resposta. Para partir de um template predefinido no Azion Console, **Duplicate Template** na seção **Render Template** abre o painel de criação preenchido com o data set do template predefinido, e você exclui as chaves de que não precisa.
+
+O custo é o alcance: uma variável deixada fora do template falta em todas as linhas de log enviadas antes de você adicioná-la. Para o formato do data set, consulte [Templates personalizados](/pt-br/documentacao/plataforma/data-stream/templates-e-payload/#templates-personalizados), e para os passos, [Crie um template personalizado](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/data-stream-template-personalizado/).
+
+Para verificar, leia uma linha de log entregue: ela tem apenas as chaves do data set.
+
+---
+
+## Liste mais de um bootstrap server do Apache Kafka
+
+**Bootstrap Servers** precisa apenas dos servidores que o stream usa para a conexão inicial com o cluster, não de todos os servidores do cluster. Listar mais de um adiciona redundância e mantém o cluster alcançável quando um deles está fora do ar. O stream acima lista dois, separados por vírgula e sem espaço: `"bootstrap_servers": "kafka1.example.com:9092,kafka2.example.com:9092"`.
+
+O custo é o tamanho do campo, que aceita até 150 caracteres. Os outros tipos de endpoint aceitam uma única URL ou um único host, então a entrega deles depende desse endereço. Enquanto um endpoint está marcado como indisponível pelo Data Stream, as linhas de log desse intervalo são descartadas, como descreve [Disponibilidade do endpoint e falhas](/pt-br/documentacao/plataforma/data-stream/como-funciona/#disponibilidade-do-endpoint-e-falhas). Para o campo, consulte [Apache Kafka](/pt-br/documentacao/plataforma/data-stream/endpoints/#apache-kafka).
+
+Para verificar, leia `outputs[0].attributes.bootstrap_servers` do stream: ele contém dois ou mais pares `host:port`.
+
+---
+
+## Ative o TLS para o Apache Kafka
+
+Uma linha de log pode trazer o endereço do cliente, a URL requisitada e outros dados da requisição, como `$remote_addr` e `$request_uri`. Com o TLS ativado, o stream envia esses dados ao cluster criptografados com Transport Layer Security. O stream acima define `"use_tls": true`. A API exige o campo, e o Console o mostra como a chave **Enable Transport Layer Security (TLS)**.
+
+O custo fica do lado do cluster: os servidores de destino precisam de um certificado de uma autoridade certificadora confiável, conforme [Apache Kafka](/pt-br/documentacao/plataforma/data-stream/endpoints/#apache-kafka). Para os passos, consulte [Envie logs para o Apache Kafka](/pt-br/documentacao/guias/plataforma/observabilidade/apache-kafka-endpoint/).
+
+Para verificar, leia `outputs[0].attributes.use_tls` do stream: ele mostra `true`.
+
+---
+
+## Dê a uma credencial do Object Storage as capacidades de listagem de buckets
+
+Um stream que grava em um bucket do [Object Storage](/pt-br/documentacao/plataforma/object-storage/) da Azion usa uma credencial S3. Uma credencial que pode gravar objetos não basta: sem `listAllBucketNames` e `listBuckets`, todo envio é registrado com status `503`, e nenhum objeto chega ao bucket. Dê à credencial estas capacidades, limitadas ao bucket em que o stream grava:
+
+```json
+{
+  "capabilities": ["listAllBucketNames", "listBuckets", "listFiles", "readFiles", "writeFiles", "deleteFiles"],
+  "buckets": ["<your-bucket>"]
+}
+```
+
+Uma credencial limitada a um bucket impede que as chaves que o stream armazena alcancem os seus outros buckets. O custo é uma credencial por bucket. Azion Console mascara a **Access Key** e a **Secret Key** do S3, e uma conta com **View Data Stream** vê apenas um ícone de cadeado no lugar do ícone de revelar. Mantenha **Edit Data Stream** para as pessoas que gerenciam streams. Para os campos mascarados, consulte [Credenciais e campos mascarados](/pt-br/documentacao/plataforma/data-stream/endpoints/#credenciais-e-campos-mascarados), e para os passos, [Envie dados do Data Stream para o Object Storage](/pt-br/documentacao/guias/plataforma/observabilidade/conector-azion-object-storage/).
+
+Para verificar, encontre o primeiro envio no Real-Time Events: ele mostra `200`, e um objeto aparece sob o **Object Key Prefix**.
+
+---
+
+## Confirme um endpoint não testado pelos primeiros registros de entrega
+
+Salvar um stream verifica o formato dos campos, não o endpoint. A API salvou, com `201`, streams com credenciais fictícias e um stream cuja URL respondia `405` a todos os envios. Uma credencial ou uma URL errada aparece apenas como envios com falha.
+
+Antes de enviar tráfego de produção para um endpoint, teste-o com um stream filtrado para um workload, como na primeira prática. O teste mantém os outros streams ativos e o volume pequeno. Depois, aguarde de um a dois minutos, o tempo que uma mudança do estado ativo leva, como descreve [Ativação e alterações](/pt-br/documentacao/plataforma/data-stream/como-funciona/#ativacao-e-alteracoes), e leia os primeiros registros de entrega. O custo é tráfego real: o stream de teste envia as linhas de log desse workload, cobradas como as de qualquer outro stream. Um stream de *Activity History* usa sampling, então o teste dele desativa os outros streams da conta.
+
+Para verificar, confirme que os primeiros registros mostram `200` e que as linhas de log chegam à sua plataforma.
+
+---
+
+## Acompanhe o código de status de cada envio no Real-Time Events
+
+Um envio com falha não interrompe um stream, e as linhas de log dele não são enviadas de novo. Real-Time Events registra cada envio no dataset `dataStreamedEvents`, inclusive os envios com falha, com `endpointType`, `statusCode`, `streamedLines`, `dataStreamed` e `url`. Um status diferente de `200` marca um envio que não foi entregue. O status `503` marca um endpoint considerado indisponível pelo Data Stream, e o `504`, um envio HTTP POST que excedeu o tempo limite. Qualquer outro código é o status que o seu endpoint retornou, como `405`.
+
+Faça uma query em `dataStreamedEvents` pela [API GraphQL do Real-Time Events](/pt-br/documentacao/devtools/graphql/campos-gql-real-time-events/#datastreamedevents-data-stream) a partir da ferramenta que monitora a sua plataforma, e aja sobre qualquer status diferente de `200`. A aba **Data Stream** dos [dashboards de Observe do Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-observe/#data-stream) totaliza bytes e linhas de log, mas não o status de um envio individual. O custo é a retenção: Real-Time Events mantém esses registros por 7 dias, então uma falha que você não lê nesse período não deixa registro. Para o status de cada falha, consulte [Solucionar problemas de Data Stream](/pt-br/documentacao/plataforma/data-stream/solucao-de-problemas/).
+
+Para verificar, faça uma query na última hora de `dataStreamedEvents` do stream: registros que mostram apenas `200` confirmam que todos os envios foram entregues.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Como o Data Stream funciona" href="/pt-br/documentacao/plataforma/data-stream/como-funciona/">O escopo, o agrupamento em lotes, a verificação de disponibilidade e os registros de entrega por trás de cada prática desta página.</DocItem>
+  <DocItem title="Configurações do stream" href="/pt-br/documentacao/plataforma/data-stream/configuracoes-do-stream/">Cada campo de um stream, com os valores, os padrões e os erros que a API retorna.</DocItem>
+  <DocItem title="Endpoints" href="/pt-br/documentacao/plataforma/data-stream/endpoints/">Os campos e as credenciais de cada um dos 11 tipos de endpoint.</DocItem>
+  <DocItem title="Guias e tutoriais de Data Stream" href="/pt-br/documentacao/plataforma/data-stream/guias/">Os passos que aplicam estas práticas, uma tarefa por guia.</DocItem>
+</ItemList>
+</FrameBox>

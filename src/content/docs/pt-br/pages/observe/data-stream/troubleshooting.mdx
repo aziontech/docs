@@ -1,0 +1,223 @@
+---
+title: Solucionar problemas de Data Stream
+description: Descubra por que um stream não envia nada ou envia menos linhas de log, por que o endpoint recusa os lotes e o que significa um erro da API.
+meta_tags: 'data stream, troubleshooting, 503, 504, delivery, sampling, real-time events'
+namespace: documentation_products_data_stream_troubleshooting
+permalink: /documentacao/plataforma/data-stream/solucao-de-problemas/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Esta página lista os sintomas de um stream no [Data Stream](/pt-br/documentacao/plataforma/data-stream/), cada um com a causa e a correção. Os sintomas de entrega vêm primeiro, lidos no seu endpoint e no [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/). Em seguida vêm os sintomas nas linhas de log, nas respostas da API e no Azion Console. No Console, o campo do endpoint se chama **Connector**.
+
+---
+
+## Um stream está ativo, mas nada chega ao endpoint
+
+Seu endpoint não recebe nenhuma linha de log, enquanto a lista de streams mostra o stream com o **Status** *Active*.
+
+Ou o stream ainda não enviou nada, ou ele envia e o endpoint não aceita os lotes. Real-Time Events distingue os dois casos, porque registra cada envio, entregue ou não.
+
+Para encontrar o caso que se aplica:
+
+1. No [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/#data-stream), abra a fonte de dados *Data Stream*.
+2. Encontre os registros cuja `url` é o seu endpoint. Cada registro é um envio, com o `statusCode` e o `streamedLines` dele.
+3. Quando houver registros, leia o `statusCode`. Um `200` é um lote entregue. Para `503`, `504` ou outro status, siga a entrada correspondente abaixo.
+4. Quando não houver nenhum registro, aguarde. Uma mudança do estado ativo leva de um a dois minutos, e a entrega leva até 3 minutos.
+5. Confira se a coluna **Status** ainda mostra *Active*. Um stream com sampling salvo depois do seu desativa o seu, como explica [Outro stream parou de enviar depois que você salvou um](#outro-stream-parou-de-enviar-depois-que-voce-salvou-um).
+6. Confira se a fonte de dados produziu um evento. Um stream de *Activity History* só envia depois de uma ação na conta, como uma edição no Azion Console.
+
+Para um bucket do [Object Storage](/pt-br/documentacao/plataforma/object-storage/), liste também os objetos do bucket:
+
+```bash
+curl --request GET \
+  --url 'https://api.azion.com/v4/workspace/storage/buckets/<your-bucket>/objects' \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]'
+```
+
+Cada objeto guarda um lote, nomeado com o **Object Key Prefix**, o horário e um ID único:
+
+```json
+{
+  "continuation_token": null,
+  "results": [
+    {
+      "key": "activity/2026/10/02/19/47/55f2bb11-532e-49db-bc9d-631c8e46e82c",
+      "last_modified": "2026-10-02T19:47:03.744000Z",
+      "size": 2797,
+      "is_folder": false
+    },
+    …
+  ]
+}
+```
+
+Para acompanhar o volume dos seus streams ao longo do tempo, leia a aba **Data Stream** dos [Dashboards de Observe do Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-observe/#data-stream). A [API GraphQL](/pt-br/documentacao/devtools/graphql/visao-geral/) serve os mesmos dados e os registros brutos.
+
+Um registro com `statusCode` `200` e um objeto sob o prefixo, juntos, confirmam que o endpoint recebe o stream.
+
+---
+
+## Real-Time Events mostra o status 503 e nada chega ao endpoint
+
+Os registros do stream trazem `statusCode` `503`, e nenhuma linha de log chega ao endpoint.
+
+Data Stream verifica cada endpoint uma vez por minuto e descarta os lotes de um endpoint que ele marca como indisponível. Basta um servidor da Azion reportar o endpoint como indisponível, e não é possível saber qual servidor o reportou.
+
+- **Verifique o endpoint**: confirme que o serviço na `url` do registro está em execução e acessível.
+- **Dê à credencial do Object Storage as capabilities do bucket**: a credencial precisa de `listAllBucketNames`, `listBuckets`, `listFiles` e `writeFiles`. Sem as duas primeiras, todo envio é registrado com `503`. Crie uma credencial com as quatro e informe as chaves dela em **Access Key** e **Secret Key**. Para os campos, consulte [Azion Object Storage](/pt-br/documentacao/plataforma/data-stream/endpoints/#azion-object-storage).
+- **Recupere o intervalo perdido em outro lugar**: as linhas de um envio com `503` nunca são entregues depois. Consulte esse intervalo no Real-Time Events, que mantém os eventos brutos por 7 dias.
+
+Depois que a edição entra em vigor, os envios são registrados com `statusCode` `200`, e os lotes deles chegam ao endpoint.
+
+---
+
+## Real-Time Events mostra o status 504
+
+Os registros de um endpoint HTTP POST trazem `statusCode` `504`.
+
+O endpoint passou na verificação de disponibilidade, mas não recebeu o lote dentro do timeout de envio de 20 segundos.
+
+- **Verifique o tempo de resposta do endpoint**: ele precisa receber cada lote em até 20 segundos, conforme os [Limites de Data Stream](/pt-br/documentacao/plataforma/data-stream/limites/#limites-padrao).
+- **Localize o envio lento**: `url` indica o endpoint, e `streamedLines` e `dataStreamed` dão o tamanho do lote.
+
+Os envios que o endpoint recebe em até 20 segundos são registrados com `statusCode` `200`.
+
+---
+
+## Real-Time Events mostra o status de erro do próprio endpoint, como 405
+
+Os registros do stream trazem um status diferente de `200`, `503` ou `504`, como `405`.
+
+O endpoint recebeu o lote e o recusou, e o registro mantém o status que o endpoint retornou. Por exemplo, uma URL que não aceita `POST` respondeu `405` a todos os envios.
+
+- **Corrija o lado que recebe**: procure o status na documentação ou nos logs do seu endpoint. Depois, corrija a URL, a credencial ou o que o endpoint aceita.
+- **Confira para onde o lote foi**: o campo `url` do registro mostra o destino que o stream usou.
+- **Conte com uma lacuna**: Data Stream não envia de novo as linhas de um lote recusado.
+
+Quando o endpoint passa a aceitar os lotes, os registros dos envios seguintes mostram `statusCode` `200`.
+
+---
+
+## Outro stream parou de enviar depois que você salvou um
+
+Depois que você salva um stream, outro stream da conta mostra o **Status** *Inactive* e não envia nada.
+
+Salvar um stream ativo com sampling, em qualquer taxa, inclusive `100`, desativa todos os outros streams da conta. A API não retorna erro, e o Console avisa antes de salvar.
+
+- **Use um filtro de workloads nos streams que rodam juntos**: em **Transform**, selecione **Option** › *Filter Workloads* e escolha os workloads. Um stream sem sampling mantém os outros streams ativos. Para os passos, consulte [Associe workloads a um stream](/pt-br/documentacao/guias/plataforma/observabilidade/data-stream-associar-workloads/).
+- **Reative o stream parado**: ligue **Active** na seção **Status** dele e selecione **Save**. Para os passos, consulte [Edite, pare ou exclua um stream](/pt-br/documentacao/guias/plataforma/observabilidade/deletar-data-stream/).
+- **Mantenha um único stream com sampling por conta**: um stream de *Activity History* usa sampling, então salvá-lo ativo para os outros.
+
+Cada stream filtrado mostra *Active* na lista depois de salvo, e os envios dele aparecem no Real-Time Events em um a dois minutos.
+
+---
+
+## O endpoint recebe menos linhas de log do que requisições
+
+Um stream de *Applications* entrega menos linhas de log do que as requisições que os seus workloads atenderam.
+
+Cada evento que o stream coleta se torna uma linha de log, então as linhas que faltam são eventos fora do escopo dele. Duas configurações reduzem o escopo: uma taxa de sampling abaixo de `100` e um filtro de workloads que deixa um workload de fora.
+
+- **Aumente a taxa de sampling**: defina **Sampling Rate (%)** como `100` para coletar todos os eventos. O Console informa que o sampling é estatístico e não absolutamente preciso. Ele também informa: `When multiple Data Streams have different sampling rates, the system uses the lowest percentage.`
+- **Adicione o workload que falta ao filtro**: o stream ignora um workload criado depois até que você o adicione. *All Current and Future Workloads* cobre os workloads criados depois, mas usa sampling. Para o efeito sobre os outros streams, consulte [Outro stream parou de enviar depois que você salvou um](#outro-stream-parou-de-enviar-depois-que-voce-salvou-um).
+
+Os envios registrados com `503` ou com um erro do endpoint também perdem as linhas deles, como explicam as entradas acima. Com uma taxa de `100` sobre todos os workloads no escopo, o stream envia uma linha de log por requisição.
+
+---
+
+## Lotes chegam a cada minuto com poucas linhas
+
+O endpoint recebe um lote mais ou menos uma vez por minuto, com uma ou duas linhas de log em cada um.
+
+Um lote fecha com 2.000 linhas de log ou depois de 60 segundos, o que ocorrer primeiro. Um stream com pouco tráfego chega primeiro aos 60 segundos, então envia as linhas que tem.
+
+- **Interprete lotes pequenos como pouco tráfego**: esse é o comportamento esperado, não um erro. Um stream de *Activity History* com poucos eventos enviou lotes de 1 e 2 linhas de log, um por minuto.
+- **Não espere que alguma configuração mude isso**: nenhum campo altera a contagem de 2.000 linhas ou o intervalo de 60 segundos. Em um endpoint *Standard HTTP/HTTPS POST*, o **Payload Max Size** apenas fecha um lote mais cedo. Os limites estão em [Limites de Data Stream](/pt-br/documentacao/plataforma/data-stream/limites/#limites-padrao).
+
+À medida que o tráfego cresce, os lotes se aproximam de 2.000 linhas de log e saem antes que os 60 segundos passem.
+
+---
+
+## Alguns campos de uma linha de log mostram um traço
+
+Algumas chaves das linhas de log entregues guardam `-` em vez de um valor.
+
+A variável por trás da chave não tem valor para aquele evento. Quatro casos explicam isso.
+
+- **Interprete os campos de upstream das respostas em cache como vazios**: em um cache hit, `$upstream_status`, `$proxy_status` e os tempos de upstream guardam `-`. Para a lista completa, consulte [Valores servidos do cache](/pt-br/documentacao/plataforma/data-stream/fontes-de-dados-e-variaveis/#valores-servidos-do-cache).
+- **Ligue o Debug Rules para ver as regras que uma requisição executou**: nenhum template predefinido traz `$traceback`. A variável precisa de um template personalizado e do Debug Rules na aplicação, como explica [Regras executadas em uma requisição](/pt-br/documentacao/plataforma/data-stream/fontes-de-dados-e-variaveis/#regras-executadas-em-uma-requisicao).
+- **Espere headers apenas em requisições bloqueadas**: `$headers` e `$waf_headers` guardam os headers da requisição apenas quando o WAF bloqueou a requisição. O template predefinido *WAF Event Collector* sempre envia `-` na chave `headers`. Para as variáveis, consulte [WAF Events](/pt-br/documentacao/plataforma/data-stream/fontes-de-dados-e-variaveis/#waf-events).
+- **Interprete `$truncated_body` como vazio**: a variável está obsoleta e sempre guarda `-`.
+
+Cada uma das demais chaves guarda o valor da sua variável para o evento.
+
+---
+
+## A API recusa um stream com 400
+
+Um `POST` para `/v4/workspace/stream/streams` retorna `400` com um array `errors`, e a API não cria nada. O `code` e o `source.pointer` de cada erro indicam a causa.
+
+- `400` `32002` `Workloads Must Be Provided`: `transform` não tem item `sampling` nem item `filter_workloads`. Adicione um deles.
+- `400` `32007` `Sampling And Workloads Are Exclusive`: `transform` tem os dois. Mantenha apenas um deles.
+- `400` `32008` `Template Must Be Provided`: `transform` não tem item `render_template`. Adicione um com um ID de template.
+- `400` `10059` `Required Field` em `/data/outputs/0/headers`: um endpoint `standard` não tem `headers`. Envie `{}` para nenhum.
+
+Todos os códigos, com a causa e a correção de cada um, estão em [Configurações do stream](/pt-br/documentacao/plataforma/data-stream/configuracoes-do-stream/#erros). Com o campo corrigido, a API responde `201` e retorna o stream.
+
+---
+
+## Apenas um endpoint é mantido depois que você salva um stream
+
+Você enviou duas entradas em `outputs`, a API respondeu `201`, e o stream guarda apenas a primeira.
+
+Um stream envia para um único endpoint. A API descarta uma segunda entrada em `outputs` sem erro.
+
+- **Crie um stream por endpoint**: dê ao segundo stream a mesma fonte de dados e o mesmo template, e o outro endpoint.
+- **Mantenha os dois streams ativos**: dê a cada um um filtro de workloads, e não sampling, ou o segundo salvamento para o primeiro.
+
+Cada stream então mostra o próprio endpoint na coluna **Connector**, e os próprios envios no Real-Time Events.
+
+---
+
+## Uma credencial de endpoint errada só aparece depois que o stream é salvo
+
+O stream foi salvo sem erro, mas Real-Time Events registra os envios dele com `503` ou com um erro do endpoint.
+
+Salvar verifica o formato dos campos, não o endpoint. A API aceita uma credencial errada ou uma URL inacessível, e o problema aparece no primeiro envio.
+
+- **Leia os primeiros registros depois de cada salvamento**: a resposta do salvamento confirma apenas o formato. Real-Time Events mostra se o endpoint aceita a credencial.
+- **Corrija a credencial e salve o stream**: para os campos que cada endpoint recebe, consulte [Endpoints](/pt-br/documentacao/plataforma/data-stream/endpoints/). Para um bucket do Azion Object Storage, consulte [Real-Time Events mostra o status 503 e nada chega ao endpoint](#real-time-events-mostra-o-status-503-e-nada-chega-ao-endpoint).
+- **Interprete um salvamento que falhou como um erro de formato**: ele retorna `400` com um código. Para os códigos comuns, consulte [A API recusa um stream com 400](#a-api-recusa-um-stream-com-400).
+
+Depois que a mudança entra em vigor, os envios do stream são registrados com `statusCode` `200`.
+
+---
+
+## Você não consegue criar um stream nem alterar os campos dele
+
+**+ Stream** está desativado, os campos de um stream não podem ser alterados, ou o **Data Set** de um template é somente leitura.
+
+A conta não tem a permissão de edição ou tem workloads demais, ou o template é predefinido. Uma fonte de dados também pode depender de um produto que a conta não tem.
+
+- **Peça a permissão de edição**: **View Data Stream** apenas mostra os streams. Criar, editar e excluir exigem **Edit Data Stream**. Para saber como as permissões são concedidas, consulte [Teams and permissions](/pt-br/documentacao/fundamentos/teams-permissions/).
+- **Use a API em contas grandes**: com 3.000 workloads ou mais, o Console bloqueia os formulários de stream. Para o limite, consulte [Limites de Data Stream](/pt-br/documentacao/plataforma/data-stream/limites/#limites-padrao).
+- **Duplique um template predefinido para alterar as variáveis dele**: **Duplicate Template** abre o drawer **Create Custom Template** com o data set do template predefinido. Para os templates personalizados, consulte [Templates personalizados](/pt-br/documentacao/plataforma/data-stream/templates-e-payload/#templates-personalizados).
+- **Ative o produto por trás da fonte de dados**: *Functions* precisa do [Functions](/pt-br/documentacao/plataforma/functions/), e *WAF Events* precisa do [Firewall](/pt-br/documentacao/plataforma/firewall/) com WAF.
+
+Com a permissão e os produtos no lugar, o formulário aceita as suas alterações, e **Save** as armazena.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Como o Data Stream funciona" href="/pt-br/documentacao/plataforma/data-stream/como-funciona/#disponibilidade-do-endpoint-e-falhas">Como a verificação de disponibilidade, os intervalos descartados e os envios recusados definem o que chega ao seu endpoint.</DocItem>
+  <DocItem title="Erros das configurações do stream" href="/pt-br/documentacao/plataforma/data-stream/configuracoes-do-stream/#erros">Todos os códigos de erro que a API retorna para um stream, com a causa e a correção de cada um.</DocItem>
+  <DocItem title="Endpoints" href="/pt-br/documentacao/plataforma/data-stream/endpoints/">Os campos e as credenciais que cada tipo de endpoint recebe, incluindo as capabilities do Object Storage.</DocItem>
+  <DocItem title="Real-Time Events" href="/pt-br/documentacao/plataforma/real-time-events/#data-stream">O registro de entrega de cada envio, com o código de status, as linhas de log e o destino.</DocItem>
+</ItemList>
+</FrameBox>
