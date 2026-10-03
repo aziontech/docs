@@ -1,0 +1,235 @@
+---
+title: Troubleshoot Edge DNS
+description: Find why a zone or record does not answer, why a change is not visible yet, why DNSSEC fails, and what an API error means.
+meta_tags: 'edge dns, troubleshooting, nxdomain, refused, dnssec, dig, dns propagation'
+namespace: documentation_products_edge_dns_troubleshooting
+permalink: /documentation/platform/edge-dns/troubleshooting/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+This page lists the symptoms of a zone in [Edge DNS](/en/documentation/platform/edge-dns/), each with its cause and its fix. Answers from Azion's nameservers come first, then answers from public resolvers, changes, weighted records, and DNSSEC. Errors from the API and the CLI, query monitoring, and platform incidents follow. Most checks ask `ns1.aziondns.net` directly, which works before the domain is delegated to Azion.
+
+---
+
+## The zone does not answer from Azion's nameservers
+
+A query to `ns1.aziondns.net` for a name in your zone returns no value, or its header reads `status: REFUSED`.
+
+The nameservers answer only for an active zone, only for the domain the zone holds, and only for record names relative to that domain.
+
+To ask the nameserver directly, without your resolver's cache, use `dig`, `host`, or `nslookup`. Replace `example.com` with your domain:
+
+```bash
+dig +short @ns1.aziondns.net www.example.com A
+```
+
+`dig` prints the value of the record, `192.0.2.1`. `host` converts names to addresses and back:
+
+```bash
+host www.example.com ns1.aziondns.net
+```
+
+```text
+Using domain server:
+Name: ns1.aziondns.net
+Address: 179.191.160.2#53
+Aliases:
+
+www.example.com has address 192.0.2.1
+www.example.com has IPv6 address 2001:db8::2
+```
+
+`nslookup` reads the records of a domain, a host, or an IP address:
+
+```bash
+nslookup www.example.com ns1.aziondns.net
+```
+
+```text
+Server:		ns1.aziondns.net
+Address:	179.191.160.2#53
+
+Name:	www.example.com
+Address: 192.0.2.1
+```
+
+When the zone does not answer, check these causes:
+
+- **Activate the zone**: the nameservers answer every name of an inactive zone with `REFUSED`. On the zone's **Main Settings** tab, turn on **Active** in **Status**, and select **Save**. In the CLI, run `azion update dns-zone --zone-id <zone-id> --active=true`.
+- **Check the domain of the zone**: the zone answers only for the domain typed at creation, shown locked in **Domain Name**. The domain cannot be changed, so create another zone for the right one. For the steps, refer to [Create, edit, or delete a zone](/en/documentation/guides/application-security/dns/edge-dns-configure-main-settings/).
+- **Name records relative to the zone**: enter `www` for `www.example.com`, and `@` for `example.com`. A record named `www.example.com` is served as `www.example.com.example.com`.
+
+Activating a zone, like any change, can take a few minutes to reach every nameserver. Once the zone answers, the full `dig` output shows `status: NOERROR` and the `aa` flag of an authoritative answer.
+
+---
+
+## Public resolvers return NXDOMAIN while Azion's nameservers answer
+
+`ns1.aziondns.net` answers for a name, but a public resolver such as `8.8.8.8` returns `NXDOMAIN` or your previous provider's records.
+
+Public resolvers reach Azion's nameservers only through the delegation that your registrar publishes. Until then, they ask the nameservers the registrar lists, or find no delegation at all.
+
+To see what a public resolver answers, query it in place of Azion's nameserver:
+
+```bash
+dig @8.8.8.8 www.example.com A
+```
+
+For a domain that is not delegated to Azion, the header reads `NXDOMAIN` with no answer:
+
+```text
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 19090
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+…
+```
+
+The SOA in the AUTHORITY section belongs to the parent registry, not to `ns1.aziondns.net`.
+
+- **Delegate the domain to all three nameservers**: at your registrar, set `ns1.aziondns.net`, `ns2.aziondns.com`, and `ns3.aziondns.org`. For the steps, refer to [Migrate nameservers to Azion](/en/documentation/guides/platform/migration/migrate-ns-to-azion/).
+- **Add the records before you delegate**: a name with no record is answered `NXDOMAIN`. For a name queried before its record existed, see [A new record returns NXDOMAIN](#a-new-record-returns-nxdomain).
+- **Check DNSSEC left from the previous provider**: a DS record for another provider's keys fails validation, as [Validation fails after turning on DNSSEC](#validation-fails-after-turning-on-dnssec) explains.
+- **Follow the delegation**: to see which nameservers the domain uses, trace it from the root zone with [Query a zone with dig](/en/documentation/guides/application-security/dns/run-the-dig-command/).
+
+Once the registrar publishes the delegation, public resolvers ask Azion's nameservers and return the same values as `ns1.aziondns.net`.
+
+---
+
+## A new record returns NXDOMAIN
+
+You added a record, and a query for its name returns `NXDOMAIN` at Azion's nameserver or at a resolver.
+
+Either the name was queried before the record existed, or the query does not match the record's name or type. Azion's nameservers cache a negative answer for up to one hour, the SOA minimum. When a wildcard in the zone makes the name exist, the early query gets `NOERROR` with an empty answer instead, and that empty answer is cached the same way.
+
+- **Wait for the negative answer to expire**: the nameservers answer the record at most one hour after the early query. A resolver that cached the `NXDOMAIN` keeps it for up to the same hour. For the SOA values, refer to [Nameservers and SOA](/en/documentation/platform/edge-dns/zones-and-records/#nameservers-and-soa).
+- **Query a name nobody asked for yet**: a name that nobody queried before it existed answers within seconds. To test right away, save a record under a fresh name, then query it.
+- **Wait for the first records of a zone**: the first records of a newly created zone can take a few minutes to be answered.
+- **Match the name and the type**: confirm that the record's name and type match the query. The zone's **Records** tab and `azion list dns-record --zone-id <zone-id>` list both.
+- **Remove a doubled domain**: a record named `_acme-challenge.example.com` is served as `_acme-challenge.example.com.example.com`, and a certificate authority never finds it. Name it `_acme-challenge`, as [Add the Let's Encrypt TXT record](/en/documentation/guides/application-security/tls-and-certificates/lets-encrypt-record/) shows. A [CAA record](/en/documentation/platform/edge-dns/record-types/#caa) can also limit which authorities issue certificates.
+
+To avoid the cached `NXDOMAIN`, query a name only after you create its record, as [Best practices for Edge DNS](/en/documentation/platform/edge-dns/best-practices/) recommends. Once the record is answered, `dig +short` prints its value.
+
+---
+
+## A changed record still returns the old value
+
+After you change a record, queries return the old value, or some networks get the changed value while others get the old one.
+
+Azion's nameservers answer from a cache, so a change to an existing record can take a few minutes to reach every nameserver. After that, each resolver keeps its copy until the record's TTL expires.
+
+- **Confirm the saved value**: check the record on the zone's **Records** tab, or with `azion describe dns-record --zone-id <zone-id> --record-id <record-id>`.
+- **Compare Azion's nameserver with your resolver**: run the same `dig` query with `@ns1.aziondns.net`, then with your resolver or `@8.8.8.8`. When only the resolver returns the old value, its copy has not expired yet.
+- **Read the remaining TTL**: in the full `dig` output, the TTL in the ANSWER section counts down the seconds before that copy expires.
+- **Lower the TTL before a planned change**: resolvers then keep the old value for a shorter time. For the practice, refer to [Best practices for Edge DNS](/en/documentation/platform/edge-dns/best-practices/).
+
+For how the two caches add up, refer to [Caching and propagation](/en/documentation/platform/edge-dns/how-it-works/#caching-and-propagation). Once every copy expires, Azion's nameservers and public resolvers return the same value.
+
+---
+
+## A weighted record always returns the same address
+
+Repeated queries for a name with *Weighted* records return one address every time, not a mix.
+
+Each answer carries one value, chosen by weight, and is cached for the record's TTL like any answer. Until the TTL expires, the nameserver and the resolver return that same address.
+
+- **Measure over time, not query by query**: each record's share is its weight over the sum of the weights. The shares even out across many resolvers and TTL periods.
+- **Shorten the TTL to choose again sooner**: a short TTL, such as 20 seconds, makes resolvers ask again sooner. Each query counts toward the [included usage](/en/documentation/platform/edge-dns/limits/#included-usage-per-plan) of your plan.
+- **Check each weight**: a record with weight `0` is never answered. The Console pre-fills **Weight** with `100`, and the API defaults `weight` to `255`.
+
+For how a weighted answer is chosen, refer to [Record policies](/en/documentation/platform/edge-dns/how-it-works/#record-policies). For the setup, refer to [Weight records to balance traffic](/en/documentation/guides/application-security/dns/load-balance-dns/). Over many TTL periods, each address answers in proportion to its weight.
+
+---
+
+## Validation fails after turning on DNSSEC
+
+DNSSEC is on for the zone, but validating resolvers fail to answer the domain, or the [DNSSEC Analyzer](https://dnssec-analyzer.verisignlabs.com/) reports errors.
+
+Validating resolvers trust the zone's signatures only through the DS record that your registrar publishes. A missing, mismatched, or stale DS record breaks that chain of trust.
+
+- **Add the DS record at your registrar**: the `ready` status means Azion signed the zone, not that the registrar holds the DS record. Add the four values in [DS record](/en/documentation/platform/edge-dns/dnssec/#ds-record).
+- **Compare the four values**: the record at the registrar must match `delegation_signer`, or the locked fields under **Enable DNSSEC**. A DS record left by a previous DNS provider describes another provider's keys. Replace it.
+- **Confirm that the TLD supports DNSSEC**: the registry of the domain's top-level domain must support DNSSEC to publish the DS record.
+- **Wait for the DS record to be published**: the registrar and the TLD registry can take up to 48 hours.
+- **Allow a few minutes for signing**: answers cached before DNSSEC was turned on can be served unsigned for a few minutes.
+- **Turn DNSSEC on again if it was turned off first**: while the registrar publishes the DS record, or resolvers cache it, they expect signatures. Turning DNSSEC on again returns the same four DS values. Then follow the order in [Turn DNSSEC off](/en/documentation/guides/application-security/dns/activate-dnssec/#turn-dnssec-off).
+
+An `RRSIG` record in a `dig +dnssec` answer shows that the zone is signed, not that resolvers validate it. Once the registrar publishes a matching DS record, validating resolvers verify the zone's answers.
+
+---
+
+## The API refuses a record with 400
+
+A `POST` to `/v4/workspace/dns/zones/<zone-id>/records` returns `400` with an `errors` array, and the API creates nothing. The Console sends a record to the API as typed, so a value the form accepts can be refused with the same codes. The `code` of each error names the rule the record breaks:
+
+- `400` `19005` `Invalid CNAME`: the CNAME record is named `@`. At the apex, use an [ANAME](/en/documentation/platform/edge-dns/record-types/#aname) record for an Azion target.
+- `400` `19018` `CNAME Record Already Exists For Domain`: the name holds a CNAME, which blocks every other type. Remove the CNAME, or use another name.
+- `400` `19004` `Record Already Exists`: a simple record with the same name and type exists, or the name holds an SRV record. Add the value to the existing record.
+- `400` `19007` `Invalid RData Size`: an A, AAAA, ANAME, DS, MX, or NS record has more than 10 values. Keep 10 values or fewer.
+- `400` `19011` `Invalid TTL For QTYPE`: an ANAME record's `ttl` is not `20`, including the default `3600`. Send `"ttl": 20`.
+- `400` `19016` `Invalid ANAME Record Answer`: the ANAME target is not under `azioncdn.net`, `azionedge.net`, or `azionedge.com`. Point it at one of them.
+- `400` `19024` `Invalid TXT Record Answer Size`: a TXT value is longer than 1,000 characters. Shorten it.
+- `400` `10046` `Max Length`: a record's `description` is longer than 45 characters, or its `name` longer than 255. Shorten the field.
+
+Every code, with its cause and its fix, is in [Zones and records](/en/documentation/platform/edge-dns/zones-and-records/#errors). With the field corrected, the API answers `201` and returns the record.
+
+---
+
+## The CLI reports an update, but the zone or DNSSEC is unchanged
+
+`azion update dns-zone` or `azion update dnssec` prints its success line, but `azion describe` still shows the previous `Active:` or `Enabled:` value.
+
+The boolean flag was written with a space, such as `--active false`. In that form, the command does not apply the value, and it still prints the success line.
+
+- **Write each boolean with an equals sign**: use `--active=true`, `--active=false`, `--enabled=true`, or `--enabled=false`.
+- **Read the value back**: after an update, run `azion describe dns-zone --zone-id <zone-id>` or `azion describe dnssec --zone-id <zone-id>`.
+
+To deactivate a zone, for example:
+
+```bash
+azion update dns-zone --zone-id <zone-id> --active=false
+```
+
+The command prints `DNS zone <zone-id> was updated`, and `azion describe dns-zone` then prints `Active: false`.
+
+---
+
+## You need to see how many queries a zone receives
+
+You want to know whether queries reach your zone, how many arrive, or what each one asked for.
+
+Edge DNS reports its queries in Real-Time Metrics, Real-Time Events, and the GraphQL API.
+
+- **Read the query count**: in Real-Time Metrics, the **Edge DNS** tab holds the **Standard Queries** dashboard with the **Total Queries** chart, which you can filter by zone. A sudden drop can point to a misconfiguration or a propagation issue, and an unexpected spike to abnormal traffic. For the chart and its filters, refer to [Edge DNS dashboard](/en/documentation/platform/real-time-metrics/secure-dashboards/#edge-dns).
+- **Read each query**: Real-Time Events keeps one record per query that Edge DNS answers. For its fields, refer to [Edge DNS data source](/en/documentation/platform/real-time-events/data-sources/#edge-dns).
+- **Query the data through the API**: the [GraphQL API](/en/documentation/devtools/graphql/overview/) returns aggregated and raw data, with only the fields you request. For the Edge DNS datasets, refer to [Datasets](/en/documentation/devtools/graphql/features/#datasets).
+
+Once the domain is delegated, the query count of your zone shows queries arriving at Azion's nameservers.
+
+---
+
+## Zones stop answering although nothing changed
+
+Names in one or more zones stop answering, or answer slowly, and no change in your account explains it.
+
+A platform incident can affect Edge DNS in one or more regions.
+
+- **Check the Azion Status Page**: [status.azion.com](https://status.azion.com/) shows the status of every platform component, Edge DNS included. It reads operational, degraded performance, partial outage, or major outage. Subscribe there to receive an email when Azion opens, updates, or resolves an incident.
+- **Hold zone changes during an incident**: read the incident's regions and estimated resolution, and avoid changes to your zones until it ends. Propagation can behave unpredictably during an incident. Records with a low TTL make resolvers query Azion's nameservers more often, which can amplify a disruption.
+- **Collect the evidence**: keep the `dig` or `host` output that shows the unexpected answer, and the time in UTC. List the affected names and record types. Add the nameserver you queried, such as `ns1.aziondns.net`, and where you observed the issue. To include the network path, refer to [Trace the route to a host](/en/documentation/guides/application-security/dns/run-the-traceroute-command/).
+- **Contact Azion Support**: when the status page shows no incident, send the evidence through [Support](/en/documentation/support/).
+
+Once the status page shows Edge DNS as operational, query `ns1.aziondns.net` again to confirm the answer.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How Edge DNS works" href="/en/documentation/platform/edge-dns/how-it-works/#the-resolution-path">How a query reaches Azion's nameservers through the delegation, and when they answer REFUSED or NXDOMAIN.</DocItem>
+  <DocItem title="Zones and records errors" href="/en/documentation/platform/edge-dns/zones-and-records/#errors">Every API error code for zones and records, with its cause and its fix.</DocItem>
+  <DocItem title="Query a zone with dig" href="/en/documentation/guides/application-security/dns/run-the-dig-command/">How to install dig, read its output, and follow a delegation from the root zone.</DocItem>
+  <DocItem title="Migrate nameservers to Azion" href="/en/documentation/guides/platform/migration/migrate-ns-to-azion/">The registrar change that delegates a domain to Edge DNS, step by step.</DocItem>
+</ItemList>
+</FrameBox>
