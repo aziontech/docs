@@ -340,7 +340,7 @@ describe('mdxToMarkdown', () => {
 
 	test('numbers the steps an include holds inside DocSteps', async () => {
 		const out = await convert(
-			"import Steps from '~/includes/steps.mdx'\n\n<DocSteps>\n<Steps />\n<DocStep title=\"Three\" />\n</DocSteps>",
+			'import Steps from \'~/includes/steps.mdx\'\n\n<DocSteps>\n<Steps />\n<DocStep title="Three" />\n</DocSteps>',
 			{ readInclude: () => '<DocStep title="One" />\n<DocStep title="Two" />' }
 		);
 		expect(out).toBe('1. **One**\n2. **Two**\n3. **Three**\n');

@@ -121,7 +121,8 @@ const withoutTooltips = (value: string) => value.replace(/\[\[[^:\]]+:([^\]]+)\]
 
 const slotOf = (node: MdNode) => (isElement(node) ? str(node, 'slot') : undefined);
 
-const fragments = (node: MdNode) => childElements(node).filter((child) => child.name === 'Fragment');
+const fragments = (node: MdNode) =>
+	childElements(node).filter((child) => child.name === 'Fragment');
 
 /** Merges converted children into one list: lists of the same kind give up their items, and
  * any other block joins the item before it (or stays ahead of the list when there is none). */
@@ -129,7 +130,8 @@ function mergeLists(nodes: MdNode[], ordered: boolean): MdNode[] {
 	const before: MdNode[] = [];
 	const items: MdNode[] = [];
 	for (const node of asBlocks(nodes)) {
-		if (node.type === 'list' && Boolean(node.ordered) === ordered) items.push(...(node.children ?? []));
+		if (node.type === 'list' && Boolean(node.ordered) === ordered)
+			items.push(...(node.children ?? []));
 		else if (items.length > 0) {
 			const last = items[items.length - 1];
 			last.children = [...(last.children ?? []), node];
@@ -185,7 +187,8 @@ function topologyNode(node: TopologyNode, referenceLabel: string, ctx: Context):
 		line.push(text('.'));
 	}
 	if (node.examples?.length) line.push(text(` ${node.examples.join(', ')}.`));
-	if (node.href) line.push(text(' '), link(ctx.twinHref(node.href), [text(referenceLabel)]), text('.'));
+	if (node.href)
+		line.push(text(' '), link(ctx.twinHref(node.href), [text(referenceLabel)]), text('.'));
 	return [paragraph(line)];
 }
 

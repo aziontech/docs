@@ -11,15 +11,15 @@ export async function pricingRows(props) {
 	///////////////
 
 	const i18n = {
-		"pt-br": {
-			'USA': 'EUA',
+		'pt-br': {
+			USA: 'EUA',
 			'United States': 'EUA',
-			'Canada': 'Canadá',
-			'Europe': 'Europa',
-			'Brazil': 'Brasil',
-			'Latam': 'Latam',
+			Canada: 'Canadá',
+			Europe: 'Europa',
+			Brazil: 'Brasil',
+			Latam: 'Latam',
 			'All Other Regions': 'Outras Regiões',
-			'Other_Regions': 'Outras Regiões',
+			Other_Regions: 'Outras Regiões',
 			'Class C Operations': 'Operações / mês',
 
 			'First 50 GB / month': 'Primeiros 50 GB / mês',
@@ -39,7 +39,7 @@ export async function pricingRows(props) {
 			'Over 5 PB / month': 'Acima de 5 PB / mês',
 			'Over 50 TB / month': 'Acima de 50 TB por mês',
 
-			'First 10 million requests / month':'Primeiros 10 milhões de requisições / mês',
+			'First 10 million requests / month': 'Primeiros 10 milhões de requisições / mês',
 			'Next 990 million requests / month': 'Próximos 990 milhões de requisições / mês',
 			'Next 999 million requests / month': 'Próximos 999 milhões de requisições / mês',
 			'Up to 10 rules per firewall': 'Até 10 regras por firewall',
@@ -51,9 +51,9 @@ export async function pricingRows(props) {
 			'Over 1 GB / month': 'Acima de 1 GB / mês',
 			'Next 49,990 GB / month': 'Próximos 49.990 GB / mês',
 
-			'First 1 GB / month':'Primeiro 1 GB / mês',
+			'First 1 GB / month': 'Primeiro 1 GB / mês',
 			'First 1 GB  / month': 'Primeiro 1 GB / mês',
-			'First 1GB / month':'Primeiro 1 GB / mês',
+			'First 1GB / month': 'Primeiro 1 GB / mês',
 			'Next 1GB / month': 'Acima de 1 GB / mês',
 
 			'Over 250.000 dolars': 'Acima de 250.000 dólares',
@@ -73,18 +73,24 @@ export async function pricingRows(props) {
 			'Over 500 TB per month': 'Acima de 500 TB por mês',
 			'Over 500 TB / month': 'Acima de 500 TB por mês',
 
-			'First 10 million images processed/month': 'Primeiros 10 milhões de imagens processadas / mês',
+			'First 10 million images processed/month':
+				'Primeiros 10 milhões de imagens processadas / mês',
 			'Next 40 million images processed/month': 'Próximos 40 milhões de imagens processadas / mês',
-			'Next 100 million images processed/month': 'Próximos 100 milhões de imagens processadas / mês',
-			'Next 350 million images processed/month': 'Próximos 350 milhões de imagens processadas / mês',
-			'Next 500 million images processed/month': 'Próximos 500 milhões de imagens processadas / mês',
-			'Next 4,000 million images processed/month': 'Próximos 4.000 milhões de imagens processadas / mês',
-			'Over 5,000 million images processed/month': 'Acima de 5.000 milhões de imagens processadas / mês',
+			'Next 100 million images processed/month':
+				'Próximos 100 milhões de imagens processadas / mês',
+			'Next 350 million images processed/month':
+				'Próximos 350 milhões de imagens processadas / mês',
+			'Next 500 million images processed/month':
+				'Próximos 500 milhões de imagens processadas / mês',
+			'Next 4,000 million images processed/month':
+				'Próximos 4.000 milhões de imagens processadas / mês',
+			'Over 5,000 million images processed/month':
+				'Acima de 5.000 milhões de imagens processadas / mês',
 
 			'First 100,000 requests / month': 'Primeiras 100.000 requisições / mês',
 			'First 1 million requests / month': 'Primeiro 1 milhão de requisições / mês',
 			'Next 999,900,000 requests / month': 'Próximas 999.900.000 requisições / mês',
-			'First 1 billion requests /month': 'Primeiro 1 bilhão de requisições / mês', 
+			'First 1 billion requests /month': 'Primeiro 1 bilhão de requisições / mês',
 			'First 1 billion requests/month': 'Primeiro 1 bilhão de requisições / mês',
 			'First 1 billion requests / month': 'Primeiro 1 bilhão de requisições / mês',
 			'Next 4 billion requests /month': 'Próximos 4 bilhões de requisições / mês',
@@ -114,9 +120,9 @@ export async function pricingRows(props) {
 
 			'Compute Time': 'Compute Time',
 			'HTTP/HTTPS Requests, all methods': 'Requisições HTTP/HTTPS, todos os métodos',
-			'Invocations': 'Invocations',
-			'Operations': 'Operações',
-			'Rate': 'Taxa',
+			Invocations: 'Invocations',
+			Operations: 'Operações',
+			Rate: 'Taxa',
 			'Single Tier': 'Tier unico',
 
 			'Up to 10 workloads': 'Até 10 workloads',
@@ -141,10 +147,10 @@ export async function pricingRows(props) {
 			'Over 5 billion images / month': 'Acima de 5 bilhões de imagens / mês',
 			'Next 9,995,000 images / month': 'Próximas 9.995.000 imagens / mês',
 
-			'Minimum Fee Monthly':'Taxa Mínima Mensal',
+			'Minimum Fee Monthly': 'Taxa Mínima Mensal',
 			'First 30.000 BRL': 'Primeiros R$ 30.000,00',
 			'Next 170.000 BRL': 'Próximos R$ 170.000,00',
-			'First 200.000 BRL':'Primeiros R$ 200.000,00',
+			'First 200.000 BRL': 'Primeiros R$ 200.000,00',
 			'Next 400.000 BRL': 'Próximos R$ 400.000,00',
 			'Next 600.000 BRL': 'Próximos R$ 600.000,00',
 			'Next 1.000.000 BRL': 'Próximos R$ 1.000.000,00',
@@ -167,7 +173,7 @@ export async function pricingRows(props) {
 			'Over 8 hours / month': 'Acima de 8 horas / mês',
 			'First 3 million requests / month': 'Primeiros 3 milhões de requisições / mês',
 			'Over 3 million requests / month': 'Acima de 3 milhões de requisições / mês',
-		}
+		},
 	};
 
 	///////////////
@@ -177,17 +183,24 @@ export async function pricingRows(props) {
 	async function fetchPricingData() {
 		const cache = (globalThis.__pricingCache ??= new Map());
 		if (!cache.has(product_slug)) {
-			cache.set(product_slug, (async () => {
-				const response = await fetch(`https://vef4esszhdq.map.azionedge.net/api/pricing/get/product_slug/${product_slug}`);
-				if (!response.ok) {
-					throw new Error(`Pricing API returned ${response.status} for product_slug "${product_slug}"`);
-				}
-				const data = await response.json();
-				return Array.isArray(data) ? data : [];
-			})().catch((error) => {
-				cache.delete(product_slug);
-				throw error;
-			}));
+			cache.set(
+				product_slug,
+				(async () => {
+					const response = await fetch(
+						`https://vef4esszhdq.map.azionedge.net/api/pricing/get/product_slug/${product_slug}`
+					);
+					if (!response.ok) {
+						throw new Error(
+							`Pricing API returned ${response.status} for product_slug "${product_slug}"`
+						);
+					}
+					const data = await response.json();
+					return Array.isArray(data) ? data : [];
+				})().catch((error) => {
+					cache.delete(product_slug);
+					throw error;
+				})
+			);
 		}
 		return cache.get(product_slug);
 	}
@@ -204,10 +217,10 @@ export async function pricingRows(props) {
 		// - 2.000 → 2.00 (ensure minimum 2 decimals)
 		const numValue = parseFloat(value);
 		if (isNaN(numValue)) return value;
-	
+
 		// Convert to string to check decimal places
 		const strValue = String(value);
-	
+
 		// Check if value has decimal part
 		if (strValue.includes('.')) {
 			const decimalPart = strValue.split('.')[1] || '';
@@ -237,44 +250,54 @@ export async function pricingRows(props) {
 	function normalizeRegionName(region) {
 		const mappings = {
 			'United States': 'USA',
-			'All Other Regions': 'Other_Regions'
+			'All Other Regions': 'Other_Regions',
 		};
 
 		return mappings[region] || region.replace(' ', '_');
-	};
+	}
 
 	function transformData(data) {
-	  const tiers = {};
-	  // Defensive check: ensure data is an array before filtering
-	  const filteredData = Array.isArray(data) ? data.filter(item => item.metric_slug === metric_slug) : [];
+		const tiers = {};
+		// Defensive check: ensure data is an array before filtering
+		const filteredData = Array.isArray(data)
+			? data.filter((item) => item.metric_slug === metric_slug)
+			: [];
 
 		filteredData.forEach((item, index) => {
 			const tiersCountry = {
-				'USA': '',
-				'Canada': '',
-				'Europe': '',
-				'Brazil': '',
-				'Latam': '',
-				'Other_Regions': ''
+				USA: '',
+				Canada: '',
+				Europe: '',
+				Brazil: '',
+				Latam: '',
+				Other_Regions: '',
 			};
 			const tier = lang === 'pt-br' ? i18n[lang][item.tier_name] : item.tier_name;
-	    const region = normalizeRegionName(item.region);
+			const region = normalizeRegionName(item.region);
 			let price;
-	
+
 			if (item.brazilian_real_formatted || item.american_dollar_formatted) {
 				price = isReal() ? item.brazilian_real_formatted : item.american_dollar_formatted;
 			} else {
-				price = isReal() ? item.brazilian_real : item.american_dollar
+				price = isReal() ? item.brazilian_real : item.american_dollar;
 			}
 
 			// A zero price is the usage the plans include: label it instead of printing $0.00
 			const numericPrice = isReal() ? item.brazilian_real : item.american_dollar;
-			const formattedPrice = isReal() ? item.brazilian_real_formatted : item.american_dollar_formatted;
-			const isZeroPrice = numericPrice === 0 || numericPrice === '0' || numericPrice === 0.0 || numericPrice === '0.00' ||
-			                    parseFloat(numericPrice) === 0 ||
-			                    formattedPrice === '0' || formattedPrice === '0.00' || formattedPrice === '0.000' ||
-			                    parseFloat(formattedPrice) === 0;
-		
+			const formattedPrice = isReal()
+				? item.brazilian_real_formatted
+				: item.american_dollar_formatted;
+			const isZeroPrice =
+				numericPrice === 0 ||
+				numericPrice === '0' ||
+				numericPrice === 0.0 ||
+				numericPrice === '0.00' ||
+				parseFloat(numericPrice) === 0 ||
+				formattedPrice === '0' ||
+				formattedPrice === '0.00' ||
+				formattedPrice === '0.000' ||
+				parseFloat(formattedPrice) === 0;
+
 			if (isZeroPrice) {
 				price = lang === 'pt-br' ? 'Incluído' : 'Included';
 			} else {
@@ -283,7 +306,7 @@ export async function pricingRows(props) {
 				// Format for Brazilian Portuguese: use dot as thousand separator, comma as decimal separator
 				// Example: 1000.00 -> 1.000,00
 				// Applies to both Real (R$) and Dollar (USD) when lang is pt-br
-				if(isReal() || lang === 'pt-br') {
+				if (isReal() || lang === 'pt-br') {
 					const parts = price.split('.');
 					// Add thousand separators to the integer part
 					if (parts[0].length > 3) {
@@ -304,24 +327,24 @@ export async function pricingRows(props) {
 				}
 			}
 
-	    if (!tiers[tier]) {
-	      tiers[tier] = tiersCountry;
-	    }
+			if (!tiers[tier]) {
+				tiers[tier] = tiersCountry;
+			}
 
 			// this validation is to when is the same tier but
 			// should be repeated with another price
 			// without this validation the last tier will replace the already setted
 			const indexTier = `#${index} ${tier}`;
-			if(tiers[tier][region]) {
+			if (tiers[tier][region]) {
 				tiers[indexTier] = tiersCountry;
 				tiers[indexTier][region] = price;
 			} else {
 				tiers[tier][region] = price;
 			}
-	  });
+		});
 
-	  // Sort tiers: rows with zero prices (labeled "Included" or "Incluído") come first
-	  return sortTiersByZeroPrice(tiers);
+		// Sort tiers: rows with zero prices (labeled "Included" or "Incluído") come first
+		return sortTiersByZeroPrice(tiers);
 	}
 
 	/**
@@ -347,9 +370,9 @@ export async function pricingRows(props) {
 	 */
 	function getMinPrice(prices) {
 		const priceValues = Object.values(prices)
-			.filter(price => price) // Remove empty values
-			.map(price => extractNumericPrice(price));
-	
+			.filter((price) => price) // Remove empty values
+			.map((price) => extractNumericPrice(price));
+
 		return priceValues.length > 0 ? Math.min(...priceValues) : 0;
 	}
 
@@ -362,40 +385,40 @@ export async function pricingRows(props) {
 	 */
 	function sortTiersByZeroPrice(tiers) {
 		const entries = Object.entries(tiers);
-	
+
 		// Separate entries into zero-price and non-zero-price
 		const zeroPriceEntries = [];
 		const nonZeroPriceEntries = [];
-	
+
 		entries.forEach(([tierName, prices]) => {
 			// Check if any price in this row is "Included" or "Incluído"
-			const hasZeroPrice = Object.values(prices).some(price =>
-				price === 'Included' || price === 'Incluído'
+			const hasZeroPrice = Object.values(prices).some(
+				(price) => price === 'Included' || price === 'Incluído'
 			);
-		
+
 			if (hasZeroPrice) {
 				zeroPriceEntries.push([tierName, prices]);
 			} else {
 				nonZeroPriceEntries.push([tierName, prices]);
 			}
 		});
-	
+
 		// Sort non-zero price entries in descending order (highest price first)
 		nonZeroPriceEntries.sort((a, b) => {
 			const minPriceA = getMinPrice(a[1]);
 			const minPriceB = getMinPrice(b[1]);
 			return minPriceB - minPriceA; // Descending order
 		});
-	
+
 		// Combine: zero-price entries first, then sorted non-zero-price entries
 		const sortedEntries = [...zeroPriceEntries, ...nonZeroPriceEntries];
-	
+
 		// Rebuild the object with sorted order
 		const sortedTiers = {};
 		sortedEntries.forEach(([tierName, prices]) => {
 			sortedTiers[tierName] = prices;
 		});
-	
+
 		return sortedTiers;
 	}
 

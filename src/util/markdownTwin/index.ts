@@ -78,7 +78,11 @@ export function includeKey(specifier: string): string | undefined {
 interface EsmNode {
 	type: string;
 	source?: { value: string };
-	specifiers?: { type: string; local: { name: string }; imported?: { name?: string; value?: string } }[];
+	specifiers?: {
+		type: string;
+		local: { name: string };
+		imported?: { name?: string; value?: string };
+	}[];
 }
 
 /** Local name to import specifier, for every default import (`import X from`, and
