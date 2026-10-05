@@ -1,7 +1,7 @@
 export const SITE_TITLE = 'Azion';
-export const SITE_URL = 'https://52082s.ha.azioncdn.net';
-export const ASSETS_URL = 'https://52082s.ha.azioncdn.net';
-export const FAVICON_URL = 'https://52082s.ha.azioncdn.net/assets/images/favicon.png';
+export const SITE_URL = 'https://ae8izkzszxu.map.azionedge.net';
+export const ASSETS_URL = 'https://ae8izkzszxu.map.azionedge.net';
+export const FAVICON_URL = 'https://ae8izkzszxu.map.azionedge.net/assets/images/favicon.png';
 export const FONTS_URL = 'https://fonts.azion.com';
 
 export const ALGOLIA_ID = 'PYJUZH6VNQ';
