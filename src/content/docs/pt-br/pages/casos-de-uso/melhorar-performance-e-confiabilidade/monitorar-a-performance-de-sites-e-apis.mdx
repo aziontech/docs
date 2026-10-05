@@ -1,0 +1,179 @@
+---
+title: Monitorar a performance de sites e APIs
+description: >-
+  Colete medições de carregamento de página de visitantes reais com Edge Pulse,
+  consulte-as por página e compare-as com o que a Azion serviu para o mesmo domínio.
+meta_tags: 'real user monitoring, rum, edge pulse, pulseEvents, page load time, real-time metrics, real-time events, graphql, grafana, observability'
+namespace: use_case_monitor_website_and_api_performance
+permalink: /documentacao/casos-de-uso/melhorar-performance-e-confiabilidade/monitorar-a-performance-de-sites-e-apis/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+
+Um time de SRE, de performance ou de web executa um site e as suas APIs atrás da Azion e precisa ver quão rápidas as páginas são para visitantes reais e de onde vêm os erros, sem instalar agentes nos seus servidores. O dispositivo, a rede e o navegador do visitante decidem como um carregamento de página parece, e nenhum deles é visível a partir do servidor. Esta página coloca a tag do Edge Pulse nas páginas que importam, consulta as medições que os navegadores dos visitantes enviam e lê o lado da Azion do mesmo domínio no Real-Time Metrics e no Real-Time Events. O resultado é medido pelo tempo de carregamento de cada página com a tag ao longo do tempo, pela parcela das páginas com a tag que informam medições e pela taxa de erro do domínio.
+
+Este caso de uso não cobre a análise de eventos de segurança nem o tracing dentro do seu backend.
+
+## Pré-requisitos
+
+- Uma aplicação que serve o seu site por meio de um workload. Para criá-los, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+- Acesso para editar e publicar o HTML das páginas que você monitora, ou ao sistema de gerenciamento de tags que publica scripts nelas.
+- Um personal token, para as consultas GraphQL. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- O domínio e as páginas que você monitora. Esta página usa `www.example.com` para o domínio, e a página inicial `/` e a página de busca `/search` como as duas páginas cujo tempo de carregamento mais importa. Substitua cada valor pelo seu em todos os passos.
+
+---
+
+## Produtos necessários
+
+| O time precisa de | O que significa | Produto | Documentado em |
+| --- | --- | --- | --- |
+| Tempos de carregamento medidos nos navegadores de visitantes reais | A tag JavaScript do Edge Pulse em cada página monitorada | Edge Pulse | [Tag JavaScript do Edge Pulse](/pt-br/documentacao/plataforma/edge-pulse/tag-javascript/) |
+| Essas medições lidas por página, ao longo do tempo | Consultas GraphQL no dataset `pulseEvents` da API do Real-Time Events | Real-Time Events | [Consulte as medições do Edge Pulse com GraphQL](/pt-br/documentacao/guias/plataforma/observabilidade/consultar-medicoes-do-edge-pulse-com-graphql/) |
+| O lado da Azion do mesmo tráfego: tempo de requisição e erros | Os dashboards **Requests** e **Status Codes**, filtrados pelo domínio | Real-Time Metrics | [Dashboards de Build](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#requests) |
+| Uma requisição lenta ou com falha rastreada até a sua causa | Os registros HTTP Requests do domínio, com o tempo de resposta e o status da origem | Real-Time Events | [Fontes de dados de Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/fontes-de-dados/#http-requests) |
+
+---
+
+## Arquitetura de referência
+
+Esta página constrói o *Pipeline de monitoramento de usuários reais*: a tag do Edge Pulse nas páginas, com as medições lidas por GraphQL e comparadas com o que a Azion serviu.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Visitor["Navegador do visitante"] -->|"solicita a página"| App["aplicação"]
+  App -->|"página com a tag do Edge Pulse"| Visitor
+  Visitor -->|"roda a tag, envia o resultado do teste"| Pulse["Edge Pulse"]
+  Pulse -->|"guardado como pulseEvents"| RTE["API GraphQL do Real-Time Events"]
+  App -->|"cada requisição que serviu"| RTM["Real-Time Metrics"]
+  App -->|"um registro por requisição"| RTE
+  RTE -->|"consultas"| Team["consultas e dashboards do time"]
+  RTM -->|"gráficos e consultas"| Team
+```
+
+Leia o diagrama a partir do navegador do visitante. A aplicação entrega a página, e a página carrega a tag do Edge Pulse, então a medição começa no navegador, e não em um servidor. Dois fluxos de dados saem do design: os resultados de teste do navegador, guardados pelo Edge Pulse, e as requisições que a aplicação serviu, contadas pelo Real-Time Metrics e registradas uma a uma no Real-Time Events. Os dois são lidos por GraphQL, que é onde as consultas e os dashboards do time os juntam. Os dados do navegador medem a experiência do visitante, incluindo o dispositivo, a rede e os scripts da página, e não a visão que o servidor tem da requisição.
+
+### Fluxo de dados
+
+1. Um visitante solicita uma página com a tag, e a aplicação a serve com a tag do Edge Pulse antes do fechamento da tag `body`.
+2. O navegador do visitante roda a tag, que mede o carregamento da página e testa três endereços da infraestrutura distribuída da Azion.
+3. O navegador envia o resultado para a Azion, e o Edge Pulse o guarda no dataset `pulseEvents`. Esse navegador só é testado de novo depois de 30 minutos.
+4. Real-Time Metrics conta cada requisição que a aplicação serviu para o mesmo domínio, com o seu tempo de requisição e o seu status code.
+5. O time consulta `pulseEvents` no endpoint GraphQL do Real-Time Events, agrupado por página, e as métricas de requisição no endpoint GraphQL do Real-Time Metrics.
+6. Quando uma página fica lenta ou falha, os registros HTTP Requests do Real-Time Events mostram cada requisição, o tempo de resposta da origem e o status code da origem.
+
+### Componentes
+
+- **Edge Pulse**: coleta as medições do navegador. A sua tag roda no navegador do visitante depois do evento de carregamento, ou antes dele com a **Pre-loading Tag**, e as medições, como `pageloadtime`, `ttfb` e `locationhref`, ficam no dataset `pulseEvents` da API GraphQL do Real-Time Events por 7 dias.
+- **Real-Time Events**: guarda o dataset `pulseEvents`, e a sua API GraphQL é o único lugar de onde as medições do navegador são lidas.
+- **Real-Time Metrics**: mostra em gráficos as requisições que a aplicação serviu e as serve por GraphQL. Ele guarda o lado da Azion do mesmo tráfego, como **Average Request Time** e os status codes, com os quais a visão do navegador é comparada.
+- **Grafana**: a integração que desenha os dashboards do time, uma opção de design. O plugin da Azion lê o Real-Time Metrics e o Real-Time Events pela API GraphQL.
+- **aplicação**: o Platform Resource que serve o site monitorado. Ela entrega as páginas que carregam a tag, e as suas requisições são o que o Real-Time Metrics conta.
+
+### Outros designs para este caso de uso
+
+- *Pipeline de logs de entrega para uma plataforma de observabilidade*: para times que analisam e criam alertas nas próprias ferramentas, como Datadog, Splunk ou Elasticsearch. Data Stream envia o log da Azion de cada requisição para essa plataforma, então os dados vêm do lado da Azion de cada requisição, e as decisões de retenção, de alertas e de correlação passam para a plataforma do time.
+
+---
+
+## Configure a tag do Edge Pulse nas páginas monitoradas
+
+O Edge Pulse só mede uma página quando essa página carrega a tag, e uma página sem ela não produz medição. Para este site, a tag vai na página inicial `/` e na página de busca `/search`. A tag não tem configurações: nenhuma taxa de amostragem, nenhum campo para excluir e nenhuma forma de deixar o seu próprio tráfego de fora.
+
+Escolha a tag pela página, e não por preferência. A **Default Tag** roda depois que o evento de carregamento termina, então nunca atrasa o carregamento que mede. A **Pre-loading Tag** roda antes que o evento de carregamento dispare, e existe para páginas cuja Content Security Policy não permite JavaScript inline. Um visitante que sai antes que o evento de carregamento termine nunca é medido pela **Default Tag**.
+
+Para adicionar a tag às páginas monitoradas:
+
+<DocSteps>
+  <DocStep title="Abra o Edge Pulse">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Products menu** > **Observe** > **Edge Pulse**.
+
+  </DocStep>
+  <DocStep title="Selecione a tag de que as suas páginas precisam">
+
+  Selecione a **Default Tag**, ou a **Pre-loading Tag** quando as páginas bloqueiam JavaScript inline.
+
+  </DocStep>
+  <DocStep title="Selecione Copy to Clipboard" />
+  <DocStep title="Cole a tag em cada página monitorada">
+
+  No HTML de `/` e de `/search`, cole a tag imediatamente antes do fechamento da tag `body`. Cole-a no template que renderiza cada página, para que todas as páginas construídas a partir desse template a carreguem.
+
+  </DocStep>
+  <DocStep title="Publique as páginas" />
+</DocSteps>
+
+Cada visita a `/` e a `/search` agora produz uma medição. Os primeiros resultados acompanham o seu tráfego, e não o momento em que você publicou: nada é coletado até que um visitante carregue uma página com a tag. A tag não informa erro quando não consegue rodar, então uma página que não coleta nada parece igual a uma página que coleta normalmente.
+
+Uma single-page application é medida uma vez por carregamento completo de página. A tag não observa mudanças de rota, então os seus números descrevem a entrada na aplicação.
+
+---
+
+## Configure as consultas das medições de usuários reais
+
+Nenhuma página do Azion Console mostra gráficos das medições do Edge Pulse. Elas são lidas com consultas GraphQL no dataset `pulseEvents`, no endpoint do Real-Time Events `https://api.azion.com/v4/events/graphql`. Uma consulta agrupa as medições por `locationhref`, o endereço da página em que foram feitas, e calcula a média de um campo de tempo. O Real-Time Events guarda um registro por 7 dias, então uma consulta alcança no máximo 7 dias para trás.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart LR
+  Q["consulta de pulseEvents"] --> Range["tsRange: um dia"]
+  Range --> Group["groupBy: locationhref"]
+  Group --> Avg["aggregate: avg de um campo de tempo"]
+  Avg --> Rows["uma linha por página"]
+```
+
+1. A consulta limita o período com `tsRange`.
+2. Ela agrupa as medições desse período pelo endereço da página.
+3. Ela calcula a média de um campo, como `pageloadtime`, dentro de cada grupo e retorna uma linha por página.
+
+Rode as consultas como [Consulte as medições do Edge Pulse com GraphQL](/pt-br/documentacao/guias/plataforma/observabilidade/consultar-medicoes-do-edge-pulse-com-graphql/) descreve, com estes valores:
+
+| Consulta | `aggregate` | `groupBy` | `filter`, além de `tsRange` | Por quê |
+| --- | --- | --- | --- | --- |
+| Tempo de carregamento por página | `{ avg: pageloadtime }` | `[locationhref]` | Nenhum | A leitura diária de `https://www.example.com/` e de `https://www.example.com/search` |
+| Time to first byte por página | `{ avg: ttfb, count: rows }` | `[locationhref]` | Nenhum | O tempo até a chegada do primeiro byte de cada página, uma parte do seu tempo de carregamento |
+| Tempo de carregamento da página inicial por conexão | `{ avg: pageloadtime, count: rows }` | `[effectivetype]` | `locationhref: "https://www.example.com/"` | Mostra se uma classe de conexão deixa a página inicial mais lenta |
+
+Cada consulta lê um dia, com `tsRange` de `2026-10-04T00:00:00` a `2026-10-05T00:00:00` para o dia que você lê, e `limit: 100`, que mantém todas as páginas de um site com até 100 endereços com a tag. A API responde `200` com uma linha por grupo em `data.pulseEvents`. Uma página que tem a tag e não aparece nas linhas não teve visita medida no intervalo.
+
+Para mostrar essas consultas em gráficos ao lado do Real-Time Metrics, o plugin da Azion para Grafana lê o Real-Time Metrics e o Real-Time Events pela API GraphQL. Para instalá-lo e criar a fonte de dados, consulte [Instale o plugin da Azion para Grafana](/pt-br/documentacao/guias/plataforma/observabilidade/integrar-grafana/).
+
+---
+
+## Verifique a configuração
+
+- **As páginas carregam a tag.** Abra `https://www.example.com/` em um navegador e veja o código-fonte da página. A tag do Edge Pulse que você copiou fica antes do fechamento da tag `body`. Repita para `/search`.
+- **Os navegadores dos visitantes enviam medições.** Depois que as páginas recebem visitas, rode a consulta de `pulseEvents` do dia atual. As linhas incluem um `locationhref` para `https://www.example.com/` e um para `https://www.example.com/search`. Uma página com a tag que tem tráfego e nenhuma linha significa que a tag não roda nela, porque a tag não informa erro próprio.
+- **O lado da Azion do domínio pode ser lido.** Acesse [Azion Console](https://console.azion.com/) > **Real-Time Metrics**, adicione o filtro **Host** **Equals** `www.example.com` e selecione o dashboard **Requests**. **Average Request Time** mostra o tempo médio que a Azion levou para responder às requisições do domínio. Para os passos do filtro, consulte [Meça o offload de cache de um domínio](/pt-br/documentacao/guias/plataforma/observabilidade/medir-offload-de-cache/).
+- **Uma requisição pode ser rastreada.** Acesse **Real-Time Events**, selecione a fonte de dados _HTTP Requests_ e informe `host='www.example.com'` em **Filter by**. Cada registro carrega **Request Time**, **Upstream Response Time**, o tempo que a origem levou para responder, e **Upstream Status**, o status que a origem retornou. Para a sintaxe do filtro, consulte [Filtrar eventos](/pt-br/documentacao/guias/plataforma/observabilidade/adicionar-filtros-events/).
+
+---
+
+## Medindo resultados
+
+| Métrica | Onde ler | Como fica quando funciona |
+| --- | --- | --- |
+| Tempo de carregamento de cada página com a tag | O `avg` de `pageloadtime` por `locationhref` em `pulseEvents`, uma consulta por dia | Estável de um dia para outro em cada página; uma alta em uma página depois de um release aponta para esse release |
+| Parcela das páginas com a tag que informam medições | As páginas nas linhas de `pulseEvents`, comparadas com a lista de páginas em que você colocou a tag | Todas as páginas com a tag que têm tráfego aparecem nas linhas |
+| Taxa de erro do domínio | O dashboard **Status Codes** do Real-Time Metrics, filtrado pelo host, e a sua tabela **Requests by Status and Upstream Status** | As respostas 5XX continuam raras, e a tabela mostra se um erro veio da origem ou da Azion. Consulte [Dashboards de Build](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#status-codes) |
+| Tempo que a Azion leva para responder, ao lado do que os visitantes medem | **Average Request Time** no dashboard **Requests**, filtrado pelo host | Acompanha o tempo de carregamento dos visitantes quando a causa está do lado do servidor; fica estável quando a causa está do lado dos visitantes |
+
+---
+
+## Boas práticas
+
+- **Coloque a tag nos templates, e não em páginas avulsas.** O Edge Pulse só mede as páginas que carregam a tag, e a tag não é herdada de um caminho pai. Colocá-la no template que renderiza um tipo de página cobre todas as páginas desse tipo, incluindo as publicadas depois.
+- **Leia uma página ausente como uma tag ausente antes de lê-la como tráfego ausente.** A tag não informa erro quando não consegue rodar. Uma página com a tag que tem visitas e nenhuma linha em `pulseEvents` é o único sinal de que algo bloqueia a tag, como uma Content Security Policy que precisa da **Pre-loading Tag**.
+- **Compare a visão do navegador com a visão do servidor antes de agir.** Um `pageloadtime` mais lento com um **Average Request Time** estável coloca a causa do lado dos visitantes, como a rede deles ou um script na página. Os dois subindo juntos colocam a causa do lado do servidor, e o Real-Time Events mostra se o tempo de resposta da origem subiu com eles.
+- **Consulte um intervalo estreito.** O Real-Time Events limita as linhas que uma consulta lê, e uma busca nos 7 dias inteiros sem filtro é a forma comum de chegar a esse limite. Consulte um dia por vez e adicione um filtro quando puder. Para o limite, consulte [Limites de Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/limites/).
+
+---
+
+## Guias deste caso de uso
+
+<DocCardGroup cols={2}>
+  <DocCard title="Consulte as medições do Edge Pulse com GraphQL" href="/pt-br/documentacao/guias/plataforma/observabilidade/consultar-medicoes-do-edge-pulse-com-graphql/" label="Roda as consultas de pulseEvents que leem o tempo de carregamento de cada página com a tag." />
+</DocCardGroup>

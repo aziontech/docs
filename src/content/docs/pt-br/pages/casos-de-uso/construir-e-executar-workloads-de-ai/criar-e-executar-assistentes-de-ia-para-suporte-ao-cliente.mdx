@@ -1,0 +1,412 @@
+---
+title: Criar e executar assistentes de IA para suporte ao cliente
+description: >-
+  Responda às perguntas dos clientes a partir da sua própria documentação, com
+  trechos recuperados por vector search e uma resposta gerada por um modelo na Azion.
+meta_tags: 'AI assistant, customer support, retrieval-augmented generation, RAG, vector search, embeddings, SQL Database, AI Inference, Object Storage, functions'
+namespace: use_case_build_and_run_customer_support_ai_assistants
+permalink: /documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/criar-e-executar-assistentes-de-ia-para-suporte-ao-cliente/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Uma equipe de suporte ou de produto quer um assistente que responda aos clientes a partir da documentação, da central de ajuda ou dos dados de produto da empresa, e não do conhecimento geral de um modelo. Um modelo sozinho responde a partir do que aprendeu no treinamento, então ele não tem como conhecer uma política de devolução ou um limite de plano que só os seus documentos informam. Esta página configura o assistente inteiro na Azion: uma function divide os documentos armazenados no Object Storage, gera o embedding de cada trecho com um modelo do AI Inference e armazena os trechos no SQL Database para vector search. Uma segunda function gera o embedding de cada pergunta, recupera os trechos mais próximos e pede a um modelo do AI Inference que responda a partir deles e os cite. O resultado é medido pela latência das respostas, pela parcela de respostas que citam fontes recuperadas e pela precisão das respostas em um conjunto de teste.
+
+Este caso de uso não cobre funcionalidades de IA que não são conversacionais. Para essas, consulte [Adicionar funcionalidades de IA a aplicações existentes](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/adicionar-funcionalidades-de-ia-a-aplicacoes-existentes/).
+
+## Pré-requisitos
+
+- Uma aplicação e um workload que servem o seu domínio, com o **Application Accelerator** ativado, que o behavior **Run Function** exige. Para criá-los, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+- SQL Database habilitado na conta. O produto está em Preview e não vem habilitado por padrão, então solicite acesso pelo [Technical Support](/pt-br/documentacao/suporte/).
+- Um bucket do Object Storage com `workloads_access` definido como `read_only`, que guarda os documentos como arquivos de texto UTF-8 ou Markdown. Para criar o bucket e enviar os arquivos, consulte [Primeiros passos com Object Storage](/pt-br/documentacao/plataforma/object-storage/primeiros-passos/).
+- Um personal token com a permissão **Edit SQL Database**, para as chamadas ao banco de dados. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- A [Azion CLI](/pt-br/documentacao/devtools/cli/), instalada e autorizada, para armazenar as variáveis de ambiente.
+- Os valores da sua própria configuração. Esta página usa `support-docs` para o bucket, `returns-policy.md` para um documento dentro dele, `support-kb` para o banco de dados, `/admin/ingest` e `/api/ask` para os dois caminhos e `www.example.com` para o domínio. Substitua cada valor pelo seu em todas as etapas.
+
+---
+
+## Produtos necessários
+
+| O assistente precisa de | O que significa | Produto | Documentado em |
+| --- | --- | --- | --- |
+| Os documentos da empresa em um único lugar de onde o assistente lê | Um bucket que a function de ingestão lê com o módulo `azion:storage` | Object Storage | [Object Storage API](/pt-br/documentacao/devtools/runtime/api-reference/storage/) |
+| Trechos que podem ser encontrados pelo significado, não por palavra-chave | Uma tabela com uma coluna vetorial e um índice vetorial, consultada com `vector_top_k` | SQL Database | [Vector search](/pt-br/documentacao/plataforma/sql-database/vector-search/) |
+| Um vetor para cada trecho e cada pergunta, e uma resposta escrita a partir dos trechos | Um modelo de embedding e um modelo de chat chamados com `Azion.AI.run` | AI Inference | [Gere embeddings de documentos em uma tabela vetorial com AI Inference](/pt-br/documentacao/guias/ai/agentes-e-rag/gerar-embeddings-de-documentos-em-uma-tabela-vetorial/) |
+| Código que divide, gera embeddings, recupera e monta o prompt | Duas functions, cada uma executada por uma regra no seu próprio caminho | Functions | [Primeiros passos com Functions](/pt-br/documentacao/plataforma/functions/primeiros-passos/) |
+| Regras que executam uma function em um caminho | O behavior **Run Function**, que exige o Application Accelerator na aplicação | Application Accelerator | [Como Functions funciona](/pt-br/documentacao/plataforma/functions/como-funciona/#fases-de-execucao-e-criterios) |
+
+---
+
+## Arquitetura de referência
+
+Esta página constrói o *Retrieval-augmented assistant on platform-hosted models*: os documentos, os vetores, a recuperação e os dois modelos ficam na Azion.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Bucket["Bucket do Object Storage: support-docs"] -->|"texto do documento"| Ingest["function de ingestão em /admin/ingest"]
+  Ingest -->|"trechos"| Embed["AI Inference: Qwen3 Embedding 4B"]
+  Embed -->|"vetores"| Ingest
+  Ingest -->|"INSERT pela API da Azion"| DB["SQL Database: tabela passages e índice vetorial"]
+  Customer["Cliente"] -->|"POST /api/ask"| Assist["function do assistente em /api/ask"]
+  Assist -->|"pergunta"| Embed
+  Assist -->|"vector_top_k, réplica de leitura"| DB
+  Assist -->|"trechos e pergunta"| Chat["AI Inference: Qwen3 30B A3B Instruct"]
+  Chat -->|"resposta com citações"| Assist
+  Assist -->|"resposta e fontes"| Customer
+```
+
+O diagrama tem dois fluxos que se encontram no banco de dados. O fluxo de ingestão, no topo, é executado quando um documento muda: ele transforma um documento em trechos e vetores e os grava na tabela `passages`. O fluxo de requisição é executado a cada pergunta: a function do assistente gera o embedding da pergunta, recupera trechos pela distância vetorial e pede ao modelo de chat que responda a partir deles. Os dois modelos são executados no AI Inference, então nenhum dos fluxos sai da Azion. Uma chamada ao modelo que falha termina dentro da function, e a function decide o que o cliente recebe.
+
+### Fluxo de dados
+
+1. Um operador envia `POST /admin/ingest` com a key de um documento, e a function de ingestão lê esse documento do bucket `support-docs` no Object Storage.
+2. A function divide o documento em trechos, gera o embedding de todos eles em uma chamada ao modelo de embedding do AI Inference e os grava na tabela `passages` pela API da Azion, porque a conexão do runtime com um banco de dados é somente leitura.
+3. Um cliente envia uma pergunta para `POST /api/ask`. A regra da aplicação executa a function do assistente, que gera o embedding da pergunta com o mesmo modelo de embedding.
+4. A function do assistente pede ao índice vetorial de `passages` os quatro trechos mais próximos da pergunta, por uma réplica de leitura do banco de dados.
+5. A function envia os trechos, os turnos anteriores da conversa e a pergunta ao modelo de chat do AI Inference, que responde e cita os trechos que usou.
+6. A function retorna ao cliente a resposta e a lista das suas fontes. Uma chamada ao modelo que falha termina dentro da function, então o fluxo de falha fica dentro da Azion.
+
+### Componentes
+
+- **Functions**: executa a ingestão e a recuperação. A function `support-ingest` divide os documentos e gera os embeddings deles, e a function `support-assistant` gera o embedding da pergunta, recupera os trechos, monta o prompt e chama o modelo de chat. Os dois modelos são acessados com `Azion.AI.run`, então o código não indica nenhum host e não guarda nenhuma credencial de modelo.
+- **AI Inference**: executa o modelo de embedding, `Qwen/Qwen3-Embedding-4B`, que transforma trechos e perguntas em vetores, e o modelo de chat, `Qwen/Qwen3-30B-A3B-Instruct-2507-FP8`, que escreve a resposta. Os dois são executados na infraestrutura da Azion, o que mantém o fluxo de requisição e as suas falhas dentro da Azion.
+- **SQL Database**: armazena os trechos, os documentos de origem e os vetores em uma tabela, `passages`, no banco de dados `support-kb`. O assistente os lê por uma réplica de leitura, e a ingestão os grava pela API da Azion.
+- **Vector Search**: a Feature do SQL Database que ordena os trechos pela distância vetorial. O índice vetorial `passages_idx` responde a `vector_top_k` sem comparar a pergunta com cada linha, então a recuperação lê um número fixo de trechos, por maior que a tabela fique.
+- **Object Storage**: guarda os documentos de origem no bucket `support-docs`. A function de ingestão os lê pela key, então os documentos continuam sendo a única cópia da qual os trechos derivam.
+- **aplicação**: o Platform Resource que recebe as perguntas e serve o front-end. As regras dela decidem qual caminho executa qual function, e são executadas antes da function.
+
+### Outros designs para este caso de uso
+
+- *Retrieval-augmented assistant over third-party LLMs*: para equipes comprometidas com um provedor de modelos, como OpenAI ou Anthropic. Uma function na Azion continua recuperando os trechos do SQL Database, mas os envia com a pergunta à API do provedor e mantém o estado da conversa entre os turnos, então a geração passa por um provedor externo e acrescenta as chaves do provedor, a latência do provedor e as decisões de fallback ao fluxo de requisição.
+
+---
+
+## Configure a tabela de trechos
+
+A tabela de trechos guarda cada trecho, o documento de onde ele veio e o seu vetor. A coluna vetorial declara `F32_BLOB(1024)` porque as functions pedem vetores de 1.024 dimensões ao `Qwen/Qwen3-Embedding-4B`, uma das cinco larguras que o modelo retorna. A coluna e a requisição precisam informar o mesmo número, e um vetor mais estreito armazena menos por trecho. O índice usa a métrica de cosseno, e a tabela tem `INTEGER PRIMARY KEY AUTOINCREMENT`, porque um índice vetorial exige um `ROWID` ou uma chave primária de coluna única.
+
+Para criar o banco de dados, envie o nome dele à API do SQL Database:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/sql/databases \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{"name":"support-kb"}'
+```
+
+A API responde `202` com o novo banco de dados. Guarde o `id` dele, que a próxima chamada e a function de ingestão usam:
+
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": <database-id>,
+    "name": "support-kb",
+    "status": "creating",
+    "active": true,
+    ...
+  }
+}
+```
+
+O provisionamento leva cerca de 15 segundos. Envie `GET /v4/workspace/sql/databases/<database-id>` até que `status` mostre `created`. Depois, crie a tabela e o seu índice:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/sql/databases/<database-id>/query \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{"statements":[
+    "CREATE TABLE passages (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, content TEXT NOT NULL, embedding F32_BLOB(1024));",
+    "CREATE INDEX passages_idx ON passages (libsql_vector_idx(embedding, '\''metric=cosine'\''));"
+  ]}'
+```
+
+A API responde `200` com `"state": "executed"` e uma entrada em `data` por instrução. Uma instrução que falha também responde `200`, com `error` no lugar de `results` na sua entrada, então leia as duas entradas antes de continuar.
+
+O banco de dados `support-kb` guarda uma tabela `passages` vazia e o índice vetorial `passages_idx`. O índice também acrescenta uma tabela de sombra, `passages_idx_shadow`, que uma listagem de tabelas mostra ao lado de `passages`.
+
+---
+
+## Configure a function de ingestão
+
+A function de ingestão transforma um documento em linhas de `passages`. Ela lê, divide e gera os embeddings do documento como [Gere embeddings de documentos em uma tabela vetorial com AI Inference](/pt-br/documentacao/guias/ai/agentes-e-rag/gerar-embeddings-de-documentos-em-uma-tabela-vetorial/) descreve, e grava as linhas como [Grave linhas no SQL Database a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/) descreve, com os valores do assistente:
+
+- **Caminho**: `POST /admin/ingest?key=<object-key>`, um documento por requisição. A rota grava no banco de dados, então ela recusa uma requisição sem o segredo de ingestão.
+- **Bucket**: `support-docs`, lido de `DOCS_BUCKET`.
+- **Trechos**: sequências de parágrafos de até 1.500 caracteres. Um trecho curto aponta a resposta para uma seção de um documento, e quatro deles ainda cabem no prompt com espaço para a conversa. Um único parágrafo maior que isso continua sendo um trecho, que a janela de contexto de 32k tokens do modelo de embedding lê inteiro.
+- **Trechos por documento**: no máximo 99, para que o `DELETE` das linhas antigas do documento e um `INSERT` por trecho caibam em uma chamada de 100 instruções. Um documento mais longo é recusado com `413`, então divida-o em dois arquivos.
+- **Vetores**: `Qwen/Qwen3-Embedding-4B` em 1.024 dimensões, a largura da coluna `embedding`.
+- **Credenciais de escrita**: `SQL_DATABASE_ID` e `AZION_TOKEN`.
+
+Para armazenar os quatro valores que a function lê, execute estes comandos com a Azion CLI. Uma key que contém `token` ou `secret` é armazenada como secret por padrão:
+
+```bash
+azion create variables --key "AZION_TOKEN" --value "[TOKEN VALUE]"
+azion create variables --key "INGEST_SECRET" --value "<ingest-secret>"
+azion create variables --key "SQL_DATABASE_ID" --value "<database-id>" --secret false
+azion create variables --key "DOCS_BUCKET" --value "support-docs" --secret false
+```
+
+Crie as variáveis antes da function: uma function que já está em execução não lê um valor alterado até receber um novo deploy.
+
+Crie uma function chamada `support-ingest` com este código:
+
+```javascript
+import Storage from "azion:storage";
+
+const EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-4B";
+const DIMENSIONS = 1024;
+const MAX_PASSAGE = 1500;
+const MAX_PASSAGES = 99;
+
+function split(text) {
+  const passages = [];
+  let current = "";
+  for (const paragraph of text.split(/\n\s*\n/)) {
+    const p = paragraph.trim();
+    if (!p) continue;
+    if (current && current.length + p.length > MAX_PASSAGE) {
+      passages.push(current);
+      current = "";
+    }
+    current = current ? current + "\n\n" + p : p;
+  }
+  if (current) passages.push(current);
+  return passages;
+}
+
+const quote = (value) => "'" + value.replaceAll("'", "''") + "'";
+
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+    if (request.headers.get("Authorization") !== `Bearer ${Azion.env.get("INGEST_SECRET")}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const key = new URL(request.url).searchParams.get("key");
+    if (!key) {
+      return Response.json({ error: "key is required" }, { status: 400 });
+    }
+
+    const object = await new Storage(Azion.env.get("DOCS_BUCKET")).get(key);
+    const passages = split(new TextDecoder().decode(await object.arrayBuffer()));
+    if (passages.length === 0 || passages.length > MAX_PASSAGES) {
+      return Response.json({ error: `${passages.length} passages; split the document` }, { status: 413 });
+    }
+
+    const embedded = await Azion.AI.run(EMBEDDING_MODEL, {
+      "input": passages,
+      "encoding_format": "float",
+      "dimensions": DIMENSIONS
+    });
+
+    const statements = [`DELETE FROM passages WHERE source = ${quote(key)};`];
+    for (const item of embedded.data) {
+      statements.push(
+        `INSERT INTO passages (source, content, embedding) VALUES (${quote(key)}, ${quote(passages[item.index])}, vector('[${item.embedding.join(",")}]'));`
+      );
+    }
+
+    const result = await fetch(
+      `https://api.azion.com/v4/workspace/sql/databases/${Azion.env.get("SQL_DATABASE_ID")}/query`,
+      {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Token ${Azion.env.get("AZION_TOKEN")}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ statements })
+      }
+    );
+    const body = await result.json();
+    const failed = (body.data ?? []).find((entry) => entry.error);
+    if (!result.ok || failed) {
+      return Response.json({ error: failed?.error ?? `SQL API answered ${result.status}` }, { status: 502 });
+    }
+    return Response.json({ key, passages: passages.length });
+  },
+};
+```
+
+Execute a function no caminho dela com estes valores, seguindo [Primeiros passos com Functions](/pt-br/documentacao/plataforma/functions/primeiros-passos/):
+
+- **Instância da function**: `support-ingest`, sem Args.
+- **Regra**: uma regra de Request Phase chamada `support - ingest`, com o critério `${uri}` _starts with_ `/admin/ingest` e o behavior **Run Function** selecionando a instância `support-ingest`.
+
+Um `POST` para `/admin/ingest` com o segredo e a key de um documento substitui os trechos desse documento em `passages` e responde com o número de trechos armazenados. O `DELETE` faz com que uma segunda ingestão da mesma key substitua as linhas dela em vez de duplicá-las.
+
+---
+
+## Configure a function do assistente
+
+A function do assistente responde a uma pergunta por requisição. Ela gera o embedding da pergunta com o mesmo modelo e a mesma largura dos trechos, porque um vetor de consulta só pode ser comparado com vetores que esse modelo produziu. Ela recupera os quatro trechos mais próximos: quatro trechos de até 1.500 caracteres fundamentam a resposta em mais de uma seção e mantêm o prompt muito abaixo da janela de contexto de 64k tokens do modelo de chat.
+
+Mais três decisões estão no código:
+
+- **O vetor de consulta é escrito no texto SQL.** O runtime recusa uma string JavaScript como valor de parâmetro, então o vetor vai dentro de `vector('[...]')`, como faz a referência de vector search. Ele guarda apenas números que o modelo de embedding retornou.
+- **O cliente carrega a conversa.** O corpo da requisição guarda `history`, as mensagens anteriores de `user` e `assistant`, e a function mantém as seis últimas, que são três turnos. A function não armazena nada entre requisições, e um histórico limitado impede que o prompt cresça a cada turno.
+- **`max_tokens` é `800`.** A function espera enquanto o modelo gera, então um limite no tamanho da resposta também é um limite no tempo que o cliente espera.
+
+A function grava uma linha de log por resposta, registrando se a resposta cita um trecho. Essa linha é a origem da métrica de citação em [Medindo resultados](#medindo-resultados).
+
+Para armazenar o nome do banco de dados que a function abre, execute:
+
+```bash
+azion create variables --key "SQL_DATABASE_NAME" --value "support-kb" --secret false
+```
+
+Crie uma function chamada `support-assistant` com este código:
+
+```javascript
+const EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-4B";
+const CHAT_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8";
+const DIMENSIONS = 1024;
+const TOP_K = 4;
+
+const SYSTEM_PROMPT =
+  "You answer customer questions using only the numbered passages in the user message. " +
+  "Cite every passage you use as [n]. If the passages do not contain the answer, " +
+  "say that you do not know and suggest contacting support.";
+
+async function retrieve(question) {
+  const embedded = await Azion.AI.run(EMBEDDING_MODEL, {
+    "input": question,
+    "encoding_format": "float",
+    "dimensions": DIMENSIONS
+  });
+  const vector = embedded.data[0].embedding.join(",");
+
+  const { Database } = Azion.Sql;
+  const connection = await Database.open(Azion.env.get("SQL_DATABASE_NAME"));
+  const rows = await connection.query(
+    `SELECT passages.source, passages.content FROM vector_top_k('passages_idx', vector('[${vector}]'), ${TOP_K}) JOIN passages ON passages.rowid = id;`
+  );
+
+  const passages = [];
+  let row = await rows.next();
+  while (row) {
+    passages.push({ source: row.getString(0), content: row.getString(1) });
+    row = await rows.next();
+  }
+  return passages;
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+    const { question, history = [] } = await request.json();
+    if (typeof question !== "string" || question.trim() === "") {
+      return Response.json({ error: "question is required" }, { status: 400 });
+    }
+
+    const passages = await retrieve(question);
+    const context = passages
+      .map((p, i) => `[${i + 1}] (${p.source})\n${p.content}`)
+      .join("\n\n");
+
+    const modelResponse = await Azion.AI.run(CHAT_MODEL, {
+      "stream": false,
+      "max_tokens": 800,
+      "messages": [
+        { "role": "system", "content": SYSTEM_PROMPT },
+        ...history.slice(-6),
+        { "role": "user", "content": `Passages:\n${context}\n\nQuestion: ${question}` }
+      ]
+    });
+
+    const answer = modelResponse?.choices?.[0]?.message?.content ?? "";
+    const cited = /\[\d+\]/.test(answer);
+    console.log(JSON.stringify({ event: "answer", cited, passages: passages.length }));
+
+    return Response.json({
+      answer,
+      sources: passages.map((p, i) => ({ n: i + 1, source: p.source }))
+    });
+  },
+};
+```
+
+Execute a function no caminho dela com estes valores, seguindo [Primeiros passos com Functions](/pt-br/documentacao/plataforma/functions/primeiros-passos/):
+
+- **Instância da function**: `support-assistant`, sem Args.
+- **Regra**: uma regra de Request Phase chamada `support - ask`, com o critério `${uri}` _is equal_ `/api/ask` e o behavior **Run Function** selecionando a instância `support-assistant`.
+
+Um `POST` para `/api/ask` com uma pergunta responde com a resposta do modelo, que cita trechos como `[n]`, e com o documento de onde veio cada trecho citado. Uma regra nova leva alguns minutos para se propagar.
+
+---
+
+## Verifique a configuração
+
+- **Um documento vira trechos.** Faça a ingestão do documento de exemplo:
+
+  ```bash
+  curl -X POST 'https://www.example.com/admin/ingest?key=returns-policy.md' \
+    -H 'Authorization: Bearer <ingest-secret>'
+  ```
+
+  A function responde com a key e o número de trechos que armazenou, como `{"key":"returns-policy.md","passages":3}`. Uma requisição sem o header `Authorization` responde `401`.
+
+- **Os trechos têm vetores.** Conte as linhas do documento pela API do SQL Database:
+
+  ```bash
+  curl --request POST \
+    --url https://api.azion.com/v4/workspace/sql/databases/<database-id>/query \
+    --header 'Accept: application/json' \
+    --header 'Authorization: Token [TOKEN VALUE]' \
+    --header 'Content-Type: application/json' \
+    --data '{"statements":["SELECT COUNT(*) FROM passages WHERE source = '\''returns-policy.md'\'' AND embedding IS NOT NULL;"]}'
+  ```
+
+  A única entrada em `data` traz `results`, cuja única linha guarda o mesmo número que a ingestão retornou.
+
+- **Uma resposta vem dos documentos e os cita.** Faça uma pergunta que o documento responde:
+
+  ```bash
+  curl -X POST https://www.example.com/api/ask \
+    -H 'Content-Type: application/json' \
+    -d '{"question":"How many days do I have to return an item?"}'
+  ```
+
+  A resposta traz `answer`, com pelo menos uma citação `[n]`, e `sources`, cujas entradas indicam `returns-policy.md`.
+
+- **Uma pergunta fora dos documentos não é respondida a partir do treinamento.** Faça uma pergunta que nenhum documento cobre, como `What is the capital of France?`. A resposta diz que o assistente não sabe e não traz nenhuma citação.
+
+Quando uma requisição responde `404` ou a página padrão da aplicação, a regra ainda pode estar se propagando. Quando isso persistir depois de alguns minutos, leia as linhas de log da function no [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/primeiros-passos/), na fonte de dados **Functions Console**.
+
+---
+
+## Medindo resultados
+
+| Métrica | Onde ler | Como é quando funciona |
+| --- | --- | --- |
+| Latência das respostas | O **Request Time** das requisições para `/api/ask`, na fonte de dados **HTTP Requests** do [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/fontes-de-dados/#http-requests) | Estável à medida que o número de documentos cresce, porque cada resposta lê quatro trechos, qualquer que seja o tamanho da tabela |
+| Parcela de respostas que citam fontes recuperadas | As linhas `"event":"answer"` que a function do assistente grava, na fonte de dados **Functions Console** do [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/fontes-de-dados/#functions-console): as linhas com `"cited":true` sobre o total delas | Perto de todas as respostas. Uma queda aponta para uma pergunta que os documentos não cobrem, ou para trechos que não correspondem mais aos documentos |
+| Precisão das respostas em um conjunto de teste | Uma lista fixa de perguntas com respostas conhecidas a partir dos seus documentos, enviada para `/api/ask` depois de cada mudança nos documentos, no prompt ou nos modelos | A parcela de respostas corretas se mantém ou sobe de uma execução para a outra |
+
+---
+
+## Boas práticas
+
+- **Gere os embeddings de perguntas e trechos com o mesmo modelo e a mesma largura.** A distância vetorial compara dois vetores apenas quando um único modelo produziu os dois em uma única largura. Mudar o modelo ou `dimensions` significa uma nova declaração de coluna e uma nova ingestão completa, então mantenha os dois valores em uma constante compartilhada pelas duas functions.
+- **Faça uma nova ingestão de um documento quando ele mudar.** O `DELETE` antes das instruções `INSERT` substitui os trechos de um documento, então a tabela nunca responde a partir de uma versão superada. Um documento retirado precisa do seu próprio `DELETE FROM passages WHERE source = '<key>';`.
+- **Verifique cada entrada de instrução, além do status.** A API do SQL Database responde `200` mesmo quando uma instrução falha, com `error` na entrada dessa instrução. A function de ingestão lê cada entrada, e qualquer script que grava trechos deve fazer o mesmo. Para os formatos de erro, consulte [Boas práticas do SQL Database](/pt-br/documentacao/plataforma/sql-database/boas-praticas/).
+- **Leia o texto do modelo com optional chaining.** A function lê `modelResponse?.choices?.[0]?.message?.content`, então uma resposta sem um desses níveis gera uma resposta vazia em vez de uma exceção. Para o raciocínio, consulte [Boas práticas do AI Inference](/pt-br/documentacao/plataforma/ai-inference/boas-praticas/).
+
+---
+
+## Guias deste caso de uso
+
+<DocCardGroup cols={2}>
+  <DocCard title="Gere embeddings de documentos em uma tabela vetorial com AI Inference" href="/pt-br/documentacao/guias/ai/agentes-e-rag/gerar-embeddings-de-documentos-em-uma-tabela-vetorial/" label="Lê, divide e gera os embeddings de cada documento, o padrão que a function de ingestão segue." />
+  <DocCard title="Grave linhas no SQL Database a partir de uma function" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/" label="Grava os trechos pela API da Azion e verifica cada entrada de instrução." />
+</DocCardGroup>

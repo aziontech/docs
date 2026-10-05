@@ -1,0 +1,221 @@
+---
+title: Migrar uma aplicação para uma nova origem sem downtime
+description: >-
+  Mova o tráfego de uma aplicação de uma origem antiga para uma nova em etapas
+  ponderadas, acompanhe os erros de cada origem e reverta alterando um endereço.
+meta_tags: 'origin migration, canary, load balancer, weight, round robin, rollback, connector, real-time events, real-time metrics, upstream'
+namespace: use_case_migrate_an_application_to_a_new_origin_without_downtime
+permalink: /documentacao/casos-de-uso/construir-e-executar-aplicacoes/migrar-uma-aplicacao-para-uma-nova-origem-sem-downtime/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Uma equipe de plataforma ou de SRE está movendo uma aplicação de uma origem para outra, como de um data center para uma nuvem, ou entre duas nuvens. A aplicação não pode sair do ar, e a equipe não pode trocar todos os usuários de uma vez, porque uma falha na nova origem chegaria então a todos. Esta página coloca as duas origens atrás de um connector com Load Balancer, envia uma pequena parcela das requisições para a nova origem, aumenta essa parcela etapa por etapa enquanto acompanha os erros de cada origem e reverte desativando um endereço. O resultado é medido por zero downtime durante a migração, pela taxa de erros na nova origem em cada etapa e pelo tempo para reverter.
+
+Este caso de uso não cobre reescrever a aplicação em funções na Azion. Para isso, consulte [Modernizar uma aplicação monolítica sem reescrevê-la](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/modernizar-uma-aplicacao-monolitica-sem-reescreve-la/). Ele também não cobre manter duas origens ativas para failover. Para isso, consulte [Manter uma aplicação no ar quando uma origem falha](/pt-br/documentacao/casos-de-uso/melhorar-performance-e-confiabilidade/manter-uma-aplicacao-no-ar-quando-uma-origem-falha/).
+
+## Pré-requisitos
+
+- Uma aplicação que serve o site por um connector para a origem antiga, uma regra que envia toda requisição a esse connector e um workload. Para criá-los, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+- Um personal token, para a API e as consultas GraphQL. Para criar um, consulte [Personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- Duas origens que guardam a mesma aplicação e respondem HTTPS na porta `443` pelo hostname do site. Todo endereço de um connector recebe o mesmo header `Host`, então as duas origens precisam responder pelo nome que o visitante requisitou.
+- Um header de resposta que diferencia as duas origens, como o header `server` que cada uma envia, para as verificações em Verifique a configuração.
+- Os valores da sua migração. Esta página usa `www.example.com` para o site, `old-origin.example.com` e `new-origin.example.com` para as duas origens e `<new-origin-ip>` para o endereço IP para o qual `new-origin.example.com` resolve, que os filtros de eventos usam. Substitua cada valor pelo seu em todas as etapas.
+
+---
+
+## Produtos necessários
+
+| A migração precisa de | O que significa | Produto | Documentado em |
+| --- | --- | --- | --- |
+| As duas origens atrás do mesmo site, sem mudança de DNS | Um connector que guarda a origem antiga e a nova como dois endereços | Load Balancer | [Coloque as duas origens no connector](/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/mover-o-trafego-entre-duas-origens-por-peso/#coloque-as-duas-origens-no-connector) |
+| Uma parcela de requisições que passa para a nova origem etapa por etapa | O método _Round Robin_ e um peso em cada endereço | Load Balancer | [Altere os pesos](/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/mover-o-trafego-entre-duas-origens-por-peso/#altere-os-pesos) |
+| Uma reversão que é uma mudança de configuração | O switch **Active** do novo endereço | Load Balancer | [Tire uma origem da rotação](/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/mover-o-trafego-entre-duas-origens-por-peso/#tire-uma-origem-da-rotacao) |
+| A parcela do tráfego que cada origem recebe | As requisições do dataset `workloadBreakdownMetrics` agrupadas por endereço de upstream | Real-Time Metrics | [Campos do Real-Time Metrics](/pt-br/documentacao/devtools/graphql/campos-gql-real-time-metrics/#workloadbreakdownmetrics) |
+| As requisições com falha da nova origem | A fonte de dados HTTP Requests filtrada por endereço de upstream e status de upstream | Real-Time Events | [Fontes de dados](/pt-br/documentacao/plataforma/real-time-events/fontes-de-dados/#http-requests) |
+
+---
+
+## Arquitetura de referência
+
+Esta página monta o *Pool de origens canário ponderado*: um connector agrupa a origem antiga e a nova, e os pesos do Load Balancer decidem a parcela que cada uma recebe.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Visitor["Visitante"] -->|"requisição HTTPS"| App["aplicação: regra Set Connector"]
+  App --> Conn["connector: grupo de origens"]
+  Conn --> LB["Load Balancer: método e pesos"]
+  LB -->|"parcela maior"| Old["origem antiga"]
+  LB -->|"parcela menor, aumentada a cada etapa"| New["nova origem"]
+  Old -->|"status e endereço de upstream"| Obs["Real-Time Metrics e Real-Time Events"]
+  New -->|"status e endereço de upstream"| Obs
+  Obs -->|"erros por origem"| Team["decisão da equipe"]
+  Team -->|"próximo peso, ou novo endereço desativado"| LB
+```
+
+Leia o diagrama como dois loops. O loop de requisições vai do visitante, por uma regra, até um connector, onde Load Balancer escolhe uma origem para cada requisição. O loop de controle vai das observações de volta ao Load Balancer: a equipe lê os erros de cada origem e então aumenta o peso da nova origem ou desativa o endereço dela. Nada no loop de requisições muda durante a migração além dos pesos e do switch **Active** de cada endereço, então a aplicação, as regras dela e o DNS continuam como estão.
+
+### Fluxo de dados
+
+1. A requisição de um visitante chega ao workload no domínio do site, e a regra da aplicação, com o behavior _Set Connector_, a envia ao connector que guarda as duas origens.
+2. Load Balancer escolhe um endereço ativo do connector na proporção do peso dele sob _Round Robin_, ou pelo endereço IP do cliente sob _IP Hash_. Cada data center balanceia por conta própria, então a divisão é uma proporção, não uma contagem exata.
+3. O connector envia a requisição à origem escolhida com o mesmo header `Host`, o mesmo caminho e o mesmo protocolo para os dois endereços.
+4. Real-Time Metrics conta as requisições por endereço de upstream, e Real-Time Events registra o endereço e o status da origem que respondeu cada requisição.
+5. Enquanto a nova origem não mostra erros novos, a equipe aumenta o peso dela na próxima etapa. Quando aparecem erros, a equipe desativa o novo endereço, e toda requisição volta para a origem antiga quando a mudança chega a cada data center.
+6. Quando a nova origem carrega o tráfego sem erros novos, a equipe desativa o endereço antigo, e toda requisição chega à nova origem.
+
+### Componentes
+
+- **connector**: o Platform Resource que agrupa a origem antiga e a nova como endereços. Um connector mantém inalterada, durante a migração, a regra que o nomeia, e a única configuração `Host` dele significa que as duas origens precisam responder pelo mesmo nome.
+- **Load Balancer**: escolhe o endereço de cada requisição. Pesos de 1 a 100 definem a parcela de cada origem sob _Round Robin_, o switch **Active** tira um endereço da rotação para uma reversão ou para o cutover, e _IP Hash_ mantém um endereço IP de cliente em uma origem quando as sessões ficam na memória de um servidor.
+- **aplicação**: o Platform Resource cuja regra envia toda requisição ao connector. É o roteamento que fica constante enquanto os pesos mudam.
+- **Real-Time Metrics**: mostra a parcela de requisições que cada origem recebe, agrupada por endereço de upstream no dataset `workloadBreakdownMetrics`, e os status codes da aplicação. Os datasets dele não combinam o endereço de upstream com um status, então os erros de uma origem vêm do Real-Time Events.
+- **Real-Time Events**: guarda um registro por requisição, com o endereço de upstream e o status de upstream, então um filtro lista as requisições com falha da nova origem em cada etapa.
+
+### Outros designs para este caso de uso
+
+- *Cutover de origem por caminho*: para migrações feitas seção por seção, como um site que se move área por área para uma nova plataforma. Rules Engine envia cada caminho migrado a um connector para a nova origem e todos os outros caminhos para a antiga, então o tráfego se move por caminho em vez de por parcela de requisições, e uma seção é revertida apontando a regra dela de volta para o connector antigo.
+
+---
+
+## Configure o pool de origens
+
+O pool de origens é o connector existente, com Load Balancer ativado e a nova origem adicionada como um segundo endereço. A regra que envia as requisições ao connector fica como está, então a migração nunca toca na aplicação nem no DNS.
+
+A primeira etapa envia cerca de uma requisição em cem para a nova origem: peso `99` no endereço antigo e `1` no novo. Um peso é um número inteiro de 1 a 100, e uma parcela é o peso do endereço em relação à soma de todos os pesos. A parcela é uma proporção, não uma divisão exata, porque cada data center balanceia por conta própria.
+
+O **Host** passa a ser `${host}`, o host que o visitante requisitou, porque um connector envia o mesmo header `Host` aos dois endereços. Um hostname literal da origem antiga chegaria à nova origem sob um nome pelo qual ela pode não responder. **Max Retries**, **Connection Timeout** e **Read/Write Timeout** recebem os valores que o Console preenche, `3`, `30` e `60`, para que as duas interfaces produzam o mesmo connector. Os padrões da API são `0`, `60` e `120` quando o corpo os omite.
+
+O pool é montado como [Coloque as duas origens no connector](/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/mover-o-trafego-entre-duas-origens-por-peso/#coloque-as-duas-origens-no-connector) descreve, no connector que alcança `old-origin.example.com`, com estes valores:
+
+| Configuração | Valor |
+| --- | --- |
+| **Host** | `${host}` |
+| **Transport Protocol Policy** | _Force HTTPS_, porque as duas origens respondem HTTPS na porta `443` |
+| **Method** | _Round Robin_ |
+| **Max Retries**, **Connection Timeout**, **Read/Write Timeout** | `3`, `30` e `60` |
+| `old-origin.example.com` | **Server Role** _Primary_, **Weight** `99` |
+| `new-origin.example.com` | **Server Role** _Primary_, **Weight** `1` |
+
+O connector guarda dois endereços ativos e envia cerca de uma requisição em cem para a nova origem. Uma mudança no connector leva vários minutos para chegar a todos os data centers, e até lá algumas requisições chegam apenas à origem antiga.
+
+---
+
+## Configure a programação de pesos
+
+A programação de pesos move o tráfego em etapas, e cada etapa altera apenas os dois pesos. Mantenha cada etapa por tempo suficiente para que a nova origem atenda as requisições que expõem as falhas dela, como um intervalo de uma hora completo no Real-Time Metrics, antes de passar para a próxima.
+
+| Etapa | Peso da origem antiga | Peso da nova origem | Parcela na nova origem |
+| --- | --- | --- | --- |
+| 1 | `99` | `1` | Cerca de 1 em 100 |
+| 2 | `90` | `10` | Cerca de 1 em 10 |
+| 3 | `50` | `50` | Cerca de metade |
+| 4 | `10` | `90` | Cerca de 9 em 10 |
+
+Os pesos de cada etapa somam 100, então cada peso se lê como uma porcentagem. A programação para em `10` para a origem antiga, porque um peso não pode ser `0`. A última passagem para a nova origem é uma mudança no switch **Active**, descrita na próxima seção.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Step["Mantenha a etapa atual"] --> Check{"Erros novos na nova origem?"}
+  Check -->|"Não"| Last{"Etapa 4 alcançada?"}
+  Last -->|"Não"| Raise["Aumente o peso da nova origem para a próxima etapa"]
+  Raise --> Step
+  Last -->|"Sim"| Cut["Desative o endereço antigo"]
+  Check -->|"Sim"| Back["Desative o novo endereço"]
+```
+
+1. Mantenha cada etapa e leia os erros da nova origem.
+2. Quando nenhum erro novo aparecer, defina os pesos da próxima etapa.
+3. Quando aparecerem erros, reverta desativando o novo endereço.
+4. Depois que a etapa 4 se mantiver sem erros novos, desative o endereço antigo para concluir.
+
+Cada etapa é o procedimento que [Altere os pesos](/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/mover-o-trafego-entre-duas-origens-por-peso/#altere-os-pesos) descreve, com os dois pesos da etapa da tabela. Na API, a etapa 2 envia esta lista `addresses`, e a configuração do Load Balancer fica como está:
+
+```json
+[
+  { "address": "old-origin.example.com", "modules": { "load_balancer": { "server_role": "primary", "weight": 90 } } },
+  { "address": "new-origin.example.com", "modules": { "load_balancer": { "server_role": "primary", "weight": 10 } } }
+]
+```
+
+A nova origem recebe a parcela da etapa quando a mudança chega a cada data center. Durante a propagação, alguns data centers ainda aplicam os pesos anteriores.
+
+---
+
+## Configure a reversão e o cutover
+
+Tanto a reversão quanto o cutover desativam um endereço com o switch **Active** dele. Um endereço desativado fica no connector com o papel e o peso dele, então reativá-lo restaura a etapa que ele deixou.
+
+- **Reversão** desativa `new-origin.example.com`. Toda requisição então chega à origem antiga, e a nova origem mantém o peso dela para a próxima tentativa.
+- **Cutover** desativa `old-origin.example.com` depois da etapa 4. Toda requisição então chega à nova origem, e o endereço antigo fica no connector como um caminho de volta até que você o remova.
+
+A mudança leva vários minutos para se propagar, e os data centers a aplicam em momentos diferentes. Mantenha a origem que você desativou respondendo até que nenhuma requisição chegue a ela, o que a verificação de eventos em Verifique a configuração mostra.
+
+Os dois movimentos são o procedimento que [Tire uma origem da rotação](/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/mover-o-trafego-entre-duas-origens-por-peso/#tire-uma-origem-da-rotacao) descreve. Uma reversão desativa **Active** em `new-origin.example.com`, e um cutover o desativa em `old-origin.example.com`. Na API, o corpo lista os dois endereços com os pesos da etapa atual e `"active": false` no endereço que sai.
+
+Depois de uma reversão, o novo endereço não recebe nenhuma requisição quando todos os data centers tiverem a mudança. Depois de um cutover, o endereço antigo não recebe nenhuma.
+
+---
+
+## Verifique a configuração
+
+- **As duas origens respondem.** Envie a mesma requisição várias vezes e leia o header que diferencia as origens:
+
+  ```bash
+  curl -s -D - -o /dev/null https://www.example.com/
+  ```
+
+  Na etapa 3, cerca de metade das respostas traz o header da nova origem. Na etapa 1, a maioria das execuções mostra apenas o header da origem antiga, porque uma requisição em cem vai para a nova. As respostas não vêm em uma ordem fixa.
+
+- **A nova origem recebe a parcela dela.** Consulte as requisições de uma hora agrupadas por endereço de upstream. Substitua o token, a hora e o hostname:
+
+  ```bash
+  curl -X POST 'https://api.azion.com/v4/metrics/graphql' \
+    -H 'Content-Type: application/json' \
+    -H 'Authorization: Token [TOKEN VALUE]' \
+    -d '{"query":"query OriginShare { workloadBreakdownMetrics(aggregate: { sum: requests }, groupBy: [upstreamAddr], orderBy: [sum_DESC], limit: 10, filter: { tsGte: \"2026-10-05T13:00:00\", tsLt: \"2026-10-05T14:00:00\", hostEq: \"www.example.com\" }) { upstreamAddr total: sum } }"}'
+  ```
+
+  A API responde `200` com uma linha por endereço de upstream, no formato `{"data":{"workloadBreakdownMetrics":[{"upstreamAddr":"<new-origin-ip>:443","total":<requests>}, …]}}`. O total da nova origem em relação à soma de todas as linhas acompanha a parcela da etapa.
+
+- **Nenhum erro novo na nova origem.** Em [Azion Console](https://console.azion.com/) > **Real-Time Events**, selecione a fonte de dados _HTTP Requests_ e um período que cubra a etapa, e insira este filtro em **Filter by**:
+
+  ```text
+  upstream_addr like '%<new-origin-ip>%' AND upstream_status='502'
+  ```
+
+  Um resultado vazio significa que nenhuma requisição à nova origem terminou com `502`. Repita o filtro com os outros códigos `5xx` que a sua origem pode retornar.
+
+- **A reversão se mantém.** Depois de uma reversão, execute o filtro `upstream_addr like '%<new-origin-ip>%'` sobre os minutos depois da mudança. Os registros mais recentes param quando todos os data centers têm a mudança.
+
+Uma etapa que parece não ter efeito ainda pode estar se propagando. Repita a verificação depois de alguns minutos antes de alterar os pesos de novo.
+
+---
+
+## Medindo resultados
+
+| Métrica | Onde ler | Como é o funcionamento correto |
+| --- | --- | --- |
+| Downtime durante a migração | O dashboard **Status Codes** do Real-Time Metrics, filtrado pelo workload, com a tabela **Requests by Status and Upstream Status**. Consulte [Detalhe as requisições por status code](/pt-br/documentacao/guias/plataforma/observabilidade/detalhar-requisicoes-por-status-code/) | O gráfico **HTTP Status Codes 5XX** fica no nível de antes da migração em todas as etapas |
+| Taxa de erros na nova origem em cada etapa | Real-Time Events, HTTP Requests, filtrado por `upstream_addr` e `upstream_status`. Consulte [Filtrar eventos](/pt-br/documentacao/guias/plataforma/observabilidade/adicionar-filtros-events/) | As requisições com falha na nova origem ficam na taxa que a origem antiga mostra na mesma etapa |
+| Parcela do tráfego por origem | `workloadBreakdownMetrics` agrupado por `upstreamAddr`, em intervalos de uma hora | A parcela da nova origem corresponde à etapa, dentro da variação do balanceamento por data center |
+| Tempo para reverter | O tempo entre a mudança em **Active** e o último registro de HTTP Requests com o `upstream_addr` da nova origem | Os registros param dentro do tempo de propagação do connector |
+
+---
+
+## Boas práticas
+
+- **Mantenha Round Robin, a menos que as sessões fiquem na memória de uma origem.** _Round Robin_ distribui as requisições na proporção dos pesos, o que faz de uma etapa uma parcela conhecida. Quando as origens guardam a sessão de cada visitante na memória de um servidor, _IP Hash_ associa cada endereço IP de cliente a um endereço, então um visitante fica em uma origem entre as requisições. Um visitante cujo endereço IP muda, como um celular que passa de uma rede para outra, ainda pode chegar à outra origem, e _IP Hash_ recusa endereços _Backup_. Para os dois métodos, consulte [Métodos de balanceamento](/pt-br/documentacao/plataforma/connectors/load-balancer/metodos-de-balanceamento/).
+- **Desative um endereço em vez de excluí-lo.** Um endereço com **Active** desativado mantém o peso e o papel dele, então desfazer uma reversão é um switch. Um endereço excluído precisa ser adicionado de novo com todos os campos, enquanto o tráfego espera.
+- **Avalie uma etapa só depois que ela se propagar.** Cada data center aplica uma mudança no connector no próprio momento, então os primeiros minutos depois de uma mudança misturam os pesos antigos e os novos. Para saber como uma mudança se propaga, consulte [Espere a propagação de uma alteração no connector antes de avaliá-la](/pt-br/documentacao/plataforma/connectors/boas-praticas/#espere-a-propagacao-de-uma-alteracao-no-connector-antes-de-avalia-la).
+- **Mantenha a origem antiga respondendo depois do cutover.** Alguns data centers enviam requisições ao endereço antigo até receberem a mudança. Desative a origem antiga de vez só depois que o filtro de eventos não mostrar nenhuma requisição chegando a ela.
+
+---
+
+## Guias deste caso de uso
+
+<DocCardGroup cols={2}>
+  <DocCard title="Mova o tráfego entre duas origens por peso" href="/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/mover-o-trafego-entre-duas-origens-por-peso/" label="Coloca as duas origens no connector, altera os pesos em cada etapa e tira uma origem da rotação para a reversão ou para o cutover." />
+</DocCardGroup>

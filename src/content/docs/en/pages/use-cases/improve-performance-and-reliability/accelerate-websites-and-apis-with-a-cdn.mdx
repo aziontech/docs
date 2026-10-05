@@ -1,0 +1,463 @@
+---
+title: Accelerate websites and APIs with a CDN
+description: >-
+  Put an application in front of your origin to cache static files and pages
+  with Tiered Cache, pass API calls through, and accept only Azion at the origin.
+meta_tags: 'cdn, content delivery, reverse proxy, cache, tiered cache, origin shield, origin ip acl, bypass cache, api, real-time purge, edge dns'
+namespace: use_case_accelerate_websites_and_apis_with_a_cdn
+permalink: /documentation/use-cases/improve-performance-and-reliability/accelerate-websites-and-apis-with-a-cdn/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+An engineering or SRE team runs a website and its APIs on an origin it operates, in a cloud region or a data center. Users far from that origin see slow pages, and traffic peaks overload it. Static files and pages are the same for every user, while API calls are different for each one and must always reach the origin. This page configures an application in front of the origin that caches static files and pages, with Tiered Cache for the static files, passes API calls through to the origin, and lets the origin accept connections from Azion only. The result is measured by time to first byte and page load time for users, by the share of requests answered from cache, and by the drop in requests and data that reach the origin.
+
+This use case does not cover moving the site off its origin, failover between origins, or image optimization. For failover, refer to [Keep an application online when an origin fails](/en/documentation/use-cases/improve-performance-and-reliability/keep-an-application-online-when-an-origin-fails/). For images, refer to [Optimize images for websites and mobile apps](/en/documentation/use-cases/improve-performance-and-reliability/optimize-images-for-websites-and-mobile-apps/). For a marketing website on a CMS, refer to [Build and run marketing websites](/en/documentation/use-cases/build-and-run-applications/build-and-run-marketing-websites/).
+
+## Prerequisites
+
+- An application that serves your site through a connector and a workload, with a rule whose **Set Connector** behavior sends every request to the connector. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
+- Application Accelerator on that application, which the **Bypass Cache** behavior and the `POST`, `PUT`, `PATCH`, `DELETE`, and `OPTIONS` methods of the API require. To turn it on, refer to [Turn on Application Accelerator](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/#turn-on-application-accelerator).
+- A personal token, for the API steps and the purges. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
+- Access to the firewall in front of your origin, where the allowlist goes.
+- The paths of your site. This page uses `/static/` for the CSS, JavaScript, font, and image files a deploy publishes, `/api/` for the API, every other path for pages, `site-origin` for the connector of your origin, and `www.example.com` for the domain. Replace each value with yours in every step.
+
+---
+
+## Required products
+
+| The site needs | Which means | Product | Documented in |
+| --- | --- | --- | --- |
+| The domain answered by Azion instead of the origin | A `CNAME` record for a subdomain, or an `ANAME` record at the apex, pointing at the workload domain in an Edge DNS zone | Edge DNS | [Point a domain to a workload](/en/documentation/guides/platform/migration/point-domain-to-azion/) |
+| Static files and pages served near the user | Two cache settings, each applied by a rule matched on its paths | Cache | [Cache settings](/en/documentation/platform/applications/cache/cache-settings/) |
+| Fewer requests reaching the origin when a data center misses | Tiered Cache on the cache setting of the static files | Cache | [Tiered Cache](/en/documentation/platform/applications/cache/tiered-cache/) |
+| API calls that always reach the origin, with every method | A rule that bypasses the cache on the API path | Application Accelerator | [Bypass Cache](/en/documentation/platform/applications/rules-engine/#bypass-cache) |
+| An origin that accepts connections from Azion only | Origin IP ACL on the connector, and the `Azion Origin Shield` list at the origin's firewall | Origin Shield | [Restrict an origin to Azion with Origin IP ACL](/en/documentation/guides/application-security/bots-and-network/restrict-an-origin-to-azion-with-origin-ip-acl/) |
+| Share of requests from cache and load on the origin | The **Requests**, **Data Transferred**, and **Tiered Cache** dashboards, filtered to the domain | Real-Time Metrics | [Measure cache offload for a domain](/en/documentation/guides/platform/observability/measure-cache-offload/) |
+
+Pointing the domain at Azion is the same for every site, so it has no section on this page. To create the record, refer to [Point a domain to a workload](/en/documentation/guides/platform/migration/point-domain-to-azion/), and for the apex, to [Point an apex domain with ANAME](/en/documentation/guides/application-security/dns/access-root-domain/).
+
+---
+
+## Reference architecture
+
+This page builds the *Caching reverse proxy in front of an origin*: an application that answers from cache whatever it can and reaches the origin only on a miss.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  User["User"] -->|"DNS lookup"| DNS["Edge DNS"]
+  DNS -->|"resolves to the workload"| User
+  User -->|"HTTPS request"| App["application rules"]
+  App -->|"/static/"| Static["static-files cache setting"]
+  App -->|"pages"| Pages["pages cache setting"]
+  App -->|"/api/: Bypass Cache"| Conn["site-origin connector"]
+  Static -->|"miss"| Tiered["Tiered Cache"]
+  Tiered -->|"miss"| Conn
+  Pages -->|"miss"| Conn
+  Conn -->|"Azion addresses only"| Origin["origin"]
+  Purge["Real-Time Purge"] -->|"removes changed files"| Static
+```
+
+Read the diagram as a chain of layers that each try to answer before the next one is asked. The data center's cache answers first, the Tiered Cache layer answers the static files the data center misses, and only a miss in every layer reaches the origin through the connector. API calls skip the layers and go straight to the connector. The origin sits behind an allowlist, so the connector is the only way in. Real-Time Purge works on the cache from the side, removing content the origin changed before its TTL ends.
+
+### Dataflow
+
+1. Edge DNS resolves `www.example.com` to the workload, and the user's request reaches the application in a nearby data center.
+2. The application's rules read the path in the Request Phase and apply a cache setting: `static-files` to a `/static/` file, `pages` to a page. A valid copy in the data center's cache answers the request, and the origin is not asked.
+3. On a miss for a static file, the data center asks the Tiered Cache layer, which is shared by every data center and keeps objects longer. A copy there answers the request without reaching the origin.
+4. An `/api/` call bypasses the cache and reaches the origin through the `site-origin` connector, with every HTTP method. Any other miss also reaches the origin through `site-origin`, and the response is stored for the next request.
+5. The connector reaches the origin from an address on the `Azion Origin Shield` list, and the origin's firewall refuses every other source.
+6. When a deploy changes static files, a cache key purge removes them before their TTL ends, from the Tiered Cache layer first and from Cache second, and the next request fetches the new version. A cache key purge is the only type that reaches the Tiered Cache layer.
+
+### Components
+
+- **Edge DNS**: resolves the domain to the workload. A subdomain such as `www.example.com` points at the workload domain with a `CNAME` record, and the apex with an `ANAME` record.
+- **application**: the Platform Resource that holds the `static-files` and `pages` cache settings and the rules that apply them, path by path, beside the rule that bypasses the cache on `/api/`.
+- **Application Accelerator**: the Product the **Bypass Cache** behavior requires, so the application can send every call on `/api/` to the origin without storing the response.
+- **Cache**: stores responses in the data center that fetched them and answers repeated requests from the copy, for the TTL of the cache setting.
+- **Tiered Cache**: the Feature that adds a second cache layer between Cache and the origin, in the region its topology names. It requires _Override cache behavior_ and a **Max Age** of at least 3 seconds, and on this page it covers the static files only.
+- **connector**: the Platform Resource that reaches the origin on a miss in every cache layer, and on every API call. On this page it is `site-origin`.
+- **Origin Shield**: with Origin IP ACL on the connector, the origin's own firewall allows the prefixes of the `Azion Origin Shield` list and refuses every other source.
+- **Real-Time Purge**: the Platform Resource that removes changed content from cache before its TTL ends.
+- **Real-Time Metrics**: shows the share of requests and data answered from cache, what reached the origin, and what the Tiered Cache layer absorbed.
+
+### Other designs for this use case
+
+- *Accelerating reverse proxy for dynamic APIs*: for teams whose responses are personalized or transactional and cannot be cached. Every request on a dynamic path crosses to the origin, so the origin's response time is always part of the response time, and the decisions are connection handling and cache bypass instead of TTLs and purge.
+
+---
+
+## Configure the cache for static files and pages
+
+The cache for this site is two cache settings, one per kind of content, each applied by its own rule. Static files change only when you deploy, so they stay cached long and go through Tiered Cache. Pages change between deploys, so they stay cached briefly.
+
+The `static-files` setting uses _Override cache behavior_ with a **Max Age** of `86400` seconds, one day. The purge configured below removes a changed file at deploy time, so the day only bounds how long a file stays stale when a purge is missed. **Tiered Cache** is on, with the nearest region as its topology: Tiered Cache is designed for objects that stay cached a long time, and it requires _Override cache behavior_. The browser cache honors the `Cache-Control` the origin sends for each file.
+
+The `pages` setting uses a **Max Age** of `300` seconds, so a page edited at the origin reaches users within five minutes with no purge. Its browser cache is overridden to `0` seconds, because a copy in the user's browser cannot be purged. It has no Tiered Cache, because a five-minute object gains little from a second layer.
+
+Both settings keep **Stale cache** on, as Azion Console sets it for a new setting. An expired copy then answers for up to 300 seconds when the origin returns a `5xx` error or times out.
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+
+<Fragment slot="panel.console">
+
+To create the `static-files` cache setting:
+
+<DocSteps>
+  <DocStep title="Open the Cache Settings tab">
+
+  Access [Azion Console](https://console.azion.com/) > **Applications** > **your application**, then go to the **Cache Settings** tab.
+
+  </DocStep>
+  <DocStep title="Select + Cache" />
+  <DocStep title="Name the cache setting">
+
+  In **Name**, enter `static-files`.
+
+  </DocStep>
+  <DocStep title="Keep the browser cache">
+
+  Under **Browser Cache**, keep _Honor cache policies_.
+
+  </DocStep>
+  <DocStep title="Set Max Age">
+
+  Under **Cache**, select _Override cache behavior_ and set **Max Age** to `86400`.
+
+  </DocStep>
+  <DocStep title="Turn on Tiered Cache">
+
+  Turn on **Tiered Cache**, and in **Tiered Cache Region**, select the nearest region.
+
+  </DocStep>
+  <DocStep title="Select Save" />
+</DocSteps>
+
+To create the `pages` cache setting:
+
+<DocSteps>
+  <DocStep title="Select + Cache" />
+  <DocStep title="Name the cache setting">
+
+  In **Name**, enter `pages`.
+
+  </DocStep>
+  <DocStep title="Set the browser cache">
+
+  Under **Browser Cache**, select _Override cache settings_ and set the maximum age to `0`.
+
+  </DocStep>
+  <DocStep title="Set Max Age">
+
+  Under **Cache**, select _Override cache behavior_ and set **Max Age** to `300`.
+
+  </DocStep>
+  <DocStep title="Select Save" />
+</DocSteps>
+
+To create the rule for the static files:
+
+<DocSteps>
+  <DocStep title="Go to the Rules Engine tab" />
+  <DocStep title="Select + Rule" />
+  <DocStep title="Name the rule">
+
+  Enter `cdn - static files`.
+
+  </DocStep>
+  <DocStep title="Select Request Phase" />
+  <DocStep title="Match the static path">
+
+  In the **Criteria** section, set the criterion to `${uri}` _starts with_ `/static/`.
+
+  </DocStep>
+  <DocStep title="In the Behaviors section, select Set Cache Policy" />
+  <DocStep title="Select the static-files cache setting" />
+  <DocStep title="Select Save" />
+</DocSteps>
+
+To create the rule for the pages:
+
+<DocSteps>
+  <DocStep title="Select + Rule" />
+  <DocStep title="Name the rule">
+
+  Enter `cdn - pages`.
+
+  </DocStep>
+  <DocStep title="Select Request Phase" />
+  <DocStep title="Match every path except static files and the API">
+
+  In the **Criteria** section, set the first criterion to `${uri}` _does not start with_ `/static/`. Add a second criterion joined by **And**: `${uri}` _does not start with_ `/api/`.
+
+  </DocStep>
+  <DocStep title="In the Behaviors section, select Set Cache Policy" />
+  <DocStep title="Select the pages cache setting" />
+  <DocStep title="Select Save" />
+</DocSteps>
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+To create the `static-files` cache setting:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/cache_settings \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "static-files",
+  "browser_cache": { "behavior": "honor" },
+  "modules": {
+    "cache": {
+      "behavior": "override",
+      "max_age": 86400,
+      "stale_cache": { "enabled": true },
+      "tiered_cache": { "enabled": true, "topology": "nearest-region" }
+    }
+  }
+}'
+```
+
+The API answers `201` with the new setting. Keep its `id` for the rule:
+
+```json
+{"state":"executed","data":{"id":<static-files-id>,"name":"static-files",...}}
+```
+
+To create the `pages` cache setting:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/cache_settings \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "pages",
+  "browser_cache": { "behavior": "override", "max_age": 0 },
+  "modules": {
+    "cache": { "behavior": "override", "max_age": 300, "stale_cache": { "enabled": true } }
+  }
+}'
+```
+
+The API answers `201` with the new setting and its `id`.
+
+To create the two rules, send one request for each. The criteria of the pages rule sit in one group joined by `and`, so a request matches only when its path is neither a static file nor an API call:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "cdn - static files",
+  "active": true,
+  "criteria": [[{ "variable": "${uri}", "conditional": "if", "operator": "starts_with", "argument": "/static/" }]],
+  "behaviors": [{ "type": "set_cache_policy", "attributes": { "value": <static-files-id> } }]
+}'
+
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "cdn - pages",
+  "active": true,
+  "criteria": [[
+    { "variable": "${uri}", "conditional": "if", "operator": "does_not_start_with", "argument": "/static/" },
+    { "variable": "${uri}", "conditional": "and", "operator": "does_not_start_with", "argument": "/api/" }
+  ]],
+  "behaviors": [{ "type": "set_cache_policy", "attributes": { "value": <pages-id> } }]
+}'
+```
+
+Each call answers `202` with a `state` of `pending` and the rule as it was stored.
+
+</Fragment>
+</Tabs>
+
+Static files are cached for one day in both cache layers, and pages for five minutes. A new rule takes a few minutes to propagate.
+
+---
+
+## Configure the API pass-through
+
+API responses are different for each caller, so the API path bypasses the cache and every call reaches the origin. The rule matches `/api/` and carries **Bypass Cache**. Application Accelerator, already on the application, is what makes the application accept the API's `POST`, `PUT`, `PATCH`, `DELETE`, and `OPTIONS` calls, beyond `GET` and `HEAD`. A bypassed request keeps protocol optimizations and, where possible, a keep-alive connection to the origin, so each call skips a new connection.
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+
+<Fragment slot="panel.console">
+
+To create the bypass rule:
+
+<DocSteps>
+  <DocStep title="Go to the Rules Engine tab">
+
+  Access [Azion Console](https://console.azion.com/) > **Applications** > **your application**, then go to the **Rules Engine** tab.
+
+  </DocStep>
+  <DocStep title="Select + Rule" />
+  <DocStep title="Name the rule">
+
+  Enter `cdn - api pass-through`.
+
+  </DocStep>
+  <DocStep title="Select Request Phase" />
+  <DocStep title="Match the API path">
+
+  In the **Criteria** section, set the criterion to `${uri}` _starts with_ `/api/`.
+
+  </DocStep>
+  <DocStep title="In the Behaviors section, select Bypass Cache" />
+  <DocStep title="Select Save" />
+</DocSteps>
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+To create the bypass rule:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "cdn - api pass-through",
+  "active": true,
+  "criteria": [[{ "variable": "${uri}", "conditional": "if", "operator": "starts_with", "argument": "/api/" }]],
+  "behaviors": [{ "type": "bypass_cache" }]
+}'
+```
+
+The API answers `202` with a `state` of `pending` and the rule as it was stored.
+
+</Fragment>
+</Tabs>
+
+Every `/api/` call reaches the origin, and Azion stores none of its responses. The API path has no cache setting with Tiered Cache, so no response of it lands in the Tiered Cache layer either: **Bypass Cache** acts on Azion's cache and not on that layer.
+
+---
+
+## Configure Origin Shield on the connector
+
+Origin IP ACL makes the origin accept connections from Azion only, so a client that finds the origin's address cannot reach it around the application. The check has two halves. The connector turns on Origin IP ACL, which makes the `Azion Origin Shield` network list available to your account. Your origin's firewall then allows the prefixes of that list and denies every other source. Azion does not enforce the allowlist: your firewall does.
+
+Both halves are the procedure that [Restrict an origin to Azion with Origin IP ACL](/en/documentation/guides/application-security/bots-and-network/restrict-an-origin-to-azion-with-origin-ip-acl/) describes, run on `site-origin` and on the firewall in front of your origin. The allowlist holds the IPv4 and the IPv6 prefixes of the list, and the deny rule comes only after every prefix is allowed.
+
+Azion changes the list from time to time and emails your account each time. Servers behind an added prefix go into production 7 days after Azion publishes the change, so a job that reads the list on a schedule shorter than 7 days keeps your allowlist current.
+
+---
+
+## Configure purge on deploy
+
+A deploy that changes static files sends a purge, so users get the new files without waiting for the one-day **Max Age**. The `static-files` setting has Tiered Cache on, and a cache key purge is the only type that reaches the Tiered Cache layer. The deploy therefore purges each changed file by cache key, first in the Tiered Cache layer and then in Cache, so the first layer cannot refill from a stale Tiered Cache copy.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+sequenceDiagram
+  participant Deploy as deploy pipeline
+  participant Purge as Purge API
+  participant Cache as Cache layers
+  Deploy->>Purge: cache key purge, tiered_cache
+  Purge-->>Deploy: 201 executed
+  Deploy->>Purge: cache key purge, cache
+  Purge-->>Deploy: 201 executed
+  Purge->>Cache: removes the files
+```
+
+1. The deploy publishes the new files at the origin.
+2. It sends a cache key purge for each changed file with `layer` set to `tiered_cache`.
+3. It sends the same purge with `layer` set to `cache`.
+4. The next request for each file misses both layers, reaches the origin, and stores the new version.
+
+A cache key is the scheme, the host, and the path, with no separator between them. For the file `https://www.example.com/static/app.css`, the body of `POST /v4/workspace/purge/cachekey` to the Tiered Cache layer is:
+
+```json
+{"items":["httpswww.example.com/static/app.css"],"layer":"tiered_cache"}
+```
+
+and to Cache:
+
+```json
+{"items":["httpswww.example.com/static/app.css"],"layer":"cache"}
+```
+
+Each call answers `201` with `state` set to `executed`. A cache key purge takes up to 50 keys per request, so a deploy that changes more files splits them into several requests. A page that changes without a deploy needs no purge: its five-minute **Max Age** refreshes it. For the other purge types and how to confirm a purge completed, refer to [Purge pages when the origin publishes a change](/en/documentation/guides/application-performance/cache-and-purge/purge-on-publish/).
+
+---
+
+## Verify the setup
+
+Each check sends a request with the `Pragma: azion-debug-cache` header, which makes the response carry the `x-cache` and `x-cache-key` headers. For how to read them, refer to [Check the cache status of a response](/en/documentation/guides/application-performance/cache-and-purge/check-page-cache-time/).
+
+- **The domain resolves to Azion.** Query the hostname:
+
+  ```bash
+  dig +short www.example.com
+  ```
+
+  The answer lists the workload domain, of the form `<id>.map.azionedge.net`.
+
+- **Static files answer from cache.** Request a static file twice:
+
+  ```bash
+  curl -sI -H "Pragma: azion-debug-cache" https://www.example.com/static/app.css
+  ```
+
+  The second response carries `x-cache: HIT`. The first can carry `MISS`, while Azion fetches the file.
+
+- **Pages answer from cache.** Request the home page twice the same way. The second response carries `x-cache: HIT`.
+
+- **API calls reach the origin.** Request an API path:
+
+  ```bash
+  curl -sI -H "Pragma: azion-debug-cache" https://www.example.com/api/status
+  ```
+
+  The response carries `x-cache: BYPASS`.
+
+- **The origin refuses connections from anywhere else.** From your own machine, send a request straight to the origin's address. The origin's firewall refuses the connection or lets it time out, while requests through `www.example.com` keep answering.
+
+- **A purge reaches both layers.** After a deploy and its purges, request a changed file. The response carries `x-cache: MISS`, and the request after it carries `HIT` with the new content.
+
+A rule that seems to have no effect may still be propagating. When it persists after a few minutes, turn on [Debug Rules](/en/documentation/platform/applications/main-settings/#debug-rules) to see which rules ran on the request.
+
+---
+
+## Measuring results
+
+| Metric | Where to read it | What working looks like |
+| --- | --- | --- |
+| Share of requests answered from cache | **Requests Offloaded** in Real-Time Metrics, filtered to the host. Refer to [Measure cache offload for a domain](/en/documentation/guides/platform/observability/measure-cache-offload/) | Rises after the cache rules propagate, and holds during traffic peaks |
+| Requests and data that reach the origin | **Missed Requests** and **Missed Data**, filtered to the host, and **Tiered Cache Offload** on the **Tiered Cache** tab | Fall after the cache rules propagate; Tiered Cache Offload shows the misses the second layer absorbed |
+| Time to first byte and page load time for users | The `ttfb` and `pageloadtime` fields of Edge Pulse measurements, taken in the users' browsers. Refer to [Edge Pulse quickstart](/en/documentation/platform/edge-pulse/quickstart/) | Lower after the domain points at Azion, on every page that carries the Edge Pulse tag |
+
+---
+
+## Best practices
+
+- **Keep Tiered Cache off any path you bypass.** **Bypass Cache** acts on Azion's cache and not on the Tiered Cache layer, so a path whose cache setting has Tiered Cache on keeps answering from that layer. On this page the bypassed `/api/` path has no cache setting at all. For the symptom, refer to [Troubleshoot Applications](/en/documentation/platform/applications/troubleshooting/#cache).
+- **Purge on deploy instead of shortening Max Age.** A short **Max Age** sends more requests to the origin and still leaves a stale window. The deploy knows which files changed, so it purges them, and **Max Age** stays a safety bound.
+- **Use Bypass Cache for the API, not a Max Age of 0.** A **Max Age** of `0` merges simultaneous requests for one path into one origin request, and two callers of an API need two answers. For the difference, refer to [Cache variation](/en/documentation/platform/applications/application-accelerator/cache-variation/#bypass-cache-and-a-ttl-of-0).
+- **Allow both address families at the origin.** The `Azion Origin Shield` list carries IPv6 prefixes beside its IPv4 prefixes, and Azion connects to origins over both. An allowlist with only the IPv4 prefixes refuses the connections Azion opens over IPv6.
+
+---
+
+## Guides in this use case
+
+<DocCardGroup cols={2}>
+  <DocCard title="Restrict an origin to Azion with Origin IP ACL" href="/en/documentation/guides/application-security/bots-and-network/restrict-an-origin-to-azion-with-origin-ip-acl/" label="Turns on Origin IP ACL on site-origin and allows only the Azion Origin Shield list at the origin's firewall." />
+</DocCardGroup>

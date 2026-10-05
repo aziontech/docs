@@ -1,0 +1,304 @@
+---
+title: Prepare regulated web applications for security audits
+description: >-
+  Enforce HTTPS, filter attacks, restrict access by country and address, and
+  export every security event to a destination the team keeps for its audits.
+meta_tags: 'security audit, audit evidence, https, tls, certificate manager, waf, network shield, geographic restriction, data stream, siem, real-time events'
+namespace: use_case_prepare_regulated_web_applications_for_security_audits
+permalink: /documentation/use-cases/secure-applications-and-networks/prepare-regulated-web-applications-for-security-audits/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+A security or compliance team is responsible for a web application that handles card data or personal data under a standard such as PCI DSS, SOC 2, LGPD, or GDPR. It must show auditors that traffic is encrypted, that application-layer attacks are filtered, that access is restricted, and that security events are kept. This page configures the HTTPS redirect on the application, the country and address restrictions on its firewall, and a stream that exports every request and WAF event to a destination the team keeps. The result is measured by each audited control mapped to a platform setting, the completeness and retention period of the security logs, and the time needed to prepare audit evidence.
+
+This use case does not cover Azion's own certifications as a vendor, for which refer to [PCI Compliance](/en/documentation/fundamentals/pci-dss-certification/) and [SOC Compliance](/en/documentation/fundamentals/soc/), or where the team's databases store regulated data.
+
+## Prerequisites
+
+- An application that serves the web application through a connector and a workload. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
+- HTTPS turned on in the workload's protocol settings, with a certificate that covers its domains. To have Azion request and renew one, refer to [Request a Let's Encrypt certificate](/en/documentation/guides/application-security/tls-and-certificates/how-to-generate-a-lets-encrypt-certificate/), and to upload one of your own, refer to the [Certificate Manager quickstart](/en/documentation/platform/workloads/certificate-manager/quickstart/).
+- A firewall bound to the workload's deployment, with WAF applied to every request. To build it, refer to [Bind a firewall to a workload](/en/documentation/guides/application-security/firewall-and-waf/firewall-protect-your-domain/) and [Apply a rule set to every request](/en/documentation/guides/application-security/firewall-and-waf/apply-rule-set/).
+- An endpoint that keeps the events for the period your standard requires, such as a SIEM or a storage bucket. For the endpoints a stream sends to, refer to [Endpoints](/en/documentation/platform/data-stream/endpoints/).
+- A personal token, for the API tabs. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
+- The values of your application. This page uses `www.example.com` for the domain, `BR` and `US` for the countries the application serves, `/admin` for its administration path, `203.0.113.0/24` for your team's network, an Apache Kafka cluster at `kafka1.example.com:9092` with the topic `azion.audit` as the endpoint, and `audit` as the prefix of every object it creates. Replace each value with yours in every step.
+
+---
+
+## Required products
+
+| The audit asks for | Which means | Product | Documented in |
+| --- | --- | --- | --- |
+| Traffic encrypted in transit | A certificate on the workload, and a _Redirect HTTP to HTTPS_ rule on the application | Certificate Manager | [Certificate Manager quickstart](/en/documentation/platform/workloads/certificate-manager/quickstart/) and [Redirect HTTP to HTTPS](/en/documentation/guides/application-security/tls-and-certificates/redirect-http-to-https/) |
+| Application-layer attacks filtered | A WAF rule set that a _Set WAF_ rule applies to every request | WAF | [Apply a rule set to every request](/en/documentation/guides/application-security/firewall-and-waf/apply-rule-set/) |
+| Access restricted by country and by network | Network lists that deny rules read through the _Network_ criterion | Network Shield | [Network Lists](/en/documentation/platform/firewall/network-shield/network-lists/) |
+| Security events kept outside the platform | A stream of the _Applications_ data source, with the WAF variables, to the team's endpoint | Data Stream | [Stream request and WAF records to a SIEM](/en/documentation/guides/platform/observability/stream-request-and-waf-records-to-siem/) |
+| One incident reviewed request by request | The record of each request, with its WAF fields | Real-Time Events | [Data sources](/en/documentation/platform/real-time-events/data-sources/#http-requests) |
+
+DDoS Protection mitigates DoS and DDoS attacks on every workload, with nothing to configure. For the attack types it covers, refer to [Attack mitigation](/en/documentation/platform/workloads/ddos-protection/ddos-mitigation/).
+
+---
+
+## Reference architecture
+
+This page builds the *Compliance perimeter with security event retention*: encryption, filtering, and access restrictions in front of the application, and an export of every security event to a destination the team keeps.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Client["Client"] -->|"HTTPS, certificate on the workload"| FW["firewall"]
+  FW -->|"country not served"| D1["403"]
+  FW -->|"/admin from outside the team network"| D2["403"]
+  FW -->|"attack pattern, Blocking"| D3["400"]
+  FW --> App["application: redirects HTTP to HTTPS"]
+  App --> Conn["connector"]
+  Conn --> Origin["origin"]
+  App -.->|"request and WAF records"| DS["Data Stream"]
+  DS --> Dest["SIEM or storage the team keeps"]
+  App -.->|"7 days"| RTE["Real-Time Events"]
+```
+
+Read the diagram as two paths. The solid path is the request: encrypted on arrival, filtered by the firewall's rules, and delivered to the origin through the connector. The dotted path is the evidence: a record of every request, with its WAF decision, leaves for a destination the team keeps, while Real-Time Events holds a short window for review. An audit asks about both paths, and each control on the first has a record on the second.
+
+### Dataflow
+
+1. A client connects over HTTPS, and the workload presents the certificate that Certificate Manager holds for the domain. DDoS Protection assesses the traffic before any firewall rule runs.
+2. The firewall's rules deny, through Network Shield lists, a client whose country is not in the served list and a request to `/admin` from outside the team's network.
+3. WAF scores every request, and in _Blocking_ refuses one whose score reaches a family's threshold.
+4. A request that passes reaches the application, which redirects plain HTTP to HTTPS and forwards the request to the origin through the connector.
+5. Data Stream exports the record of every request, with its WAF variables, to the SIEM or the storage the team keeps for the period its standard requires.
+6. Real-Time Events keeps each record for 7 days, for the review of a recent incident.
+
+### Components
+
+- **Certificate Manager**: the Platform Resource that holds the TLS certificates a workload presents, either uploaded by the team or requested from Let's Encrypt and renewed by Azion.
+- **application**: the Platform Resource that redirects plain HTTP to HTTPS and delivers the requests the firewall lets through.
+- **firewall**: the Platform Resource that is the enforcement point, where each control runs as a rule a team can name to an auditor.
+- **DDoS Protection**: the Feature that mitigates DoS and DDoS attacks on every workload, always on and with nothing to configure.
+- **WAF**: the application-layer control, which scores each request against eight threat families and refuses attack patterns in _Blocking_.
+- **Network Shield**: restricts access by network and by country, through lists that deny rules read with the _Network_ criterion.
+- **connector**: the Platform Resource that reaches the origin.
+- **Data Stream**: exports the request records, with the WAF variables, for retention outside the platform. Its _Activity History_ data source also exports the configuration changes users make in Azion Console.
+- **Real-Time Events**: holds each request record for 7 days, for incident review.
+- **SIEM or storage**: the integration that holds the evidence for the period the team's standard requires.
+
+---
+
+## Configure HTTPS enforcement
+
+The certificate on the workload encrypts every HTTPS connection, and the application's rule closes the other path: a request made over plain HTTP is redirected to HTTPS instead of being served. _Redirect HTTP to HTTPS_ does nothing to a request already made over HTTPS, so the rule matches `${uri}` _starts with_ `/`, every path, with no condition on the scheme. The behavior requires HTTPS turned on in the workload's protocol settings.
+
+The workload's **Minimum TLS version** defaults to TLS 1.3. Keep it, or record the version you set, because an auditor asks for the floor, not for the version one session negotiated.
+
+The rule is created as [Redirect HTTP to HTTPS](/en/documentation/guides/application-security/tls-and-certificates/redirect-http-to-https/) describes, with these values:
+
+- **Rule name**: `audit - redirect to HTTPS`, a name an auditor can map to the encryption control.
+- **Criterion**: `${uri}` _starts with_ `/`, every path of `www.example.com`.
+- **Behavior**: _Redirect HTTP to HTTPS_.
+- **Position**: before any rule of the application whose behavior ends the processing, so no HTTP request skips the redirect.
+
+Every request made over HTTP is redirected to HTTPS, and every HTTPS request continues unchanged. A new rule takes a few minutes to propagate.
+
+---
+
+## Configure access and geographic restrictions
+
+Two deny rules restrict access on the firewall. The first refuses every client whose country is not in `audit-served-countries`, with the _Network_ criterion's _does not match_ operator, so a new country stays refused until someone adds it. The second refuses a request to `/admin` from any address outside `audit-team-addresses`, so the administration path answers only your team. Its two criteria sit in one block joined by _and_: the rule acts only where the path and the address both match.
+
+Country resolution can be wrong for some addresses, so the administration rule reads an `ip_cidr` list rather than a country. Give each entry of `audit-team-addresses` a comment naming whose network it is, because an auditor asks who can reach the path.
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+
+<Fragment slot="panel.console">
+
+To create the two lists:
+
+<DocSteps>
+  <DocStep title="Open the Network Lists page">
+
+  Access [Azion Console](https://console.azion.com/) > **Edge Libraries** > **Network Lists**, and select **Network List**.
+
+  </DocStep>
+  <DocStep title="Create the countries list">
+
+  Enter `audit-served-countries` as the **Name**, select _Countries_, select Brazil and the United States in **Countries**, and select **Save**.
+
+  </DocStep>
+  <DocStep title="Create the team's list">
+
+  Select **Network List** again, enter `audit-team-addresses`, select _IP/CIDR_, enter `203.0.113.0/24 #security team office` in **List**, and select **Save**.
+
+  </DocStep>
+</DocSteps>
+
+To create the two rules:
+
+<DocSteps>
+  <DocStep title="Open the firewall's Rules Engine tab">
+
+  Access **Firewalls**, select the firewall, then go to the **Rules Engine** tab.
+
+  </DocStep>
+  <DocStep title="Create the country rule">
+
+  Select **Rule** and enter `audit - deny countries not served`. In the **Criteria** section, select _Network_, _does not match_, and `audit-served-countries`. In the **Behaviors** section, select _Deny (403 Forbidden)_, and select **Save**.
+
+  </DocStep>
+  <DocStep title="Create the administration rule">
+
+  Select **Rule** and enter `audit - restrict admin to the team`. In the **Criteria** section, select _Network_, _does not match_, and `audit-team-addresses`. Add a criterion joined by **And**: `Request Uri` _starts with_ `/admin`. In the **Behaviors** section, select _Deny (403 Forbidden)_, and select **Save**.
+
+  </DocStep>
+</DocSteps>
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+To create the countries list:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/network_lists \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"name":"audit-served-countries","type":"countries","items":["BR","US"]}'
+```
+
+To create the team's list:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/network_lists \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"name":"audit-team-addresses","type":"ip_cidr","items":["203.0.113.0/24 #security team office"]}'
+```
+
+Each call answers `201` with a `state` of `executed` and the list's `id`. To create the country rule:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/firewalls/<firewall-id>/request_rules \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "audit - deny countries not served",
+  "active": true,
+  "criteria": [
+    [{ "variable": "${network}", "conditional": "if", "operator": "is_not_in_list", "argument": <countries-list-id> }]
+  ],
+  "behaviors": [{ "type": "deny" }]
+}'
+```
+
+To create the administration rule, with both criteria in one block:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/firewalls/<firewall-id>/request_rules \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "audit - restrict admin to the team",
+  "active": true,
+  "criteria": [
+    [
+      { "variable": "${network}", "conditional": "if", "operator": "is_not_in_list", "argument": <team-list-id> },
+      { "variable": "${request_uri}", "conditional": "and", "operator": "starts_with", "argument": "/admin" }
+    ]
+  ],
+  "behaviors": [{ "type": "deny" }]
+}'
+```
+
+Each call answers `202` with a `state` of `pending` and the rule as it was stored.
+
+</Fragment>
+</Tabs>
+
+A client from a country outside the list, and a request to `/admin` from outside the team's network, each receive `403` once the rules propagate, 6 to 10 minutes after they are saved.
+
+---
+
+## Configure the event export
+
+The stream reads the _Applications_ data source with the _Applications + WAF Event Collector_ template, `184` in the API. Each log line then carries the request, the response, and the client address, with the WAF score, matched rules, and action of the same request, so one line answers an auditor's question about one request. The stream filters on the application's workload rather than sampling, so every request is exported and the account's other streams stay active.
+
+Real-Time Events keeps each record for 7 days, so evidence for an audit period comes from the destination, which keeps the lines for as long as the team configures it to.
+
+Create the stream as [Stream request and WAF records to a SIEM](/en/documentation/guides/platform/observability/stream-request-and-waf-records-to-siem/) describes, with these values:
+
+- **Name**: `audit-events`.
+- **Workload filter**: the application's workload.
+- **Endpoint**: _Apache Kafka_, with `kafka1.example.com:9092` in **Bootstrap Servers**, `azion.audit` in **Kafka Topic**, and TLS on.
+
+In the API, the `outputs` entry is:
+
+```json
+{ "type": "kafka", "attributes": { "bootstrap_servers": "kafka1.example.com:9092", "kafka_topic": "azion.audit", "use_tls": true } }
+```
+
+The stream activates one to two minutes after it is saved, and sends a batch every 60 seconds, or sooner at 2,000 log lines.
+
+---
+
+## Verify the setup
+
+A new rule reaches traffic 6 to 10 minutes after it is saved. Repeat each request until the answer holds.
+
+- **Plain HTTP is redirected.** Request the domain over HTTP:
+
+  ```bash
+  curl -s -o /dev/null -w '%{redirect_url}\n' http://www.example.com/
+  ```
+
+  The command prints `https://www.example.com/`.
+
+- **The administration path answers only the team.** From an address outside `203.0.113.0/24`, request `/admin`:
+
+  ```bash
+  curl -s -o /dev/null -w '%{http_code}\n' https://www.example.com/admin
+  ```
+
+  The command prints `403`. The same request from the team's network reaches the application.
+
+- **Countries outside the list are refused.** A request from a client resolved to a country outside `audit-served-countries` receives `403`, with Azion's default error page, which shows the client's address and the request ID.
+
+- **Attack patterns are filtered.** Send `https://www.example.com/?q=1%27%20OR%20%271%27%3D%271`. With the WAF rule in _Blocking_, the response is `400`.
+
+- **Every send reaches the destination.** In Real-Time Events, the _Data Stream_ data source lists each send of `audit-events`, and a **Status Code** of `200` means the destination accepted the batch. At the destination, a line carries keys such as `waf_score` and `waf_match`.
+
+---
+
+## Measuring results
+
+| Metric | Where to read it | What working looks like |
+| --- | --- | --- |
+| Each audited control mapped to a platform setting | The team's own control map, which names for each control the setting on this page that implements it: the workload's certificate and TLS floor, the redirect rule, the WAF rule, the two deny rules, and the stream | No control in the audit's scope without a named setting |
+| Completeness of the security logs | The `dataStreamedEvents` dataset of Real-Time Events, which records the status code of every send. Refer to [Watch the status code of every send](/en/documentation/platform/data-stream/best-practices/#watch-the-status-code-of-every-send-in-real-time-events) | Every send answers `200`, and the destination holds a line for each period with traffic |
+| Retention period of the security logs | The retention setting of the destination | Meets the period the team's standard requires |
+| Time to prepare audit evidence | The time to export one audit period from the destination, and the control map with it | Falls to the time of one query per control |
+
+---
+
+## Best practices
+
+- **Keep the evidence outside the platform.** Real-Time Events keeps a record for 7 days, and a failed send that nobody reads within that period leaves no record either. The destination is the only place the evidence lasts.
+- **Export configuration changes too.** The _Activity History_ data source carries each change a user makes on the account in Azion Console, with the author and the time, and its _Activity History Collector_ template is `251`. An auditor who asks who changed a rule reads it there.
+- **Keep the administration path on addresses, not on countries.** Country resolution can be wrong for some addresses, and an `ip_cidr` list names exactly who can reach the path.
+- **Read the shared responsibility before you write the control map.** Azion secures the platform, and the team configures and evidences the controls of its own application. For the split, refer to [Shared Responsibility Model](/en/documentation/fundamentals/shared-responsibility/).
+
+---
+
+## Guides in this use case
+
+<DocCardGroup cols={2}>
+  <DocCard title="Redirect HTTP to HTTPS" href="/en/documentation/guides/application-security/tls-and-certificates/redirect-http-to-https/" label="Create the application rule that redirects every plain HTTP request to HTTPS." />
+  <DocCard title="Stream request and WAF records to a SIEM" href="/en/documentation/guides/platform/observability/stream-request-and-waf-records-to-siem/" label="Create the stream that exports every request with its WAF variables to the destination that keeps the evidence." />
+</DocCardGroup>
