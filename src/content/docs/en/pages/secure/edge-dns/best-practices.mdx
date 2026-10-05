@@ -1,0 +1,166 @@
+---
+title: Best practices for Edge DNS
+description: Plan delegation, TTLs, weighted records, the apex record, and DNSSEC so that added and changed Edge DNS records answer when you expect.
+meta_tags: 'edge dns, best practices, dns ttl, nameserver delegation, aname, weighted records, dnssec'
+namespace: documentation_products_edge_dns_best_practices
+permalink: /documentation/platform/edge-dns/best-practices/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+A DNS change reaches your users only after every cache that holds the old answer lets it go. The order of your changes decides how long that takes. A domain delegated before its records exist is unavailable to every user at once. A name looked up a few seconds before its record is saved is answered `NXDOMAIN` for up to one hour. A long TTL keeps an old address in resolvers after you replace it.
+
+These practices apply to the zones and records of [Edge DNS](/en/documentation/platform/edge-dns/) in Azion Console, the Azion CLI, and the Azion API. A saved record needs no deployment step, but a change to an existing record can take a few minutes to reach every nameserver. The cache behind that delay is on [How Edge DNS works](/en/documentation/platform/edge-dns/how-it-works/#caching-and-propagation), and every field is on [Zones and records](/en/documentation/platform/edge-dns/zones-and-records/).
+
+In order, the practices cover the records to check, the nameservers to delegate to, the TTL before a change, and the first query for a name. They then cover the apex record, retiring a weighted record, CNAME targets, DNSSEC support at the TLD, and turning DNSSEC off.
+
+---
+
+## Query every record at Azion's nameservers before you delegate
+
+Delegation sends every resolver on the internet to Azion's nameservers at once. A record missing from the zone at that moment is missing for every user, and the service it points to becomes unavailable. Azion's nameservers answer a zone before any registrar delegates it. Create the zone, add every record the domain serves, and ask `ns1.aziondns.net` for each one first:
+
+```bash
+dig +short @ns1.aziondns.net www.example.com A
+```
+
+```text
+192.0.2.1
+```
+
+Run the same query for each name and type the domain uses, such as the MX and TXT records of `example.com`. Query a name only after you save its record, as [a later practice](#query-a-name-only-after-you-create-its-record) explains. The cost is lead time: the first records of a newly created zone can take a few minutes to answer. Create the zone well before the registrar change. For the steps, refer to [Create, edit, or delete a zone](/en/documentation/guides/application-security/dns/edge-dns-configure-main-settings/).
+
+To check it, compare each answer with what the domain's current nameservers return for the same query.
+
+---
+
+## Delegate the domain to all three nameservers
+
+A delegation lists the nameservers that a resolver may ask for the domain. A resolver never asks a nameserver that the registrar does not list. Azion recommends all three Edge DNS nameservers for additional reliability. Each name sits under its own top-level domain, so copy the names instead of typing them. **Copy Nameserver Values** on the **Zones** page of Azion Console copies all three in one string:
+
+```text
+ns1.aziondns.net;ns2.aziondns.com;ns3.aziondns.org
+```
+
+Enter each name as its own nameserver at your registrar. The cost is a step outside Azion: public resolvers reach the zone only after the registrar publishes the delegation, on the registrar's schedule. For the full migration, refer to [Migrate nameservers to Azion](/en/documentation/guides/platform/migration/migrate-ns-to-azion/).
+
+To check it, ask a public resolver such as `8.8.8.8` for a name in the zone. Once the delegation is published, it returns what `ns1.aziondns.net` returns.
+
+---
+
+## Lower the TTL a few days before a planned change
+
+A resolver keeps an answer for the TTL that the answer carried. After a change, it can serve the old value until that TTL runs out. A lower TTL shortens the window in which outdated answers are served. For a zone that still runs at another provider, lower the TTL there a few days before you delegate. In Edge DNS, a few days before a planned change, such as another address, lower the TTL of the records it touches:
+
+```bash
+azion update dns-record --zone-id <zone-id> --record-id <record-id> --ttl 300
+```
+
+```text
+DNS record 100214 was updated
+```
+
+The lower TTL is itself a change, and resolvers pick it up only once the old TTL, 3600 seconds by default, runs out. The cost is query volume: resolvers ask more often, and Edge DNS counts each query toward the [included usage](/en/documentation/platform/edge-dns/limits/#included-usage-per-plan) of your plan. Raise the TTL again once the change is done.
+
+To check it, run `dig @ns1.aziondns.net www.example.com A`: the answer carries a TTL of `300` or less, because the nameservers count it down.
+
+---
+
+## Query a name only after you create its record
+
+Azion's nameservers cache a negative answer like any other. A query for a name that has no record yet is answered `NXDOMAIN`, and the nameservers keep that answer. The name is answered `NXDOMAIN` for up to one hour, the SOA minimum, even after you add the record. Resolvers that asked keep their own negative answer for up to the same hour. A name that nobody queried before it existed answers within seconds.
+
+Save the record first, then query the name, and keep monitoring tools and scripts from polling a name before its record exists. The cost is order: a check you want to run during the setup waits until the save returns. For how the negative answer is cached, refer to [How Edge DNS works](/en/documentation/platform/edge-dns/how-it-works/#caching-and-propagation).
+
+To check it, confirm that the first query for each name comes after its record is saved, or wait up to one hour for a cached `NXDOMAIN` to expire.
+
+---
+
+## Use an ANAME record at the apex, not a CNAME
+
+The apex of a zone, `@`, already holds the SOA and NS records that Azion writes. A CNAME blocks every other type on its name, so the API refuses a CNAME named `@` with `19005`. An ANAME record points the apex at an Azion hostname and is answered with the target's addresses. The apex keeps its MX and TXT records. A `POST` to `/v4/workspace/dns/zones/<zone-id>/records` with this body serves `example.com` from a workload:
+
+```json
+{
+  "name": "@",
+  "type": "ANAME",
+  "rdata": ["<your-workload>.map.azionedge.net"],
+  "ttl": 20
+}
+```
+
+Keep `ttl` at `20`: any other value, including the default of 3600, is refused with `19011`. The cost is reach: an ANAME target is a name under `azioncdn.net`, `azionedge.net`, or `azionedge.com` only. For its rules, refer to [Record types](/en/documentation/platform/edge-dns/record-types/#aname), and for the steps, to [Point an apex domain with ANAME](/en/documentation/guides/application-security/dns/access-root-domain/).
+
+To check it, run `dig @ns1.aziondns.net example.com A`: the answer holds A records with a TTL of `20` and no CNAME.
+
+---
+
+## Set a weight of 0 before you delete a weighted record
+
+Weighted records share one name and type, and each answer carries the value of one record, chosen in proportion to its weight. A weight of `0` keeps a record in the zone and never answers it. That takes the value out of rotation and lets you bring it back by restoring the weight. The same weights let you send a small share of answers to a value you introduce before it takes all of them.
+
+Before you delete a weighted record, set its weight to `0`. The record keeps its *Weighted* policy, so the flag needs no `--policy`:
+
+```bash
+azion update dns-record --zone-id <zone-id> --record-id <record-id> --weight 0
+```
+
+```text
+DNS record 100189 was updated
+```
+
+In the API, the same change is a `PATCH` with `{"weight":0}`. Delete the record once the other values carry the traffic. The cost is time: resolvers that cached the record's value keep it for the record's TTL. For how the weights choose an answer, refer to [How Edge DNS works](/en/documentation/platform/edge-dns/how-it-works/#record-policies), and for the steps, to [Weight records to balance traffic](/en/documentation/guides/application-security/dns/load-balance-dns/).
+
+To check it, run `dig +short @ns1.aziondns.net lb.example.com A` across several TTL periods: the value of the record with weight `0` never appears.
+
+---
+
+## Point each CNAME at the final hostname
+
+A resolver that gets a CNAME repeats the lookup with the hostname the CNAME points to. When that hostname is another CNAME, each alias in the chain adds a step before the resolver reaches an address. When the target is a name in the same zone, Edge DNS returns the CNAME and the target's records in one response: `blog` with the value `www.example.com` is answered with the CNAME and the A record of `www`. A target outside the zone costs the resolver another lookup for each alias.
+
+Point each CNAME at the hostname that holds the address, not at another alias. The cost is upkeep: when that hostname changes, every CNAME that names it changes too, where a chain needed one edit. For the rules of a CNAME, refer to [Record types](/en/documentation/platform/edge-dns/record-types/#cname).
+
+To check it, run `dig @ns1.aziondns.net blog.example.com A`: the answer holds one CNAME followed by the address.
+
+---
+
+## Confirm that the TLD supports DNSSEC before you turn it on
+
+DNSSEC signatures protect a domain only when validating resolvers trust the zone's keys. That trust comes from the DS record that your registrar and the domain's top-level domain (TLD) registry publish. A TLD registry that does not support DNSSEC cannot publish the DS record, so no resolver validates a signed zone under that TLD.
+
+Before you plan on DNSSEC for a domain, confirm that its TLD registry supports it. The cost is an inquiry that Azion cannot answer for you. The DNSSEC status of a zone reads `ready` once Azion signs it, whether or not any registry can publish the DS record. For the four values of the DS record, refer to [DNSSEC](/en/documentation/platform/edge-dns/dnssec/#ds-record).
+
+To check it, confirm with your registrar that it accepts a DS record for the domain.
+
+---
+
+## Remove the DS record before you turn DNSSEC off
+
+While the registrar publishes a DS record for the domain, or resolvers still cache it, validating resolvers expect signed answers. Turning DNSSEC off first stops the signatures while that DS record is still trusted, and the domain can become unavailable to validating resolvers. Remove the DS record at your registrar, wait for it to expire from resolver caches, and only then turn DNSSEC off for the zone:
+
+```bash
+azion update dnssec --zone-id <zone-id> --enabled=false
+```
+
+```text
+DNSSEC of DNS zone 1234 was updated
+```
+
+The cost is time: the zone stays signed during the wait, with no DS record to validate it. For the steps in every interface, refer to [Turn on DNSSEC for a zone](/en/documentation/guides/application-security/dns/activate-dnssec/#turn-dnssec-off).
+
+To check it, run `azion describe dnssec --zone-id <zone-id>`: it prints `Enabled: false`.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How Edge DNS works" href="/en/documentation/platform/edge-dns/how-it-works/">The resolution path, the caching, and the record policies behind each practice on this page.</DocItem>
+  <DocItem title="Zones and records" href="/en/documentation/platform/edge-dns/zones-and-records/">Every zone and record field, with its values, defaults, and the errors the API returns.</DocItem>
+  <DocItem title="DNSSEC" href="/en/documentation/platform/edge-dns/dnssec/">The DNSSEC setting of a zone, its status values, and what turning it off changes.</DocItem>
+  <DocItem title="Migrate nameservers to Azion" href="/en/documentation/guides/platform/migration/migrate-ns-to-azion/">The steps to move a domain's records to Edge DNS and delegate it at the registrar.</DocItem>
+</ItemList>
+</FrameBox>
