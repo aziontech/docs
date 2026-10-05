@@ -15,6 +15,8 @@ export const baseSchema = z.object({
 	githubURL: z.url().optional(),
 	hasREADME: z.boolean().optional(),
 	page_header: z.boolean().default(true),
+	/** The tree id whose guides the page lists after its body; set on a section's Guides and tutorials hub. */
+	guides_hub: z.string().optional(),
 	agent: z
 		.object({
 			mark: z.enum(['claude', 'codex', 'gemini', 'cursor', 'windsurf', 'opencode', 'copilot']),
