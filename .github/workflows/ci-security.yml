@@ -1,0 +1,107 @@
+name: Security
+
+# Public repository: aziontech/azion-action-security is private and cannot be
+# used here, so the same capabilities run inline with pinned, checksum-verified
+# tools.
+#   - secrets:      gitleaks (tree + new commits; full history weekly)
+#   - SAST:         semgrep (registry rules, ERROR severity blocks)
+#   - dependencies: osv-scanner over every manifest/lockfile (HIGH/CRITICAL block)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: '24 4 * * 3'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-security-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GITLEAKS_VERSION: 8.30.1
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+  OSV_VERSION: v2.4.0
+  OSV_SHA256: 15314940c10d26af9c6649f150b8a47c1262e8fc7e17b1d1029b0e479e8ed8a0
+  SEMGREP_VERSION: 1.176.0
+
+jobs:
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0 # full history: secrets hide in old commits
+          persist-credentials: false
+
+      - name: Install pinned tools
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSLf -o "$RUNNER_TEMP/gitleaks.tar.gz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP/bin" gitleaks
+          curl -sSLf -o "$RUNNER_TEMP/bin/osv-scanner" \
+            "https://github.com/google/osv-scanner/releases/download/${OSV_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SHA256}  $RUNNER_TEMP/bin/osv-scanner" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/bin/osv-scanner"
+          python3 -m pip install --quiet --disable-pip-version-check --user "semgrep==${SEMGREP_VERSION}"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Secret scanning (gitleaks)
+        if: ${{ !cancelled() }}
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          # Current tree on every run; new commits on PRs and pushes; the full
+          # history on the weekly schedule and on manual runs.
+          status=0
+          gitleaks detect --source . --no-git --no-banner --redact --verbose || status=1
+          case "$EVENT_NAME" in
+            pull_request) range="${PR_BASE}..${PR_HEAD}" ;;
+            push) range="${PUSH_BEFORE}..${GITHUB_SHA}"
+                  git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null || range="${GITHUB_SHA}^!" ;;
+            *) range="" ;;
+          esac
+          if [ -n "$range" ]; then
+            gitleaks detect --source . --no-banner --redact --verbose --log-opts="$range" || status=1
+          else
+            gitleaks detect --source . --no-banner --redact --verbose || status=1
+          fi
+          exit "$status"
+
+      - name: SAST (semgrep)
+        if: ${{ !cancelled() }}
+        # `--config auto` selects registry rules for the detected languages and
+        # requires semgrep metrics to be enabled.
+        run: semgrep scan --config auto --disable-nosem --severity ERROR --error .
+
+      - name: Dependency scanning (osv-scanner)
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          osv-scanner scan --config=/dev/null --recursive .
+          osv-scanner scan --config=/dev/null --recursive --format json --output "$RUNNER_TEMP/osv.json" . >/dev/null 2>&1
+          set -e
+          # Block on HIGH/CRITICAL (CVSS >= 7.0); lower severities are reported above.
+          high=$(jq -r '[.results[]?.packages[]? | .package as $p | .groups[]?
+                   | select((.max_severity // "0" | tonumber? // 0) >= 7)
+                   | "\($p.name)@\($p.version) \(.ids | join(","))"] | unique | .[]' "$RUNNER_TEMP/osv.json")
+          if [ -n "$high" ]; then
+            echo "::error::HIGH/CRITICAL vulnerabilities in dependencies:"
+            echo "$high"
+            exit 1
+          fi
+          echo "No HIGH/CRITICAL dependency vulnerabilities"
