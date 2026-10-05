@@ -1,24 +1,31 @@
 ---
-title: Best Practices - Terraform Provider
+title: Terraform Provider best practices
 description: >-
-  Learn best practices for using the Azion Terraform Provider. Organize your
-  code, manage states, and implement CI/CD efficiently.
+  Organize, secure, version, and automate Azion Terraform Provider
+  configurations so that state, tokens, and changes stay under control.
 meta_tags: 'terraform, best practices, infrastructure as code, CI/CD, api v4'
 namespace: documentation_terraform_best_practices
 permalink: /documentation/devtools/terraform/best-practices/
 ---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
 
-Learn best practices for using the Azion Terraform Provider efficiently and securely.
+A Terraform configuration describes infrastructure that several people and pipelines change over time. When its files follow one layout, its state lives in one shared place, and its token stays out of the repository, every run starts from the same picture of the account. Without that, two applies can write the same state at once, a token leaks with a commit, and a provider release reaches a configuration that never asked for it.
+
+These practices apply to configurations that use the [Azion Terraform Provider](/en/documentation/devtools/terraform/) v2.0, which works with Azion API v4 only.
+
+In order, the practices cover the file layout, resource names, the remote backend and its lock, the sensitive token variable, the `.gitignore` file, and the token in the environment. They then cover modules, the CI/CD pipeline, the provider version, outputs, references between resources, comments, and module README files.
 
 ---
 
-## Code Organization
+## Split the configuration into files by role
 
-### Directory Structure
+Terraform reads every `.tf` file in a directory as one configuration, so splitting the files changes nothing at run time. It tells a reader where to look: the provider, the variables, the outputs, and the backend each get their own file. Reusable modules go under `modules/`, and each environment gets its own directory under `environments/`. The cost is more files to open on a small project.
 
-Organize your Terraform files logically:
+The layout below separates the root configuration, two modules, and three environments:
 
-```
+```text
 terraform/
 ├── main.tf              # Provider and main configurations
 ├── variables.tf         # Input variables
@@ -42,29 +49,37 @@ terraform/
     └── prod/
 ```
 
-### Naming Conventions
-
-Use descriptive and consistent names:
-
-```hcl
-# Good
-resource "azion_workload" "api_gateway" {
-  name = "api-gateway-prod"
-}
-
-# Avoid
-resource "azion_workload" "w1" {
-  name = "w1"
-}
-```
+To check it, confirm that each file holds only the blocks its name announces, such as the `backend` block in `backend.tf`.
 
 ---
 
-## State Management
+## Name each resource for what it serves
 
-### Remote Backend
+Terraform addresses a resource by its type and its local name, as in `azion_workload.api_gateway`, and `terraform state show` and every reference use that address. A local name such as `w1` tells nobody which workload it is. A local name such as `api_gateway`, with a `name` argument such as `api-gateway-prod`, says what the workload serves and in which environment. The cost is a naming convention that the team agrees on and keeps.
 
-Always use a remote backend to store state:
+The first block shows the name to avoid, and the second the name to use:
+
+```hcl
+# Avoid: the names say nothing about the workload
+resource "azion_workload" "w1" {
+  name = "w1"
+}
+
+# Use: the names say what the workload serves and where
+resource "azion_workload" "api_gateway" {
+  name = "api-gateway-prod"
+}
+```
+
+To check it, run `terraform state list` and confirm that every address names the resource it manages.
+
+---
+
+## Store the state in a remote backend
+
+Terraform records what it created in a state file. Kept on one machine as `terraform.tfstate`, the state is out of reach for every other person and pipeline that runs the configuration. Each of them then plans against a different picture of the account. A remote backend keeps one copy of the state that every run reads and writes. The cost is infrastructure outside the configuration: the bucket and the lock table that the block names must exist for Terraform to use them.
+
+The `backend.tf` file below stores the state in an `s3` backend, encrypted, with a lock table:
 
 ```hcl
 # backend.tf
@@ -79,30 +94,21 @@ terraform {
 }
 ```
 
-### Locking
-
-Use locking to prevent conflicts:
-
-```hcl
-# With S3 + DynamoDB
-terraform {
-  backend "s3" {
-    bucket         = "my-terraform-state"
-    key            = "azion/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "terraform-locks"
-  }
-}
-```
+To check it, run `terraform state list` from a second machine or from the pipeline, and confirm that it lists the same resources.
 
 ---
 
-## Security
+## Lock the state during every run
 
-### Sensitive Variables
+A lock lets one run at a time change the state, so two applies started together cannot overwrite each other's record. With the `s3` backend, the lock lives in a DynamoDB table. The line `dynamodb_table = "terraform-locks"` in the `backend` block turns it on, as the full block in [Store the state in a remote backend](#store-the-state-in-a-remote-backend) shows. The cost is one more resource outside the configuration, which must exist before the backend can use it.
 
-Mark sensitive variables as `sensitive`:
+To check it, confirm that `dynamodb_table` is set in the `backend` block of every environment.
+
+---
+
+## Mark the token variable as sensitive
+
+The provider takes an Azion [personal token](/en/documentation/fundamentals/personal-tokens/) in its `api_token` argument. Terraform does not show the value of a variable marked `sensitive` in its output, so the token stays off the screen and out of pipeline logs. The variable that feeds the argument is declared like this:
 
 ```hcl
 variable "api_token" {
@@ -112,11 +118,17 @@ variable "api_token" {
 }
 ```
 
-### Don't Commit Secrets
+The `provider "azion"` block then passes it on with `api_token = var.api_token`. The cost is a limit: marking the variable does not keep the value out of a `.tfvars` file, so keep that file out of the repository, as [Keep secrets and state out of the repository](#keep-secrets-and-state-out-of-the-repository) shows.
 
-Add to `.gitignore`:
+To check it, run `terraform plan` and confirm that the token value does not appear in the output.
 
-```gitignore
+---
+
+## Keep secrets and state out of the repository
+
+A file committed to a repository reaches everyone who can read the repository. The `.gitignore` file below keeps out the state files and their backups, every `.tfvars` file, the `.terraform/` directory, and a `secrets.tf` file:
+
+```text
 # Terraform
 *.tfstate
 *.tfstate.backup
@@ -126,19 +138,31 @@ terraform.tfvars
 secrets.tf
 ```
 
-### Use Environment Variables
+The cost is that variable values travel outside the repository, so each person and pipeline supplies them, as [Pass the token through an environment variable](#pass-the-token-through-an-environment-variable) shows.
 
-```bash
-export TF_VAR_api_token="your-token"
-```
+To check it, run `git status` after `terraform apply` and confirm that it lists no `.tfstate` or `.tfvars` file.
 
 ---
 
-## Modularization
+## Pass the token through an environment variable
 
-### Creating Modules
+An environment variable keeps the token in the shell or the pipeline that runs Terraform, outside every file. Terraform reads `TF_VAR_api_token` as the value of the `api_token` variable:
 
-Create reusable modules:
+```bash
+export TF_VAR_api_token="[TOKEN VALUE]"
+```
+
+This route needs the sensitive `api_token` variable and `api_token = var.api_token` in the `provider "azion"` block. The provider also reads `AZION_API_TOKEN` directly, with no variable and an empty provider block. The CI/CD pipeline in [Plan on every pull request and apply only from main](#plan-on-every-pull-request-and-apply-only-from-main) uses that route. The cost is that the variable lives only as long as the shell session or the pipeline job, so each one sets it again.
+
+To check it, run `terraform plan` in a fresh shell with the variable set, and confirm that it does not fail with `personal token is required`. For that error, refer to [Troubleshoot the Terraform Provider](/en/documentation/devtools/terraform/troubleshooting/).
+
+---
+
+## Package repeated resources as modules
+
+A module turns a group of resources into one block that takes inputs. Each environment then calls the same code with its own values instead of copying it. The cost is one more layer to read, and a change to the module reaches every configuration that calls it.
+
+The module below builds a workload named from `var.name` and `var.environment`, and exposes its ID as the `workload_id` output:
 
 ```hcl
 # modules/workload/main.tf
@@ -159,7 +183,7 @@ output "workload_id" {
 }
 ```
 
-### Using Modules
+The root `main.tf` calls the module once per workload, with its own values:
 
 ```hcl
 # main.tf
@@ -170,13 +194,15 @@ module "api_workload" {
 }
 ```
 
+To check it, run `terraform init` and then `terraform plan`, and confirm that the plan creates a workload named `api-prod`.
+
 ---
 
-## CI/CD
+## Plan on every pull request and apply only from main
 
-### Basic Pipeline
+A pipeline runs the same commands for every change, so the plan is reviewed before anything reaches the account. In the GitHub Actions workflow below, every push and pull request against `main` runs `terraform init` and `terraform plan`. Only a run on `main` applies, with `-auto-approve`, because no one is there to answer the confirmation prompt. The plan and apply steps read the token from the `AZION_API_TOKEN` repository secret. The cost is a secret to manage in the repository settings, and an apply that runs without a second review once a change merges.
 
-Example with GitHub Actions:
+The workflow file holds the whole pipeline:
 
 ```yaml
 # .github/workflows/terraform.yml
@@ -193,17 +219,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - uses: hashicorp/setup-terraform@v2
-      
+
       - name: Terraform Init
         run: terraform init
-        
+
       - name: Terraform Plan
         run: terraform plan
         env:
           AZION_API_TOKEN: ${{ secrets.AZION_API_TOKEN }}
-        
+
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve
@@ -211,38 +237,38 @@ jobs:
           AZION_API_TOKEN: ${{ secrets.AZION_API_TOKEN }}
 ```
 
+To check it, open a pull request and confirm that the workflow runs the plan step and skips the apply step.
+
 ---
 
-## Versioning
+## Pin the provider version
 
-### Pin Versions
+`terraform init` installs the provider version that the `required_providers` block allows. An exact version keeps every run, on every machine and pipeline, on the release the configuration was written for. Provider v2.0 renamed the v1.x resources when it moved to Azion API v4, and a pin keeps a change of that kind out of a configuration until you migrate it. For that change, refer to [Migrate from provider v1.x to v2.0](/en/documentation/devtools/terraform/terraform-migration-v3-to-v4/).
 
-Always pin the provider version:
+The `required_providers` block below pins the provider to one release:
 
 ```hcl
 terraform {
   required_providers {
     azion = {
       source  = "aziontech/azion"
-      version = "2.0.0"  # Pin the version
+      version = "2.0.0"  # An exact version, not a range
     }
   }
 }
 ```
 
-### Use `.terraform-version`
+The cost is that a later release arrives only when you edit the pin and run `terraform init -upgrade`.
 
-For projects with multiple versions:
-
-```
-1.41.0
-```
+To check it, run `terraform init` and confirm that it installs `aziontech/azion` at version `2.0.0`.
 
 ---
 
-## Outputs
+## Export the IDs other configurations need as outputs
 
-### Export Important IDs
+An output publishes a value after `terraform apply`, so another configuration, a script, or a person reads a workload or application ID instead of looking it up. A `description` says what the value is to anyone who reads the outputs later. The cost is a stable contract: whatever reads an output breaks when you rename or remove it.
+
+The outputs below export the IDs of the workload and the application:
 
 ```hcl
 output "workload_id" {
@@ -256,59 +282,41 @@ output "application_id" {
 }
 ```
 
-### Use Outputs in Modules
+Inside a module, the same blocks go in its `outputs.tf`. For example, `modules/application/outputs.tf` exports `application_id` from `azion_application_main_setting.this.id` and `application_name` from `azion_application_main_setting.this.name`.
 
-```hcl
-# modules/application/outputs.tf
-output "application_id" {
-  value = azion_application_main_setting.this.id
-}
-
-output "application_name" {
-  value = azion_application_main_setting.this.name
-}
-```
+To check it, confirm that each output carries a `description` and reads a resource attribute, never a literal ID.
 
 ---
 
-## Dependencies
+## Reference resources instead of hardcoding IDs
 
-### Depends_On
+A reference such as `azion_application_main_setting.example.id` passes the ID that Terraform knows once it creates the application, and it makes Terraform create the application first. A hardcoded ID such as `"12345"` belongs to one account, breaks when the application is created again with another ID, and gives Terraform no order to follow. The cost is that the referenced resource must be in the same configuration, or be read through a data source.
 
-Use `depends_on` for implicit dependencies:
-
-```hcl
-resource "azion_workload" "main" {
-  name = "my-workload"
-}
-
-resource "azion_workload_deployment" "main" {
-  workload_id = azion_workload.main.id
-  depends_on   = [azion_workload.main]
-}
-```
-
-### Implicit References
-
-Prefer direct references:
+The first block shows the hardcoded ID to avoid, and the second the reference to use:
 
 ```hcl
-# Good
+# Avoid: an ID copied from one account
+resource "azion_application_rule_engine" "example" {
+  application_id = "12345"
+}
+
+# Use: a reference that also sets the order
 resource "azion_application_rule_engine" "example" {
   application_id = azion_application_main_setting.example.id
 }
-
-# Avoid
-resource "azion_application_rule_engine" "example" {
-  application_id = "12345"  # Hardcoded
-}
 ```
+
+Because a reference already sets the order, a `depends_on` list that names the same resource repeats it. A deployment with `workload_id = azion_workload.main.id` needs no `depends_on = [azion_workload.main]`. For how references order resources, refer to [How the Terraform Provider works](/en/documentation/devtools/terraform/how-it-works/).
+
+To check it, search the configuration for quoted IDs in `_id` arguments, and replace each one with a reference or a data source.
 
 ---
 
-## Documentation
+## Comment why each resource exists
 
-### Comment Your Code
+A comment records what a resource is for and who relies on it, which neither its type nor its arguments say. The cost is upkeep: a comment that no longer matches its resource misleads more than no comment.
+
+The comment below says which API the workload serves and in which environment:
 
 ```hcl
 # Workload for the main API
@@ -318,11 +326,17 @@ resource "azion_workload" "api" {
 }
 ```
 
-### README
+To check it, read each commented block after a change and confirm that the comment still matches what the block manages.
 
-Create a `README.md` for each module:
+---
 
-```markdown
+## Document each module in a README file
+
+A `README.md` file in each module shows how to call it, which inputs it takes, and which outputs it returns. The person who calls the module then needs no look at its code. The cost is manual upkeep: update the README in the same change as the module's variables and outputs.
+
+The README below documents a workload module with one input and one output:
+
+````markdown
 # Workload Module
 
 ## Usage
@@ -345,6 +359,19 @@ module "workload" {
 | Name | Description |
 |------|-------------|
 | workload_id | Workload ID |
-```
+````
+
+To check it, compare the Inputs and Outputs tables of each README with the `variable` and `output` blocks of its module.
 
 ---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Azion Terraform Provider quickstart" href="/en/documentation/devtools/terraform/getting-started/">Install Terraform, configure the provider with a personal token, and apply a first configuration.</DocItem>
+  <DocItem title="Resources and data sources" href="/en/documentation/devtools/terraform/examples/">Every resource and data source the provider manages, grouped by product.</DocItem>
+  <DocItem title="Workloads resources" href="/en/documentation/devtools/terraform/workloads/">The workload resources and data sources that the specimens on this page use.</DocItem>
+  <DocItem title="Applications resources" href="/en/documentation/devtools/terraform/applications/">The application main settings and rules engine resources that the outputs and references use.</DocItem>
+</ItemList>
+</FrameBox>
