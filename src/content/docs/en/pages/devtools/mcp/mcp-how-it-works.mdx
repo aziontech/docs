@@ -1,399 +1,208 @@
 ---
-title: How MCP Works
-description: >-
-  Understand the technical architecture behind Azion's Model Context Protocol and learn
-  how to implement your own MCP server using modern technologies.
-meta_tags: 'mcp, architecture, implementation, node.js, typescript, edge functions'
+title: How the MCP server works
+description: Follow a request from a coding agent to the Azion MCP server, and see how the server authenticates it, picks a tool set, and answers each call.
+meta_tags: 'mcp server, how it works, model context protocol, json-rpc, streamable http, personal token, oauth, api profile, mcp-remote'
 namespace: documentation_devtools_mcp_how_it_works
 permalink: /documentation/devtools/mcp/how-it-works/
 ---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
 
-import Code from '~/components/webkit/CodeBlock.vue'
+A coding agent answers questions about a platform more reliably when it can look facts up instead of recalling them. The Model Context Protocol (MCP) is an open specification for that lookup. It uses JSON-RPC to standardize how an application lists and calls the tools of a server, reads its resources, and fetches its prompts. The agent's MCP client sends each request to the server, and the agent reads the answer as context.
 
-The Azion MCP server operates as a bridge between AI assistants and the Azion Platform, providing secure access to documentation, tools, and resources through a standardized protocol.
+The [Azion MCP server](/en/documentation/devtools/mcp/) is a hosted MCP server at `https://mcp.azion.com/`. It authenticates every request with your Azion [personal token](/en/documentation/fundamentals/personal-tokens/), and it answers with text drawn from the Azion documentation, code samples, and the references of the CLI, the API, and the Terraform provider. No tool changes your account. To connect an agent, refer to [MCP server quickstart](/en/documentation/devtools/mcp/configuration/). For the terms, refer to [Glossary](/en/documentation/devtools/mcp/glossary/).
+
+The sections cover the request path, the connection and its transport, authentication, tools and resources, tool execution, the tool set of each API profile, and OAuth discovery.
 
 ---
 
-## Technical Architecture
+## The request path
 
-MCP implements a client-server model using Anthropic's Model Context Protocol. The architecture consists of three main components:
+The Azion MCP server follows the client-server model of the protocol. Your agent decides when it needs a fact, its MCP client turns that decision into a JSON-RPC request, and the server does the lookup and returns text.
 
-### Technology Stack
+This diagram follows one tool call from the agent to the systems the server reaches:
 
-| Component | Technology | Purpose |
-|------------|------------|-----------|
-| **Runtime** | Node.js 20+ | JavaScript execution environment |
-| **Language** | TypeScript | Static typing and safety |
-| **Protocol** | MCP SDK | Anthropic protocol implementation |
-| **Hosting** | Functions | Distributed execution on Azion |
-| **Authentication** | Personal Token / OAuth | Secure access control |
-
-### Communication Flow
-
-```text
-AI Assistant (Client)
-    ↓ HTTP/WebSocket Connection
-MCP Server (Function)
-    ↓ API Calls
-Azion Platform (Resources)
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart LR
+  Agent["Coding agent"] -->|"asks"| Client["MCP client"]
+  Client -->|"HTTP POST"| Server["Azion MCP server"]
+  Server -->|"searches"| Corpus["Search corpus"]
+  Server -->|"calls"| Model["Language model"]
+  Server -->|"reads"| Api["Azion APIs"]
 ```
 
-The flow works as follows:
+1. You ask the agent a question in natural language, and the agent decides that a tool can answer it.
+2. The MCP client connects to `https://mcp.azion.com/` over HTTP and sends your personal token in the `Authorization` header of the request.
+3. The server validates the token and learns the API profile of your account, which decides the tools the client can discover.
+4. The client lists the tools and resources, and then calls a tool by name with JSON arguments.
+5. The server runs the tool. Depending on the tool, it searches a document corpus, asks a language model to build an answer, or reads data from the Azion APIs with your token.
+6. The server returns the result as text, and the agent uses that text to answer you.
 
-1. **Connection**: The MCP client establishes connection with the server using HTTP or WebSocket
-2. **Authentication**: The Personal Token validates the user's identity
-3. **Discovery**: The client discovers available tools and resources
-4. **Execution**: The assistant invokes tools as needed
-5. **Response**: The server returns structured data to the client
-
----
-
-## MCP Components
-
-The MCP protocol defines three main types of capabilities that a server can expose:
-
-### Tools
-
-Tools are functions that the AI assistant can invoke to perform actions or fetch information. Each tool has:
-
-- **Name**: Unique identifier (e.g., `search_azion_docs_and_site`)
-- **Description**: Explains the purpose and when to use it
-- **Input Schema**: Defines expected parameters using JSON Schema
-- **Handler**: Function that executes the logic
-
-Example tool definition:
-
-<Code client:visible lang="typescript" code={`server.tool(
-  'search_azion_docs_and_site',
-  {
-    description: 'Provides information about Azion Platform, products, and services',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        query: {
-          type: 'string',
-          description: 'Query to search documentation'
-        },
-        docsAmount: {
-          type: 'number',
-          description: 'Number of documents to return',
-          default: 5
-        }
-      },
-      required: ['query']
-    }
-  },
-  async (args) => {
-    // Search implementation
-    const results = await searchDocs(args.query, args.docsAmount);
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify(results)
-      }]
-    };
-  }
-);`} />
-
-### Resources
-
-Resources are structured data that can be read by the client, similar to files. They use URIs for identification:
-
-<Code client:visible lang="typescript" code={`server.resource(
-  'static-site-deploy-guide',
-  'azion://static-site/deploy/step-0-preparation',
-  async () => ({
-    contents: [{
-      uri: 'azion://static-site/deploy/step-0-preparation',
-      name: 'step-0-preparation.md',
-      mimeType: 'text/markdown',
-      text: guideContent
-    }]
-  })
-);`} />
-
-Resource URIs follow the format: `azion://[category]/[resource]/[item]`
-
-### Prompts
-
-Prompts are pre-configured templates that help with common scenarios:
-
-<Code client:visible lang="typescript" code={`server.prompt(
-  'deploy-static-site',
-  {
-    description: 'Step-by-step guide for deploying static sites',
-    arguments: [
-      {
-        name: 'framework',
-        description: 'Framework used (e.g., nextjs, astro, hugo)',
-        required: true
-      }
-    ]
-  },
-  async (args) => {
-    return {
-      messages: [{
-        role: 'user',
-        content: {
-          type: 'text',
-          text: 'Help me deploy a ' + args.framework + ' site to Azion'
-        }
-      }]
-    };
-  }
-);`} />
+Azion runs the server on its own platform, as a [function](/en/documentation/platform/functions/) behind an application and a workload. The server is written in TypeScript with the MCP SDK, and its source is public at [github.com/aziontech/mcp-server](https://github.com/aziontech/mcp-server). To run a server of your own the same way, refer to [Run an MCP server on Azion](/en/documentation/guides/application-development/automation/run-mcp-server/).
 
 ---
 
-## Implementing an MCP Server
+## Connection and transport
 
-To implement your own MCP server, follow these steps:
+A transport is the way MCP messages travel between a client and a server. The Azion MCP server uses streamable HTTP: the client sends every message as an HTTP `POST` to the root of the host, and the server answers with a `text/event-stream` response that holds one server-sent event. The server answers at the bare host only, and a request to `/mcp` returns `404`.
 
-### Project Structure
+The first request of a connection is `initialize`. A client sends it as a `POST` to `https://mcp.azion.com` with the headers `Authorization: Bearer [TOKEN VALUE]`, `Content-Type: application/json`, and `Accept: application/json, text/event-stream`, and this body:
 
-<Code client:visible lang="text" code={`my-mcp-server/
-├── src/
-│   ├── index.ts           # Entry point
-│   ├── core/
-│   │   ├── tools.ts       # Tool definitions
-│   │   ├── resources.ts   # Resource definitions
-│   │   ├── prompts.ts     # Prompt definitions
-│   │   └── services/      # Business logic
-│   └── middlewares/
-│       └── auth.ts        # Authentication
-├── package.json
-├── tsconfig.json
-└── azion.config.ts        # Deploy configuration`} />
-
-### Entry Point
-
-The main file initializes the server and registers capabilities:
-
-<Code client:visible lang="typescript" code={`// src/index.ts
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { registerTools } from './core/tools';
-import { registerResources } from './core/resources';
-import { registerPrompts } from './core/prompts';
-
-const server = new McpServer({
-  name: 'my-mcp-server',
-  version: '1.0.0'
-});
-
-// Register capabilities
-registerTools(server);
-registerResources(server);
-registerPrompts(server);
-
-// Start server
-export default {
-  async fetch(request: Request): Promise<Response> {
-    return server.handleRequest(request);
-  }
-};`} />
-
-### Authentication
-
-The MCP server supports multiple authentication methods:
-
-<Code client:visible lang="typescript" code={`// src/middlewares/auth.ts
-export async function authenticate(request: Request): Promise<AuthResult> {
-  const authHeader = request.headers.get('Authorization');
-  
-  if (!authHeader) {
-    return { success: false, error: 'Token not provided' };
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-
-  // Verify Personal Token (format: azion + 35 chars)
-  if (token.startsWith('azion') && token.length === 40) {
-    return validatePersonalToken(token);
-  }
-
-  // Verify OAuth token via SSO
-  return validateOAuthToken(token);
-}`} />
-
----
-
-## Deploying to Azion
-
-The MCP server can be deployed as a Function on Azion:
-
-### Configuration
-
-Create an `azion.config.ts` file in the project root:
-
-```
-// azion.config.ts
-export default {
-  build: {
-    preset: 'typescript',
-    polyfills: true
-  },
-  functions: [
-    {
-      name: '$FUNCTION_NAME',
-      path: './functions/index.js'
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "initialize",
+  "id": 1,
+  "params": {
+    "protocolVersion": "2025-03-26",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "my-client",
+      "version": "0.1"
     }
-  ],
-  applications: [
-    {
-      name: '$APPLICATION_NAME',
-      rules: {
-        request: [
-          {
-            name: 'Execute Function',
-            description: 'Execute function for all requests',
-            active: true,
-            criteria: [
-              [
-                {
-                  variable: '${uri}',
-                  conditional: 'if',
-                  operator: 'matches',
-                  argument: '^/'
-                }
-              ]
-            ],
-            behaviors: [
-              {
-                type: 'run_function',
-                attributes: {
-                  value: '$FUNCTION_NAME'
-                }
-              }
-            ]
-          }
-        ]
-      },
-      functionsInstances: [
-        {
-          name: '$FUNCTION_INSTANCE_NAME',
-          ref: '$FUNCTION_NAME'
-        }
-      ]
-    }
-  ],
-  workloads: [
-    {
-      name: '$WORKLOAD_NAME',
-      active: true,
-      infrastructure: 1,
-      deployments: [
-        {
-          name: '$DEPLOYMENT_NAME',
-          current: true,
-          active: true,
-          strategy: {
-            type: 'default',
-            attributes: {
-              application: '$APPLICATION_NAME'
-            }
-          }
-        }
-      ]
-    }
-  ]
+  }
 }
 ```
 
-### Deploy
+The server answers with status `200`. The data of its event, decoded, names the protocol version, the capabilities of the server, and its name:
 
-Use the Azion CLI to deploy:
-
-<Code client:visible lang="bash" code={`# Link project
-azion link
-
-# Build project
-azion build
-
-# Deploy to production
-azion deploy`} />
-
-The deploy creates a publicly accessible URL that can be configured in MCP clients.
-
----
-
-## Best Practices
-
-### Tool Design
-
-1. **Descriptive names**: Use clear verbs and nouns (e.g., `search_docs`, `create_rule`)
-2. **Typed parameters**: Define complete JSON Schema schemas
-3. **Clear descriptions**: Explain when and how to use each tool
-4. **Error handling**: Return informative error messages
-5. **Idempotency**: Tools should be safe for multiple calls
-
-### Performance
-
-1. **Response caching**: Implement cache for frequently accessed data
-2. **Pagination**: Use pagination for large datasets
-3. **Timeouts**: Set appropriate timeouts for long operations
-4. **Compression**: Compress large responses
-
-### Security
-
-1. **Input validation**: Always validate input parameters
-2. **Rate limiting**: Implement rate limits per token
-3. **Audit logs**: Log all sensitive operations
-4. **Sanitization**: Remove sensitive data before returning
-
----
-
-## Complete Example
-
-See a complete example of a documentation search tool:
-
-<Code client:visible lang="typescript" code={`// src/core/services/docsService.ts
-import { z } from 'zod';
-
-const SearchSchema = z.object({
-  query: z.string().min(1),
-  docsAmount: z.number().min(1).max(20).default(5)
-});
-
-export async function searchDocumentation(args: unknown) {
-  // Validate input
-  const validated = SearchSchema.parse(args);
-  
-  // Search documents
-  const response = await fetch('https://api.azion.com/docs/search', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + process.env.AZION_API_KEY
+```json
+{
+  "result": {
+    "protocolVersion": "2025-03-26",
+    "capabilities": {
+      "logging": {},
+      "resources": {
+        "listChanged": true
+      },
+      "tools": {
+        "listChanged": true
+      },
+      "completions": {}
     },
-    body: JSON.stringify({
-      query: validated.query,
-      limit: validated.docsAmount
-    })
-  });
+    "serverInfo": {
+      "name": "azion-mcp-server",
+      "version": "1.0.0"
+    }
+  },
+  "jsonrpc": "2.0",
+  "id": 1
+}
+```
 
-  if (!response.ok) {
-    throw new Error('Search failed: ' + response.statusText);
-  }
+The client then sends `notifications/initialized`, and the server answers `202` with an empty body. No response carries an `Mcp-Session-Id` header, because the server is stateless: it keeps no session between requests. Every later request, such as `tools/list` or `tools/call`, is an independent `POST` that carries its own `Authorization` header.
 
-  const results = await response.json();
-  
-  // Format response
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify(results, null, 2)
-    }]
-  };
-}`} />
+Statelessness has a price and a benefit. The server cannot carry context from one call to the next, so each request must hold everything the server needs, the token included. In exchange, any request can be answered on its own, with no session to set up or lose.
+
+The server accepts only TLS 1.3. A client built on an older TLS library fails the handshake before its request reaches the server. For example, a Python interpreter built against LibreSSL 2.8.3 cannot connect.
+
+Some clients start every MCP server as a local process and talk to it over standard input and output instead of HTTP. Those clients reach the Azion MCP server through `mcp-remote`, a package that `npx` downloads and runs as a local bridge to `https://mcp.azion.com`. The bridge costs time: it takes about 10 to 13 seconds to connect, part of it spent on OAuth discovery. For the clients that use it, refer to [MCP server quickstart](/en/documentation/devtools/mcp/configuration/).
 
 ---
 
-## Additional Resources
+## Authentication
 
-- [MCP Specification](https://modelcontextprotocol.io) - Official protocol documentation
-- [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk) - Official TypeScript SDK
-- [Azion MCP Repository](https://github.com/aziontech/mcp-server/
-) - Azion server source code
-- [MCP Overview](/en/documentation/devtools/mcp/) - Introduction to MCP
-- [Configuration Guide](/en/documentation/devtools/mcp/configuration/) - Set up your environment
-- [Practical Examples](/en/documentation/devtools/mcp/examples/) - Real-world use cases
+The Azion MCP server authenticates each request on its own, from the `Authorization` header. A personal token is `azion` followed by 35 letters and digits, 40 characters in all. You send it with either scheme, and the server answers both the same way:
+
+- `Authorization: Bearer [TOKEN VALUE]`
+- `Authorization: Token [TOKEN VALUE]`
+
+The server reads the scheme and the shape of the value to decide how to validate it. A `Token` value is always validated as a personal token. A `Bearer` value in the shape of a personal token is validated as a personal token first. Any other `Bearer` value is tried as an Azion JWT, which the server checks against the `/v4/account/account` endpoint of the [Azion API](/en/documentation/devtools/api/), and then as an OAuth access token, which it checks against the `/oauth/userinfo` endpoint of Azion SSO. An OAuth access token or a JWT must therefore use the `Bearer` scheme.
+
+A request that fails authentication gets HTTP `401` with a plain-text body that holds JSON, not a JSON-RPC error object, and no `WWW-Authenticate` header. For example, a request with no `Authorization` header gets this body:
+
+```json
+{
+  "message": "No authentication provided",
+  "status": 401
+}
+```
+
+Because the server keeps no session, a token that stops being valid fails on the next request, not at the next connection. The messages for a malformed header or a rejected token, and what to do about each one, are on [Troubleshoot the MCP server](/en/documentation/devtools/mcp/troubleshooting/).
+
+---
+
+## Tools and resources
+
+The protocol defines three kinds of capability a server can expose: tools, which a client calls to get an answer; resources, which a client reads like files; and prompts, which are message templates. The Azion MCP server exposes tools and resources, and no prompts.
+
+A tool is a function the server runs on request. The `tools/list` answer describes each tool with a `name`, a `title`, a `description` the agent reads to decide when to call it, and an `inputSchema` written in JSON Schema. The agent then sends `tools/call` with the tool name and arguments that match the schema. For example, a call to `search_azion_docs_and_site` carries a `query` such as `how to configure cache`.
+
+A resource is a document the client reads by its URI with `resources/read`, without calling a tool. The URIs of the Azion MCP server take the form `azion://<category>/<resource>/<item>`, as in `azion://static-site/deploy/step-0-preparation`. That resource reads back as `step-0-preparation.md`, with the type `text/markdown`. The server generates the text of a deployment guide when the client reads it, so the text carries the date of the request.
+
+The static site guides are reachable by two routes. A client that supports resources lists and reads them directly; a client that does not can call `deploy_azion_static_site` for the same text. For every tool with its inputs, and every resource URI, refer to [Tools and resources](/en/documentation/devtools/mcp/tools/).
+
+---
+
+## Tool execution
+
+The tools of the Azion MCP server differ in what they do with a request, and the difference decides how long a call takes and how far to trust its answer. None of them creates, changes, or deletes anything in your account.
+
+- The search tools, whose names start with `search_azion_`, run your `query` against a corpus of documents and return the closest matches as a JSON array. Each document carries its `title`, `content`, and `source`, with the `similarity` and `relevance_score` that ranked it.
+- `create_rules_engine` looks up the Rules Engine documents for the use case you name, then makes one language model call that turns your goal into a rule proposal. It does not use your token, and no rule is created.
+- `create_graphql_query` searches the GraphQL documentation and has a language model write a query for your goal. It then runs each generated query against the analytics [GraphQL API](/en/documentation/devtools/graphql/) of your account, with your token, to validate it. These queries only read data, and the tool makes up to six attempts, plus introspection calls.
+- `deploy_azion_static_site` returns fixed guide text. It makes no network call and does not use your token.
+
+The search tools rank documents by how close they are to the words of the query, not by what the query means. A broad query can rank a document about another product or operation first, so read the `title` of each match before you act on it.
+
+A `create_graphql_query` call takes longer than a search, and can take more than 15 seconds, because it generates and validates each query against your account. Its answer is not guaranteed. When no attempt produces a valid query, the tool returns a fallback text that says the information could not be retrieved and points to the GraphQL API documentation.
+
+Both model-backed tools report a failure as text inside a successful result, with no `isError` flag. The text, not the status, tells the agent whether the call worked. A call to a tool the server does not list is different: it returns the JSON-RPC error `-32602`.
+
+---
+
+## Tool set by API profile
+
+When the Azion MCP server authenticates a token, it learns the API profile of the account, `v3` or `v4`, and the profile decides which tools `tools/list` returns.
+
+An account on the `v4` profile sees eight tools. An account on the `v3` profile sees a ninth, `search_azion_api_v3_commands`, which searches the documentation of the Azion API v3. A `v4` account that calls that tool by name gets the JSON-RPC error `-32602`, the same error as for any tool that does not exist.
+
+The profile belongs to the account, not to the client configuration. For example, two teammates with the same agent configuration see different tool lists when their tokens belong to accounts on different profiles. For the error message and the full tool list, refer to [Tool set by API profile](/en/documentation/devtools/mcp/tools/#tool-set-by-api-profile).
+
+---
+
+## OAuth discovery
+
+OAuth discovery lets a client find out where to obtain a token without being configured for it. The Azion MCP server publishes two discovery documents, and anyone can read them without authentication.
+
+`/.well-known/oauth-protected-resource` names `https://sso.azion.com` as the authorization server and accepts the token in the request header only. `/.well-known/oauth-authorization-server` describes Azion SSO itself. Read it with a plain `GET`:
+
+```bash
+curl https://mcp.azion.com/.well-known/oauth-authorization-server
+```
+
+The server answers with status `200` and this document:
+
+```json
+{
+  "issuer": "https://sso.azion.com",
+  "authorization_endpoint": "https://sso.azion.com/oauth/authorize",
+  "token_endpoint": "https://sso.azion.com/oauth/token",
+  "jwks_uri": "https://sso.azion.com/oauth/jwks",
+  "response_types_supported": ["code"],
+  "grant_types_supported": ["authorization_code", "refresh_token"],
+  "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
+  "code_challenge_methods_supported": ["S256"],
+  "scopes_supported": ["openid", "profile", "email", "offline_access"],
+  "service_documentation": "https://www.azion.com/en/documentation/devtools/mcp/"
+}
+```
+
+The document advertises the authorization code grant with PKCE (`S256`) and refresh tokens, and the scopes `openid`, `profile`, `email`, and `offline_access`. An access token issued by Azion SSO reaches the server as a `Bearer` value, which the server validates against `/oauth/userinfo`.
+
+Discovery runs even when a token is already configured. `mcp-remote` reads both documents on every start, and spends about four seconds on them before it connects. When the `Authorization` header authenticates the connection, no browser window opens and no sign-in runs.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Tools and resources" href="/en/documentation/devtools/mcp/tools/">Every tool with its inputs and return value, and every resource URI the server serves.</DocItem>
+  <DocItem title="MCP server quickstart" href="/en/documentation/devtools/mcp/configuration/">Connect a coding agent to the server with a personal token and make a first call.</DocItem>
+  <DocItem title="Troubleshoot the MCP server" href="/en/documentation/devtools/mcp/troubleshooting/">Fix a refused token, a missing tool, or a client that cannot connect.</DocItem>
+  <DocItem title="Run an MCP server on Azion" href="/en/documentation/guides/application-development/automation/run-mcp-server/">Build and deploy a server of your own as a function on Azion.</DocItem>
+</ItemList>
+</FrameBox>
