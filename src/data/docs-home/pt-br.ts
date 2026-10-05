@@ -271,7 +271,7 @@ export const ptBr: DocsHomeContent = {
 				{
 					icon: 'pi pi-id-card',
 					title: 'Governança, Risco e Conformidade',
-					href: '/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/governanca-risco-conformidade/',
+					href: '/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/preparar-aplicacoes-web-reguladas-para-auditorias-de-seguranca/',
 					body: 'As ferramentas e certificações por trás do seu trabalho de conformidade.',
 				},
 				{

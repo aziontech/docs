@@ -269,7 +269,7 @@ export const en: DocsHomeContent = {
 				{
 					icon: 'pi pi-id-card',
 					title: 'Governance, Risk and Compliance',
-					href: '/en/documentation/use-cases/secure-applications-and-networks/governance-risk-compliance/',
+					href: '/en/documentation/use-cases/secure-applications-and-networks/prepare-regulated-web-applications-for-security-audits/',
 					body: 'The tools and certifications behind your compliance work.',
 				},
 				{
