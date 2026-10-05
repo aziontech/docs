@@ -31,8 +31,7 @@ export const ptBr: DevtoolsHomeContent = {
 			sdk: { icon: 'pi pi-box', link: 'Instale o SDK' },
 			api: { icon: 'ai ai-azion-api', link: 'Chame a API' },
 			graphql: { icon: 'ai ai-graphql', link: 'Explore o GraphQL' },
-			terraform: { icon: 'ai ai-terraform', link: 'Veja como funciona' },
-			'console-kit': { icon: 'pi pi-palette', link: 'Personalize o Console' },
+			terraform: { icon: 'ai ai-terraform', link: 'Instale o provider' },
 		},
 		footer: {
 			prefix: 'Também útil:',
