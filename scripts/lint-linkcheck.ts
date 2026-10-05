@@ -70,7 +70,7 @@ const linkChecker = new LinkChecker({
 	buildOutputDir: './dist',
 	pageSourceDir: './src/content/docs',
 	checks: [
-		new TargetExists(),
+		new TargetExists({ staticFilesDir: './dist' }),
 		new SameLanguage({
 			ignoredLinkPathnames: ['/lighthouse/'],
 		}),

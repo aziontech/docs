@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import kleur from 'kleur';
 import { dedentMd } from '../../output.mjs';
 import { CheckBase } from '../base/check';
@@ -16,9 +18,25 @@ export class TargetExists extends CheckBase {
 		sortOrder: 101,
 	});
 
+	/** Build output directory, where files that are not HTML pages (`.md` twins, `.txt`) live. */
+	private readonly staticFilesDir?: string;
+
+	constructor(options: { staticFilesDir?: string } = {}) {
+		super();
+		this.staticFilesDir = options.staticFilesDir;
+	}
+
+	private isStaticFile(pathname: string) {
+		if (!this.staticFilesDir || !/\.[a-z0-9]+$/i.test(pathname)) return false;
+		return fs.existsSync(path.join(this.staticFilesDir, decodeURIComponent(pathname)));
+	}
+
 	checkHtmlPage(context: CheckHtmlPageContext) {
 		this.forEachLocalLink(context, (linkHref, url) => {
 			const linkedPage = this.findPageByPathname(context, url.pathname);
+
+			// Links to emitted files that are not pages (the Markdown twin, llms text) exist
+			if (!linkedPage && this.isStaticFile(url.pathname)) return;
 
 			// Report links to missing pages
 			if (!linkedPage) {
