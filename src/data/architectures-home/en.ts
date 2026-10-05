@@ -25,7 +25,7 @@ export const en: ArchitecturesHomeContent = {
 			links: [
 				{ label: 'Guides', href: '/en/documentation/guides/' },
 				{ label: 'How Azion works', href: '/en/documentation/fundamentals/how-it-works/' },
-				{ label: 'use cases llms.txt', href: '/en/documentation/architectures/llms.txt' },
+				{ label: 'use cases llms.txt', href: '/en/documentation/use-cases/llms.txt' },
 			],
 		},
 	},

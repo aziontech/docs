@@ -25,7 +25,7 @@ export const ptBr: ArchitecturesHomeContent = {
 			links: [
 				{ label: 'Guias', href: '/pt-br/documentacao/guias/' },
 				{ label: 'Como a Azion funciona', href: '/pt-br/documentacao/fundamentos/como-funciona/' },
-				{ label: 'llms.txt dos casos de uso', href: '/pt-br/documentacao/arquiteturas/llms.txt' },
+				{ label: 'llms.txt dos casos de uso', href: '/pt-br/documentacao/casos-de-uso/llms.txt' },
 			],
 		},
 	},
