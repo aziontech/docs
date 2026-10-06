@@ -50,18 +50,14 @@ describe('redirects handler', () => {
   })
 
   it('puts the query string before the fragment of a target that has one', async () => {
-    const res = await handler(
-      new Request(`${EN}/products/edge-application/load-balancer/?utm_source=x`)
-    )
+    const res = await handler(new Request(`${PT}/produtos/cli/domains/?utm_source=x`))
     expect(res.status).toBe(301)
-    expect(res.headers.get('Location')).toBe(
-      `${EN}/platform/connectors/?utm_source=x#load-balancer`
-    )
+    expect(res.headers.get('Location')).toBe(`${PT}/devtools/cli/create/?utm_source=x#domains`)
   })
 
   it('keeps the fragment of a target when the request has no query string', async () => {
-    const res = await handler(new Request(`${EN}/products/edge-application/load-balancer/`))
-    expect(res.headers.get('Location')).toBe(`${EN}/platform/connectors/#load-balancer`)
+    const res = await handler(new Request(`${PT}/produtos/cli/domains/`))
+    expect(res.headers.get('Location')).toBe(`${PT}/devtools/cli/create/#domains`)
   })
 
   it('passes non-redirect URLs through to origin untouched', async () => {
