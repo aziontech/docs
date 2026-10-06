@@ -164,7 +164,7 @@ export async function getTopNav(lang: Lang): Promise<TopNavModel | null> {
 
 export async function getDirectory(
 	lang: Lang,
-	labels: { products: string; guides: string; devtools: string }
+	labels: { reference: string; guides: string; devtools: string }
 ): Promise<MenuGroupNode[]> {
 	return buildDirectory(await getNavData(), lang, labels);
 }

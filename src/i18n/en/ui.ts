@@ -34,7 +34,7 @@ export default {
 	'guides.table.name': 'Name',
 	'guides.table.type': 'Type',
 	'topNav.a11yTitle': 'Documentation',
-	'topNav.products': 'Products',
+	'topNav.reference': 'Reference',
 	'topNav.guides': 'Guides',
 	'topNav.devtools': 'Developer tools',
 	'topNav.signIn': 'Sign in',

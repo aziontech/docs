@@ -36,7 +36,7 @@ export default UIDictionary({
 	'guides.table.name': 'Nome',
 	'guides.table.type': 'Tipo',
 	'topNav.a11yTitle': 'Documentação',
-	'topNav.products': 'Produtos',
+	'topNav.reference': 'Referência',
 	'topNav.guides': 'Guias',
 	'topNav.devtools': 'Ferramentas de desenvolvimento',
 	'topNav.signIn': 'Entrar',

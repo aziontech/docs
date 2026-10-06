@@ -769,7 +769,7 @@ export function resolveNeighbours(
 export function buildDirectory(
 	data: NavData,
 	lang: Lang,
-	labels: { products: string; guides: string; devtools: string }
+	labels: { reference: string; guides: string; devtools: string }
 ): MenuGroupNode[] {
 	const model = buildTopNav(data, lang);
 	if (!model) return [];
@@ -783,20 +783,14 @@ export function buildDirectory(
 
 	const groups: MenuGroupNode[] = [];
 
-	if (model.products.length) {
-		groups.push({
-			label: labels.products,
-			items: model.products.map((column, columnIndex) => ({
-				id: `directory/products/${columnIndex}`,
-				label: column.label,
-				children: column.items.map((entry, index) =>
-					entryNode(entry, `directory/products/${columnIndex}/${index}`)
-				),
-			})),
-		});
-	}
-
-	const rest: MenuNode[] = [];
+	const rest: MenuNode[] = [
+		{
+			id: 'directory/reference',
+			label: labels.reference,
+			href: `/${lang}/`,
+			target: '_self',
+		},
+	];
 	if (model.guides?.href) {
 		rest.push({
 			id: 'directory/guides',
