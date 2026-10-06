@@ -112,7 +112,7 @@ export const ptBr: DocsHomeContent = {
 				{
 					icon: 'pi pi-sitemap',
 					title: 'Explore os casos de uso',
-					href: '/pt-br/documentacao/arquiteturas/',
+					href: '/pt-br/documentacao/casos-de-uso/',
 					body: 'Designs validados que mostram como os produtos Azion se combinam para resolver cada caso de uso, agrupados por solução.',
 					class: 'sm:col-span-2',
 				},
@@ -271,7 +271,7 @@ export const ptBr: DocsHomeContent = {
 				{
 					icon: 'pi pi-id-card',
 					title: 'Governança, Risco e Conformidade',
-					href: '/pt-br/documentacao/arquiteturas/proteger-aplicacoes-e-redes/governanca-risco-conformidade/',
+					href: '/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/preparar-aplicacoes-web-reguladas-para-auditorias-de-seguranca/',
 					body: 'As ferramentas e certificações por trás do seu trabalho de conformidade.',
 				},
 				{

@@ -1,0 +1,222 @@
+---
+title: Migrate an application to a new origin without downtime
+description: >-
+  Move an application's traffic from an old origin to a new one in weighted
+  steps, watch errors on each origin, and roll back by changing one address.
+meta_tags: 'origin migration, canary, load balancer, weight, round robin, rollback, connector, real-time events, real-time metrics, upstream'
+namespace: use_case_migrate_an_application_to_a_new_origin_without_downtime
+permalink: /documentation/use-cases/build-and-run-applications/migrate-an-application-to-a-new-origin-without-downtime/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+A platform or SRE team is moving an application from one origin to another, such as from a data center to a cloud, or between two clouds. The application cannot go offline, and the team cannot switch every user at once, because a fault on the new origin would then reach everyone. This page puts both origins behind one connector with Load Balancer, sends a small share of requests to the new origin, raises that share step by step while it watches the errors of each origin, and rolls back by turning one address off. The result is measured by zero downtime during the migration, the error rate on the new origin at each step, and the time to roll back.
+
+This use case does not cover rewriting the application onto functions on Azion. For that, refer to [Modernize a monolithic application without a rewrite](/en/documentation/use-cases/build-and-run-applications/modernize-a-monolithic-application-without-a-rewrite/). It also does not cover keeping two origins active for failover. For that, refer to [Keep an application online when an origin fails](/en/documentation/use-cases/improve-performance-and-reliability/keep-an-application-online-when-an-origin-fails/).
+
+## Prerequisites
+
+- An application that serves the site through a connector to the old origin, a rule that sends every request to that connector, and a workload. To create the application and the workload, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/). To create the connector and the rule, refer to [Connect an application to an origin](/en/documentation/guides/application-development/getting-started/work-with-origins/).
+- A personal token, for the API and the GraphQL queries. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
+- Two origins that hold the same application and answer HTTPS on port `443` for the site's hostname. Every address of a connector receives the same `Host` header, so both origins must answer for the name the visitor requested.
+- A response header that tells the two origins apart, such as the `server` header each one sends, for the checks in Verify the setup.
+- The values of your migration. This page uses `www.example.com` for the site, `old-origin.example.com` and `new-origin.example.com` for the two origins, and `<new-origin-ip>` for the IP address that `new-origin.example.com` resolves to, which the event filters match on. Replace each value with yours in every step.
+
+---
+
+## Required products
+
+| The migration needs | Which means | Product | Documented in |
+| --- | --- | --- | --- |
+| Both origins behind the same site, with no DNS change | One connector that holds the old and the new origin as two addresses | Load Balancer | [Put both origins on the connector](/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/#put-both-origins-on-the-connector) |
+| A share of requests that moves to the new origin step by step | The _Round Robin_ method and a weight on each address | Load Balancer | [Change the weights](/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/#change-the-weights) |
+| A rollback that is a configuration change | The **Active** switch of the new address | Load Balancer | [Take an origin out of rotation](/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/#take-an-origin-out-of-rotation) |
+| The share of traffic each origin receives | The requests of the `workloadBreakdownMetrics` dataset grouped by upstream address | Real-Time Metrics | [Real-Time Metrics GraphQL fields](/en/documentation/devtools/graphql/gql-real-time-metrics-fields/#workloadbreakdownmetrics) |
+| The failing requests of the new origin | The HTTP Requests data source filtered by upstream address and upstream status | Real-Time Events | [Data sources](/en/documentation/platform/real-time-events/data-sources/#http-requests) |
+
+---
+
+## Reference architecture
+
+This page builds the *Weighted canary origin pool*: one connector groups the old and the new origin, and Load Balancer weights decide the share each one receives.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Visitor["Visitor"] -->|"HTTPS request"| App["application: Set Connector rule"]
+  App --> Conn["connector: origin group"]
+  Conn --> LB["Load Balancer: method and weights"]
+  LB -->|"larger share"| Old["old origin"]
+  LB -->|"smaller share, raised per step"| New["new origin"]
+  Old -->|"status and upstream address"| Obs["Real-Time Metrics and Real-Time Events"]
+  New -->|"status and upstream address"| Obs
+  Obs -->|"errors per origin"| Team["team decision"]
+  Team -->|"next weight, or new address off"| LB
+```
+
+Read the diagram as two loops. The request loop runs from the visitor through one rule to one connector, where Load Balancer picks an origin for each request. The control loop runs from the observations back to Load Balancer: the team reads the errors of each origin, then either raises the new origin's weight or turns its address off. Nothing in the request loop changes during the migration except the weights and the **Active** switch of each address, so the application, its rules, and DNS stay as they are.
+
+### Dataflow
+
+1. A visitor's request reaches the workload on the site's domain, and the application's rule, with its _Set Connector_ behavior, sends it to the connector that holds both origins.
+2. Load Balancer picks one active address of the connector in proportion to its weight under _Round Robin_, or by the client IP address under _IP Hash_. Each data center balances on its own, so the split is a proportion, not an exact count.
+3. The connector sends the request to the chosen origin with the same `Host` header, path, and protocol for both addresses.
+4. Real-Time Metrics counts the requests per upstream address, and Real-Time Events records the address and the status of the origin that answered each request.
+5. While the new origin shows no new errors, the team raises its weight at the next step. When errors appear, the team turns the new address off, and every request returns to the old origin once the change reaches each data center.
+6. When the new origin carries the traffic with no new errors, the team turns the old address off, and every request reaches the new origin.
+
+### Components
+
+- **connector**: the Platform Resource that groups the old and the new origin as addresses. One connector keeps the rule that names it unchanged through the migration, and its single `Host` setting means both origins must answer for the same name.
+- **Load Balancer**: chooses the address of each request. Weights from 1 to 100 set each origin's share under _Round Robin_, the **Active** switch takes an address out of rotation for a rollback or the cutover, and _IP Hash_ keeps a client IP address on one origin when sessions live in one server's memory.
+- **application**: the Platform Resource whose rule sends every request to the connector. It is the routing that stays constant while the weights move.
+- **Real-Time Metrics**: shows the share of requests each origin receives, grouped by upstream address in the `workloadBreakdownMetrics` dataset, and the status codes of the application. Its datasets do not pair the upstream address with a status, so the errors of one origin come from Real-Time Events.
+- **Real-Time Events**: holds one record per request, with the upstream address and the upstream status, so a filter lists the failing requests of the new origin at each step.
+
+### Other designs for this use case
+
+- *Path-based origin cutover*: for migrations done section by section, such as a site that moves area by area to a new platform. Rules Engine sends each migrated path to a connector for the new origin and every other path to the old one, so traffic moves by path instead of by share of requests, and a section rolls back by pointing its rule at the old connector again.
+
+---
+
+## Configure the origin pool
+
+The origin pool is the existing connector, with Load Balancer turned on and the new origin added as a second address. The rule that sends requests to the connector stays as it is, so the migration never touches the application or DNS.
+
+The first step sends about one request in a hundred to the new origin: weight `99` on the old address and `1` on the new one. A weight is a whole number from 1 to 100, and a share is the address's weight against the sum of all weights. The share is a proportion, not an exact split, because each data center balances on its own.
+
+The **Host** becomes `${host}`, the host the visitor requested, because one connector sends the same `Host` header to both addresses. A literal old-origin hostname would reach the new origin under a name it may not answer for. **Max Retries**, **Connection Timeout**, and **Read/Write Timeout** take the values the Console fills in, `3`, `30`, and `60`, so that both interfaces produce the same connector. The API defaults are `0`, `60`, and `120` when the body leaves them out.
+
+The pool is built as [Put both origins on the connector](/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/#put-both-origins-on-the-connector) describes, on the connector that reaches `old-origin.example.com`, with these values:
+
+| Setting | Value |
+| --- | --- |
+| **Host** | `${host}` |
+| **Transport Protocol Policy** | _Force HTTPS_, because both origins answer HTTPS on port `443` |
+| **Method** | _Round Robin_ |
+| **Max Retries**, **Connection Timeout**, **Read/Write Timeout** | `3`, `30`, and `60` |
+| `old-origin.example.com` | **Server Role** _Primary_, **Weight** `99` |
+| `new-origin.example.com` | **Server Role** _Primary_, **Weight** `1` |
+
+The connector holds two active addresses and sends about one request in a hundred to the new origin. A connector change takes several minutes to reach every data center, and until then some requests reach the old origin alone.
+
+---
+
+## Configure the weight schedule
+
+The weight schedule moves traffic in steps, and each step changes only the two weights. Hold each step long enough for the new origin to serve the requests that expose its faults, such as a full hour bucket in Real-Time Metrics, before you take the next one.
+
+| Step | Old origin weight | New origin weight | Share on the new origin |
+| --- | --- | --- | --- |
+| 1 | `99` | `1` | About 1 in 100 |
+| 2 | `90` | `10` | About 1 in 10 |
+| 3 | `50` | `50` | About half |
+| 4 | `10` | `90` | About 9 in 10 |
+
+The weights of each step add up to 100, so each weight reads as a percentage. The schedule stops at `10` for the old origin, because a weight cannot be `0`. The last move to the new origin is a change to the **Active** switch, described in the next section.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Step["Hold the current step"] --> Check{"New errors on the new origin?"}
+  Check -->|"No"| Last{"Step 4 reached?"}
+  Last -->|"No"| Raise["Raise the new origin's weight to the next step"]
+  Raise --> Step
+  Last -->|"Yes"| Cut["Turn the old address off"]
+  Check -->|"Yes"| Back["Turn the new address off"]
+```
+
+1. Hold each step, and read the errors of the new origin.
+2. When no new error appears, set the weights of the next step.
+3. When errors appear, roll back by turning the new address off.
+4. After step 4 holds with no new errors, turn the old address off to finish.
+
+Each step is the procedure that [Change the weights](/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/#change-the-weights) describes, with the two weights of the step from the table. In the API, step 2 sends this `addresses` list, and the Load Balancer configuration stays as it is:
+
+```json
+[
+  { "address": "old-origin.example.com", "modules": { "load_balancer": { "server_role": "primary", "weight": 90 } } },
+  { "address": "new-origin.example.com", "modules": { "load_balancer": { "server_role": "primary", "weight": 10 } } }
+]
+```
+
+The new origin receives the share of the step once the change reaches each data center. During the spread, some data centers still apply the previous weights.
+
+---
+
+## Configure the rollback and the cutover
+
+Both the rollback and the cutover turn one address off with its **Active** switch. An address that is off stays on the connector with its role and weight, so turning it back on restores the step it left.
+
+- **Rollback** turns `new-origin.example.com` off. Every request then reaches the old origin, and the new origin keeps its weight for the next attempt.
+- **Cutover** turns `old-origin.example.com` off after step 4. Every request then reaches the new origin, and the old address stays on the connector as a way back until you remove it.
+
+The change takes several minutes to spread, and data centers apply it at different times. Keep the origin you turned off answering until no request reaches it, which the event check in Verify the setup shows.
+
+Both moves are the procedure that [Take an origin out of rotation](/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/#take-an-origin-out-of-rotation) describes. A rollback turns off **Active** on `new-origin.example.com`, and a cutover turns it off on `old-origin.example.com`. In the API, the body lists both addresses with the weights of the current step, and `"active": false` on the address that leaves.
+
+After a rollback, the new address receives no request once every data center holds the change. After a cutover, the old address receives none.
+
+---
+
+## Verify the setup
+
+- **Both origins answer.** Send the same request several times and read the header that tells the origins apart:
+
+  ```bash
+  curl -s -D - -o /dev/null https://www.example.com/
+  ```
+
+  At step 3, about half of the answers carry the new origin's header. At step 1, most runs show only the old origin's header, because one request in a hundred goes to the new one. The answers come in no fixed order.
+
+- **The new origin receives its share.** Query the requests of one hour grouped by upstream address. Replace the token, the hour, and the hostname:
+
+  ```bash
+  curl -X POST 'https://api.azion.com/v4/metrics/graphql' \
+    -H 'Content-Type: application/json' \
+    -H 'Authorization: Token [TOKEN VALUE]' \
+    -d '{"query":"query OriginShare { workloadBreakdownMetrics(aggregate: { sum: requests }, groupBy: [upstreamAddr], orderBy: [sum_DESC], limit: 10, filter: { tsGte: \"2026-10-05T13:00:00\", tsLt: \"2026-10-05T14:00:00\", hostEq: \"www.example.com\" }) { upstreamAddr total: sum } }"}'
+  ```
+
+  The API answers `200` with one row per upstream address, in the form `{"data":{"workloadBreakdownMetrics":[{"upstreamAddr":"<new-origin-ip>:443","total":<requests>}, …]}}`. The new origin's total against the sum of all rows tracks the share of the step.
+
+- **No new errors on the new origin.** In [Azion Console](https://console.azion.com/) > **Real-Time Events**, select the _HTTP Requests_ data source and a period that covers the step, and enter this filter in **Filter by**:
+
+  ```text
+  upstream_addr like '%<new-origin-ip>%' AND upstream_status='502'
+  ```
+
+  An empty result means that no request to the new origin ended with `502`. Repeat the filter with the other `5xx` codes your origin can return.
+
+- **The rollback holds.** After a rollback, run the filter `upstream_addr like '%<new-origin-ip>%'` over the minutes after the change. The newest records stop once every data center holds the change.
+
+A step that seems to have no effect may still be propagating. Repeat the check after a few minutes before you change the weights again.
+
+---
+
+## Measuring results
+
+| Metric | Where to read it | What working looks like |
+| --- | --- | --- |
+| Downtime during the migration | The **Status Codes** dashboard of Real-Time Metrics, filtered to the workload, with its **Requests by Status and Upstream Status** table. Refer to [Break down requests by status code](/en/documentation/guides/platform/observability/break-down-requests-by-status-code/) | The **HTTP Status Codes 5XX** chart stays at its level from before the migration through every step |
+| Error rate on the new origin at each step | Real-Time Events, HTTP Requests, filtered by `upstream_addr` and `upstream_status`. Refer to [Filter events](/en/documentation/guides/platform/observability/add-filters-events/) | Failing requests on the new origin stay at the rate the old origin shows for the same step |
+| Share of traffic per origin | `workloadBreakdownMetrics` grouped by `upstreamAddr`, in hour buckets | The new origin's share matches the step, within the variation of per-data-center balancing |
+| Time to roll back | The time from the **Active** change to the last HTTP Requests record with the new origin's `upstream_addr` | The records stop within the connector propagation time |
+
+---
+
+## Best practices
+
+- **Keep Round Robin unless sessions live in one origin's memory.** _Round Robin_ hands out requests in proportion to the weights, which is what makes a step a known share. When the origins keep each visitor's session in the memory of one server, _IP Hash_ maps each client IP address to one address, so a visitor stays on one origin across requests. A visitor whose IP address changes, such as a phone that moves between networks, can still reach the other origin, and _IP Hash_ refuses _Backup_ addresses. For both methods, refer to [Balancing methods](/en/documentation/platform/connectors/load-balancer/balancing-methods/).
+- **Turn an address off instead of deleting it.** An address with **Active** off keeps its weight and role, so a rollback undone is one switch. A deleted address has to be added again with every field, while traffic waits.
+- **Judge a step only after it has spread.** Each data center applies a connector change at its own moment, so the first minutes after a change mix the old and the new weights. For how a change spreads, refer to [Wait for a connector change to propagate before you judge it](/en/documentation/platform/connectors/best-practices/#wait-for-a-connector-change-to-propagate-before-you-judge-it).
+- **Keep the old origin answering after the cutover.** Some data centers send requests to the old address until they receive the change. Retire the old origin only after the event filter shows no request reaching it.
+
+---
+
+## Guides in this use case
+
+<DocCardGroup cols={2}>
+  <DocCard title="Shift traffic between two origins by weight" href="/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/" label="Puts both origins on the connector, changes the weights at each step, and takes an origin out of rotation for the rollback or the cutover." />
+  <DocCard title="Connect an application to an origin" href="/en/documentation/guides/application-development/getting-started/work-with-origins/" label="Creates the connector to the old origin and the rule that sends every request to it, before the migration starts." />
+</DocCardGroup>

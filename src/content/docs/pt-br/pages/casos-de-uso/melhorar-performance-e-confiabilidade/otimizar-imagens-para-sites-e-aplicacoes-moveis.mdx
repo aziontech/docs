@@ -1,0 +1,235 @@
+---
+title: Otimizar imagens para sites e aplicações móveis
+description: >-
+  Redimensione e converta as imagens da sua origem sob demanda com Image Processor,
+  cacheie cada variação e solicite um conjunto fixo de tamanhos nas páginas.
+meta_tags: 'image optimization, image processor, ims, resize, webp, image cache, cache variation, application accelerator, real-time metrics, bandwidth saving'
+namespace: use_case_optimize_images_for_websites_and_mobile_apps
+permalink: /documentacao/casos-de-uso/melhorar-performance-e-confiabilidade/otimizar-imagens-para-sites-e-aplicacoes-moveis/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+Um time de comércio, de mídia ou de marketing mantém uma grande biblioteca de imagens na sua própria origem ou CMS, e as páginas que carregam imagens em tamanho original ficam lentas em redes móveis. Cada dispositivo precisa da mesma imagem em um tamanho diferente, e produzir e guardar cada tamanho com antecedência não escala com a biblioteca. Esta página configura uma aplicação que redimensiona e converte cada imagem sob demanda a partir do original na origem, cacheia cada variação que produz e faz as páginas solicitarem um conjunto pequeno e fixo de tamanhos. O resultado é medido pelos bytes de imagem entregues em comparação com os originais e pela parcela das requisições de imagem respondidas pelo cache.
+
+Este caso de uso não cobre vídeo nem fluxos de edição de imagem.
+
+## Pré-requisitos
+
+- Uma aplicação que serve as suas imagens a partir da sua origem por meio de um connector e de um workload. Para criá-los, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+- Image Processor e Application Accelerator nessa aplicação. O Image Processor transforma as imagens, e o Application Accelerator é dono da variação por query string que cacheia cada transformação separadamente. Para ativar os dois, consulte [Primeiros passos com Image Processor](/pt-br/documentacao/plataforma/applications/image-processor/primeiros-passos/).
+- Um personal token, para os passos pela API. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- Acesso aos templates que renderizam os elementos `img` das suas páginas.
+- Os caminhos e tamanhos das suas imagens. Esta página usa `/images/` para o caminho das imagens na origem, `www.example.com` para o domínio e três larguras de exibição de `400`, `800` e `1200` pixels. Substitua cada valor pelo seu em todos os passos.
+
+---
+
+## Produtos necessários
+
+| As páginas precisam de | O que significa | Produto | Documentado em |
+| --- | --- | --- | --- |
+| Cada imagem no tamanho e no formato que a página pede, a partir de um original | Uma regra com **Optimize Images** no caminho das imagens, e uma query string `ims` em cada URL de imagem | Image Processor | [Configure Image Processor em uma aplicação](/pt-br/documentacao/guias/performance-e-confiabilidade/otimizacao-de-entrega/processar-imagens/) e [Parâmetros de URL do Image Processor](/pt-br/documentacao/plataforma/applications/image-processor/parametros-de-url/) |
+| Cada variação servida do cache depois da sua primeira requisição | Uma cache setting que varia a cache key pelo argumento `ims` | Cache | [Entrega de imagens](/pt-br/documentacao/plataforma/applications/image-processor/entrega-de-imagens/#uma-entrada-de-cache-por-transformacao) |
+| Uma cache key por valor de `ims` | **Cache vary by Query String**, com `ims` em uma allowlist | Application Accelerator | [Configure a Advanced Cache Key para uma aplicação](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/advanced-cache-key/#varie-o-cache-por-um-argumento-de-query-string) |
+| Bytes economizados e requisições de imagem servidas | O dashboard **Bandwidth Saving** e a aba **Image Processor**, filtrados pelo domínio | Real-Time Metrics | [Dashboards de Build](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#bandwidth-saving) |
+
+---
+
+## Arquitetura de referência
+
+Esta página constrói o *Proxy de otimização de imagens apoiado na origem*: rotas de imagem em uma aplicação que transformam os originais buscados da sua origem e cacheiam cada variação.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Page["Página: URL de img com ims"] -->|"requisição de imagem"| Rule["regra da aplicação em /images/"]
+  Rule -->|"cache key com o valor de ims"| Cache["Cache"]
+  Cache -->|"hit: variação"| Page
+  Cache -->|"miss"| IP["Image Processor"]
+  IP -->|"busca o original"| Conn["connector"]
+  Conn --> Origin["origem"]
+  IP -->|"guarda a variação"| Cache
+  Cache -->|"bytes e requisições"| RTM["Real-Time Metrics"]
+```
+
+Leia o diagrama a partir da regra de imagem. A regra no caminho das imagens envia a requisição primeiro ao Cache, e uma variação já guardada a responde sem processamento e sem requisição à origem. Só um miss chega ao Image Processor, que busca o original pelo connector, o transforma e guarda o resultado para a próxima requisição da mesma variação. A origem fica no caminho de todo miss.
+
+### Fluxo de dados
+
+1. Uma página solicita uma imagem em `/images/` com uma query string `ims` que nomeia o tamanho, como `?ims=fit-in/800x800/filters:quality(85)`.
+2. A regra da aplicação em `/images/` aplica a cache setting `images`, cuja cache key varia por `ims`, e o behavior **Optimize Images**.
+3. Uma variação que já está em cache responde a requisição sem processamento, e uma variação servida do cache não é contada no medidor de Images.
+4. Em um miss, a aplicação busca o original na sua origem pelo connector, então a disponibilidade e o egress da origem ficam no fluxo de dados de todo miss.
+5. O Image Processor redimensiona o original e o converte para WEBP para os navegadores que aceitam esse formato. Ele nunca modifica o original e não guarda a variação como um asset da conta.
+6. O Cache guarda a variação sob uma chave que carrega o valor de `ims` e, para uma imagem convertida, o formato entregue. A próxima requisição do mesmo tamanho e formato é respondida pelo cache, e a origem só serve um original em um miss.
+
+### Componentes
+
+- **aplicação**: o Platform Resource que guarda a rota de imagem, a regra `images - optimize` que corresponde a `/images/` e aplica a cache setting `images` e **Optimize Images**.
+- **Image Processor**: transforma o original na variação que a query string `ims` pede, e escolhe WEBP para os navegadores que o aceitam.
+- **connector**: o Platform Resource que chega à origem dos originais em cada miss de cache.
+- **Cache**: guarda cada variação sob a sua própria chave. A chave varia por `ims` pela allowlist de query string da cache setting, que pertence ao Application Accelerator.
+- **Real-Time Metrics**: mostra os bytes que o Image Processor economizou, as requisições de imagem servidas e a parcela respondida pelo cache.
+
+### Outros designs para este caso de uso
+
+- *Proxy de otimização de imagens apoiado no Object Storage*: para times que movem os seus originais para a Azion, como uploads de usuários ou um catálogo de produtos. Os originais ficam no Object Storage, enviados com a Azion CLI ou com a API compatível com S3, então o design adiciona um caminho de upload e o fluxo de requisição não tem origem do cliente.
+
+---
+
+## Configure a cache setting para as variações de imagem
+
+A cache setting `images` dá a cada valor de `ims` a sua própria cache key, para que uma requisição da imagem de 400 pixels nunca seja respondida com a de 800 pixels. **Cache vary by Query String** usa uma _Allowlist_ só com `ims`, para que outro argumento, como uma tag de campanha, não crie outra cópia da mesma imagem.
+
+**Max Age** é `31536000` segundos, o teto que uma cache setting aceita. Uma variação servida do cache não roda nenhuma transformação e não soma nada ao medidor mensal de Images, enquanto um **Max Age** curto repete a mesma transformação em um intervalo que não tem nada a ver com mudanças na origem. O cache do navegador respeita o `Cache-Control` que a sua origem envia para cada imagem.
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+
+<Fragment slot="panel.console">
+
+Crie a cache setting como [Configure a Advanced Cache Key para uma aplicação](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/advanced-cache-key/#varie-o-cache-por-um-argumento-de-query-string) descreve, com estes valores. A regra que a aplica é a próxima seção.
+
+- **Name**: `images`.
+- **Browser Cache**: _Honor cache policies_.
+- **Cache**: _Override cache behavior_, com **Max Age** definido como `31536000`.
+- **Cache vary by Query String**: _Allowlist_, com `ims` como único argumento.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para criar a cache setting:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/cache_settings \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "images",
+  "browser_cache": { "behavior": "honor" },
+  "modules": {
+    "cache": { "behavior": "override", "max_age": 31536000 },
+    "application_accelerator": {
+      "cache_vary_by_querystring": { "behavior": "allowlist", "fields": ["ims"] }
+    }
+  }
+}'
+```
+
+A API responde `201` com `"state": "executed"` e a nova setting. Guarde o `id` dela para a regra:
+
+```json
+{"state":"executed","data":{"id":<images-id>,"name":"images",...}}
+```
+
+</Fragment>
+</Tabs>
+
+A aplicação tem uma cache setting que guarda um objeto por valor distinto de `ims`, por até um ano.
+
+---
+
+## Configure a regra de imagem
+
+A regra de imagem corresponde a todas as requisições em `/images/`, aplica a cache setting `images` e adiciona **Optimize Images**, que entrega a requisição ao Image Processor. Uma requisição que a regra não corresponde é entregue sem processamento, então a regra é o que dá sentido à query string `ims`.
+
+A regra não adiciona nenhum header `Accept`. O Image Processor detecta se o navegador suporta WEBP pelo próprio header `Accept` do navegador e converte a imagem quando ele suporta, para que cada navegador receba um formato que lê. Forçar `Accept: image/webp` enviaria WEBP a navegadores que nunca o pediram.
+
+Crie a regra como [Configure Image Processor em uma aplicação](/pt-br/documentacao/guias/performance-e-confiabilidade/otimizacao-de-entrega/processar-imagens/) descreve, com estes valores no lugar da correspondência por extensão do guia:
+
+- **Name**: `images - optimize`, na Request Phase.
+- **Criteria**: `${uri}` _starts with_ `/images/`.
+- **Behaviors**: **Set Cache Policy** com a cache setting `images`, depois **Optimize Images**. Nenhum behavior **Add Request Header**.
+
+Pela API, a regra carrega este critério e os dois behaviors, e `optimize_images` não recebe atributos:
+
+```json
+"criteria": [[{ "variable": "${uri}", "conditional": "if", "operator": "starts_with", "argument": "/images/" }]],
+"behaviors": [
+  { "type": "set_cache_policy", "attributes": { "value": <images-id> } },
+  { "type": "optimize_images" }
+]
+```
+
+Todas as requisições em `/images/` agora chegam ao Image Processor e carregam a cache setting `images`. Uma nova regra leva alguns minutos para se propagar.
+
+---
+
+## Configure as URLs de imagem nas suas páginas
+
+Cada string `ims` distinta é um objeto distinto em cache, e uma transformação distinta na sua primeira requisição. Uma página que pede qualquer largura que o layout calcule guarda um objeto por largura, enquanto uma página que pede três larguras fixas guarda três. Por isso, os templates solicitam só `400`, `800` e `1200` pixels.
+
+Cada URL usa `fit-in`, que mantém as proporções da imagem dentro da caixa e nunca a amplia, então nenhuma parte de uma foto de produto é cortada. Cada URL também aplica `quality(85)`, o valor que a Azion recomenda, que otimiza o arquivo sem perda perceptível de qualidade visual. A caixa de 1.200 pixels fica abaixo do limite padrão de largura de 3.840 pixels.
+
+No template que renderiza uma imagem, escreva os três tamanhos no `srcset` do elemento `img`, para que o navegador escolha o menor que caiba:
+
+```html
+<img
+  src="https://www.example.com/images/blue-shirt.jpg?ims=fit-in/800x800/filters:quality(85)"
+  srcset="https://www.example.com/images/blue-shirt.jpg?ims=fit-in/400x400/filters:quality(85) 400w,
+          https://www.example.com/images/blue-shirt.jpg?ims=fit-in/800x800/filters:quality(85) 800w,
+          https://www.example.com/images/blue-shirt.jpg?ims=fit-in/1200x1200/filters:quality(85) 1200w"
+  alt="Blue shirt, front view">
+```
+
+Mantenha `ims` como o último argumento da query string. Um parâmetro colocado depois dele pode fazer a requisição retornar um erro `504`, então um script que acrescenta um valor de cache-busting ou de rastreamento o insere antes de `ims`.
+
+As páginas construídas a partir do template solicitam uma de três variações de cada imagem, e cada variação é processada uma vez e depois servida do cache.
+
+---
+
+## Verifique a configuração
+
+- **A imagem é processada.** Solicite um tamanho de uma imagem com o header `Accept` de um navegador:
+
+  ```bash
+  curl -sI -H "Accept: image/webp" "https://www.example.com/images/blue-shirt.jpg?ims=fit-in/800x800/filters:quality(85)"
+  ```
+
+  A resposta carrega `x-ims: Enabled`, `content-type: image/webp` e `x-original-image-size` com o tamanho do original antes da transformação.
+
+- **Cada variação responde do cache.** Solicite a mesma URL duas vezes com o header `Pragma: azion-debug-cache`:
+
+  ```bash
+  curl -sI -H "Accept: image/webp" -H "Pragma: azion-debug-cache" "https://www.example.com/images/blue-shirt.jpg?ims=fit-in/800x800/filters:quality(85)"
+  ```
+
+  A segunda resposta carrega `x-cache: HIT`, e `x-cache-key` termina com o valor de `ims` e `@@webp`, o formato para o qual a variação foi convertida.
+
+- **Dois tamanhos são dois objetos.** Solicite a URL `400x400` com os mesmos headers. O seu `x-cache-key` difere da chave `800x800`, e a sua primeira resposta carrega `x-cache: MISS`.
+
+- **Um navegador sem WEBP recebe o formato original.** Solicite a URL `800x800` com `-H "Accept: image/jpeg"` e o header `Pragma: azion-debug-cache`. A resposta carrega o formato original em `content-type`, e o seu `x-cache-key` não carrega `@@webp`.
+
+Para saber como ler os headers de debug, consulte [Verifique o status de cache de uma resposta](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/verificar-tempo-de-cache-da-pagina/).
+
+---
+
+## Medindo resultados
+
+| Métrica | Onde ler | Como fica quando funciona |
+| --- | --- | --- |
+| Bytes de imagem economizados em comparação com os originais | O dashboard **Bandwidth Saving** do Real-Time Metrics, filtrado pelo host, ou `bandwidthImagesProcessedSavedData` no dataset `workloadMetrics`. Consulte [Dashboards de Build](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#bandwidth-saving) | Cresce com o tráfego de imagens depois que os templates solicitam os três tamanhos |
+| Requisições de imagem servidas | A aba **Image Processor** do Real-Time Metrics, **Total Requests** | Acompanha o tráfego de imagens das páginas construídas a partir dos templates |
+| Parcela das requisições de imagem respondidas pelo cache | **Requests Offloaded** no dashboard **Requests**, filtrado pelo host. Consulte [Meça o offload de cache de um domínio](/pt-br/documentacao/guias/plataforma/observabilidade/medir-offload-de-cache/) | Sobe à medida que cada variação é cacheada, porque cada uma é processada uma vez e servida do cache depois |
+
+---
+
+## Boas práticas
+
+- **Solicite um conjunto pequeno e fixo de tamanhos.** Cada string `ims` distinta é um objeto distinto em cache e uma transformação distinta contada no medidor de Images. Três larguras por imagem custam três transformações, não importa quantos visitantes as carreguem.
+- **Purgue todas as variações quando um original for substituído.** Um original substituído deixa as suas variações em cache por até um ano, uma chave por tamanho e por formato. Um purge por URL não chega às variações `@@webp`, então purgue-as com um wildcard que termina o caminho com `*`, como `www.example.com/images/blue-shirt*`. Para o purge por wildcard e o seu limite diário, consulte [Purgue páginas quando a origem publica uma mudança](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/purgar-ao-publicar/).
+- **Mantenha `ims` como o único argumento da allowlist.** Uma allowlist que nomeia só `ims` mantém todos os outros argumentos fora da cache key, então os valores de rastreamento não multiplicam as variações. Para saber por quê, consulte [Boas práticas de Applications](/pt-br/documentacao/plataforma/applications/boas-praticas/#image-processor).
+- **Use fit-in quando nenhuma borda pode ser perdida.** `?ims=800x800` preenche a caixa exatamente e corta automaticamente o eixo que transborda. `fit-in` mantém a imagem inteira dentro da caixa, então use a forma simples só onde o layout precisa da caixa preenchida.
+
+---
+
+## Guias deste caso de uso
+
+<DocCardGroup cols={2}>
+  <DocCard title="Configure a Advanced Cache Key para uma aplicação" href="/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/advanced-cache-key/" label="Cria a cache setting images, que guarda um objeto em cache por valor de ims." />
+  <DocCard title="Configure Image Processor em uma aplicação" href="/pt-br/documentacao/guias/performance-e-confiabilidade/otimizacao-de-entrega/processar-imagens/" label="Cria a regra images - optimize, que aplica a cache setting e entrega cada requisição de imagem ao Image Processor." />
+</DocCardGroup>

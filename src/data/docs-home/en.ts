@@ -113,7 +113,7 @@ export const en: DocsHomeContent = {
 				{
 					icon: 'pi pi-sitemap',
 					title: 'Explore use cases',
-					href: '/en/documentation/architectures/',
+					href: '/en/documentation/use-cases/',
 					body: 'Validated designs that show how Azion products combine to solve each use case, grouped by solution.',
 					class: 'sm:col-span-2',
 				},
@@ -269,7 +269,7 @@ export const en: DocsHomeContent = {
 				{
 					icon: 'pi pi-id-card',
 					title: 'Governance, Risk and Compliance',
-					href: '/en/documentation/architectures/secure-applications-and-networks/governance-risk-compliance/',
+					href: '/en/documentation/use-cases/secure-applications-and-networks/prepare-regulated-web-applications-for-security-audits/',
 					body: 'The tools and certifications behind your compliance work.',
 				},
 				{

@@ -1,0 +1,369 @@
+---
+title: Governar o acesso a múltiplos modelos de IA
+description: >-
+  Coloque uma function de gateway na frente do AI Inference e de um provedor de
+  terceiros para autenticar equipes, rotear, fazer fallback, usar cache e registrar.
+meta_tags: 'AI gateway, model gateway, LLM routing, fallback, AI Inference, third-party LLM, KV Store, Cache API, Data Stream, Real-Time Events, functions'
+namespace: use_case_govern_access_to_multiple_ai_models
+permalink: /documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/governar-o-acesso-a-multiplos-modelos-de-ia/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Uma equipe de plataforma apoia equipes de produto que chamam modelos de IA de vários provedores e do AI Inference. Cada equipe guarda as suas próprias chaves de provedor e o seu próprio código de fallback, então ninguém consegue rotear uma requisição para outro modelo quando um provedor falha, parar uma equipe que gasta além do seu orçamento ou dizer qual modelo respondeu a uma requisição. Esta página coloca um gateway criado com Functions na frente de todos os modelos. As aplicações chamam um único endpoint com uma chave de equipe, e o gateway autentica a equipe, escolhe um modelo por política, faz fallback para o próximo modelo quando uma chamada falha, armazena em cache as respostas que quem chama permite e registra cada chamada. O resultado é medido pelas requisições respondidas apesar de uma falha de provedor, pelo gasto por equipe dentro do orçamento, pela parcela de requisições respondidas a partir do cache e pela cobertura de auditoria das chamadas de modelo.
+
+Este caso de uso não cobre a criação das aplicações ou dos agentes que chamam os modelos. Para isso, consulte [Criar agentes de IA](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/criar-agentes-de-ia/).
+
+## Pré-requisitos
+
+- Uma aplicação e um workload que servem o domínio do gateway, com o **Application Accelerator** ativado, que o behavior **Run Function** exige. Para criá-los, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+- KV Store habilitado na conta. O produto está em Preview e não vem habilitado por padrão, então solicite acesso pelo [Technical Support](/pt-br/documentacao/suporte/).
+- Um personal token, para a chamada ao KV Store. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- A [Azion CLI](/pt-br/documentacao/devtools/cli/), instalada e autorizada, para armazenar as variáveis de ambiente.
+- Um provedor de terceiros cujo endpoint de chat aceite o formato de chat completions da OpenAI, com a URL dele, um nome de modelo e uma API key.
+- Um endpoint HTTPS da sua plataforma de analytics ou de logs que aceite requisições `POST`, para os logs de uso e de auditoria.
+- Os valores da sua própria configuração. Esta página usa `ai-gateway` para o namespace do KV Store, a function e o cache, `general` e `long-context` para os dois aliases de modelo que o gateway oferece, `checkout-team` para uma equipe e `gateway.example.com` para o domínio. Substitua cada valor pelo seu em todas as etapas.
+
+---
+
+## Produtos necessários
+
+| O gateway precisa de | O que significa | Produto | Documentado em |
+| --- | --- | --- | --- |
+| Um endpoint que guarda a lógica de roteamento, de fallback e de autenticação | Uma function na aplicação do gateway, executada em todos os caminhos por uma regra | Functions | [Primeiros passos com Functions](/pt-br/documentacao/plataforma/functions/primeiros-passos/) |
+| Modelos hospedados na plataforma entre as rotas | `Azion.AI.run` com um id de modelo do catálogo de modelos do AI Inference | AI Inference | [Chame um modelo no AI Inference a partir de uma function](/pt-br/documentacao/guias/ai/inferencia/chamar-um-modelo-no-ai-inference-a-partir-de-uma-function/) |
+| Chaves das equipes, os modelos que cada equipe pode chamar e se uma equipe ainda está dentro do orçamento | Um registro por equipe, lido pela key a cada requisição | KV Store | [KV Store API](/pt-br/documentacao/devtools/runtime/api-reference/kv-store/) |
+| Prompts repetidos respondidos sem chamada ao modelo, onde quem chama permite | Respostas armazenadas e encontradas com a Cache API | Cache | [Armazene em cache a resposta de uma function com a Cache API](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/) |
+| Um registro de uso e de auditoria de cada chamada de modelo | Uma linha de log por chamada, enviada da fonte de dados Functions | Data Stream | [Envie logs para um endpoint HTTP](/pt-br/documentacao/guias/plataforma/observabilidade/conector-standard-https-post/) |
+| Uma requisição investigada depois do fato | As linhas de log da function para essa requisição | Real-Time Events | [Fontes de dados do Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/fontes-de-dados/#functions-console) |
+| Uma regra que executa a function | O behavior **Run Function**, que exige o Application Accelerator na aplicação | Application Accelerator | [Como Functions funciona](/pt-br/documentacao/plataforma/functions/como-funciona/#fases-de-execucao-e-criterios) |
+
+---
+
+## Arquitetura de referência
+
+Esta página constrói o *Multi-model AI gateway*: uma function na frente de todos os modelos, com a política, as chaves e o log em um único lugar.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Client["Aplicação da equipe"] -->|"POST /v1/chat/completions com a chave da equipe"| Fn["function de gateway"]
+  Fn -->|"leitura do registro da equipe"| KV["KV Store: ai-gateway"]
+  Fn -->|"cache permitido: correspondência"| Cache["Cache API"]
+  Fn -->|"primeira rota do alias"| AI["Modelo do AI Inference"]
+  Fn -->|"próxima rota em caso de falha"| Provider["provedor de terceiros"]
+  Fn -->|"uma linha de log por chamada"| DS["Data Stream: fonte de dados Functions"]
+  DS --> Analytics["sua plataforma de analytics"]
+  Fn -->|"linhas de log por requisição"| RTE["Real-Time Events"]
+  Fn -->|"resposta"| Client
+```
+
+Leia o diagrama a partir da function. Cada chamada de modelo passa por ela, então ela é o único lugar em que uma equipe é identificada, um modelo é escolhido e uma chamada é registrada. As setas para os modelos são ordenadas: a política indica uma primeira rota e as rotas depois dela, e a function passa para a próxima apenas quando uma chamada falha. As setas para o KV Store e a Cache API são leituras que vêm antes de qualquer chamada de modelo, então uma equipe recusada ou uma resposta armazenada não custa nenhuma chamada de modelo.
+
+### Fluxo de dados
+
+1. Uma aplicação de equipe envia uma requisição compatível com a OpenAI para `/v1/chat/completions`, com a sua chave de equipe como bearer token e um alias de modelo em `model`, em vez de um id de modelo.
+2. O gateway calcula o hash da chave e lê o registro da equipe no KV Store. Uma chave desconhecida responde `401`, uma equipe acima do orçamento responde `429`, e um alias que a equipe não pode chamar responde `403`.
+3. Quando quem chama permite cache, o gateway procura a requisição no cache e retorna uma resposta armazenada quando há correspondência.
+4. Caso contrário, o gateway chama as rotas do alias em ordem: primeiro um modelo do AI Inference, depois o provedor de terceiros quando a primeira chamada falha.
+5. O gateway grava uma linha de log com a equipe, o alias, o modelo que respondeu, se houve fallback, o resultado do cache e os tokens usados. O Data Stream a envia para a sua plataforma de analytics, e o Real-Time Events guarda as linhas de cada requisição para investigação.
+6. O gateway retorna a resposta do modelo e a armazena no cache quando quem chama permitiu.
+
+### Componentes
+
+- **Functions**: executa a autenticação, o roteamento e o fallback. A política é código na function `ai-gateway`, então uma mudança em uma rota chega a todas as equipes de uma vez, e nenhuma equipe guarda uma chave de provedor ou uma lógica de fallback própria.
+- **AI Inference**: executa os modelos hospedados na plataforma, chamados com `Azion.AI.run` e um id de modelo. Uma chamada a ele fica dentro da Azion e não precisa de chave de provedor.
+- **provedores de LLM de terceiros**: as integrações que executam modelos externos. A function os chama com chaves que lê de variáveis de ambiente, então a latência e as falhas deles entram apenas nas rotas que os indicam.
+- **Cache**: guarda respostas a prompts repetidos, pela Cache API da function. Uma resposta armazenada é retornada sem chamada de modelo, apenas para requisições cujo chamador permite.
+- **KV Store**: guarda as chaves, as cotas e os orçamentos: um registro por equipe no namespace `ai-gateway`, com a key formada por um hash da chave da equipe, com os modelos que a equipe pode chamar e se ela está dentro do orçamento. A function o lê a cada requisição.
+- **Data Stream**: envia as linhas de log de uso e de auditoria que a function grava, da fonte de dados Functions, para a sua plataforma de analytics, onde o gasto por equipe é somado.
+- **Real-Time Events**: guarda as linhas de log da function agrupadas por requisição, para investigar uma chamada depois do fato.
+- **aplicação**: o Platform Resource que é o endpoint do gateway. Uma regra executa a function nos caminhos dela, então todas as aplicações apontam para um único domínio.
+
+---
+
+## Configure a function de gateway
+
+O gateway é uma única function. Cada decisão que ele aplica está no código, então uma mudança de política é uma mudança de código que todas as equipes recebem de uma vez.
+
+- **As equipes enviam um alias, não um id de modelo.** `general` roteia para `Qwen/Qwen3-30B-A3B-Instruct-2507-FP8` no AI Inference, e `long-context` para `gpt-oss-20b`, cuja janela de contexto de 131k tokens é a mais longa entre os modelos que o AI Inference executa. Os dois fazem fallback para o provedor. Um alias permite que a equipe de plataforma mude o modelo por trás dele sem mudança no código de nenhuma equipe. O gateway chama uma rota do AI Inference como [Chame um modelo no AI Inference a partir de uma function](/pt-br/documentacao/guias/ai/inferencia/chamar-um-modelo-no-ai-inference-a-partir-de-uma-function/) descreve, com estes valores: o id de modelo da rota e o body da requisição da equipe com `stream` definido como `false`.
+- **A chave é armazenada como hash.** A key do registro é `team:` seguida do SHA-256 da chave da equipe, então o KV Store nunca guarda uma chave utilizável. SHA-256 é um dos digests que `crypto.subtle.digest` suporta.
+- **Uma chamada que falha passa para a próxima rota.** Uma chamada que lança uma exceção, não retorna `choices`, responde com um status de erro ou passa de 30 segundos conta como falha. Trinta segundos limitam o tempo que uma equipe espera em uma rota antes que a próxima seja executada, dentro do limite de 5 minutos de tempo de execução de uma function.
+- **O cache é decisão de quem chama.** O gateway armazena em cache apenas requisições que trazem `x-gateway-cache: allow`, porque só a equipe sabe se uma resposta pode valer para todo prompt idêntico. O gateway armazena em cache como [Armazene em cache a resposta de uma function com a Cache API](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/) descreve, com o cache `ai-gateway`, a key `https://ai-gateway.cache/<sha-256 of the alias and the request body>` e `max-age=3600`, uma hora.
+- **Cada chamada grava uma linha de log.** A linha é o registro de uso e de auditoria: o gasto de uma equipe é a soma dos seus `total_tokens`, e a linha indica o modelo que respondeu.
+- **O alias `fallback-test` comprova o fallback.** A primeira rota dele indica um id de modelo que não existe, então toda chamada a ele faz fallback. Remova-o depois de [Verifique a configuração](#verifique-a-configuracao).
+
+Para armazenar os valores que a function lê, execute estes comandos com a Azion CLI. Uma key que contém `key` ou `secret` é armazenada como secret por padrão:
+
+```bash
+azion create variables --key "PROVIDER_URL" --value "<provider-chat-completions-url>" --secret false
+azion create variables --key "PROVIDER_MODEL" --value "<provider-model-name>" --secret false
+azion create variables --key "PROVIDER_API_KEY" --value "<provider-api-key>"
+azion create variables --key "ADMIN_SECRET" --value "<admin-secret>"
+```
+
+Crie uma function chamada `ai-gateway` com este código. A chamada ao provedor envia a chave como `Authorization: Bearer`; mude esse header para o que o seu provedor exige:
+
+```javascript
+const ROUTES = {
+  "general": [
+    { kind: "azion", model: "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8" },
+    { kind: "provider" }
+  ],
+  "long-context": [
+    { kind: "azion", model: "gpt-oss-20b" },
+    { kind: "provider" }
+  ],
+  "fallback-test": [
+    { kind: "azion", model: "no-such-model" },
+    { kind: "provider" }
+  ]
+};
+const PROVIDER_TIMEOUT_MS = 30000;
+const CACHE_SECONDS = 3600;
+
+async function sha256(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function callRoute(route, body) {
+  if (route.kind === "azion") {
+    const response = await Azion.AI.run(route.model, body);
+    if (!response?.choices?.length) throw new Error("no choices in the response");
+    return response;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+  try {
+    const response = await fetch(Azion.env.get("PROVIDER_URL"), {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${Azion.env.get("PROVIDER_API_KEY")}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ ...body, model: Azion.env.get("PROVIDER_MODEL") }),
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`provider answered ${response.status}`);
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function putTeam(request, kv) {
+  if (request.method !== "PUT") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+  if (request.headers.get("Authorization") !== `Bearer ${Azion.env.get("ADMIN_SECRET")}`) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  const { key, team, models, status } = await request.json();
+  if (!key || !team || !Array.isArray(models) || !["active", "blocked"].includes(status)) {
+    return Response.json({ error: "key, team, models, and status are required" }, { status: 400 });
+  }
+  await kv.put(`team:${await sha256(key)}`, { team, models, status });
+  return Response.json({ team, models, status });
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const kv = await Azion.KV.open("ai-gateway");
+    if (url.pathname === "/admin/teams") {
+      return putTeam(request, kv);
+    }
+    if (request.method !== "POST" || url.pathname !== "/v1/chat/completions") {
+      return new Response("Not found", { status: 404 });
+    }
+
+    const started = Date.now();
+    const auth = request.headers.get("Authorization") ?? "";
+    const teamKey = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    const team = teamKey ? await kv.get(`team:${await sha256(teamKey)}`, "json") : null;
+    if (!team) {
+      return Response.json({ error: "unknown team key" }, { status: 401 });
+    }
+    if (team.status !== "active") {
+      return Response.json({ error: "team budget reached" }, { status: 429 });
+    }
+
+    const { model: alias, ...body } = await request.json();
+    if (!ROUTES[alias] || !team.models.includes(alias)) {
+      return Response.json({ error: `model ${alias} is not allowed for ${team.team}` }, { status: 403 });
+    }
+    body.stream = false;
+
+    const cacheAllowed = request.headers.get("x-gateway-cache") === "allow";
+    const cache = await caches.open("ai-gateway");
+    const cacheKey = `https://ai-gateway.cache/${await sha256(JSON.stringify({ alias, body }))}`;
+    if (cacheAllowed) {
+      const hit = await cache.match(cacheKey);
+      if (hit) {
+        console.log(JSON.stringify({ event: "model_call", team: team.team, alias, route: null, ok: true, fallback: false, cache: "hit", total_tokens: 0, ms: Date.now() - started }));
+        return new Response(await hit.text(), {
+          headers: { "Content-Type": "application/json", "x-gateway-cache": "hit" }
+        });
+      }
+    }
+
+    let result = null;
+    let answered = null;
+    let attempts = 0;
+    for (const route of ROUTES[alias]) {
+      attempts++;
+      try {
+        result = await callRoute(route, body);
+        answered = route.model ?? "provider";
+        break;
+      } catch (error) {
+        console.log(JSON.stringify({ event: "route_failed", team: team.team, alias, route: route.model ?? "provider", error: String(error?.message ?? error) }));
+      }
+    }
+
+    console.log(JSON.stringify({
+      event: "model_call", team: team.team, alias, route: answered, ok: result !== null,
+      fallback: attempts > 1, cache: cacheAllowed ? "miss" : "off",
+      total_tokens: result?.usage?.total_tokens ?? 0, ms: Date.now() - started
+    }));
+    if (!result) {
+      return Response.json({ error: `every route of ${alias} failed` }, { status: 502 });
+    }
+
+    const text = JSON.stringify(result);
+    if (cacheAllowed) {
+      await cache.put(cacheKey, new Response(text, {
+        headers: { "Content-Type": "application/json", "cache-control": `max-age=${CACHE_SECONDS}` }
+      }));
+    }
+    return new Response(text, {
+      headers: { "Content-Type": "application/json", "x-gateway-route": answered }
+    });
+  },
+};
+```
+
+Execute a function com estes valores, seguindo [Primeiros passos com Functions](/pt-br/documentacao/plataforma/functions/primeiros-passos/):
+
+- **Instância da function**: `ai-gateway`, sem Args.
+- **Regra**: uma regra de Request Phase chamada `gateway - all paths`, com o critério `${uri}` _starts with_ `/` e o behavior **Run Function** selecionando a instância `ai-gateway`.
+
+O gateway responde em `/v1/chat/completions` e `/admin/teams`, e todos os outros caminhos respondem `404`. A Cache API não é definida no `azion dev`, então teste a function depois do deploy.
+
+---
+
+## Configure os registros das equipes
+
+Um registro de equipe é um objeto JSON sob `team:<sha256 of the team key>` no namespace `ai-gateway`: o nome da equipe, os aliases que ela pode chamar e o seu status. O gateway lê o registro a cada requisição e admite uma requisição apenas enquanto `status` for `active`.
+
+A aplicação do orçamento lê esse status em vez de contar cada chamada. O KV Store aceita uma gravação por segundo na mesma key e não oferece incremento atômico, então um contador gravado a cada requisição perderia atualizações sob tráfego concorrente. Em vez disso, o gasto é calculado na sua plataforma de analytics a partir dos `total_tokens` das linhas de log de cada equipe. Quando uma equipe chega ao seu orçamento, um operador define o `status` dela como `blocked`, e o gateway passa a responder `429` a essa equipe.
+
+Para criar o namespace, envie o nome dele à API do KV Store:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/kv/namespaces \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "ai-gateway"}'
+```
+
+A API responde `201` com o namespace. Um namespace não pode ser renomeado nem excluído, então confira o nome antes de enviá-lo:
+
+```json
+{
+  "name": "ai-gateway",
+  "created_at": "2026-09-18T16:35:27.577829",
+  "last_modified": "2026-09-18T16:35:27.577829"
+}
+```
+
+As keys são gravadas a partir de uma function, e não pela API, então o caminho `/admin/teams` do gateway grava cada registro. Para adicionar uma equipe que pode chamar `general` e `fallback-test`, gere uma chave de equipe aleatória e envie-a com o segredo de administração:
+
+```bash
+curl -X PUT https://gateway.example.com/admin/teams \
+  -H 'Authorization: Bearer <admin-secret>' \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"<checkout-team-key>","team":"checkout-team","models":["general","fallback-test"],"status":"active"}'
+```
+
+O gateway responde com o registro que armazenou, sem a chave:
+
+```json
+{"team":"checkout-team","models":["general","fallback-test"],"status":"active"}
+```
+
+Entregue a chave da equipe à equipe uma única vez, porque o gateway guarda apenas o hash dela. Para bloquear a equipe, envie a mesma requisição com `"status":"blocked"`, e com `"status":"active"` para admiti-la de novo.
+
+---
+
+## Configure o stream de uso e de auditoria
+
+Cada linha `model_call` é um registro de uso e de auditoria, e o Data Stream entrega as linhas da fonte de dados *Functions* para a sua plataforma de analytics, onde o gasto e os fallbacks são somados por equipe.
+
+Crie o stream como [Envie logs para um endpoint HTTP](/pt-br/documentacao/guias/plataforma/observabilidade/conector-standard-https-post/) mostra, com estes valores:
+
+- **Data Source**: _Functions_. Na API, `functions_console`.
+- **Template**: _Functions Event Collector_, cuja variável `$log_message` carrega cada linha que a function grava.
+- **Opção**: _Filter Workloads_, com o workload do gateway como o único workload escolhido. Um filtro impede que este stream desative os outros streams da conta, o que salvar um stream ativo com amostragem faz.
+- **Connector**: _Standard HTTP/HTTPS POST_, com a URL da sua plataforma de analytics e o header que ela exige para aceitar a requisição.
+
+O stream fica ativo de um a dois minutos depois de salvo. A sua plataforma de analytics passa a receber uma linha `model_call` por requisição e uma linha `route_failed` por rota que falhou.
+
+---
+
+## Verifique a configuração
+
+Cada verificação envia uma requisição de chat com a chave de equipe da etapa dos registros das equipes.
+
+- **Uma equipe alcança um modelo por um alias.** Envie uma requisição para `general`:
+
+  ```bash
+  curl -s -i -X POST https://gateway.example.com/v1/chat/completions \
+    -H 'Authorization: Bearer <checkout-team-key>' \
+    -H 'Content-Type: application/json' \
+    -d '{"model":"general","max_tokens":200,"messages":[{"role":"user","content":"Name three European capitals."}]}'
+  ```
+
+  A resposta traz `x-gateway-route: Qwen/Qwen3-30B-A3B-Instruct-2507-FP8` e um objeto `chat.completion` cujo texto gerado fica em `choices[0].message.content`.
+
+- **Uma rota que falha faz fallback.** Envie a mesma requisição com `"model":"fallback-test"`. A resposta traz `x-gateway-route: provider`, e as linhas de log dessa requisição guardam uma linha `route_failed` para `no-such-model` e depois uma linha `model_call` com `"fallback":true`.
+
+- **Um prompt repetido que quem chama permite é respondido a partir do cache.** Envie a requisição para `general` duas vezes com o header `x-gateway-cache: allow`. A segunda resposta traz `x-gateway-cache: hit`.
+
+- **O gateway recusa o que a política recusa.** Uma requisição sem o header `Authorization` responde `401`. Uma requisição para `long-context`, que `checkout-team` não pode chamar, responde `403`. Depois que você define o status da equipe como `blocked`, qualquer requisição com a chave dela responde `429`.
+
+- **Cada chamada é registrada.** A sua plataforma de analytics recebe uma linha `model_call` para cada requisição acima, com `"team":"checkout-team"`. Para ler as linhas de uma requisição, abra a fonte de dados **Functions Console** no [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/primeiros-passos/), onde a variável `ID` agrupa as linhas de uma única requisição.
+
+Remova o alias `fallback-test` de `ROUTES` e do registro da equipe depois que a verificação de fallback passar. Uma regra nova leva alguns minutos para se propagar.
+
+---
+
+## Medindo resultados
+
+| Métrica | Onde ler | Como é quando funciona |
+| --- | --- | --- |
+| Requisições respondidas apesar de uma falha de provedor | As linhas `model_call` com `"ok":true` e `"fallback":true`, na sua plataforma de analytics | Cada falha de rota em uma linha `route_failed` é seguida de um `model_call` bem-sucedido para a mesma requisição, a menos que todas as rotas tenham falhado |
+| Gasto por equipe dentro do orçamento | A soma de `total_tokens` por `team` no período do orçamento, na sua plataforma de analytics | A soma de cada equipe fica abaixo do seu orçamento, e uma equipe que chega a ele tem `status` definido como `blocked` |
+| Parcela de requisições respondidas a partir do cache | As linhas `model_call` com `"cache":"hit"` sobre as linhas com `"cache":"hit"` ou `"cache":"miss"` | Sobe para equipes que permitem cache em prompts que se repetem |
+| Cobertura de auditoria das chamadas de modelo | A contagem de linhas `model_call` contra as invocações do gateway na aba **Functions** do [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#functions), descontadas as chamadas a `/admin/teams` e as requisições recusadas | As duas contagens coincidem, então cada chamada de modelo tem um registro |
+
+---
+
+## Boas práticas
+
+- **Dê a cada equipe a sua própria chave e faça a rotação dela substituindo o registro.** A key do registro é o hash da chave da equipe, então uma nova chave é um novo registro. Defina o registro antigo como `blocked` assim que a equipe trocar, porque uma key do KV Store não pode ser listada e um registro esquecido continua legível.
+- **Mantenha a chave do provedor em uma variável de ambiente.** A function lê `PROVIDER_API_KEY` com `Azion.env.get()`, então a chave nunca aparece no código, e as equipes nunca a guardam. Uma variável alterada só chega à function depois de um novo deploy.
+- **Deixe as equipes optarem pelo cache por requisição.** Uma resposta em cache é retornada para todo prompt idêntico, qualquer que seja a equipe que o envia. Armazenar em cache um prompt cuja resposta precisa mudar, como um que pergunta sobre o estado atual de uma conta, retorna uma resposta desatualizada por uma hora.
+- **Considere as leituras do KV Store na taxa de requisições do gateway.** Cada requisição lê um registro de equipe, e o KV Store inclui 100.000 keys lidas por dia antes que uma cobrança se aplique. Para as quantidades incluídas e a tarifa acima delas, consulte [Limites do KV Store](/pt-br/documentacao/plataforma/kv-store/limites/).
+
+---
+
+## Guias deste caso de uso
+
+<DocCardGroup cols={2}>
+  <DocCard title="Armazene em cache a resposta de uma function com a Cache API" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/" label="Armazena e encontra as respostas que quem chama permite que o gateway armazene em cache." />
+  <DocCard title="Chame um modelo no AI Inference a partir de uma function" href="/pt-br/documentacao/guias/ai/inferencia/chamar-um-modelo-no-ai-inference-a-partir-de-uma-function/" label="Chama a primeira rota de um alias, um modelo no AI Inference, com Azion.AI.run." />
+</DocCardGroup>
