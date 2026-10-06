@@ -82,14 +82,14 @@ describe('applyTemplate', () => {
 describe('resolveRedirect — exact matches', () => {
   it('resolves a permanent (moved -> 301) English redirect', () => {
     expect(resolveRedirect(`${EN}/products/core-concepts/`)).toEqual({
-      to: `${EN}/products/azion-platform-overview/`,
+      to: `${EN}/fundamentals/how-it-works/`,
       status: 301
     })
   })
 
   it('resolves a permanent Portuguese redirect', () => {
     expect(resolveRedirect(`${PT}/produtos/conceitos-basicos/`)).toEqual({
-      to: `${PT}/produtos/visao-geral-da-plataforma-da-azion/`,
+      to: `${PT}/fundamentos/como-funciona/`,
       status: 301
     })
   })
@@ -104,7 +104,7 @@ describe('resolveRedirect — exact matches', () => {
   it('matches case-insensitively and leaves the target casing alone', () => {
     expect(
       resolveRedirect('https://www.azion.com/EN/Documentation/Products/CORE-CONCEPTS/')?.to
-    ).toBe(`${EN}/products/azion-platform-overview/`)
+    ).toBe(`${EN}/fundamentals/how-it-works/`)
   })
 
   it('matches over http as well as https', () => {
@@ -115,22 +115,22 @@ describe('resolveRedirect — exact matches', () => {
 
   it('ignores the query string when matching', () => {
     expect(resolveRedirect(`${EN}/products/core-concepts/?utm_source=x`)?.to).toBe(
-      `${EN}/products/azion-platform-overview/`
+      `${EN}/fundamentals/how-it-works/`
     )
   })
 
-  it('flattens a multi-hop chain to the final destination', () => {
-    // marketplace/bot-manager -> secure/edge-firewall/bot-manager -> secure/firewall/bot-manager
+  it('sends every hop of a former chain straight to the final destination', () => {
+    // marketplace/bot-manager -> secure/edge-firewall/bot-manager -> ... -> platform/firewall
     expect(resolveRedirect(`${EN}/products/marketplace/bot-manager/`)?.to).toBe(
-      `${EN}/products/secure/firewall/bot-manager/`
+      `${EN}/platform/firewall/`
     )
     expect(resolveRedirect(`${EN}/products/secure/edge-firewall/bot-manager/`)?.to).toBe(
-      `${EN}/products/secure/firewall/bot-manager/`
+      `${EN}/platform/firewall/`
     )
   })
 
   it('returns null for unknown or already-current URLs', () => {
-    expect(resolveRedirect(`${EN}/products/azion-platform-overview/`)).toBeNull()
+    expect(resolveRedirect(`${EN}/fundamentals/how-it-works/`)).toBeNull()
     expect(resolveRedirect(`${EN}/nonexistent-page/`)).toBeNull()
     expect(resolveRedirect('https://www.azion.com/en/solutions/')).toBeNull()
   })
@@ -141,32 +141,30 @@ describe('resolveRedirect — exact matches', () => {
 })
 
 describe('resolveRedirect — data decisions', () => {
-  it('serves the last entry when the source was listed twice with different targets', () => {
-    // ab-testing (the last entry) is itself a source, so the chain ends at ab-testing-marketplace
+  it('serves a single target for a source the old data listed twice with different targets', () => {
     expect(resolveRedirect(`${PT}/casos-de-uso/testes-ab/`)?.to).toBe(
-      `${PT}/produtos/guias/ab-testing-marketplace/`
+      `${PT}/guias/desenvolvimento-de-aplicacoes/integracoes/ab-testing-marketplace/`
     )
     expect(resolveRedirect(`${PT}/casos-de-uso/nextjs-na-plataforma-azion/`)?.to).toBe(
-      `${PT}/produtos/devtools/azion-edge-runtime/compatibilidade-frameworks/`
+      `${PT}/devtools/cli/primeiros-passos/`
     )
   })
 
   it('keeps the English target for an English source that was also listed in pt-br', () => {
-    // nextjs-ssr-on-azion-platform is itself redirected, so the chain ends at the CLI overview
     expect(resolveRedirect(`${EN}/products/guides/nextjs-on-azion-platform/`)?.to).toBe(
-      `${EN}/products/azion-cli/overview/`
+      `${EN}/devtools/cli/`
     )
   })
 
   it('serves the entries that only the site data carried', () => {
     expect(resolveRedirect(`${EN}/products/guides/cloudflare-to-azion/`)?.to).toBe(
-      `${EN}/products/guides/cloudflare-migration-guide/`
+      `${EN}/guides/platform/migration/cloudflare-migration-guide/`
     )
     expect(resolveRedirect(`${PT}/produtos/secure/firewall/edge-functions/`)?.to).toBe(
-      `${PT}/produtos/secure/firewall/functions/`
+      `${PT}/plataforma/firewall/functions/`
     )
     expect(resolveRedirect(`${PT}/produtos/guias/usar-bucket-como-origem/`)?.to).toBe(
-      `${PT}/produtos/store/storage/bucket-como-connector/`
+      `${PT}/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/`
     )
   })
 
@@ -178,7 +176,9 @@ describe('resolveRedirect — data decisions', () => {
   it('resolves a source whose scheme was mistyped in the old data', () => {
     expect(
       resolveRedirect(`${PT}/produtos/guias/build/integrar-resend-email-edge-functions/`)?.to
-    ).toBe(`${PT}/produtos/guias/build/integrar-resend-email-functions/`)
+    ).toBe(
+      `${PT}/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/integrar-resend-email-functions/`
+    )
   })
 })
 
