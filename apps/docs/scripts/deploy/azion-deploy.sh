@@ -22,7 +22,7 @@ case "$1" in
 	*) usage ;;
 esac
 
-cd "$(git rev-parse --show-toplevel)"
+cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
 for path in azion.config.* azion; do
 	if [ -e "$path" ]; then

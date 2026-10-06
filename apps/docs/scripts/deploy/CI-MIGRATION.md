@@ -7,17 +7,25 @@ as the pipeline that was validated end to end in a sandbox copy of this reposito
 ## Today: manual deploys
 
 ```bash
-bash .azion-stage/deploy-stage.sh
-bash .azion-prod/deploy-prod.sh
+bash apps/docs/.azion-stage/deploy-stage.sh
+bash apps/docs/.azion-prod/deploy-prod.sh
 ```
 
+Run them from anywhere inside the repository. The docs site lives in `apps/docs`, and everything
+below that is relative to that directory unless it says otherwise.
+
 - Requires the Azion CLI **4.23.0** logged in (`azion -t <token>`) to the account that owns the
-  two Applications. The IDs in `.azion-<env>/azion/azion.json` belong to that account.
-- `scripts/deploy/azion-deploy.sh` copies `.azion-<env>/azion.config.ts` and `.azion-<env>/azion/`
-  to the repository root (the CLI only reads them from there), copies `env/consts.stage.ts` or
-  `env/consts.production.ts` to `src/consts.ts`, runs `azion deploy --local --auto --debug`, and on
-  exit always copies the CLI state back to `.azion-<env>/` and restores `src/consts.ts`.
-- If `git status` shows a change under `.azion-<env>/` after a deploy, the CLI created or changed
+  two Applications. The IDs in `apps/docs/.azion-<env>/azion/azion.json` belong to that account.
+- `apps/docs/scripts/deploy/azion-deploy.sh` changes into `apps/docs`, copies
+  `.azion-<env>/azion.config.ts` and `.azion-<env>/azion/` there (the CLI only reads them from the
+  directory it runs in), copies `env/consts.stage.ts` or `env/consts.production.ts` to
+  `src/consts.ts`, runs `azion deploy --local --auto --debug`, and on exit always copies the CLI
+  state back to `.azion-<env>/` and restores `src/consts.ts`. The copies are ignored by
+  `apps/docs/.gitignore`.
+- `apps/docs` has no lockfile of its own (the workspace lockfile is at the repository root), so the
+  CLI does not detect pnpm there and builds with `npm run build`. That runs the same `astro build`
+  script from the app, so the result is identical.
+- If `git status` shows a change under `apps/docs/.azion-<env>/` after a deploy, the CLI created or changed
   a resource: commit it, or the next deploy recreates that resource.
 - `rotate-prefix` is `false`: every deploy overwrites the same storage prefix and
   `purge_on_publish` purges the edge cache.
@@ -26,16 +34,18 @@ bash .azion-prod/deploy-prod.sh
 
 1. Every merge to `main` deploys **stage** (`docs-stage`).
 2. After stage, release-please opens or updates the Release PR `chore(release): vX.Y.Z`
-   (`package.json` bump + `CHANGELOG.md`). Only user-facing commit types bump the version:
+   (bump of the version in the root `package.json` + `CHANGELOG.md`). Only user-facing commit types bump the version:
    `chore` is hidden, so a `chore`-only merge deploys stage but cuts no version.
 3. Merging the Release PR skips stage, creates the tag `vX.Y.Z` and the GitHub Release, and deploys
    **production** (`docs-prod`) from the tag.
-4. After each deploy the workflow commits `.azion-<env>/` back to `main` as
+4. After each deploy the workflow commits `apps/docs/.azion-<env>/` back to `main` as
    `chore(deploy): record <env> azion state (...)`, only when the CLI changed it.
 
 ## Files to add
 
 ### `.cli-version`
+
+At the repository root, next to the workflows that source it.
 
 ```bash
 # Azion CLI version used by every deploy workflow. Sourced with `source .cli-version`.
@@ -44,7 +54,8 @@ CLI_VERSION=4.23.0
 
 ### `release-please-config.json`
 
-Set `bootstrap-sha` to the full SHA of `main`'s HEAD **at migration time**. `main` only accepts
+The release unit stays the repository root (`"."`): the version lives in the root `package.json`,
+not in `apps/docs`. Set `bootstrap-sha` to the full SHA of `main`'s HEAD **at migration time**. `main` only accepts
 squash merges, so commits from feature branches never reach its history.
 
 ```json
@@ -78,7 +89,7 @@ squash merges, so commits from feature branches never reach its history.
 
 ### `.release-please-manifest.json`
 
-Keep it in sync with the `version` in `package.json` at migration time.
+Keep it in sync with the `version` in the root `package.json` at migration time.
 
 ```json
 {
@@ -159,7 +170,7 @@ jobs:
 name: Deploy stage
 
 # Builds the docs and deploys them to Azion stage with the CLI, then commits the CLI state
-# (.azion-stage) back to main. Called by release.yml; can also be dispatched by hand.
+# (apps/docs/.azion-stage) back to main. Called by release.yml; can also be dispatched by hand.
 
 on:
   workflow_call:
@@ -205,7 +216,7 @@ jobs:
           set -euo pipefail
           # The checked-out ref can predate the last state commit; deploying with stale IDs would duplicate resources.
           git fetch --no-tags origin main
-          git checkout origin/main -- .azion-stage
+          git checkout origin/main -- apps/docs/.azion-stage
 
       - uses: ./.github/actions/setup
 
@@ -251,13 +262,13 @@ jobs:
         id: deploy
         env:
           NODE_OPTIONS: --max-old-space-size=8120
-        run: bash .azion-stage/deploy-stage.sh
+        run: bash apps/docs/.azion-stage/deploy-stage.sh
 
       - name: Commit the Azion state back to main
         if: ${{ always() && steps.deploy.outcome != 'skipped' }}
         run: |
           set -euo pipefail
-          STATE_DIR=.azion-stage
+          STATE_DIR=apps/docs/.azion-stage
           SNAPSHOT="$RUNNER_TEMP/azion-state"
           rm -rf "$SNAPSHOT"
           cp -R "$STATE_DIR" "$SNAPSHOT"
@@ -295,7 +306,7 @@ jobs:
         run: |
           set -euo pipefail
           URL=""
-          STATE_FILE=.azion-stage/azion/azion.json
+          STATE_FILE=apps/docs/.azion-stage/azion/azion.json
           if [ -f "$STATE_FILE" ]; then
             URL="$(jq -r '.workloads.url // empty' "$STATE_FILE" 2>/dev/null || true)"
           fi
@@ -323,7 +334,7 @@ jobs:
 name: Deploy production
 
 # Builds the docs at a release tag and deploys them to Azion production with the CLI, then
-# commits the CLI state (.azion-prod) back to main. Called by release.yml when a release is
+# commits the CLI state (apps/docs/.azion-prod) back to main. Called by release.yml when a release is
 # cut; can also be dispatched by hand to redeploy an existing tag.
 
 on:
@@ -390,7 +401,7 @@ jobs:
           set -euo pipefail
           # The checked-out ref can predate the last state commit; deploying with stale IDs would duplicate resources.
           git fetch --no-tags origin main
-          git checkout origin/main -- .azion-prod
+          git checkout origin/main -- apps/docs/.azion-prod
 
       - uses: ./.github/actions/setup
 
@@ -436,7 +447,7 @@ jobs:
         id: deploy
         env:
           NODE_OPTIONS: --max-old-space-size=8120
-        run: bash .azion-prod/deploy-prod.sh
+        run: bash apps/docs/.azion-prod/deploy-prod.sh
 
       - name: Commit the Azion state back to main
         if: ${{ always() && steps.deploy.outcome != 'skipped' }}
@@ -444,7 +455,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
-          STATE_DIR=.azion-prod
+          STATE_DIR=apps/docs/.azion-prod
           SNAPSHOT="$RUNNER_TEMP/azion-state"
           rm -rf "$SNAPSHOT"
           cp -R "$STATE_DIR" "$SNAPSHOT"
@@ -481,7 +492,7 @@ jobs:
         run: |
           set -euo pipefail
           URL=""
-          STATE_FILE=.azion-prod/azion/azion.json
+          STATE_FILE=apps/docs/.azion-prod/azion/azion.json
           if [ -f "$STATE_FILE" ]; then
             URL="$(jq -r '.workloads.url // empty' "$STATE_FILE" 2>/dev/null || true)"
           fi
@@ -521,7 +532,7 @@ The `main` ruleset requires a pull request and the "Design system adoption" chec
   the checkout used by the commit-back step in both deploy workflows. Because the IDs are already
   committed, a commit-back only happens when a resource changes, so this is rare.
 - **Loop guard.** Pushes made with an App token **do** trigger workflows. Add
-  `paths-ignore: ['.azion-*/**']` to the `push` trigger of `release.yml`.
+  `paths-ignore: ['apps/*/.azion-*/**']` to the `push` trigger of `release.yml`.
 - **Release PR checks.** A PR opened with `github.token` does not trigger `pull_request` checks, so
   the required check never reports. Either pass the App token to release-please (`token:`), or close
   and reopen the Release PR before merging.
@@ -534,17 +545,17 @@ The `main` ruleset requires a pull request and the "Design system adoption" chec
   every job downstream of it unless its `if:` uses a status function. That is why `production`
   uses `!cancelled() && needs.release-please.result == 'success' && ...`.
 - **Stale state duplicates resources.** The checked-out ref can predate the last state commit; both
-  deploy workflows overlay `.azion-<env>` from `origin/main` right after checkout, and the
+  deploy workflows overlay `apps/docs/.azion-<env>` from `origin/main` right after checkout, and the
   commit-back is made on top of the latest `main`, with retry.
 - **`--skip-build` skips the upload** on the CLI's v4 path (`pkg/cmd/deploy_remote/deploy.go`), so
-  the deploy lets the CLI build (the `astro` preset runs `pnpm run build`).
+  the deploy lets the CLI build (the `astro` preset runs the app's `build` script).
 - **The first deploy reads `.edge/manifest.json` before it builds.** The script generates it with
-  `@aziontech/bundler` when it is missing; locally, delete a stale `.edge/` before bootstrapping a
+  `@aziontech/bundler` when it is missing; locally, delete a stale `apps/docs/.edge/` before bootstrapping a
   new environment.
 - **Bootstrap state:** `bucket: ""` (the CLI creates the bucket from `name`) and `function: null`
   (on the v4 path `{}` fails to unmarshal). The CLI fills the `$..._NAME` / `$BUCKET_PREFIX`
   placeholders in `azion.config.ts` and reformats the file on the first deploy, which is why
-  `.azion-*/azion.config.ts` is in `.prettierignore`.
+  `apps/*/.azion-*/azion.config.ts` is in `.prettierignore`.
 - **v3 vs v4.** The CLI falls back to its v3 command set when the account has the
   `block_apiv4_incompatible_endpoints` flag; the v4 config here only works on the v4 path.
 
