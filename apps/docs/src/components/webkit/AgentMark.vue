@@ -43,7 +43,9 @@ export type AgentName =
 	| 'cursor'
 	| 'windsurf'
 	| 'opencode'
-	| 'copilot';
+	| 'copilot'
+	| 'warp'
+	| 'kiro';
 
 interface Mark {
 	label: string;
@@ -56,7 +58,7 @@ interface Mark {
 }
 
 /* eslint-disable webkit/no-hardcoded-color -- third-party BRAND marks:
-	   Claude's orange plus the Gemini / Copilot gradient stops baked into their
+	   Claude's orange, Kiro's purple, and the Gemini / Copilot gradient stops baked into their
 	   official SVGs. A vendor's brand colour is fixed by that vendor and has no
 	   Azion token; recolouring it would misrepresent the logo. */
 const MARKS: Record<AgentName, Mark> = {
@@ -82,6 +84,17 @@ const MARKS: Record<AgentName, Mark> = {
 		path: 'M23.78 5.004h-.228a2.187 2.187 0 00-2.18 2.196v4.912c0 .98-.804 1.775-1.76 1.775a1.818 1.818 0 01-1.472-.773L13.168 5.95a2.197 2.197 0 00-1.81-.95c-1.134 0-2.154.972-2.154 2.173v4.94c0 .98-.797 1.775-1.76 1.775-.57 0-1.136-.289-1.472-.773L.408 5.098C.282 4.918 0 5.007 0 5.228v4.284c0 .216.066.426.188.604l5.475 7.889c.324.466.8.812 1.351.938 1.377.316 2.645-.754 2.645-2.117V11.89c0-.98.787-1.775 1.76-1.775h.002c.586 0 1.135.288 1.472.773l4.972 7.163a2.15 2.15 0 001.81.95c1.158 0 2.151-.973 2.151-2.173v-4.939c0-.98.787-1.775 1.76-1.775h.194c.122 0 .22-.1.22-.222V5.225a.221.221 0 00-.22-.222z',
 	},
 	opencode: { label: 'OpenCode', viewBox: '0 0 24 24', path: 'M16 6H8v12h8V6zm4 16H4V2h16v20z' },
+	warp: {
+		label: 'Warp',
+		viewBox: '0 0 24 24',
+		path: 'M12.035 2.723h9.253A2.712 2.712 0 0 1 24 5.435v10.529a2.712 2.712 0 0 1-2.712 2.713H8.047Zm-1.681 2.6L6.766 19.677h5.598l-.399 1.6H2.712A2.712 2.712 0 0 1 0 18.565V8.036a2.712 2.712 0 0 1 2.712-2.712Z',
+	},
+	kiro: {
+		label: 'Kiro',
+		viewBox: '0 0 24 24',
+		path: 'M4.594 6.677C6.67-2.226 18.746-2.211 21.16 6.632c.353 1.297 1.725 7.582-1.673 13.747-1.545 2.797-5.841 5.49-6.99 1.883C8.6 25.477 3.315 24.1 5.789 18.609l-.318.143c-3.57 1.305-3.863-1.208-3.173-2.513.45-.84.727-1.335.937-1.897.353-.975.458-1.568.593-2.498.27-1.837.277-3.607.765-5.167zm8.37.01a.92.92 0 00-.81.428c-.217.323-.33.825-.33 1.462 0 .705.15 1.89 1.14 1.89h.008c.757 0 1.214-.705 1.214-1.89 0-.622-.127-1.125-.367-1.455a1.014 1.014 0 00-.855-.435zm4.08 0a.92.92 0 00-.81.428c-.217.323-.33.825-.33 1.462 0 .705.15 1.89 1.14 1.89h.008c.757 0 1.215-.705 1.215-1.89 0-.622-.128-1.125-.368-1.455a1.014 1.014 0 00-.855-.435z',
+		color: '#9046FF',
+	},
 	gemini: {
 		label: 'Gemini',
 		viewBox: '0 0 65 65',

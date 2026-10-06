@@ -19,7 +19,17 @@ export const baseSchema = z.object({
 	guides_hub: z.string().optional(),
 	agent: z
 		.object({
-			mark: z.enum(['claude', 'codex', 'gemini', 'cursor', 'windsurf', 'opencode', 'copilot']),
+			mark: z.enum([
+				'claude',
+				'codex',
+				'gemini',
+				'cursor',
+				'windsurf',
+				'opencode',
+				'copilot',
+				'warp',
+				'kiro',
+			]),
 			vendor: z.string(),
 			tags: z.array(z.string()),
 			links: z.array(z.object({ label: z.string(), href: z.string() })),

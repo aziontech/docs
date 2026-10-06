@@ -52,7 +52,7 @@ import AgentMark, { type AgentName } from './AgentMark.vue';
 
 defineOptions({ name: 'AgentCompareTable' });
 
-const BOOLEAN_COLUMNS = ['terminal', 'ide', 'extension', 'openSource'] as const;
+const BOOLEAN_COLUMNS = ['terminal', 'ide', 'extension', 'desktop', 'openSource'] as const;
 const TAG_COLUMNS = ['pricing', 'model', 'context'] as const;
 
 export interface AgentCompareRow {
@@ -63,6 +63,7 @@ export interface AgentCompareRow {
 	terminal: boolean;
 	ide: boolean;
 	extension: boolean;
+	desktop: boolean;
 	openSource: boolean;
 	pricing: string;
 	model: string;
@@ -72,7 +73,15 @@ export interface AgentCompareRow {
 interface Props {
 	rows: AgentCompareRow[];
 	columns: Record<
-		'agent' | 'terminal' | 'ide' | 'extension' | 'openSource' | 'pricing' | 'model' | 'context',
+		| 'agent'
+		| 'terminal'
+		| 'ide'
+		| 'extension'
+		| 'desktop'
+		| 'openSource'
+		| 'pricing'
+		| 'model'
+		| 'context',
 		string
 	>;
 	yes: string;
