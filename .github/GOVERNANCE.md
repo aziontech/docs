@@ -18,7 +18,7 @@ How contributions move through `aziontech/docs`: who owns what, what needs whose
 |---|---|---|
 | DevRel | The default owners in [CODEOWNERS](CODEOWNERS) | The project: content, style, IA, i18n, roadmap. Default owner and the final say on everything |
 | DevRel lead | The project owner named under Escalation | The calls that are hard to undo: deleting pages, IA changes, changes to this document |
-| UX Engineering | `@aziontech/team-uxe` | Platform code: `src/` components, config, CI. Co-reviews with DevRel |
+| UX Engineering | `@aziontech/team-uxe` | Platform code: `apps/docs/src/` components, config, CI. Co-reviews with DevRel |
 | Product content | `@aziontech/product-content` | Published content and translations |
 | SMEs | The relevant product team | Technical accuracy in their area |
 | Contributors | Anyone, internal or external | Proposing changes through an issue and a PR |
@@ -34,7 +34,7 @@ Technical content passes two gates: an SME confirms it's true, and DevRel confir
 | New page | Yes | 1 SME + 1 DevRel |
 | Delete or move a page, change a permalink | Yes | 1 DevRel + DevRel lead, and the redirect ships in the same PR |
 | Nav, menu, or IA change | Yes | DevRel lead + 1 UXE |
-| Platform code (`src/`, config, CI) | Yes | 1 UXE + 1 DevRel |
+| Platform code (`apps/docs/src/`, config, CI) | Yes | 1 UXE + 1 DevRel |
 | Change to this document | Yes, as a proposal | DevRel lead, with a comment window for affected teams |
 
 ## How a change moves
