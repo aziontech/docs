@@ -261,9 +261,7 @@ function onFlatBack(event: MouseEvent) {
 	drilled.value = true;
 	// The stack mounts in place (restored levels play no entrance); one painted frame of it gives
 	// the pop a position to slide from.
-	nextTick(() =>
-		requestAnimationFrame(() => requestAnimationFrame(() => menuRef.value?.pop?.()))
-	);
+	nextTick(() => requestAnimationFrame(() => requestAnimationFrame(() => menuRef.value?.pop?.())));
 }
 
 /** A level the reader pushed, above the product level the page mounts at. */
