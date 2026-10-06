@@ -1,35 +1,21 @@
 # redirects-massive
 
 > Imported from aziontech/site (`apps/redirects-massive`, commit `5fed26edce7ff50b6de7adf987304822faed3af4`). This copy is
-> independent: it serves the docs URLs and has its own Azion resources.
+> independent: it serves the docs URLs and has its own Azion resources (`docs-redirects`).
 
-A **single** edge function that serves every permanent redirect for Azion,
-consolidating what used to be several separate redirect functions/rules into one
-maintainable place.
+A **single** edge function that serves the permanent redirects of the Azion docs
+(`www.azion.com/en/documentation/...` and `www.azion.com/pt-br/documentacao/...`).
 
 ## Structure
 
-Redirects are grouped by **language**, and inside each language by **group**
-(one JSON file per group). Cross-domain host redirects live at the root.
+Redirects are grouped by **language**, one JSON file each:
 
 ```
 apps/redirects-massive/src/redirects/
   index.ts             # engine: loads every file, builds the lookup Map
   validate.mjs         # read-only data checks (pnpm -F redirects-massive validate)
-  en/
-    pages.json         # top-level pages (e.g. /en/build/ -> /en/solutions/web-apps/)
-    products.json      # /en/products/...
-    solutions.json     # /en/solutions/...
-    blog.json          # /en/blog/...
-    doc.json           # /en/documentation/...
-    marketplace.json   # /en/marketplace/...
-  pt-br/
-    pages.json  products.json  solutions.json  blog.json  doc.json  marketplace.json
-  es/
-    pages.json  products.json  solutions.json  blog.json  marketplace.json
-  lp.json              # /<lang>/lp/... landing pages (language-agnostic file)
-  pricing.json         # plans/pricing (language-agnostic file)
-  hosts.json           # cross-domain, language-agnostic (e.g. azion.com.br -> azion.com)
+  en/doc.json          # /en/documentation/...
+  pt-br/doc.json       # /pt-br/documentacao/...
 ```
 
 > **Wiring**: `index.ts` imports each file explicitly into a `FILES` list. After
@@ -43,10 +29,10 @@ arguments for Azion's "Massive Redirect [Global]" function. Each entry has a
 `from` (the old URL) plus **one** of `moved` or `found` — the key chooses the
 HTTP status:
 
-| Key     | Status | Meaning                |
-| ------- | ------ | ---------------------- |
-| `moved` | `301`  | permanent redirect     |
-| `found` | `302`  | temporary redirect     |
+| Key     | Status | Meaning            |
+| ------- | ------ | ------------------ |
+| `moved` | `301`  | permanent redirect |
+| `found` | `302`  | temporary redirect |
 
 All values are **full URLs**. Almost everything here is a permanent move, so use
 `moved`; use `found` only for a genuinely temporary redirect.
@@ -54,8 +40,17 @@ All values are **full URLs**. Almost everything here is a permanent move, so use
 For pattern rules, use `from_regex` instead of `from`. Capture groups are
 substituted into the target with Azion's backref syntax — `%s` (next group in
 order) and `%N$` (the Nth group), e.g.
-`{ "from_regex": "http://www\\.azion\\.com/t/other/([\\w_]+)/([\\w_]+)/([\\w_]+)/$", "moved": "http://www.azion.com.br/doc/%3$/%1$/%2$/" }`.
-Exact `from` matches always win over regex rules.
+`{ "from_regex": "https://www\\.azion\\.com/en/documentation/old/([\\w-]+)/$", "moved": "https://www.azion.com/en/documentation/new/%s/" }`.
+Exact `from` matches always win over regex rules. The current data has no regex rules.
+
+```json
+[
+  {
+    "from": "https://www.azion.com/en/documentation/products/core-concepts/",
+    "moved": "https://www.azion.com/en/documentation/products/azion-platform-overview/"
+  }
+]
+```
 
 Validate anytime with:
 
@@ -65,38 +60,20 @@ pnpm -F redirects-massive validate
 
 It checks the schema (`from` xor `from_regex`, `moved` xor `found`), flags
 **conflicting duplicates** (same source, different target) as errors and
-redundant duplicates as warnings, checks per-language file symmetry, and reports
-the total size against Azion's 300 KB budget. It also runs in CI.
-
-```json
-[
-  {
-    "from": "https://www.azion.com/en/products/edge-caching/",
-    "moved": "https://www.azion.com/en/products/edge-cache/"
-  }
-]
-```
-
-`hosts.json` uses the exact same shape for whole-domain redirects:
-
-```json
-[{ "from": "http://www.azion.com.br", "moved": "http://www.azion.com" }]
-```
-
-> Note: Azion's Massive Redirect also supports `from_regex` for pattern-based
-> rules and enforces a 300 KB limit per JSON file (error `JA001` if an entry is
-> missing both `moved` and `found`). Our current data is all exact matches, so
-> this custom function only reads `from` + `moved`/`found`.
-> Docs: <https://www.azion.com/en/documentation/products/guides/massive-redirect-integration/>
+redundant duplicates as warnings, checks per-language file symmetry, and warns
+when a file passes Azion's 300 KB budget. It also runs in CI.
 
 ## How to change or add a redirect
 
-1. **Change / add an entry** → open the right file (by language + group) and edit
-   the JSON list. No build step, no script — the value you write is the value
-   that is served. Add a `{ "from": "...", "found": "..." }` object.
-2. **New group** (e.g. `docs`) → create `en/docs.json`, `pt-br/docs.json`,
-   `es/docs.json` and add them to the `import`s and the `FILES` list in
-   `index.ts` (one line each).
+When a docs page changes its permalink or moves, add the redirect **in the same pull
+request**.
+
+1. **Change / add an entry** → open the file for the page's language and edit the
+   JSON list. No build step, no script — the value you write is the value that is
+   served. Add a `{ "from": "...", "moved": "..." }` object.
+2. **New file** → create it and add it to the `import`s and the `FILES` list in
+   `index.ts`.
+3. Run `pnpm -F redirects-massive validate test`.
 
 Guidelines so entries stay predictable:
 
@@ -106,14 +83,14 @@ Guidelines so entries stay predictable:
   (302).
 - Point `from` straight at the **final** destination — don't chain one redirect
   into another (the engine flattens accidental chains, but direct is clearer).
-- Don't point a `from` at itself.
+- Don't point a `from` at itself, and don't list a `from` that is a live page: the
+  function answers before the origin does.
 
 ## How it works
 
 - `index.ts` merges every file into one `Map` keyed by **host + path**, lower-cased
   and without a trailing slash. So matching ignores scheme (`http`/`https`), query
-  string, and trailing slash, and supports both locale path redirects
-  (`www.azion.com/...`) and host redirects (`azion.com.br`).
+  string, and trailing slash.
 - `../index.ts` (the handler) looks the request up and returns the entry's status
   (`301` for `moved`, `302` for `found`) with the target URL as `Location`. The
   incoming query string is preserved (so UTM/analytics params survive), and only
@@ -128,28 +105,44 @@ pnpm -F redirects-massive dev               # local dev server
 pnpm -F redirects-massive build             # azion/edge-functions build
 pnpm -F redirects-massive lint              # eslint
 pnpm -F redirects-massive typecheck         # tsc --noEmit
+pnpm -F redirects-massive validate          # data checks
 pnpm -F redirects-massive test              # unit tests (+ data integrity checks)
 pnpm -F redirects-massive test:integration  # integration tests
+REDIRECTS_BASE_URL=https://<id>.map.azionedge.net pnpm -F redirects-massive test:e2e
 ```
 
-## ⚠️ Notes
+## Deployment: not deployed yet
 
-- **Deployment**: for redirects to take effect on `www.azion.com/...`, this
-  function's request rule must run on the **same edge application that serves
-  `www.azion.com`** (and any redirected host such as `www.azion.com.br`). Deployed
-  standalone (like `sitemap-xml`), it gets its own `*.azionedge.net` domain and
-  will not intercept production paths. Attach the `Redirects` rule + function
-  instance from `azion.config.ts` to the production edge application.
+Nothing is deployed from this repository yet, and no workflow deploys it. The Azion
+config is in **bootstrap state**: `azion.config.ts` names the resources `docs-redirects`,
+and `azion/azion.json` carries ids `0`. The first manual deploy (Azion CLI logged in
+to the account that will own the resources) creates the function, Application and
+workload and writes their ids back into `azion/azion.json`; commit that file
+afterwards, or the next deploy creates them again.
+
+```bash
+cd apps/redirects-massive
+azion deploy --local --auto --debug
+```
+
+For the redirects to take effect on `www.azion.com/...`, the function's request
+rule must run on the **same edge application that serves `www.azion.com`**. Deployed
+standalone it gets its own `*.azionedge.net` domain and will not intercept production
+paths. Attach the `Redirects` rule and function instance from `azion.config.ts` to the
+production edge application. These are the site's resources as well, so wire the rule
+there together with the site team.
+
+## Notes
+
 - **Status code**: chosen per entry by key — `moved` = 301 (permanent), `found`
   = 302 (temporary), matching Azion's Massive Redirect. Azion's integration does
   not use 307/308. All current entries are `moved` (301).
 - **Native alternative**: because the files follow Azion's Massive Redirect
   schema, they can instead be fed directly to the Marketplace "Massive Redirect
-  [Global]" function's Arguments (concatenated into one array, under 300 KB),
-  skipping this custom function entirely. Pick one mechanism to avoid double
-  redirects.
-- **Provenance**: the initial data was migrated from
-  `apps/site/cicd/massive-redirect/` plus the legacy Build/Secure pages. This
-  function is now the single source of truth for runtime redirects. One
-  conflicting duplicate existed in the source
-  (`/pt-br/blog/afinal-o-que-e-ddos/`) — verify its target.
+  [Global]" function's Arguments (one array per file, each under 300 KB), skipping this
+  custom function entirely. Pick one mechanism to avoid double redirects.
+- **Provenance of the data**: the entries come from the docs repository's former
+  `cicd/massive-redirect/{en,pt-br}.json`, plus the four entries that only the site's
+  copy carried. Where a source was listed twice with different targets, the last entry
+  won (what the runtime did); a source in the wrong language file was moved to the
+  right one; exact duplicates were merged.

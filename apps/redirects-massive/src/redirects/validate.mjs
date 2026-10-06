@@ -4,25 +4,23 @@
  *
  * Checks: valid JSON arrays; every entry has `from` xor `from_regex` and exactly
  * one of `moved`/`found`; conflicting duplicate sources (same `from`, different
- * target); per-language file symmetry; and the 300 KB total-size budget from
+ * target); per-language file symmetry; and the 300 KB per-file size budget from
  * Azion's Massive Redirect docs.
  *
  * Exits non-zero on a hard error (schema / conflicts) so it can gate CI.
- * Run: `pnpm --filter redirects validate`
+ * Run: `pnpm -F redirects-massive validate`
  */
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
-const LOCALES = ['en', 'pt-br', 'es']
+const LOCALES = ['en', 'pt-br']
 const SIZE_LIMIT_BYTES = 300 * 1024
 
-// Groups that legitimately have no redirects in a given locale, so the symmetry
-// check flags only accidental omissions.
-const EXPECTED_MISSING = new Set([
-  'es/doc.json' // Spanish documentation has no redirects
-])
+// Files that legitimately exist for only some locales, so the symmetry check flags
+// only accidental omissions.
+const EXPECTED_MISSING = new Set([])
 
 /** Same normalization the engine uses, but tolerant of malformed input. */
 function normalizeUrl(url) {
@@ -86,12 +84,15 @@ function scanFiles(files) {
   const errors = []
   const sourcesByKey = new Map() // normalized `from` -> [{ file, target }]
   let totalBytes = 0
+  const fileBytes = [] // [{ file, bytes }]
   let exactCount = 0
   let regexCount = 0
 
   for (const file of files) {
     const raw = fs.readFileSync(file, 'utf-8')
-    totalBytes += Buffer.byteLength(raw)
+    const bytes = Buffer.byteLength(raw)
+    totalBytes += bytes
+    fileBytes.push({ file: relativePath(file), bytes })
 
     let entries
     try {
@@ -119,7 +120,7 @@ function scanFiles(files) {
     })
   }
 
-  return { errors, totalBytes, exactCount, regexCount, sourcesByKey }
+  return { errors, totalBytes, fileBytes, exactCount, regexCount, sourcesByKey }
 }
 
 /**
@@ -169,13 +170,15 @@ function checkLocaleSymmetry() {
   return { warnings }
 }
 
-/** Warns when the combined data exceeds Azion's single-file budget. */
-function checkSizeBudget(totalBytes) {
+/** Warns when a single file exceeds Azion's per-file budget; reports the total. */
+function checkSizeBudget(totalBytes, fileBytes) {
   const kb = (totalBytes / 1024).toFixed(1)
-  const warnings =
-    totalBytes > SIZE_LIMIT_BYTES
-      ? [`combined data is ${kb} KB — over Azion's 300 KB single-file limit`]
-      : []
+  const warnings = fileBytes
+    .filter(({ bytes }) => bytes > SIZE_LIMIT_BYTES)
+    .map(
+      ({ file, bytes }) =>
+        `${file} is ${(bytes / 1024).toFixed(1)} KB — over Azion's 300 KB single-file limit`
+    )
   return { warnings, kb }
 }
 
@@ -184,7 +187,7 @@ function main() {
   const scan = scanFiles(files)
   const duplicates = checkDuplicates(scan.sourcesByKey)
   const symmetry = checkLocaleSymmetry()
-  const size = checkSizeBudget(scan.totalBytes)
+  const size = checkSizeBudget(scan.totalBytes, scan.fileBytes)
 
   const errors = [...scan.errors, ...duplicates.errors]
   const warnings = [...duplicates.warnings, ...symmetry.warnings, ...size.warnings]

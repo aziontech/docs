@@ -1,11 +1,11 @@
 /**
  * Redirect engine.
  *
- * Redirects are authored directly in Azion's Massive Redirect JSON schema, split
- * into one file per group, per language (plus a few language-agnostic files):
+ * Redirects are authored directly in Azion's Massive Redirect JSON schema, one file
+ * per language:
  *
- *   <lang>/pages.json  products.json  solutions.json  blog.json  doc.json  marketplace.json
- *   lp.json  pricing.json  hosts.json   (language-agnostic)
+ *   en/doc.json     /en/documentation/...
+ *   pt-br/doc.json  /pt-br/documentacao/...
  *
  * Each entry is either an EXACT match on `from`, or a pattern match on
  * `from_regex`, paired with a target that chooses the HTTP status:
@@ -16,32 +16,11 @@
  * Docs: https://www.azion.com/en/documentation/products/guides/massive-redirect-integration/
  *
  * To EDIT: open the matching file and change/add an entry (full URLs). To ADD A
- * NEW GROUP (e.g. docs): create the file and add it to the imports + `FILES`
- * list below. `pnpm --filter redirects validate` checks the data is consistent.
+ * NEW FILE: create it and add it to the imports + `FILES` list below.
+ * `pnpm -F redirects-massive validate` checks the data is consistent.
  */
-import enPages from './en/pages.json'
-import enProducts from './en/products.json'
-import enSolutions from './en/solutions.json'
-import enBlog from './en/blog.json'
 import enDoc from './en/doc.json'
-import enMarketplace from './en/marketplace.json'
-
-import ptbrPages from './pt-br/pages.json'
-import ptbrProducts from './pt-br/products.json'
-import ptbrSolutions from './pt-br/solutions.json'
-import ptbrBlog from './pt-br/blog.json'
 import ptbrDoc from './pt-br/doc.json'
-import ptbrMarketplace from './pt-br/marketplace.json'
-
-import esPages from './es/pages.json'
-import esProducts from './es/products.json'
-import esSolutions from './es/solutions.json'
-import esBlog from './es/blog.json'
-import esMarketplace from './es/marketplace.json'
-
-import lp from './lp.json'
-import pricing from './pricing.json'
-import hosts from './hosts.json'
 
 /** A raw entry as authored in the JSON files (Azion Massive Redirect schema). */
 export type Redirect = {
@@ -60,29 +39,8 @@ export type ResolvedRedirect = { to: string; status: 301 | 302 }
 
 type RegexRule = { re: RegExp; template: string; status: 301 | 302 }
 
-// Every redirect file. Add a new group's file here after creating it.
-const FILES: Redirect[][] = [
-  enPages,
-  enProducts,
-  enSolutions,
-  enBlog,
-  enDoc,
-  enMarketplace,
-  ptbrPages,
-  ptbrProducts,
-  ptbrSolutions,
-  ptbrBlog,
-  ptbrDoc,
-  ptbrMarketplace,
-  esPages,
-  esProducts,
-  esSolutions,
-  esBlog,
-  esMarketplace,
-  lp,
-  pricing,
-  hosts
-]
+// Every redirect file. Add a new file here after creating it.
+const FILES: Redirect[][] = [enDoc, ptbrDoc]
 
 export const redirects: Redirect[] = FILES.flat() as Redirect[]
 

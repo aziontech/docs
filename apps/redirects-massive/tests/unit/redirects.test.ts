@@ -11,13 +11,20 @@ import {
   type Redirect
 } from '../../src/redirects'
 
+const EN = 'https://www.azion.com/en/documentation'
+const PT = 'https://www.azion.com/pt-br/documentacao'
+
 describe('normalizeUrl', () => {
   it('reduces a URL to host + path', () => {
-    expect(normalizeUrl('https://www.azion.com/en/build/')).toBe('www.azion.com/en/build')
+    expect(normalizeUrl(`${EN}/products/core-concepts/`)).toBe(
+      'www.azion.com/en/documentation/products/core-concepts'
+    )
   })
 
   it('removes a single trailing slash but keeps the rest of the path', () => {
-    expect(normalizeUrl('https://www.azion.com/en/build')).toBe('www.azion.com/en/build')
+    expect(normalizeUrl(`${EN}/products/core-concepts`)).toBe(
+      'www.azion.com/en/documentation/products/core-concepts'
+    )
     expect(normalizeUrl('https://www.azion.com/a/b/c/')).toBe('www.azion.com/a/b/c')
   })
 
@@ -27,16 +34,18 @@ describe('normalizeUrl', () => {
   })
 
   it('is case-insensitive (host and path)', () => {
-    expect(normalizeUrl('https://WWW.Azion.com/EN/Build/')).toBe('www.azion.com/en/build')
+    expect(normalizeUrl('https://WWW.Azion.com/EN/Documentation/Products/CLI/')).toBe(
+      'www.azion.com/en/documentation/products/cli'
+    )
   })
 
   it('ignores the scheme (http and https collapse)', () => {
-    expect(normalizeUrl('http://www.azion.com.br')).toBe(normalizeUrl('https://www.azion.com.br'))
+    expect(normalizeUrl(`${EN}/`.replace('https', 'http'))).toBe(normalizeUrl(`${EN}/`))
   })
 
   it('ignores the query string and hash', () => {
-    expect(normalizeUrl('https://www.azion.com/en/build/?utm=x#frag')).toBe(
-      'www.azion.com/en/build'
+    expect(normalizeUrl(`${EN}/products/core-concepts/?utm=x#frag`)).toBe(
+      'www.azion.com/en/documentation/products/core-concepts'
     )
   })
 })
@@ -71,68 +80,111 @@ describe('applyTemplate', () => {
 })
 
 describe('resolveRedirect — exact matches', () => {
-  it('resolves a permanent (moved -> 301) redirect', () => {
-    expect(resolveRedirect('https://www.azion.com/en/build/')).toEqual({
-      to: 'https://www.azion.com/en/solutions/web-apps/',
+  it('resolves a permanent (moved -> 301) English redirect', () => {
+    expect(resolveRedirect(`${EN}/products/core-concepts/`)).toEqual({
+      to: `${EN}/products/azion-platform-overview/`,
+      status: 301
+    })
+  })
+
+  it('resolves a permanent Portuguese redirect', () => {
+    expect(resolveRedirect(`${PT}/produtos/conceitos-basicos/`)).toEqual({
+      to: `${PT}/produtos/visao-geral-da-plataforma-da-azion/`,
       status: 301
     })
   })
 
   it('matches with and without a trailing slash', () => {
-    const a = resolveRedirect('https://www.azion.com/en/build/')
-    const b = resolveRedirect('https://www.azion.com/en/build')
+    const a = resolveRedirect(`${EN}/products/core-concepts/`)
+    const b = resolveRedirect(`${EN}/products/core-concepts`)
+    expect(a).not.toBeNull()
     expect(a).toEqual(b)
   })
 
-  it('matches case-insensitively', () => {
-    expect(resolveRedirect('https://www.azion.com/EN/BUILD/')?.to).toBe(
-      'https://www.azion.com/en/solutions/web-apps/'
+  it('matches case-insensitively and leaves the target casing alone', () => {
+    expect(
+      resolveRedirect('https://www.azion.com/EN/Documentation/Products/CORE-CONCEPTS/')?.to
+    ).toBe(`${EN}/products/azion-platform-overview/`)
+  })
+
+  it('matches over http as well as https', () => {
+    expect(resolveRedirect(`${EN}/products/core-concepts/`.replace('https', 'http'))?.status).toBe(
+      301
     )
   })
 
   it('ignores the query string when matching', () => {
-    expect(resolveRedirect('https://www.azion.com/en/build/?utm_source=x')?.to).toBe(
-      'https://www.azion.com/en/solutions/web-apps/'
+    expect(resolveRedirect(`${EN}/products/core-concepts/?utm_source=x`)?.to).toBe(
+      `${EN}/products/azion-platform-overview/`
     )
-  })
-
-  it('resolves a temporary (found -> 302) host redirect regardless of scheme', () => {
-    expect(resolveRedirect('http://www.azion.com.br')).toEqual({
-      to: 'http://www.azion.com',
-      status: 302
-    })
-    expect(resolveRedirect('https://www.azion.com.br/')).toEqual({
-      to: 'http://www.azion.com',
-      status: 302
-    })
   })
 
   it('flattens a multi-hop chain to the final destination', () => {
-    // en/products.json: edge-caching -> edge-cache -> cache
-    expect(resolveRedirect('https://www.azion.com/en/products/edge-caching/')?.to).toBe(
-      'https://www.azion.com/en/products/cache/'
+    // marketplace/bot-manager -> secure/edge-firewall/bot-manager -> secure/firewall/bot-manager
+    expect(resolveRedirect(`${EN}/products/marketplace/bot-manager/`)?.to).toBe(
+      `${EN}/products/secure/firewall/bot-manager/`
     )
-    expect(resolveRedirect('https://www.azion.com/en/products/edge-cache/')?.to).toBe(
-      'https://www.azion.com/en/products/cache/'
+    expect(resolveRedirect(`${EN}/products/secure/edge-firewall/bot-manager/`)?.to).toBe(
+      `${EN}/products/secure/firewall/bot-manager/`
     )
   })
 
   it('returns null for unknown or already-current URLs', () => {
-    expect(resolveRedirect('https://www.azion.com/en/products/cache/')).toBeNull()
-    expect(resolveRedirect('https://www.azion.com/en/solutions/web-apps/')).toBeNull()
-    expect(resolveRedirect('https://www.azion.com/en/nonexistent-page/')).toBeNull()
+    expect(resolveRedirect(`${EN}/products/azion-platform-overview/`)).toBeNull()
+    expect(resolveRedirect(`${EN}/nonexistent-page/`)).toBeNull()
+    expect(resolveRedirect('https://www.azion.com/en/solutions/')).toBeNull()
+  })
+
+  it('keeps the language files apart: an English path never resolves a Portuguese entry', () => {
+    expect(resolveRedirect(`${EN}/produtos/conceitos-basicos/`)).toBeNull()
+  })
+})
+
+describe('resolveRedirect — data decisions', () => {
+  it('serves the last entry when the source was listed twice with different targets', () => {
+    // ab-testing (the last entry) is itself a source, so the chain ends at ab-testing-marketplace
+    expect(resolveRedirect(`${PT}/casos-de-uso/testes-ab/`)?.to).toBe(
+      `${PT}/produtos/guias/ab-testing-marketplace/`
+    )
+    expect(resolveRedirect(`${PT}/casos-de-uso/nextjs-na-plataforma-azion/`)?.to).toBe(
+      `${PT}/produtos/devtools/azion-edge-runtime/compatibilidade-frameworks/`
+    )
+  })
+
+  it('keeps the English target for an English source that was also listed in pt-br', () => {
+    // nextjs-ssr-on-azion-platform is itself redirected, so the chain ends at the CLI overview
+    expect(resolveRedirect(`${EN}/products/guides/nextjs-on-azion-platform/`)?.to).toBe(
+      `${EN}/products/azion-cli/overview/`
+    )
+  })
+
+  it('serves the entries that only the site data carried', () => {
+    expect(resolveRedirect(`${EN}/products/guides/cloudflare-to-azion/`)?.to).toBe(
+      `${EN}/products/guides/cloudflare-migration-guide/`
+    )
+    expect(resolveRedirect(`${PT}/produtos/secure/firewall/edge-functions/`)?.to).toBe(
+      `${PT}/produtos/secure/firewall/functions/`
+    )
+    expect(resolveRedirect(`${PT}/produtos/guias/usar-bucket-como-origem/`)?.to).toBe(
+      `${PT}/produtos/store/storage/bucket-como-connector/`
+    )
+  })
+
+  it('does not redirect the live Use Cases index pages', () => {
+    expect(resolveRedirect(`${EN}/use-cases/`)).toBeNull()
+    expect(resolveRedirect(`${PT}/casos-de-uso/`)).toBeNull()
+  })
+
+  it('resolves a source whose scheme was mistyped in the old data', () => {
+    expect(
+      resolveRedirect(`${PT}/produtos/guias/build/integrar-resend-email-edge-functions/`)?.to
+    ).toBe(`${PT}/produtos/guias/build/integrar-resend-email-functions/`)
   })
 })
 
 describe('resolveRedirect — regex rules', () => {
-  it('falls back to a from_regex rule and substitutes backrefs', () => {
-    expect(resolveRedirect('http://www.azion.com/t/other/aaa/bbb/ccc/')).toEqual({
-      to: 'http://www.azion.com.br/doc/ccc/aaa/bbb/',
-      status: 301
-    })
-  })
-
-  it('returns null when neither an exact nor a regex rule matches', () => {
+  it('returns null for a URL no exact rule matches when the data has no regex rules', () => {
+    expect(regexRules).toHaveLength(0)
     expect(resolveRedirect('http://www.azion.com/t/unmatched')).toBeNull()
   })
 })
@@ -146,6 +198,15 @@ describe('buildTable (hermetic)', () => {
     // a is permanent (moved), keeps 301 even though it chains through a 302 hop
     expect(map.get('x/a')).toEqual({ to: 'https://x/c', status: 301 })
     expect(map.get('x/b')).toEqual({ to: 'https://x/c', status: 302 })
+  })
+
+  it('maps found to 302 and moved to 301', () => {
+    const { map } = buildTable([
+      { from: 'https://x/perm', moved: 'https://y/1' },
+      { from: 'https://x/temp', found: 'https://y/2' }
+    ] as Redirect[])
+    expect(map.get('x/perm')?.status).toBe(301)
+    expect(map.get('x/temp')?.status).toBe(302)
   })
 
   it('keeps the last entry on a conflicting duplicate source', () => {
@@ -211,8 +272,19 @@ describe('data integrity', () => {
     }
   })
 
-  it('compiles at least the known from_regex rules', () => {
-    expect(regexRules.length).toBeGreaterThanOrEqual(2)
+  it('compiles every from_regex rule', () => {
     for (const rule of regexRules) expect(rule.re).toBeInstanceOf(RegExp)
+  })
+
+  it('lists no source twice, ignoring case and the trailing slash', () => {
+    const seen = new Set<string>()
+    const duplicates: string[] = []
+    for (const r of redirects) {
+      if (!r.from) continue
+      const key = normalizeUrl(r.from)
+      if (seen.has(key)) duplicates.push(r.from)
+      seen.add(key)
+    }
+    expect(duplicates).toEqual([])
   })
 })

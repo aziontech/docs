@@ -8,14 +8,15 @@ import { redirects, normalizeUrl, type Redirect } from '../../src/redirects'
  *      table flattens A->B->C to A->C while prod may still hop A->B->C), and
  *   2. the final destination actually loads (status < 400).
  *
- * We follow to the final URL rather than checking the first-hop `Location`
- * because (a) our function flattens chains and (b) our function is not what's
- * live on production — so this cross-checks our data against prod's real
- * destinations. Point REDIRECTS_BASE_URL at a deployed edge domain
- * (https://<id>.map.azionedge.net) to test THIS function's own behavior instead.
- * By default a representative sample runs; set E2E_ALL=1 to test every entry.
+ * We follow to the final URL rather than checking the first-hop `Location` because our
+ * function flattens chains. Point REDIRECTS_BASE_URL at the production site to cross-check
+ * the data against its real destinations, or at a deployed edge domain
+ * (https://<id>.map.azionedge.net) to test THIS function's own behavior.
+ * Skipped unless REDIRECTS_BASE_URL is set: the suite needs the network and a deployed
+ * target. A representative sample runs; set E2E_ALL=1 to test every entry.
  */
-const BASE = (process.env.REDIRECTS_BASE_URL || 'https://www.azion.com').replace(/\/$/, '')
+const BASE_URL = process.env.REDIRECTS_BASE_URL
+const BASE = (BASE_URL || 'https://www.azion.com').replace(/\/$/, '')
 const ALL = process.env.E2E_ALL === '1'
 const SITE = 'https://www.azion.com'
 
@@ -40,15 +41,18 @@ const sample = ALL
 
 const UA = { 'user-agent': 'azion-redirects-e2e' }
 
-describe(`redirects against ${BASE} (${sample.length}/${exact.length} entries)`, () => {
-  it.concurrent.each(sample.map((r) => [r.from, r] as const))(
-    '%s lands on the expected target',
-    async (_from, r) => {
-      const target = targetOf(r)!
-      // Follow the whole chain to the final URL (chain-safe) and check it loads.
-      const res = await fetch(onBase(r.from), { redirect: 'follow', headers: UA })
-      expect(normalizeUrl(res.url)).toBe(normalizeUrl(onBase(target.url)))
-      expect(res.status, `destination ${target.url} returned ${res.status}`).toBeLessThan(400)
-    }
-  )
-})
+describe.skipIf(!BASE_URL)(
+  `redirects against ${BASE} (${sample.length}/${exact.length} entries)`,
+  () => {
+    it.concurrent.each(sample.map((r) => [r.from, r] as const))(
+      '%s lands on the expected target',
+      async (_from, r) => {
+        const target = targetOf(r)!
+        // Follow the whole chain to the final URL (chain-safe) and check it loads.
+        const res = await fetch(onBase(r.from), { redirect: 'follow', headers: UA })
+        expect(normalizeUrl(res.url)).toBe(normalizeUrl(onBase(target.url)))
+        expect(res.status, `destination ${target.url} returned ${res.status}`).toBeLessThan(400)
+      }
+    )
+  }
+)
