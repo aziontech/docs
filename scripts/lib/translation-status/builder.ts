@@ -4,7 +4,7 @@ import fs from 'fs';
 import { escape } from 'html-escaper';
 import os from 'os';
 import path from 'path';
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 import { fileURLToPath } from 'url';
 import { githubGet } from '../../lib/github-get.mjs';
 import output from '../../lib/output.mjs';
