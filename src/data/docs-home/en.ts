@@ -1,7 +1,7 @@
 import type { DocsHomeContent } from './types';
 
 const AGENT_PROMPT =
-	'Help me set up Azion in this project. Do the following: 1. Install the Azion CLI: curl -fsSL https://cli.azion.app/install.sh | bash. 2. Connect the Azion MCP server (https://mcp.azion.com) so you can search current Azion docs; per-tool setup: https://www.azion.com/en/documentation/agent-setup/. 3. Review the project and check whether it is already linked to Azion; if it is not, run azion link and follow the prompts. 4. Suggest the most relevant next steps.';
+	'Help me set up Azion in this project. Do the following: 1. Install the Azion CLI: curl -fsSL https://cli.azion.app/install.sh | bash. 2. Connect the Azion docs MCP server (https://docs-mcp.azion.com/mcp, header Authorization: Token <personal token>) so you can search current Azion docs, and add the build, secure, observe, and storage servers the same way if I need them; per-tool setup: https://www.azion.com/en/documentation/agent-setup/. 3. Review the project and check whether it is already linked to Azion; if it is not, run azion link and follow the prompts. 4. Suggest the most relevant next steps.';
 
 export const en: DocsHomeContent = {
 	lang: 'en',
