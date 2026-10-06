@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { LANGS, type Lang } from '../src/nav/schema';
 import { text, walkTree } from '../src/nav/resolve';
-import { loadNav, REPO_ROOT, type CorpusPage } from './nav/lib/load';
+import { loadNav, APP_ROOT, type CorpusPage } from './nav/lib/load';
 
 /** Build-free check of the closing-links rules in the style guide (Choose a content type):
  * every page closes with links, no dead ends, and the product spine is reciprocal.
@@ -85,7 +85,7 @@ const byPermalink = new Map<string, CorpusPage>();
 for (const page of corpus) byPermalink.set(`${page.lang}:${normalize(page.permalink)}`, page);
 
 const readBody = (page: CorpusPage) => {
-	const raw = fs.readFileSync(path.join(REPO_ROOT, 'src/content/docs', page.file), 'utf8');
+	const raw = fs.readFileSync(path.join(APP_ROOT, 'src/content/docs', page.file), 'utf8');
 	const end = raw.indexOf('\n---', 4);
 	return end === -1 ? raw : raw.slice(end + 4);
 };

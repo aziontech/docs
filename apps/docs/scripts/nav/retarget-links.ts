@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { LANGS, type Lang } from '../../src/nav/schema';
-import { REPO_ROOT } from './lib/load';
+import { APP_ROOT } from './lib/load';
 import { fieldRange } from './lib/frontmatter';
 
-const MAP_DIR = path.join(REPO_ROOT, 'redirects');
+const MAP_DIR = path.join(APP_ROOT, 'redirects');
 const SITE = 'https://www.azion.com';
 const apply = process.argv.includes('--apply');
 
@@ -65,7 +65,7 @@ let linksChanged = 0;
 const perFile: { file: string; count: number }[] = [];
 
 for (const dir of SCAN) {
-	const root = path.join(REPO_ROOT, dir);
+	const root = path.join(APP_ROOT, dir);
 	if (!fs.existsSync(root)) continue;
 	for (const file of walk(root)) {
 		const before = fs.readFileSync(file, 'utf8');
@@ -95,7 +95,7 @@ for (const dir of SCAN) {
 		if (!count || after === before) continue;
 		filesChanged += 1;
 		linksChanged += count;
-		perFile.push({ file: path.relative(REPO_ROOT, file), count });
+		perFile.push({ file: path.relative(APP_ROOT, file), count });
 		if (apply) fs.writeFileSync(file, after);
 	}
 }

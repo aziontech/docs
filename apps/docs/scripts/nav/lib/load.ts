@@ -17,9 +17,9 @@ import {
 } from '../../../src/nav/schema';
 import type { NavData, PageIndex } from '../../../src/nav/resolve';
 
-export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const NAV_DIR = path.join(REPO_ROOT, 'src/nav');
-const CONTENT_DIR = path.join(REPO_ROOT, 'src/content/docs');
+export const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const NAV_DIR = path.join(APP_ROOT, 'src/nav');
+const CONTENT_DIR = path.join(APP_ROOT, 'src/content/docs');
 
 export interface CorpusPage {
 	lang: Lang;

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { SITE_URL } from './src/consts';
 import type { AstroUserConfig } from 'astro';
 import { defineConfig } from 'astro/config';
@@ -75,7 +76,7 @@ export default defineConfig({
 	vite: {
 		server: {
 			fs: {
-				allow: ['..'],
+				allow: [fileURLToPath(new URL('../../', import.meta.url))],
 			},
 		},
 		plugins: [

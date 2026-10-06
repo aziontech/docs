@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { LANGS, type Lang } from '../../src/nav/schema';
 import { targetPermalink, walkTree, withSlashes } from '../../src/nav/resolve';
-import { loadNav, REPO_ROOT, type CorpusPage } from './lib/load';
+import { loadNav, APP_ROOT, type CorpusPage } from './lib/load';
 import { removeField, setField } from './lib/frontmatter';
 
 const apply = process.argv.includes('--apply');
@@ -50,7 +50,7 @@ const orphanedNamespaces = corpus.filter((page) => page.hasMenuNamespace).length
 if (apply) {
 	let touched = 0;
 	for (const move of moves) {
-		const file = path.join(REPO_ROOT, 'src/content/docs', move.file);
+		const file = path.join(APP_ROOT, 'src/content/docs', move.file);
 		const before = fs.readFileSync(file, 'utf8');
 		const after = removeField(setField(before, 'permalink', move.to), 'menu_namespace');
 		if (after === before) continue;
@@ -59,7 +59,7 @@ if (apply) {
 	}
 	for (const page of corpus) {
 		if (!page.hasMenuNamespace) continue;
-		const file = path.join(REPO_ROOT, 'src/content/docs', page.file);
+		const file = path.join(APP_ROOT, 'src/content/docs', page.file);
 		const before = fs.readFileSync(file, 'utf8');
 		const after = removeField(before, 'menu_namespace');
 		if (after === before) continue;

@@ -4,11 +4,11 @@ import path from 'node:path';
 
 import { LANGS, type Lang } from '../../src/nav/schema';
 import { DOCS_BASE, text, walkTree, withSlashes } from '../../src/nav/resolve';
-import { loadNav, REPO_ROOT } from './lib/load';
+import { loadNav, APP_ROOT } from './lib/load';
 import { readField } from './lib/frontmatter';
 
 const SITE = 'https://www.azion.com';
-const OUT_DIR = path.join(REPO_ROOT, 'redirects');
+const OUT_DIR = path.join(APP_ROOT, 'redirects');
 const CONTENT = 'src/content/docs';
 
 function escapeMarkdownTableCell(value: string): string {
@@ -21,7 +21,7 @@ const baselineRef = refArg ? refArg.split('=')[1] : 'HEAD';
 function baselinePermalink(relative: string): string | null {
 	try {
 		const source = execFileSync('git', ['show', `${baselineRef}:${CONTENT}/${relative}`], {
-			cwd: REPO_ROOT,
+			cwd: APP_ROOT,
 			encoding: 'utf8',
 			maxBuffer: 1 << 26,
 		});
