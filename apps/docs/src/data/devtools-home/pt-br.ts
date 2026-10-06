@@ -6,7 +6,7 @@ export const ptBr: DevtoolsHomeContent = {
 	hero: {
 		title: 'Ferramentas de desenvolvimento',
 		description:
-			'Conecte um agente de código, execute um projeto localmente, faça o deploy e automatize a plataforma com Azion CLI, APIs, Go SDK e o servidor MCP.',
+			'Conecte um agente de código, execute um projeto localmente, faça o deploy e automatize a plataforma com Azion CLI, APIs e o servidor MCP.',
 		buttonLabel: 'Faça o deploy do seu site',
 		buttonLink: '/pt-br/documentacao/fundamentos/primeiro-deploy/',
 	},
@@ -28,7 +28,6 @@ export const ptBr: DevtoolsHomeContent = {
 			cli: { icon: 'ai ai-azion-cli', link: 'Instale a CLI' },
 			runtime: { icon: 'ai ai-edge-functions', link: 'Veja as APIs' },
 			'azion-lib': { icon: 'ai ai-edge-libraries', link: 'Instale a biblioteca' },
-			sdk: { icon: 'pi pi-box', link: 'Instale o SDK' },
 			api: { icon: 'ai ai-azion-api', link: 'Chame a API' },
 			graphql: { icon: 'ai ai-graphql', link: 'Explore o GraphQL' },
 			terraform: { icon: 'ai ai-terraform', link: 'Instale o provider' },
