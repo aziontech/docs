@@ -87,7 +87,7 @@ const listData = [
 			},
 			{
 				title: 'Release Notes',
-				link: '/pt-br/documentacao/produtos/release-notes/',
+				link: '/pt-br/documentacao/changelog/',
 			},
 			{
 				title: 'Nossa Comunidade',
