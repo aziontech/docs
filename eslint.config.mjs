@@ -158,7 +158,6 @@ export default tseslint.config(
 			'apps/*/scripts/**',
 			'apps/docs/plugins/**',
 			'apps/docs/integrations/**',
-			'backend/**',
 			'apps/docs/cicd/**',
 		],
 		languageOptions: { globals: globals.node },
