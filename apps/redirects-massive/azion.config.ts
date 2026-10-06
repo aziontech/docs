@@ -7,11 +7,13 @@
  *
  * Bootstrap state: nothing is deployed yet. azion/azion.json carries ids 0, and the
  * first manual deploy creates the resources and records their ids there.
+ *
+ * A plain object, as in the docs app's Azion config files: the CLI reads it without
+ * the `azion` package, which is left out of the dependencies because its tree carries
+ * high and critical advisories (mathjs, decompress, ip-address).
  * See: https://github.com/aziontech/lib/tree/main/packages/config
  */
-import { defineConfig } from 'azion'
-
-export default defineConfig({
+export default {
   build: {
     entry: ['src/index.ts'],
     preset: 'typescript',
@@ -82,4 +84,4 @@ export default defineConfig({
       ]
     }
   ]
-})
+}
