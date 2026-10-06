@@ -21,9 +21,13 @@ export class TargetExists extends CheckBase {
 	/** Build output directory, where files that are not HTML pages (`.md` twins, `.txt`) live. */
 	private readonly staticFilesDir?: string;
 
-	constructor(options: { staticFilesDir?: string } = {}) {
+	/** Exact pathnames served by another site on the same domain, so absent from this build. */
+	private readonly externalSitePathnames: Set<string>;
+
+	constructor(options: { staticFilesDir?: string; externalSitePathnames?: string[] } = {}) {
 		super();
 		this.staticFilesDir = options.staticFilesDir;
+		this.externalSitePathnames = new Set(options.externalSitePathnames);
 	}
 
 	private isStaticFile(pathname: string) {
@@ -37,6 +41,9 @@ export class TargetExists extends CheckBase {
 
 			// Links to emitted files that are not pages (the Markdown twin, llms text) exist
 			if (!linkedPage && this.isStaticFile(url.pathname)) return;
+
+			// Links to the marketing site's pages are out of this build's reach
+			if (!linkedPage && this.externalSitePathnames.has(url.pathname)) return;
 
 			// Report links to missing pages
 			if (!linkedPage) {

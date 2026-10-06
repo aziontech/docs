@@ -11,6 +11,35 @@ import { addSourceFileAnnotations, findLinkIssues } from './lib/linkcheck/steps/
 import { handlePossibleAutofix } from './lib/linkcheck/steps/optional-autofix';
 import { outputAnnotationsForGitHub, outputIssues } from './lib/linkcheck/steps/output-issues';
 
+const MARKETING_SITE_PATHNAMES = [
+	'/en/',
+	'/en/about-us/',
+	'/en/products/our-network/',
+	'/en/careers/',
+	'/en/compliance/',
+	'/en/blog/',
+	'/en/resource-hub/',
+	'/en/learning/',
+	'/en/marketplace/',
+	'/en/recognitions/',
+	'/en/pricing/',
+	'/en/contact/',
+	'/en/professional-services/',
+	'/pt-br/',
+	'/pt-br/sobre-nos/',
+	'/pt-br/produtos/nossa-rede/',
+	'/pt-br/carreiras/',
+	'/pt-br/compliance/',
+	'/pt-br/blog/',
+	'/pt-br/resource-hub/',
+	'/pt-br/learning/',
+	'/pt-br/marketplace/',
+	'/pt-br/reconhecimentos/',
+	'/pt-br/precos/',
+	'/pt-br/contato/',
+	'/pt-br/servicos-profissionais/',
+];
+
 /** All link-checking logic. */
 class LinkChecker {
 	readonly options: LinkCheckerOptions;
@@ -70,7 +99,11 @@ const linkChecker = new LinkChecker({
 	buildOutputDir: './dist',
 	pageSourceDir: './src/content/docs',
 	checks: [
-		new TargetExists({ staticFilesDir: './dist' }),
+		new TargetExists({
+			staticFilesDir: './dist',
+			// Site-frame links (header and footer) to pages that live in the www site, not here.
+			externalSitePathnames: MARKETING_SITE_PATHNAMES,
+		}),
 		new SameLanguage({
 			ignoredLinkPathnames: ['/lighthouse/'],
 		}),
