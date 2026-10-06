@@ -227,6 +227,18 @@ describe('mdxToMarkdown', () => {
 		);
 	});
 
+	test('writes a setup prompt block once: title, body, prompt, guided link', async () => {
+		const out = await convert(
+			'Before.\n\n<SetupPromptBlock client:visible prompt="mcp" lang="en" />\n\nAfter.'
+		);
+		expect(out).toContain(
+			'**Set up the Azion MCP servers with one prompt**\n\nOne prompt has your coding agent'
+		);
+		expect(out).toContain('```text\nConnect this coding agent to the Azion MCP servers.');
+		expect(out).toContain('\n\n[Agent setup](/en/documentation/agent-setup/)');
+		expect(out.match(/Connect this coding agent/g)).toHaveLength(1);
+	});
+
 	test('keeps <br> inside table cells', async () => {
 		const out = await convert('| a | b |\n| - | - |\n| one<br />two | three |');
 		expect(out).toContain('one<br>two');
