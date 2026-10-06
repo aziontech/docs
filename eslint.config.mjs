@@ -10,15 +10,17 @@ import mdxPolicy from './scripts/eslint-rules/mdx-policy.mjs';
 export default tseslint.config(
 	{
 		ignores: [
-			'dist/**',
-			'.astro/**',
-			'.edge/**',
-			'node_modules/**',
+			'**/dist/**',
+			'**/.astro/**',
+			'**/.edge/**',
+			'**/node_modules/**',
 			'.github/**',
 			'.changeset/**',
 			// Claude Code worktrees carry their own build output; linting a stale
 			// worktree's dist would count compiled webkit code as our violations.
 			'.claude/**',
+			// redirects-massive is an Azion edge function with its own ESLint config and lint script.
+			'apps/redirects-massive/**',
 		],
 	},
 
@@ -141,7 +143,7 @@ export default tseslint.config(
 	// The wrapper folder closes the transitive guarantee: MDX may import these wrappers,
 	// so the wrappers themselves may only reach vue, webkit and each other.
 	{
-		files: ['src/components/webkit/**/*.vue'],
+		files: ['apps/docs/src/components/webkit/**/*.vue'],
 		plugins: { docs: mdxPolicy },
 		rules: {
 			'docs/webkit-wrapper-imports': 'error',
@@ -151,11 +153,13 @@ export default tseslint.config(
 	{
 		files: [
 			'*.{js,mjs,cjs,ts}',
+			'apps/*/*.{js,mjs,cjs,ts}',
 			'scripts/**',
-			'plugins/**',
-			'integrations/**',
+			'apps/*/scripts/**',
+			'apps/docs/plugins/**',
+			'apps/docs/integrations/**',
 			'backend/**',
-			'cicd/**',
+			'apps/docs/cicd/**',
 		],
 		languageOptions: { globals: globals.node },
 	}
