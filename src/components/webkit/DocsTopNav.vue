@@ -95,26 +95,26 @@ type Item =
 
 const props = withDefaults(
 	defineProps<{
-		products?: Column[];
+		homeHref?: string;
 		devtools?: Column[];
 		devtoolsHome?: Entry | null;
 		guides?: Entry | null;
-		labels?: { products: string; guides: string; devtools: string };
+		labels?: { reference: string; guides: string; devtools: string };
 		ariaLabel?: string;
 	}>(),
 	{
-		products: () => [],
+		homeHref: '',
 		devtools: () => [],
 		devtoolsHome: null,
 		guides: null,
-		labels: () => ({ products: 'Products', guides: 'Guides', devtools: 'Developer tools' }),
+		labels: () => ({ reference: 'Reference', guides: 'Guides', devtools: 'Developer tools' }),
 		ariaLabel: 'Documentation',
 	}
 );
 
 const items = computed<Item[]>(() => [
-	...(props.products.length
-		? [{ value: 'products', label: props.labels.products, columns: props.products }]
+	...(props.homeHref
+		? [{ value: 'reference', label: props.labels.reference, href: props.homeHref }]
 		: []),
 	...(props.guides
 		? [{ value: 'guides', label: props.labels.guides, href: props.guides.href }]
