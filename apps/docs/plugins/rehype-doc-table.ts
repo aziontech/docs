@@ -1,10 +1,10 @@
-import type { Element, Root } from 'hast';
+import type { Element, ElementContent, Root } from 'hast';
 import { SKIP, visit } from 'unist-util-visit';
 
 /*
  * A markdown table IS a webkit Table: the tokens are carried over rather than
  * the markup, since webkit's Table is a flex tree and this is real `<table>`.
- * Classes stay identical to `doc-markdown.vue` in webkit-docs.
+ * Classes match `doc-markdown.vue` in webkit-docs, plus `noWrapShortCode` below.
  */
 const TABLE_CLASS =
 	'w-full border-separate border-spacing-0 overflow-hidden rounded-(--shape-elements) border-(length:--border-width-default) border-solid border-(--border-default) bg-(--bg-surface) text-(--text-default)';
@@ -14,6 +14,11 @@ const TH_CLASS =
 	'border-b-(length:--border-width-default) border-solid border-(--border-default) bg-(--bg-surface) px-(--spacing-sm) py-(--spacing-xs) text-start align-middle text-label-sm text-(--text-muted)';
 const TD_CLASS =
 	'border-b-(length:--border-width-default) border-solid border-(--border-default) px-(--spacing-sm) py-(--spacing-xs) text-start align-middle text-label-md text-(--text-default)';
+
+/** Longest inline code kept on one line: fits a URL or an identifier, not a JSON value. */
+const NOWRAP_CODE_MAX = 48;
+/** Code with a space already wraps at it; only a space-free token breaks mid-string. */
+const unbreakable = (value: string) => value.length <= NOWRAP_CODE_MAX && !/\s/.test(value);
 
 const addClass = (node: Element, className: string) => {
 	node.properties = { ...node.properties, className };
@@ -38,6 +43,20 @@ const addCellClass = (cell: Element, baseClass: string) => {
 	else delete cell.properties.style;
 };
 
+const text = (node: ElementContent): string =>
+	node.type === 'text' ? node.value : 'children' in node ? node.children.map(text).join('') : '';
+
+/** A URL or identifier broken mid-string is unreadable; a long value still wraps. */
+const noWrapShortCode = (node: Element) => {
+	for (const child of node.children) {
+		if (child.type !== 'element') continue;
+		if (child.tagName === 'code' && unbreakable(text(child))) {
+			const className = [child.properties?.className ?? []].flat().map(String);
+			child.properties = { ...child.properties, className: [...className, 'whitespace-nowrap'] };
+		} else noWrapShortCode(child);
+	}
+};
+
 const children = (node: Element, tagName: string) =>
 	node.children.filter(
 		(child): child is Element => child.type === 'element' && child.tagName === tagName
@@ -59,7 +78,10 @@ const style = (table: Element) => {
 	for (const body of children(table, 'tbody')) {
 		addClass(body, TBODY_CLASS);
 		for (const row of children(body, 'tr')) {
-			for (const cell of children(row, 'td')) addCellClass(cell, TD_CLASS);
+			for (const cell of children(row, 'td')) {
+				addCellClass(cell, TD_CLASS);
+				noWrapShortCode(cell);
+			}
 		}
 	}
 };
