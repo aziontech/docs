@@ -5,6 +5,7 @@
  */
 import type { Lang } from '../../data/docs-home/types';
 import { platformTopology } from '../../data/platform-topology';
+import { setupPrompts, type SetupPromptKey } from '../../data/setup-prompts';
 import type { TopologyNode } from '../../data/platform-topology';
 import { useCaseCatalog } from '../../data/use-cases';
 import type { UseCaseSolutionId } from '../../data/use-cases';
@@ -257,6 +258,17 @@ export const handlers: Record<string, Handler> = {
 	async DocPrompt(node) {
 		const title = str(node, 'title');
 		return [...(title ? [label(title)] : []), code('text', plainText(node))];
+	},
+	// The copy button and the preview carry the same text: the twin shows it once.
+	SetupPromptBlock(node, ctx) {
+		const entry = setupPrompts[str(node, 'prompt') as SetupPromptKey]?.[ctx.lang];
+		if (!entry) return [];
+		return [
+			label(entry.title),
+			paragraph([text(entry.body)]),
+			code('text', entry.prompt),
+			paragraph([link(entry.guided.href, [text(entry.guided.label)])]),
+		];
 	},
 	async Tag(node, ctx) {
 		const value = str(node, 'value');
