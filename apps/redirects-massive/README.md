@@ -85,6 +85,8 @@ Guidelines so entries stay predictable:
   into another (the engine flattens accidental chains, but direct is clearer).
 - Don't point a `from` at itself, and don't list a `from` that is a live page: the
   function answers before the origin does.
+- A target may carry a `#fragment`; the incoming query string is placed before it, and joined
+  with `&` to a query string the target already has.
 
 ## How it works
 

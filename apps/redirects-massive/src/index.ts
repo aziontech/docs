@@ -16,10 +16,22 @@ import { resolveRedirect } from './redirects'
 
 export { resolveRedirect, normalizeUrl, redirectMap, redirectCount } from './redirects'
 
-/** Appends the request's query string to the target, unless it already has one. */
-function withQuery(target: string, search: string): string {
-  if (!search) return target
-  return target.includes('?') ? target : target + search
+/**
+ * Appends the request's query string to the target. It goes before the target's
+ * #fragment (a fragment is the last part of a URL), and joins with an existing
+ * query string using `&` instead of replacing it.
+ */
+export function withQuery(target: string, search: string): string {
+  const extra = search.replace(/^\?/, '')
+  if (!extra) return target
+
+  const hashAt = target.indexOf('#')
+  const base = hashAt === -1 ? target : target.slice(0, hashAt)
+  const hash = hashAt === -1 ? '' : target.slice(hashAt)
+
+  if (!base.includes('?')) return `${base}?${extra}${hash}`
+  const separator = /[?&]$/.test(base) ? '' : '&'
+  return `${base}${separator}${extra}${hash}`
 }
 
 export default async function handler(request: Request): Promise<Response> {
