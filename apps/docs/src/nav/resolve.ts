@@ -826,6 +826,8 @@ const GUIDE_KINDS: GuideKind[] = guideKind.options;
 export interface CatalogEntry {
 	label: string;
 	href: string;
+	/** The page's namespace; unset on a video. */
+	page?: string;
 	description?: string;
 	kind: GuideKind;
 	products: string[];
@@ -890,6 +892,7 @@ export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): Guid
 					push({
 						label: nodeLabel(data, row, lang),
 						href,
+						page: row.page,
 						description: facts?.description,
 						kind: row.kind ?? sub.kind ?? area.kind ?? 'tutorial',
 						products,
