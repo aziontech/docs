@@ -1,0 +1,620 @@
+---
+title: SQL
+description: >-
+  Funções da Azion Lib no pacote @aziontech/sql que criam, listam, leem e
+  excluem bancos de dados do SQL Database e executam statements neles.
+permalink: /documentacao/devtools/azion-lib/sql/
+meta_tags: >-
+  Azion Lib, @aziontech/sql, SQL Database, bancos de dados, consultas, useQuery,
+  useExecute
+namespace: documentation_azion_lib_sql
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+O pacote `@aziontech/sql` é a biblioteca da Azion Lib para [SQL Database](/pt-br/documentacao/plataforma/sql-database/). Ele cria, lista, lê e exclui bancos de dados e executa statements SQL em um banco de dados que você nomeia, pela Azion API v4. Suas funções recebem argumentos posicionais, e toda função informa uma falha dentro do objeto que retorna.
+
+Instale o pacote:
+
+```bash
+npm install @aziontech/sql
+```
+
+Todos os exemplos desta página são módulos ES que usam `await` de nível superior e rodam no Node.js. Os exemplos em TypeScript importam tipos com `import type`, então continuam carregando depois que as anotações de tipo são removidas.
+
+---
+
+## Autenticação
+
+Cada função lê seu [personal token](/pt-br/documentacao/fundamentos/personal-tokens/) da variável de ambiente `AZION_TOKEN`. Para passar o token no código, crie um client com [createClient](#createclient) e defina o campo `token` dele.
+
+| Variável | Descrição |
+| --- | --- |
+| `AZION_TOKEN` | Seu personal token da Azion. |
+| `AZION_DEBUG` | Com `true`, as funções registram no log os corpos de resposta que a API retorna. |
+
+Um arquivo `.env` com as duas variáveis tem esta forma:
+
+```bash
+AZION_TOKEN=[TOKEN VALUE]
+AZION_DEBUG=true
+```
+
+Para saber como cada pacote da Azion Lib lê o token e a configuração de debug, consulte [Como a Azion Lib funciona](/pt-br/documentacao/devtools/azion-lib/como-funciona/).
+
+---
+
+## Envelope de resposta
+
+Cada função resolve para um [AzionDatabaseResponse](#aziondatabaseresponse), `{ data?, error? }`. Uma chamada bem-sucedida preenche `data`. Uma chamada que falha preenche `error` com `{ message, operation }`, em que `operation` nomeia a requisição que falhou, como `post database` ou `apiQuery`.
+
+Um statement que falha dentro de [useQuery](#usequery) também faz a chamada falhar: `error` contém o erro do banco de dados, como `no such table: nope`, e `data` não é definido.
+
+Dois resultados fogem desse formato:
+
+- [deleteDatabase](#deletedatabase) preenche `data` apenas com `{ state: 'pending' }`. O envelope não traz `id`.
+- [getDatabase](#getdatabase) retorna um objeto vazio, `{}`, para um nome que não corresponde a nenhum banco de dados. Nem `data` nem `error` são definidos.
+
+Um statement executado com `useExecute` resolve para este envelope. O array `results` contém uma entrada por statement:
+
+```javascript
+import { useExecute } from '@aziontech/sql';
+console.log(JSON.stringify(await useExecute('my-database', ['CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)'])));
+```
+
+Saída:
+
+```text
+{"data":{"state":"executed","results":[{"statement":"CREATE"}]}}
+```
+
+O resultado da consulta omite `rows_read`, `rows_written` e `query_duration_ms`, que a Azion API retorna para cada statement. Para medir o consumo, leia esses campos da API. Para mais informações, consulte [Bancos de dados e consultas](/pt-br/documentacao/plataforma/sql-database/bancos-de-dados-e-consultas/).
+
+---
+
+## createClient
+
+Cria um client que guarda um token e as opções de requisição. `createClient` também é o export padrão do pacote.
+
+```typescript
+function createClient(config?: Partial<{
+  token?: string;
+  options?: AzionClientOptions;
+}>): AzionSQLClient;
+```
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `token` | `string` | Não | Seu personal token da Azion. |
+| `options` | [`AzionClientOptions`](#azionclientoptions) | Não | Opções de requisição para todas as chamadas que o client faz. |
+
+Retorna um [AzionSQLClient](#azionsqlclient) com quatro métodos: `createDatabase`, `deleteDatabase`, `getDatabase` e `getDatabases`. Eles recebem os mesmos argumentos que as funções de mesmo nome, sem `options`. O client não executa statements: para isso, use [useQuery](#usequery), [useExecute](#useexecute) ou os [métodos de banco de dados](#metodos-de-banco-de-dados). Para um único client que cobre todos os módulos da Azion Lib, consulte [Client](/pt-br/documentacao/devtools/azion-lib/client/).
+
+Este exemplo cria um client e, com ele, um banco de dados:
+
+```typescript
+import { createClient } from '@aziontech/sql';
+import type { AzionSQLClient } from '@aziontech/sql';
+
+const client: AzionSQLClient = createClient({ token: process.env.AZION_TOKEN, options: { debug: false } });
+
+const { data, error } = await client.createDatabase('my-client-database');
+if (data) {
+  console.log(`Database created with ID: ${data.id} (status: ${data.status})`);
+} else {
+  console.error('Failed to create database', error);
+}
+```
+
+Saída:
+
+```text
+Database created with ID: 1864 (status: creating)
+```
+
+---
+
+## createDatabase
+
+Cria um banco de dados. A função retorna enquanto o banco de dados ainda está sendo provisionado, então o `status` dele é `creating`. O status muda para `created` em poucos segundos; leia-o com [getDatabase](#getdatabase) ou [getDatabases](#getdatabases).
+
+```typescript
+function createDatabase(name: string, options?: AzionClientOptions): Promise<AzionDatabaseResponse<AzionDatabase>>;
+```
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `name` | `string` | Sim | O nome do banco de dados. Para os caracteres e o comprimento que um nome aceita, consulte [Nomes de banco de dados](/pt-br/documentacao/plataforma/sql-database/bancos-de-dados-e-consultas/#nomes-de-banco-de-dados). |
+| `options` | [`AzionClientOptions`](#azionclientoptions) | Não | Opções de requisição. |
+
+Retorna `data` como o [AzionDatabase](#aziondatabase) criado. Uma conta comporta um número limitado de bancos de dados; acima desse número, a chamada preenche `error` com a mensagem listada em [Erros](#erros).
+
+```typescript
+import { createDatabase } from '@aziontech/sql';
+import type { AzionDatabaseResponse, AzionDatabase } from '@aziontech/sql';
+
+const { data, error }: AzionDatabaseResponse<AzionDatabase> = await createDatabase('my-database', { debug: false });
+if (data) {
+  const database: AzionDatabase = data;
+  console.log(`Database created with ID: ${database.id} (status: ${database.status})`);
+} else {
+  console.error('Failed to create database', error);
+}
+```
+
+Saída:
+
+```text
+Database created with ID: 1865 (status: creating)
+```
+
+---
+
+## getDatabase
+
+Retorna um banco de dados pelo nome.
+
+```typescript
+function getDatabase(name: string, options?: AzionClientOptions): Promise<AzionDatabaseResponse<AzionDatabase>>;
+```
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `name` | `string` | Sim | O nome do banco de dados. |
+| `options` | [`AzionClientOptions`](#azionclientoptions) | Não | Opções de requisição. |
+
+Retorna `data` como um [AzionDatabase](#aziondatabase), com os [métodos de banco de dados](#metodos-de-banco-de-dados). A função busca o nome entre os bancos de dados da conta e retorna a primeira correspondência. Um nome que não corresponde a nenhum banco de dados retorna `{}`: nem `data` nem `error` são definidos, então o ramo `else` do exemplo registra `undefined` para `error`.
+
+```typescript
+import { getDatabase } from '@aziontech/sql';
+import type { AzionDatabaseResponse, AzionDatabase } from '@aziontech/sql';
+
+const { data, error }: AzionDatabaseResponse<AzionDatabase> = await getDatabase('my-database', { debug: false });
+if (data) {
+  const database: AzionDatabase = data;
+  console.log(`Retrieved database: ${database.id} (${database.name}, ${database.status})`);
+} else {
+  console.error('Database not found', error);
+}
+```
+
+Saída:
+
+```text
+Retrieved database: 1865 (my-database, created)
+```
+
+---
+
+## getDatabases
+
+Lista os bancos de dados da conta, uma página por vez.
+
+```typescript
+function getDatabases(params?: Partial<AzionDatabaseCollectionOptions>, options?: AzionClientOptions): Promise<AzionDatabaseResponse<AzionDatabaseCollections>>;
+```
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `params` | [`AzionDatabaseCollectionOptions`](#aziondatabasecollectionoptions) | Não | Paginação, busca e ordenação. |
+| `options` | [`AzionClientOptions`](#azionclientoptions) | Não | Opções de requisição. |
+
+Retorna `data` como um [AzionDatabaseCollections](#aziondatabasecollections): `databases` contém a página, e `count` contém o número de bancos de dados.
+
+```typescript
+import { getDatabases } from '@aziontech/sql';
+import type { AzionDatabaseResponse, AzionDatabaseCollections } from '@aziontech/sql';
+
+const { data: allDatabases, error }: AzionDatabaseResponse<AzionDatabaseCollections> = await getDatabases(
+  { page: 1, page_size: 10 },
+  { debug: false },
+);
+if (allDatabases) {
+  console.log(`Retrieved ${allDatabases.count} databases`);
+  for (const db of allDatabases.databases ?? []) console.log(db.id, db.name, db.status);
+} else {
+  console.error('Failed to retrieve databases', error);
+}
+```
+
+Saída:
+
+```text
+Retrieved 5 databases
+1865 my-database created
+1812 my-store-db created
+1821 my-redirects created
+1822 my-guestbook created
+1862 my-app-db created
+```
+
+---
+
+## deleteDatabase
+
+Exclui um banco de dados pelo ID. A exclusão é assíncrona: a API aceita a requisição, e o banco de dados sai da lista em poucos segundos. A exclusão é permanente, e as linhas que o banco de dados continha não podem ser recuperadas.
+
+```typescript
+function deleteDatabase(id: number, options?: AzionClientOptions): Promise<AzionDatabaseResponse<AzionDatabaseDeleteResponse>>;
+```
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `id` | `number` | Sim | O ID do banco de dados a excluir. |
+| `options` | [`AzionClientOptions`](#azionclientoptions) | Não | Opções de requisição. |
+
+Retorna `data` como um [AzionDatabaseDeleteResponse](#aziondatabasedeleteresponse), `{ state: 'pending' }`. A resposta não traz `id`, então o exemplo registra o ID que passou.
+
+```typescript
+import { deleteDatabase } from '@aziontech/sql';
+import type { AzionDatabaseResponse, AzionDatabaseDeleteResponse } from '@aziontech/sql';
+
+const databaseId = 1864;
+const { data, error }: AzionDatabaseResponse<AzionDatabaseDeleteResponse> = await deleteDatabase(databaseId, { debug: false });
+if (data) {
+  console.log(`Database ${databaseId} deletion requested (state: ${data.state})`);
+} else {
+  console.error('Failed to delete database', error);
+}
+```
+
+Saída:
+
+```text
+Database 1864 deletion requested (state: pending)
+```
+
+---
+
+## useExecute
+
+Executa statements SQL, como um `INSERT` ou um `CREATE TABLE`, no banco de dados que você nomeia.
+
+```typescript
+function useExecute(name: string, statements: string[], options?: AzionClientOptions): Promise<AzionDatabaseResponse<AzionDatabaseQueryResponse>>;
+```
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `name` | `string` | Sim | O nome do banco de dados. |
+| `statements` | `string[]` | Sim | Os statements SQL a executar, em ordem. |
+| `options` | [`AzionClientOptions`](#azionclientoptions) | Não | Opções de requisição. |
+
+Retorna `data` como um [AzionDatabaseQueryResponse](#aziondatabasequeryresponse). Leia `state` em `data`, não no envelope: `data.state` é `executed` depois de uma execução bem-sucedida. A função primeiro procura o banco de dados pelo nome e depois envia os statements.
+
+Este exemplo insere uma linha em uma tabela `users` com as colunas `id` e `name`:
+
+```typescript
+import { useExecute } from '@aziontech/sql';
+import type { AzionDatabaseResponse, AzionDatabaseQueryResponse } from '@aziontech/sql';
+
+const { data: result, error }: AzionDatabaseResponse<AzionDatabaseQueryResponse> = await useExecute(
+  'my-database',
+  ["INSERT INTO users (name) VALUES ('John')"],
+  {
+    debug: false,
+  },
+);
+if (result?.state === 'executed') {
+  console.log('Executed with success');
+} else {
+  console.error('Execution failed', error);
+}
+```
+
+Saída:
+
+```text
+Executed with success
+```
+
+Escreva literais de string entre aspas simples dentro de um statement, como o exemplo faz.
+
+---
+
+## useQuery
+
+Executa consultas SQL, como um `SELECT`, no banco de dados que você nomeia e retorna as linhas que elas leem.
+
+```typescript
+function useQuery(name: string, statements: string[], options?: AzionClientOptions): Promise<AzionDatabaseResponse<AzionDatabaseQueryResponse>>;
+```
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `name` | `string` | Sim | O nome do banco de dados. |
+| `statements` | `string[]` | Sim | Os statements SQL a executar, em ordem. |
+| `options` | [`AzionClientOptions`](#azionclientoptions) | Não | Opções de requisição. |
+
+Retorna `data` como um [AzionDatabaseQueryResponse](#aziondatabasequeryresponse). Cada statement tem uma entrada em `data.results`, na ordem de `statements`. As linhas do primeiro statement ficam em `data.results[0].rows`, e os nomes das colunas dele ficam em `data.results[0].columns`. `data.toObject()` retorna as mesmas linhas como objetos indexados pelo nome da coluna.
+
+```typescript
+import { useQuery } from '@aziontech/sql';
+import type { AzionDatabaseResponse, AzionDatabaseQueryResponse } from '@aziontech/sql';
+
+const { data: result, error }: AzionDatabaseResponse<AzionDatabaseQueryResponse> = await useQuery(
+  'my-database',
+  ['SELECT * FROM users'],
+  {
+    debug: false,
+  },
+);
+if (result) {
+  const [first] = result.results ?? [];
+  console.log(`Query executed. Rows returned: ${first?.rows?.length}`);
+  console.log('Columns:', first?.columns, 'Rows:', first?.rows);
+  console.log('As objects:', JSON.stringify(result.toObject()));
+} else {
+  console.error('Query execution failed', error);
+}
+```
+
+Saída:
+
+```text
+Query executed. Rows returned: 1
+Columns: [ 'id', 'name' ] Rows: [ [ 1, 'John' ] ]
+As objects: {"state":"executed","results":[{"statement":"SELECT","rows":[{"id":1,"name":"John"}]}]}
+```
+
+---
+
+## getTables
+
+Lista as tabelas de um banco de dados executando `PRAGMA table_list` nele.
+
+```typescript
+function getTables(databaseName: string, options?: AzionClientOptions): Promise<AzionDatabaseResponse<AzionDatabaseQueryResponse>>;
+```
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `databaseName` | `string` | Sim | O nome do banco de dados. |
+| `options` | [`AzionClientOptions`](#azionclientoptions) | Não | Opções de requisição. |
+
+Retorna `data` como um [AzionDatabaseQueryResponse](#aziondatabasequeryresponse). `data.results[0]` contém uma linha por tabela, com as colunas `schema`, `name`, `type`, `ncol`, `wr` e `strict`. O nome da tabela é o segundo valor de cada linha. A lista inclui as tabelas do SQLite `sqlite_schema` e `sqlite_temp_schema`.
+
+O banco de dados que [getDatabase](#getdatabase) retorna também traz `getTables`, como um método que não recebe nome. Este exemplo lê um banco de dados e depois lista as tabelas dele com esse método:
+
+```typescript
+import { getDatabase } from '@aziontech/sql';
+import type { AzionDatabaseResponse, AzionDatabase, AzionDatabaseQueryResponse } from '@aziontech/sql';
+
+// First get the database
+const { data: database, error }: AzionDatabaseResponse<AzionDatabase> = await getDatabase('my-database', { debug: false });
+
+if (database) {
+  // Then get the tables using the database object method
+  const { data: tables, error: tablesError }: AzionDatabaseResponse<AzionDatabaseQueryResponse> = await database.getTables();
+  if (tables) {
+    console.log('Tables:', tables.results?.[0]?.rows?.map((row) => row[1]));
+  } else {
+    console.error('Failed to get tables', tablesError);
+  }
+} else {
+  console.error('Database not found', error);
+}
+```
+
+Saída:
+
+```text
+Tables: [ 'users', 'sqlite_schema', 'sqlite_temp_schema' ]
+```
+
+---
+
+## Métodos de banco de dados
+
+O banco de dados que [getDatabase](#getdatabase) retorna traz três métodos que agem sobre esse banco de dados. Eles retornam o mesmo envelope que as funções correspondentes e não recebem nome de banco de dados:
+
+| Método | Argumentos | Função correspondente |
+| --- | --- | --- |
+| `query` | `statements: string[], options?: AzionClientOptions` | [useQuery](#usequery) |
+| `execute` | `statements: string[], options?: AzionClientOptions` | [useExecute](#useexecute) |
+| `getTables` | `options?: AzionClientOptions` | [getTables](#gettables) |
+
+Este exemplo insere e conta linhas pelos métodos e depois lista as tabelas com a função independente `getTables`:
+
+```typescript
+import { getDatabase, getTables } from '@aziontech/sql';
+
+const { data: database, error } = await getDatabase('my-database');
+if (!database) throw new Error(error?.message ?? 'Database not found');
+
+const { data: inserted } = await database.execute(["INSERT INTO users (name) VALUES ('Ana')"]);
+console.log('database.execute:', inserted?.state, inserted?.results);
+
+const { data: counted } = await database.query(['SELECT count(*) AS n FROM users']);
+console.log('database.query:', JSON.stringify(counted?.toObject()));
+
+const { data: tables } = await getTables('my-database');
+console.log('getTables(name):', tables?.results?.[0]?.columns, tables?.results?.[0]?.rows);
+```
+
+Saída:
+
+```text
+database.execute: executed [
+  {
+    statement: 'INSERT',
+    columns: undefined,
+    rows: undefined,
+    error: undefined
+  }
+]
+database.query: {"state":"executed","results":[{"statement":"SELECT","rows":[{"n":2}]}]}
+getTables(name): [ 'schema', 'name', 'type', 'ncol', 'wr', 'strict' ] [
+  [ 'main', 'users', 'table', 2, 0, 0 ],
+  [ 'main', 'sqlite_schema', 'table', 5, 0, 0 ],
+  [ 'temp', 'sqlite_temp_schema', 'table', 5, 0, 0 ]
+]
+```
+
+---
+
+## Erros
+
+Uma chamada que falha retorna uma destas mensagens em `error.message`, e `error.operation` nomeia a requisição.
+
+| Mensagem | Causa | O que fazer |
+| --- | --- | --- |
+| `Database <name> not found` | O nome passado para [useQuery](#usequery) não corresponde a nenhum banco de dados da conta. `error.operation` é `apiQuery`. | Confira o nome com [getDatabases](#getdatabases). |
+| `no such table: <name>` | Um statement nomeia uma tabela que o banco de dados não contém. `error.operation` é `apiQuery`. | Confira os nomes das tabelas com [getTables](#gettables). |
+| `The maximum number of databases has been reached.` | A conta já tem o número máximo de bancos de dados. A API responde `403`, e `error.operation` é `post database`. | Exclua um banco de dados de que você não precisa mais com [deleteDatabase](#deletedatabase). Para saber quantos bancos de dados cada plano permite, consulte [Limites por plano](/pt-br/documentacao/plataforma/sql-database/limites/#limites-por-plano). |
+
+Um nome que não corresponde a nenhum banco de dados não chega a esta tabela quando você chama [getDatabase](#getdatabase): a função retorna `{}`, sem `error`.
+
+---
+
+## Tipos
+
+O pacote exporta os tipos abaixo. Importe-os com `import type`.
+
+### AzionSQLClient
+
+O client que [createClient](#createclient) retorna.
+
+| Método | Argumentos | Retorno |
+| --- | --- | --- |
+| `createDatabase` | `name: string` | `Promise<AzionDatabaseResponse<AzionDatabase>>` |
+| `deleteDatabase` | `id: number` | `Promise<AzionDatabaseResponse<AzionDatabaseDeleteResponse>>` |
+| `getDatabase` | `name: string` | `Promise<AzionDatabaseResponse<AzionDatabase>>` |
+| `getDatabases` | `params?: AzionDatabaseCollectionOptions` | `Promise<AzionDatabaseResponse<AzionDatabaseCollections>>` |
+
+### AzionClientOptions
+
+Opções de requisição que toda função recebe em `options` e que [createClient](#createclient) aplica a todas as suas chamadas.
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `debug` | `boolean` | Não | Registra no log os corpos de resposta que a API retorna. |
+| `force` | `boolean` | Não | Força a operação, mesmo quando ela pode destruir dados. |
+| `env` | [`AzionEnvironment`](#azionenvironment) | Não | O ambiente para onde vão as chamadas. |
+| `external` | `boolean` | Não | Força o uso da API REST em vez da API integrada ao runtime. |
+
+### AzionEnvironment
+
+O ambiente para onde vai uma chamada.
+
+```typescript
+type AzionEnvironment = 'development' | 'staging' | 'production';
+```
+
+### AzionDatabaseResponse
+
+O envelope que toda função retorna. Para saber como lê-lo, consulte [Envelope de resposta](#envelope-de-resposta).
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `data` | `T` | Não | O resultado da chamada. |
+| `error` | [`AzionSQLError`](#azionsqlerror) | Não | O erro de uma chamada que falhou. |
+
+### AzionSQLError
+
+O erro que uma chamada que falha retorna em `error`.
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `message` | `string` | Sim | A mensagem de erro. |
+| `operation` | `string` | Sim | A requisição que falhou. |
+| `metadata` | `Record<string, unknown>` | Não | Detalhes adicionais sobre o erro. |
+
+### AzionDatabase
+
+Um banco de dados. O pacote também exporta apenas os campos dele como `Database`.
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `id` | `number` | Sim | O ID do banco de dados. |
+| `name` | `string` | Sim | O nome do banco de dados. |
+| `status` | `'creating' \| 'created' \| 'deleting'` | Sim | O estado de provisionamento do banco de dados. |
+| `active` | `boolean` | Sim | Se o banco de dados está ativo. |
+| `lastModified` | `string` | Sim | Quando o banco de dados foi alterado pela última vez. |
+| `lastEditor` | `string \| null` | Sim | A conta que alterou o banco de dados por último. |
+| `productVersion` | `string` | Sim | A versão do produto. |
+| `query`, `execute`, `getTables` | funções | Sim | Os [métodos de banco de dados](#metodos-de-banco-de-dados). |
+
+### AzionDatabaseCollections
+
+Uma página de bancos de dados.
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `databases` | [`AzionDatabase[]`](#aziondatabase) | Não | Os bancos de dados da página. |
+| `count` | `number` | Não | O número de bancos de dados. |
+
+### AzionDatabaseCollectionOptions
+
+Paginação e filtragem para [getDatabases](#getdatabases).
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `page` | `number` | Não | O número da página. |
+| `page_size` | `number` | Não | O número de bancos de dados por página, de 1 a 100. A API retorna 10 quando ele é omitido. |
+| `search` | `string` | Não | Um termo que filtra os bancos de dados. |
+| `ordering` | `string` | Não | O campo que ordena os resultados. |
+
+### AzionDatabaseDeleteResponse
+
+O que [deleteDatabase](#deletedatabase) retorna em `data`.
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `state` | `'pending' \| 'failed' \| 'executed'` | Sim | O estado da exclusão. Uma exclusão que a API aceita retorna `pending`. |
+
+### AzionDatabaseQueryResponse
+
+O que [useQuery](#usequery), [useExecute](#useexecute), [getTables](#gettables) e os métodos de banco de dados retornam em `data`. O pacote também o exporta como `AzionDatabaseExecutionResponse`.
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `state` | `'pending' \| 'failed' \| 'executed' \| 'executed-runtime'` | Sim | O estado da execução. |
+| `results` | [`QueryResult[]`](#queryresult) | Não | Uma entrada por statement, na ordem de `statements`. |
+| `toObject` | `() => JsonObjectQueryExecutionResponse \| null` | Sim | Retorna `{ state, results }`, em que cada entrada contém `statement` e `rows` como objetos indexados pelo nome da coluna. |
+
+### QueryResult
+
+O resultado de um statement.
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `statement` | `string` | Não | O tipo de statement, como `SELECT`, `INSERT` ou `CREATE`. |
+| `columns` | `string[]` | Não | Os nomes das colunas. Definido em um statement que retorna linhas. |
+| `rows` | `(string \| number)[][]` | Não | As linhas, cada uma um array de valores na ordem de `columns`. |
+| `error` | `string` | Não | O erro do statement. |
+
+### AzionQueryExecutionParams
+
+Statements com seus parâmetros. Nenhuma função desta página recebe este tipo como argumento.
+
+| Propriedade | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `statements` | `string[]` | Sim | Os statements SQL. |
+| `params` | `Array<AzionQueryParams \| Record<string, AzionQueryParams>>` | Sim | Os parâmetros dos statements. |
+
+### AzionQueryParams
+
+O valor de um parâmetro de um statement SQL.
+
+```typescript
+type AzionQueryParams = string | number | boolean | null | {
+  type: string;
+  value: string | number | boolean | null;
+};
+```
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Azion Lib" href="/pt-br/documentacao/devtools/azion-lib/">As bibliotecas que a Azion Lib oferece e o pacote que contém cada uma.</DocItem>
+  <DocItem title="SQL Database" href="/pt-br/documentacao/plataforma/sql-database/">O que um banco de dados armazena e como aplicações e functions o acessam.</DocItem>
+  <DocItem title="Bancos de dados e consultas" href="/pt-br/documentacao/plataforma/sql-database/bancos-de-dados-e-consultas/">As operações de API que essas funções chamam, com seus campos e códigos de erro.</DocItem>
+  <DocItem title="SQL Database API" href="/pt-br/documentacao/devtools/runtime/api-reference/sql-database/">Como uma function abre um banco de dados dentro do Azion Runtime sem um token.</DocItem>
+</ItemList>
+</FrameBox>

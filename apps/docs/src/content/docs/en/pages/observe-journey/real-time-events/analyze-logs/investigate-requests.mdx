@@ -1,0 +1,208 @@
+---
+title: Investigate a request with the GraphQL API
+description: Query the workloadEvents dataset to find which countries, hosts, and status codes a suspicious pattern of requests came from, and confirm the change after you act.
+meta_tags: 'real-time events, graphql api, workloadevents, investigation, query, filter, geoloc, status'
+namespace: docs_investigate_requests
+permalink: /documentation/guides/platform/observability/investigate-requests-graphql-api/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+You can investigate a suspicious pattern of requests with the [Real-Time Events](/en/documentation/platform/real-time-events/) GraphQL API. Every query on this page reads the `workloadEvents` dataset, which holds one event record per request an [application](/en/documentation/platform/applications/) or a [firewall](/en/documentation/platform/firewall/) received.
+
+The investigation runs in three stages. First you count the records to see the shape of the traffic. Then you narrow to one status code and read the client behind it. Last you run the same query over a later window, to check what changed after you acted.
+
+The queries below carry a placeholder for the country and for the hosts, and example timestamps. Replace all of them with values from your own account.
+
+---
+
+## Prerequisites
+
+- An Azion account. To create one, refer to [How to create an account on Azion](/en/documentation/fundamentals/creating-account/).
+- A personal token. To create one, refer to [Personal Tokens](/en/documentation/fundamentals/personal-tokens/).
+- An application or a firewall already serving traffic, so that the dataset holds records to query.
+
+---
+
+## Open the GraphiQL Playground
+
+The GraphQL API serves the GraphiQL Playground in the browser, at the same endpoint a query is posted to. Sign in to Azion Console at `https://console.azion.com`, then open `https://api.azion.com/v4/events/graphql`. Each query below runs there, with the filter and the time range you want to use.
+
+To send the same queries from a terminal instead, refer to [GraphQL API first steps](/en/documentation/devtools/graphql/first-steps/).
+
+---
+
+## Aggregate by country and host
+
+The first query counts event records rather than returning them. `aggregate` with `groupBy` produces one row per combination of host, country, request URI, and status, and `orderBy: [count_DESC]` puts the largest count first. `geolocCountryNameNotIn` leaves out the country most of your traffic already comes from, so the rows that remain are the ones worth reading.
+
+To count the requests each country and host sent:
+
+```graphql
+query requestsInvestigationCountries {
+  workloadEvents(
+    limit: 100,
+    filter: {
+      tsRange: {begin: "2024-03-20T10:10:10", end: "2024-03-27T10:10:10"}
+      geolocCountryNameNotIn: ["<expected-country>"]
+      hostIn: ["<your-host>", "<another-host>"]
+    }
+    aggregate: {count: geolocCountryName}
+    groupBy: [host, geolocCountryName, requestUri, status]
+    orderBy: [count_DESC]
+  )
+  {
+    geolocCountryName
+    host
+    requestUri
+    status
+    count
+  }
+}
+```
+
+`tsRange` bounds the period the query reads. The window above spans 7 days, which is the whole retention period of an event record, so a wider range returns nothing for the part that falls outside it. For that bound and every other one a query carries, refer to [Limits](/en/documentation/platform/real-time-events/limits/).
+
+The response holds one row per group, each with its `count`:
+
+```json
+{
+  "data": {
+    "workloadEvents": [
+      {
+        "geolocCountryName": "Germany",
+        "host": "myhost.com",
+        "requestUri": "/directory/file.html",
+        "status": 200,
+        "count": 22041
+      },
+      {
+        "geolocCountryName": "United States",
+        "host": "host.eu",
+        "requestUri": "/directory/file.html",
+        "status": 200,
+        "count": 9596
+      },
+      {
+        "geolocCountryName": "Germany",
+        "host": "anotherhost.org",
+        "requestUri": "/directory/file.html",
+        "status": 200,
+        "count": 29582
+      },
+      {
+        "geolocCountryName": "United States",
+        "host": "host.org",
+        "requestUri": "/directory/file.html",
+        "status": 200,
+        "count": 9578
+      },
+      {
+        "geolocCountryName": "United States",
+        "host": "host.net",
+        "requestUri": "/directory/file.html",
+        "status": 403,
+        "count": 9564
+      }
+    ]
+  }
+}
+```
+
+Read the rows from the top. Compare the first-ranked count against the second-ranked one, because the gap between them says more than either number alone. A country that does not usually reach your hosts, holding a count far above the rest, is the pattern to follow. A volume that large arriving inside a short period, such as a single minute, is a common indicator that the application is under attack.
+
+---
+
+## Narrow to one status code
+
+Once the shape of the traffic is clear, filter on the status the requests received. `statusIn` takes a list of status codes, so a filter on refused requests reads `statusIn: [403]`. Grouping by `httpUserAgent` alongside the country names the client software that sent them.
+
+To count the refused requests by country and user agent:
+
+```graphql
+query requestsInvestigationUserAgent {
+  workloadEvents(
+    limit: 100,
+    filter: {
+      tsRange: {begin: "2024-03-20T10:10:10", end: "2024-03-27T10:10:10"}
+      statusIn: [403]
+    }
+    aggregate: {count: geolocCountryName}
+    groupBy: [geolocCountryName, status, httpUserAgent]
+    orderBy: [count_DESC]
+  )
+  {
+    geolocCountryName
+    status
+    httpUserAgent
+    count
+  }
+}
+```
+
+The response names the user agent behind each group of refused requests:
+
+```json
+{
+  "data": {
+    "workloadEvents": [
+      {
+        "geolocCountryName": "Germany",
+        "status": 403,
+        "httpUserAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36",
+        "count": 70587
+      },
+      {
+        "geolocCountryName": "United States",
+        "status": 403,
+        "httpUserAgent": "Java/11.0.19",
+        "count": 35736
+      },
+      {
+        "geolocCountryName": "Germany",
+        "status": 403,
+        "httpUserAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
+        "count": 19322
+      },
+      {
+        "geolocCountryName": "Germany",
+        "status": 403,
+        "httpUserAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/24.0 Chrome/117.0.0.0 Mobile Safari/537.36",
+        "count": 8638
+      },
+      {
+        "geolocCountryName": "United States",
+        "status": 403,
+        "httpUserAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.157 Safari/537.36",
+        "count": 2878
+      }
+    ]
+  }
+}
+```
+
+An `httpUserAgent` value that none of your own clients send narrows the pattern further than the country does. The country a request comes from is cheap to change, and the client software is often not changed at all, so the user agent survives as the better identifier.
+
+Change the status in the filter to match the behavior you apply. A rule carrying the **Set Rate Limit** behavior answers `429`, so `statusIn: [429]` finds the requests it held back. Selecting the `stacktrace` field alongside the others names the rule that acted on each request. Acting on what the query found is a [Firewall](/en/documentation/platform/firewall/) task. To refuse a set of addresses or countries, refer to [Create a blocklist](/en/documentation/guides/application-security/bots-and-network/blocklists-ip-addresses-edge/) and [Network lists](/en/documentation/platform/firewall/network-shield/network-lists/). To act on any other property of the request, refer to [Rules Engine for Firewall](/en/documentation/platform/firewall/rules-engine/). Where a rule refuses traffic it should not, refer to [Exceptions](/en/documentation/platform/firewall/waf/custom-allowed-rules/).
+
+---
+
+## Confirm the change in a later window
+
+A rule takes time to propagate, so the records that show it working begin after it is applied. Run the same query again, with `tsRange` moved to a window that opens once propagation is complete.
+
+The traffic the investigation named now carries the status the rule applies, such as `403`, instead of the status it carried before. Counts that were growing under one status move to the other, which confirms the rule reached the requests the query found.
+
+For queries that answer other monitoring questions over the same datasets, refer to the [azion-queries](https://github.com/aziontech/azion-queries) repository.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Query HTTP request events" href="/en/documentation/guides/platform/observability/query-workload-events/" label="Build a query over the same dataset from its fields, rather than from this example." />
+  <DocCard title="Real-Time Events fields" href="/en/documentation/devtools/graphql/gql-real-time-events-fields/" label="Every field workloadEvents carries, and the fields of every other dataset the API serves." />
+  <DocCard title="How Real-Time Events works" href="/en/documentation/platform/real-time-events/how-it-works/" label="What a query reads before it answers, and why one filter matters more than a shorter period." />
+  <DocCard title="Filter events" href="/en/documentation/guides/platform/observability/add-filters-events/" label="Narrow the same event records from Azion Console instead of from a query." />
+</DocCardGroup>

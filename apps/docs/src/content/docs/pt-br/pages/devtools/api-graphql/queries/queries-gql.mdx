@@ -1,0 +1,387 @@
+---
+title: Queries
+description: >-
+  Consulte como fazer queries de dados brutos, agregados, financeiros e de uso
+  com a GraphQL API, as funções de agregação e a resposta de cada formato.
+meta_tags: 'graphql api, query graphql, dados brutos, dados agregados, dados financeiros, dados de uso, funções de agregação, workloadEvents, workloadMetrics, accountingDetail, workloadConsumptionMetrics'
+namespace: documentation_graphql_queries
+permalink: /documentacao/devtools/graphql/queries/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Uma query da GraphQL API nomeia um dataset, os argumentos que o filtram, agrupam e ordenam, e os campos a retornar. A API responde com um objeto JSON cuja chave `data` contém um array por dataset, com um objeto por linha e apenas os campos que a query selecionou. O formato da query, e o endpoint para onde ela vai, dependem dos dados que você lê: brutos, agregados, financeiros ou de uso.
+
+---
+
+## Formatos de query
+
+Cada formato lê seus dados de um endpoint. Envie a query em uma requisição `POST` para esse endpoint, com o header `Authorization: Token [TOKEN VALUE]`:
+
+| Formato | Dados | Endpoint | Dataset de exemplo | Filtro de tempo |
+| --- | --- | --- | --- | --- |
+| Bruto | Um registro por requisição, sem processamento | `https://api.azion.com/v4/events/graphql` | `workloadEvents` | `tsRange`, ou `tsGt` e `tsLt`; obrigatório |
+| Agregado | Requisições agrupadas em buckets de tempo | `https://api.azion.com/v4/metrics/graphql` | `workloadMetrics` | `tsRange`, ou `tsGt` e `tsLt`; obrigatório |
+| Financeiro, contabilizado | Valores contabilizados por período | `https://api.azion.com/v4/accounting/graphql` | `accountingDetail` | `periodFrom` e `periodTo`; opcional |
+| Financeiro, faturado | Valores faturados por período | `https://api.azion.com/v4/billing/graphql` | `billDetail` | `periodFromRange` |
+| Uso | Uso contabilizado por workload e produto | `https://api.azion.com/v4/consumption/graphql` | `workloadConsumptionMetrics` | `tsRange` |
+
+Um filtro de tempo vai no argumento `filter`. Sem um filtro obrigatório, a API retorna `400` com `To execute queries it is mandatory to provide the desired time interval.` Os datasets de cada endpoint, e os argumentos que toda query aceita, estão em [Datasets e argumentos de query](/pt-br/documentacao/devtools/graphql/recursos/).
+
+---
+
+## Dados brutos
+
+Dados brutos são o registro de cada requisição como a Azion o registrou, sem processamento. Use-os para investigar requisições individuais. Datasets brutos, como `workloadEvents`, são servidos pelo endpoint de events, `https://api.azion.com/v4/events/graphql`.
+
+Esta query retorna o horário, o endereço do cliente, a URI e o stack trace das requisições em um intervalo de uma hora, da mais antiga para a mais recente:
+
+```graphql
+query HttpQuery {
+  workloadEvents(
+    limit: 3,
+    filter: {
+      tsRange: {begin:"2026-10-03T13:00:00", end:"2026-10-03T14:00:00"}
+    }
+    orderBy: [ts_ASC]
+  )
+  {
+    ts
+    remoteAddress
+    requestUri
+    stacktrace
+  }
+}
+```
+
+A resposta contém um objeto por requisição no intervalo:
+
+```json
+{
+  "data": {
+    "workloadEvents": [
+      {
+        "ts": "2026-10-03T13:16:33Z",
+        "remoteAddress": "192.0.2.10",
+        "requestUri": "/",
+        "stacktrace": "{}"
+      },
+      {
+        "ts": "2026-10-03T13:34:44Z",
+        "remoteAddress": "198.51.100.20",
+        "requestUri": "/",
+        "stacktrace": "{}"
+      }
+    ]
+  }
+}
+```
+
+Uma query de dados brutos carrega duas coisas:
+
+- Um intervalo de tempo, em `tsRange` ou em `tsGt` e `tsLt`.
+- Os campos a retornar. A resposta não traz nenhum campo que a query não selecionou.
+
+### Correspondências excluídas
+
+O filtro `not` exclui os registros que correspondem ao filtro dentro dele. Com `Like`, que diferencia maiúsculas de minúsculas, ou `Ilike`, que não diferencia, `not` exclui toda URI que corresponde a um padrão. Um dataset bruto também aceita `aggregate` e `groupBy`. Esta query conta as requisições por host cuja URI não contém `/_astro/`, da maior contagem para a menor:
+
+```graphql
+query {
+  workloadEvents(
+    limit: 3
+    filter: {
+      tsRange: {begin: "2026-09-26T14:00:00", end: "2026-10-03T14:00:00"}
+      not: { requestUriLike: "%/_astro/%" }
+    }
+    aggregate: { count: rows }
+    groupBy: [host]
+    orderBy: [count_DESC]
+  ) {
+    host
+    count
+  }
+}
+```
+
+A resposta contém uma linha por host:
+
+```json
+{
+  "data": {
+    "workloadEvents": [
+      {
+        "host": "www.example.com",
+        "count": 4232
+      },
+      {
+        "host": "blog.example.com",
+        "count": 694
+      },
+      {
+        "host": "app.example.com",
+        "count": 290
+      }
+    ]
+  }
+}
+```
+
+Todos os operadores de filtro, com os tipos de campo a que cada um se aplica, estão em [Datasets e argumentos de query](/pt-br/documentacao/devtools/graphql/recursos/).
+
+---
+
+## Dados agregados
+
+Dados agregados são dados de requisições que o endpoint de metrics, `https://api.azion.com/v4/metrics/graphql`, armazena agrupados em buckets de tempo. Use-os para ler totais e tendências em períodos longos. O tamanho do bucket, um minuto, uma hora ou um dia, segue a duração do intervalo, conforme descreve [Como a GraphQL API funciona](/pt-br/documentacao/devtools/graphql/visao-geral/).
+
+Esta query soma as requisições de um intervalo de 48 horas por bucket de tempo, do mais recente para o mais antigo:
+
+```graphql
+query {
+  workloadMetrics(limit: 3, filter: { tsRange: {begin: "2026-10-01T14:00:00", end: "2026-10-03T14:00:00"} }, aggregate: { sum: requests }, groupBy: [ts], orderBy: [ts_DESC]) {
+    ts
+    sum
+  }
+}
+```
+
+A resposta contém uma linha por bucket, e o resultado da função volta em um campo com o nome dela, `sum`:
+
+```json
+{
+  "data": {
+    "workloadMetrics": [
+      {
+        "ts": "2026-10-03T13:34:00Z",
+        "sum": 1
+      },
+      {
+        "ts": "2026-10-03T13:16:00Z",
+        "sum": 1
+      },
+      {
+        "ts": "2026-10-03T12:53:00Z",
+        "sum": 1
+      }
+    ]
+  }
+}
+```
+
+Uma query de dados agregados segue estas regras:
+
+- Um intervalo de tempo é obrigatório, em `tsRange` ou em `tsGt` e `tsLt`.
+- `aggregate` nomeia uma função e o campo que ela lê, como `sum: requests`.
+- `groupBy` é opcional. Com ele, a resposta contém uma linha por combinação dos campos listados. Sem ele, a resposta contém uma linha com o total.
+- Um campo de medida, como `requests`, só é selecionado por meio de `aggregate`. Selecionado diretamente, ele retorna `400` com `The query includes fields that require grouping. Please ensure all non-aggregated fields are included in groupBy argument.`
+- `orderBy` ordena pela saída da função com um sufixo de direção, como `sum_DESC` ou `count_DESC`.
+- Um alias renomeia um campo de saída. Com `total: sum` na seleção, a resposta traz `total` em vez de `sum`.
+
+Os datasets `httpMetrics` e `httpBreakdownMetrics` foram descontinuados; use `workloadMetrics` e `workloadBreakdownMetrics`. Para mais exemplos, consulte [Consulte dados agregados](/pt-br/documentacao/guias/plataforma/observabilidade/graphql-dados-agregados/).
+
+### Funções de agregação
+
+O argumento `aggregate` aceita as funções abaixo, cada uma no máximo uma vez por query e cada uma em um campo. Todo dataset aceita as cinco primeiras, e uma query pode combiná-las:
+
+| Função | Retorna | Datasets |
+| --- | --- | --- |
+| `count` | O número de registros. Aceita `rows` ou um campo. | Todo dataset |
+| `sum` | A soma dos valores do campo. | Todo dataset |
+| `avg` | A média aritmética dos valores do campo. | Todo dataset |
+| `max` | O maior valor do campo. | Todo dataset |
+| `min` | O menor valor do campo. | Todo dataset |
+| `rate` | Uma taxa do campo. Em `imagesProcessedMetrics`, as imagens processadas por segundo. | Apenas `imagesProcessedMetrics` e `workloadConsumptionMetrics` |
+
+Uma função aceita apenas os campos que o dataset lista para agregação no schema dele. Um campo calculado, como `missedData`, retorna `400`, assim como `rate` em qualquer outro dataset. Esta query executa cinco funções em `workloadMetrics`, uma linha por host, da maior contagem para a menor:
+
+```graphql
+query {
+  workloadMetrics(
+    limit: 3
+    filter: { tsRange: {begin: "2026-09-26T14:00:00", end: "2026-10-03T14:00:00"} }
+    aggregate: { count: rows, sum: bytesSent, avg: requestTime, max: requestLength, min: requestTime }
+    groupBy: [host]
+    orderBy: [count_DESC]
+  ) {
+    host
+    count
+    sum
+    avg
+    max
+    min
+  }
+}
+```
+
+Cada linha traz um campo por função:
+
+```json
+{
+  "data": {
+    "workloadMetrics": [
+      {
+        "host": "www.example.com",
+        "count": 716,
+        "sum": 77555630,
+        "avg": 2.9589664804469273,
+        "max": 59147,
+        "min": 0.0
+      },
+      {
+        "host": "shop.example.com",
+        "count": 64,
+        "sum": 47900834,
+        "avg": 2.45803125,
+        "max": 3703,
+        "min": 0.131
+      },
+      {
+        "host": "api.example.com",
+        "count": 36,
+        "sum": 19165846,
+        "avg": 3.0108055555555553,
+        "max": 16037,
+        "min": 0.073
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Dados financeiros
+
+Dados financeiros contêm dois tipos de valores. Dados contabilizados vêm de `accountingDetail`, no endpoint de accounting, `https://api.azion.com/v4/accounting/graphql`. Dados faturados vêm de `billDetail`, no endpoint de billing, `https://api.azion.com/v4/billing/graphql`, que recebe um período em `periodFromRange`. Uma query de `accountingDetail` não precisa de intervalo de tempo: sem filtro, ela retorna linhas. Para ler um período, filtre por `periodFrom` e `periodTo`.
+
+Esta query retorna os valores contabilizados de setembro de 2026, por produto, métrica e região:
+
+```graphql
+query {
+  accountingDetail(limit: 5, filter: { periodFrom: "2026-09-01", periodTo: "2026-09-30" }) {
+    clientId
+    periodFrom
+    periodTo
+    productSlug
+    metricSlug
+    regionName
+    accounted
+  }
+}
+```
+
+A resposta contém cinco linhas e é cortada aqui após a terceira:
+
+```json
+{
+  "data": {
+    "accountingDetail": [
+      {
+        "clientId": "1234u",
+        "periodFrom": "2026-09-01",
+        "periodTo": "2026-09-30",
+        "productSlug": "application",
+        "metricSlug": "data_transferred",
+        "regionName": "All Other Regions",
+        "accounted": 0.007995243
+      },
+      {
+        "clientId": "1234u",
+        "periodFrom": "2026-09-01",
+        "periodTo": "2026-09-30",
+        "productSlug": "application",
+        "metricSlug": "data_transferred",
+        "regionName": "Latam",
+        "accounted": 0.0
+      },
+      {
+        "clientId": "1234u",
+        "periodFrom": "2026-09-01",
+        "periodTo": "2026-09-30",
+        "productSlug": "application",
+        "metricSlug": "data_transferred",
+        "regionName": "Canada",
+        "accounted": 0.0
+      },
+      …
+    ]
+  }
+}
+```
+
+Os campos de cada dataset estão em [Campos de accounting](/pt-br/documentacao/devtools/graphql/campos-gql-accounting/) e [Campos de billing](/pt-br/documentacao/devtools/graphql/campos-gql-billing/).
+
+---
+
+## Dados de uso
+
+Dados de uso são o uso que a Azion contabilizou para cada workload e produto, no campo `accounted` de `workloadConsumptionMetrics`. O dataset é servido pelo endpoint de consumption, `https://api.azion.com/v4/consumption/graphql`, e uma query define o intervalo de tempo em `tsRange`.
+
+Esta query soma o uso contabilizado de um intervalo de sete dias por produto e métrica, do maior para o menor:
+
+```graphql
+query {
+  workloadConsumptionMetrics(
+    limit: 5
+    filter: { tsRange: {begin: "2026-09-26T14:00:00", end: "2026-10-03T14:00:00"} }
+    aggregate: { sum: accounted }
+    groupBy: [productId, metricName]
+    orderBy: [sum_DESC]
+  ) {
+    productId
+    metricName
+    sum
+  }
+}
+```
+
+A resposta é cortada após a terceira linha:
+
+```json
+{
+  "data": {
+    "workloadConsumptionMetrics": [
+      {
+        "productId": 1441740010,
+        "metricName": "data_transferred_total",
+        "sum": 442444116.0
+      },
+      {
+        "productId": 1498670028,
+        "metricName": "data_streamed",
+        "sum": 17476.0
+      },
+      {
+        "productId": 1441740010,
+        "metricName": "requests",
+        "sum": 5981.0
+      },
+      …
+    ]
+  }
+}
+```
+
+Para restringir o resultado a um produto e uma métrica, adicione `productId` e `metricName` ao filtro. Para ler o uso do [Image Processor](/pt-br/documentacao/plataforma/applications/image-processor/configuracoes/), consulte [Consulte dados de uso do Image Processor](/pt-br/documentacao/guias/plataforma/observabilidade/consultar-dados-de-uso-image-processor-com-graphql/). Os campos do dataset estão em [Campos de consumption](/pt-br/documentacao/devtools/graphql/campos-gql-consumption/).
+
+---
+
+## Repositório de exemplos
+
+A Azion mantém um repositório de exemplos de queries da GraphQL API em [aziontech/azion-queries](https://github.com/aziontech/azion-queries). Ele agrupa os exemplos por [Data Stream](/pt-br/documentacao/plataforma/data-stream/), [Applications](/pt-br/documentacao/plataforma/applications/), queries Top X e [Functions](/pt-br/documentacao/plataforma/functions/). Você pode enviar alterações para o repositório.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Datasets e argumentos de query" href="/pt-br/documentacao/devtools/graphql/recursos/">Os datasets de cada endpoint e os argumentos de filtro, ordenação e paginação que uma query aceita.</DocItem>
+  <DocItem title="Limites da GraphQL API" href="/pt-br/documentacao/devtools/graphql/limites/">Os limites de linhas, campos e intervalo de tempo dentro dos quais uma query é executada.</DocItem>
+  <DocItem title="Respostas de erro" href="/pt-br/documentacao/devtools/graphql/mensagens-erro/">Os status codes e as mensagens que uma query recusada retorna, e o que causa cada um.</DocItem>
+  <DocItem title="Encontre os valores mais frequentes com GraphQL" href="/pt-br/documentacao/guias/plataforma/observabilidade/graphql-query-top-x/">Classifique os valores mais frequentes de um campo, como os 10 principais hosts ou status codes.</DocItem>
+</ItemList>
+</FrameBox>

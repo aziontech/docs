@@ -1,0 +1,657 @@
+---
+title: Solucionar problemas de Firewall
+description: Descubra por que uma regra não dispara, por que uma requisição legítima é recusada e o que a Azion API retorna ao recusar um objeto de firewall.
+meta_tags: 'firewall, troubleshooting, rules engine, 403, 400, 429, propagation, errors, waf, network shield, bot manager'
+namespace: documentation_products_firewall_troubleshooting
+permalink: /documentacao/plataforma/firewall/solucao-de-problemas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Esta página lista os sintomas que um [firewall](/pt-br/documentacao/plataforma/firewall/) mostra no tráfego real ou em uma resposta da API, cada um com a sua causa e a sua correção. Os sintomas do próprio firewall abrem a página: regras que não entram em vigor, recusas que não nomeiam nenhuma regra e erros da API para firewalls, regras e instâncias de função. Seções para Web Application Firewall (WAF), Network Shield e Bot Manager, os produtos habilitados em um firewall, a encerram.
+
+---
+
+## Uma regra ainda não age sobre as requisições
+
+As requisições continuam recebendo a resposta antiga depois que você salva uma regra, edita uma network list ou vincula um firewall a um workload.
+
+A API armazena uma mudança imediatamente, mas o tráfego só a acompanha depois que a mudança se propaga, em 46 segundos a 22 minutos, com as respostas alternando nesse meio-tempo, como [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#propagacao) detalha.
+
+- **Dê tempo à mudança antes de testá-la**: uma requisição antecipada mede a propagação, não a configuração.
+- **Envie várias requisições, não uma**: repita a requisição até ela responder como esperado.
+- **Confirme que a API armazenou o que você enviou**: um `GET` da regra ou da lista retorna o que ela guarda.
+
+Quando a propagação termina, cada requisição recebe a resposta que a configuração salva define.
+
+---
+
+## Um firewall não age sobre as requisições de um workload
+
+As regras de um firewall nunca tocam as requisições que um workload recebe, mesmo depois da propagação.
+
+Um firewall inspeciona apenas os workloads cujo [deployment](/pt-br/documentacao/plataforma/workloads/) o nomeia, já que o registro do workload não tem campo de firewall.
+
+- **No Azion Console**: escolha o firewall em **Deployment Settings** › **Firewall**, que mostra `Select a Firewall` enquanto está vazio.
+- **Pela API**: o deployment precisa carregar `"firewall":<firewall-id>` em `strategy.attributes`.
+- **Com Azion CLI**: crie um deployment com `--firewall-id`, como [Vincule um firewall a um workload](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/proteja-seu-dominio/#vincule-o-firewall-ao-workload) mostra para cada interface.
+
+Quando o vínculo se [propaga](/pt-br/documentacao/plataforma/firewall/como-funciona/#propagacao), toda requisição ao workload passa pelas regras do firewall.
+
+---
+
+## Uma regra não corresponde à requisição que você espera
+
+Uma regra já propagada deixa passar uma requisição que deveria pegar.
+
+Três casos causam a maior parte das falhas:
+
+- **Critérios unidos em um bloco**: `${network}` `and` `${request_uri}` `starts_with` `/ip-deny` recusam um cliente listado apenas em `/ip-deny`.
+- **Um `${request_args}` vazio**: uma requisição sem query string, como um `POST` com o payload no corpo, nunca corresponde a ele.
+- **Uma regra anterior**: _Deny (403 Forbidden)_ [encerra a execução](/pt-br/documentacao/plataforma/firewall/como-funciona/#como-as-regras-sao-executadas) antes.
+
+Encontre as regras executadas no registro do [Debug Rules](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-requisicao-recusada-nao-nomeia-a-regra-que-a-recusou) e refaça [os critérios](/pt-br/documentacao/plataforma/firewall/rules-engine/#criterios) da regra ausente dele na aba **Rules Engine**: `${request_uri}` `starts_with` `/` cobre toda requisição.
+
+A regra então aparece no registro do Debug Rules, e o seu comportamento é executado.
+
+---
+
+## Uma requisição recusada não nomeia a regra que a recusou
+
+Uma resposta de recusa não nomeia o firewall, a regra nem a network list por trás dela.
+
+Nenhum header os carrega, mas cada comportamento responde de um jeito reconhecível:
+
+| Resposta | Fonte |
+| --- | --- |
+| `403` com a página de erro padrão da Azion, intitulada `Forbidden` | _Deny (403 Forbidden)_ |
+| `429` com a página de erro padrão da Azion, intitulada `Too Many Requests` | _Set Rate Limit_. Apenas requisições simultâneas além do burst o recebem. Requisições enviadas em sequência esperam cerca de um segundo e então são atendidas |
+| Nem linha de status nem corpo, o que um script lê como `000` | _Drop (Close Without Response)_ |
+| `400` com a página de erro padrão da Azion, intitulada `Bad Request`, cuja linha Status Code mostra `0` | WAF, por meio de um comportamento _Set WAF_ no modo `blocking` |
+| `204`, um corpo vazio e dois headers `Set-Cookie` | Bot Manager Lite, por meio de um comportamento _Run Function_ |
+
+A página de erro mostra o endereço verificado na linha Your IP e o request ID, tudo o que um cliente pode reportar. A regra que decidiu aparece apenas nos logs, enquanto Debug Rules está ativo, como [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#observabilidade) explica.
+
+Ative **Active** em **Main Settings** › **Debug Rules** e selecione **Save**. [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/) e [Data Stream](/pt-br/documentacao/plataforma/data-stream/) passam a listar em `$traceback` as regras que cada requisição executou, como [Depure regras criadas com Rules Engine](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/debug-regras/) mostra. Quando uma regra está ausente dessa lista, ela não foi executada para a requisição.
+
+---
+
+## Um cliente não recebe resposta nenhuma
+
+O cliente não recebe linha de status nem corpo, e o `curl` termina com o erro `92` sobre HTTP/2 ou `52` sobre HTTP/1.1.
+
+Uma regra com _Drop (Close Without Response)_ correspondeu, e ela fecha a requisição logo depois do TLS sem nenhum header, então o cliente fica sem request ID.
+
+- **Confirme o descarte por um script**: um `000` em uma fração de segundo, como `time_total=0.149162s http_code=000`, indica um descarte:
+
+```bash
+curl -s -o /dev/null -w 'time_total=%{time_total}s http_code=%{http_code}\n' https://<your-workload-domain>/<path>
+```
+
+- **Prefira um código de status**: _Deny (403 Forbidden)_ responde `403`, como [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#o-que-o-cliente-recebe) compara.
+- **Localize a regra que descarta** com [Debug Rules](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-requisicao-recusada-nao-nomeia-a-regra-que-a-recusou).
+
+Sob _Deny (403 Forbidden)_, o cliente recebe `403` e uma página de erro.
+
+---
+
+## Uma regra é recusada com Missing Required Modules
+
+O formulário deixa cinza uma opção marcada `required`, ou o salvamento falha com `400` e o [código `25047`](/pt-br/documentacao/plataforma/firewall/rules-engine/#erros).
+
+A opção precisa de um produto que está desativado no firewall, como Network Shield para `${network}` ou WAF, com que um firewall novo começa desativado, como [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#produtos-habilitados-em-um-firewall) lista.
+
+Ative o produto, como [Defina as configurações principais de um firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/firewall-definir-main-settings/#altere-os-produtos-habilitados-em-um-firewall) mostra:
+
+- **Azion Console**: ative a chave em **Main Settings** › **Modules** e depois **Save**, após o que a opção é liberada.
+- **Azion CLI**: `azion update firewall --firewall-id <firewall-id> --network-protection true`, ou `--waf-enabled true` em `azion create firewall`.
+- **API**: um `PATCH` do firewall com `{"modules":{"network_protection":{"enabled":true}}}`, que retorna `202`.
+
+A regra então é salva com `202`, desde que uma regra de `${network}` envie o `id` da lista como um [inteiro JSON](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-regra-e-recusada-com-invalid-operator-argument-type).
+
+---
+
+## Um critério é recusado com Invalid Choice
+
+O corpo de uma regra escrito à mão volta com `400`, código `10039`, `Invalid Choice`, com um `source.pointer` como `/data/criteria/0/0/conditional`.
+
+`conditional` apenas une um critério aos anteriores no seu bloco, `if` para o primeiro e `and` ou `or` depois dele, então um operador colocado ali é rejeitado.
+
+- **Mova a comparação para `operator`**: `if` fica em `conditional`, e `starts_with` vai em `operator`, como os [condicionais](/pt-br/documentacao/plataforma/firewall/rules-engine/#condicionais) mostram.
+- **Siga o ponteiro**: `10039` também rejeita uma [variável `$(network)`](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-regra-e-recusada-com-invalid-operator-ou-invalid-choice) e um [`mode` de _Set WAF_](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-regra-com-um-comportamento-set-waf-e-recusada-com-required-field) diferente de `logging` ou `blocking`.
+
+A regra corrigida retorna `202`, com a `description` e a `order` que a API preenche.
+
+---
+
+## A exclusão de um firewall é recusada com Cannot Delete Firewall
+
+A exclusão de um firewall volta com `400`, código `24003`, `Cannot Delete Firewall`, e o `detail` `To delete this firewall, you must first remove its usage in the following workloads: [<workload-id>].`
+
+O deployment de um workload ainda aponta para o firewall, e `meta.workloads_using_firewall` nomeia cada um desses workloads. Excluir só o deployment não elimina a recusa.
+
+- **Exclua cada workload listado e depois o firewall**, com `DELETE /v4/workspace/firewalls/<firewall-id>` ou **Delete** na linha dele da lista **Firewalls**.
+
+A exclusão do firewall então retorna `202`.
+
+---
+
+## Uma instância de função é recusada com Invalid edge function runtime
+
+Instanciar uma função em um firewall falha com `["Invalid edge function runtime. You should use a function designed for Edge Firewall."]`.
+
+Um firewall executa apenas funções cujo `execution_environment` é `firewall`, como Bot Manager Lite do Marketplace, e esta é `application`.
+
+- **Verifique o ambiente** com `azion describe function --function-id <function-id> --format json`.
+- **Defina `firewall` nas funções que você escreve**, e não o `edge_firewall` da ajuda da flag, que a [API rejeita](/pt-br/documentacao/plataforma/firewall/functions/#ambiente-de-execucao). A CLI imprime `Created function with ID <function-id>`:
+
+```bash
+azion create function --name <function-name> --code <code-file>.js --args <args-file>.json \
+  --execution-environment firewall --active true
+```
+
+- **Ou escolha a função no Azion Console**, cujo formulário de instância oferece apenas funções de firewall.
+
+A criação da instância então imprime `Created Firewall Function Instance with ID <instance-id>`.
+
+---
+
+## Uma instância de função é recusada porque a função não foi encontrada
+
+A criação da instância falha apenas com `["The function was not found."]`.
+
+Nenhuma função da conta tem o id enviado em `--function-id`, ou em `function` pela API.
+
+- **Descreva a função primeiro** com `azion describe function --function-id <function-id> --format json`.
+- **Envie o id da função, não o da instância**: uma instância aponta para uma **função**, e uma regra para a **instância**.
+- **Deixe a instalação pelo Marketplace terminar**: Bot Manager Lite então aparece como `Bot Manager Lite v0.2.0`, com o id de função a enviar.
+
+A criação então imprime o id da nova instância.
+
+---
+
+## Uma regra é recusada com Function Instance not found
+
+Criar a regra que chama uma instância de função falha com `["Function Instance '<instance-id>' not found."]`.
+
+Um comportamento `run_function` nomeia uma instância do mesmo firewall no seu `value`, e qualquer outro número é recusado, mesmo um que identifica outra coisa.
+
+- **Copie o id que a criação da instância imprimiu**, ou confira-o com um `GET` da instância.
+- **Ou escolha-a no Azion Console**: **Select a Function** lista apenas as instâncias ativas do firewall.
+- **Use `type` como chave do comportamento, não `name`**: `name` falha em um JSON válido com `Error: Failed to decode the given 'json' file.`
+- **Copie o formato de regra** que [Instâncias de função no Firewall](/pt-br/documentacao/plataforma/firewall/functions-instances/#comportamento-run-function) mostra e crie-a com `azion create firewall-rule --firewall-id <firewall-id> --file rule.json`.
+
+A CLI então imprime `Created Firewall Rule with ID <rule-id>`.
+
+---
+
+## Uma instância de função é recusada pelo comprimento do nome ou pelo tamanho do payload
+
+A criação da instância falha com `["Ensure this field has no more than 100 characters."]` ou `["Value size (in bytes) is too big. Maximum size allowed is 100000 bytes."]`.
+
+O nome de uma instância aceita até 100 caracteres, e o objeto de argumentos dela, arrays incluídos, até 100.000 bytes em decimal, então 102.400 bytes, que são 100 KiB, são recusados.
+
+- **Encurte o nome, ou reduza o objeto de argumentos** até o limite.
+- **Não leia nenhuma das mensagens como teto de instâncias**: um firewall aceita qualquer número delas, como [Limites de Firewall](/pt-br/documentacao/plataforma/firewall/limites/#regras-e-instancias-de-funcao) mostra.
+
+Dentro dos dois limites, a criação imprime o id da nova instância.
+
+---
+
+## WAF
+
+Web Application Firewall (WAF) pontua as requisições que um comportamento _Set WAF_ passa para ele e, no modo `blocking`, recusa aquelas cujo score atinge um limite. Para o modelo de score, consulte [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#waf).
+
+### Uma requisição legítima é respondida com 400 Bad Request
+
+Requisições comuns voltam com `400` em uma página de erro `Bad Request`, sem header de WAF e com uma linha Status Code que mostra `0`.
+
+A requisição continha um padrão que uma regra interna procura, como um apóstrofo em um termo de busca.
+
+- **Comprove que foi o WAF** com [Encontre o score de uma requisição bloqueada](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf/): um bloqueio do WAF mostra `wafBlock` `1`.
+- **Transforme cada falso positivo em uma exceção** pela aba Tuning, restrita a uma regra interna, um caminho e uma [condição](/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/#campos).
+- **Reduza a [sensibilidade](/pt-br/documentacao/plataforma/firewall/waf/score-e-modos/#score-e-sensibilidade) apenas quando uma família inteira erra**: ela muda toda requisição, e uma exceção apenas o que nomeia.
+
+A requisição então chega à aplicação, e a regra interna continua pontuando tudo o que fica fora da exceção.
+
+### Nenhuma requisição é bloqueada e nenhuma correspondência é registrada
+
+Uma requisição com formato de ataque chega à aplicação, e o Real-Time Events mostra `wafBlock`, `wafMatch`, `wafScore` e `wafAttackAction` em `-`.
+
+Depois da [propagação](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-regra-ainda-nao-age-sobre-as-requisicoes), verifique quatro causas, da mais barata para a mais cara:
+
+1. **WAF está desativado no firewall**: `modules.waf` precisa mostrar `{"enabled":true}`, ou as regras são executadas sem WAF até você [ativá-lo](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-regra-e-recusada-com-missing-required-modules).
+2. **Nenhuma regra aplica o rule set**: um comportamento `set_waf` precisa nomeá-lo em `waf_id`.
+3. **O comportamento está no modo `logging`**, que pontua, registra e atende, como [Verifique ou altere o modo do WAF](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/como-verificar-modo-do-seu-waf/) mostra.
+4. **Os critérios não pegam a requisição**: `${request_args}` `matches` `.*` falha sem query string, enquanto `${request_uri}` `starts_with` `/` entrega toda requisição ao WAF.
+
+Uma requisição com formato de ataque então é respondida com `400`, com `wafBlock` em `1`.
+
+### Um POST com corpo benigno é respondido com 400
+
+Um `POST` sem nada que uma regra interna procure volta com `400`, mas o mesmo corpo com outro `Content-Type` volta com `200`.
+
+O WAF interpreta cinco formatos de corpo, e a regra interna `11` bloqueia um `POST` com qualquer outro `Content-Type`, ou sem nenhum, como [Score e modos](/pt-br/documentacao/plataforma/firewall/waf/score-e-modos/#parsing-do-corpo-da-requisicao) mostra.
+
+- **Envie sempre um `Content-Type` interpretado**: um formulário urlencoded, um objeto JSON e um upload multipart passam.
+- **Valide o JSON no cliente**: a regra `15` transforma um corpo `application/json` que não pode ser interpretado em um `400`.
+- **Isente a regra `11` no caminho quando o cliente não puder mudar**: ela cobre apenas a [match zone](/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/#match-zones) do corpo.
+
+O `POST` então passa, e o WAF inspeciona cada campo do corpo.
+
+### Um POST com corpo grande é respondido com 400
+
+Requisições `POST` sem nenhum ataque retornam `400`, nunca `413`, quando o corpo passa de um certo tamanho.
+
+O WAF lê corpos de até 131.072 bytes, ou 128 KiB, e a regra interna `2` recusa um maior em qualquer sensibilidade.
+
+- **Mantenha os payloads que precisam de inspeção em até 131.072 bytes**, contando só o corpo, não o `requestLength` que o evento mostra.
+- **Teste o limite com um corpo de formulário ou multipart**: as regras `15` e `11` recusam um teste JSON ou `text/plain` em qualquer tamanho, como [Limites de Firewall](/pt-br/documentacao/plataforma/firewall/limites/#waf) mostra.
+
+Corpos de 131.072 bytes ou menos são então inspecionados e repassados.
+
+### Uma exceção cobre mais do que nomeia
+
+Uma exceção feita para um header, um campo ou um valor volta sem a chave que o nomeava e cobre mais do que você queria.
+
+Uma chave fora do formato de uma condição é descartada, então `{"match":"any_http_header_value","name":"cookie"}` isenta todos os headers, e um `rule_id` omitido significa `0`, todas as regras internas.
+
+- **Compare as `conditions` armazenadas com o que você enviou**: uma chave ausente foi descartada.
+- **Nomeie o alvo com uma zona `specific_`**: `name` com `specific_*_name`, `value` com `specific_*_value`, e nenhum nome de header em `specific_http_header_value`, como [Exceções do WAF](/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/#condicoes) mostra.
+- **Preencha `rule_id` e `path` sempre**: eles ligam a exceção ao seu falso positivo.
+
+A exceção então volta como foi enviada e cobre apenas a zona que nomeia.
+
+### Uma regra com um comportamento Set WAF é recusada com Required Field
+
+A regra que aplica um rule set falha com `400`, código `10059`, `Required Field`, em `/data/behaviors/0/attributes/mode`, como os erros de [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/#erros) mostram.
+
+Um comportamento `set_waf` exige `mode`, além de `waf_id`: `waf_id` escolhe o que detectar, e `mode` o que acontece depois.
+
+- **Inclua `mode`, como `logging` ou `blocking`**: qualquer outro valor, `learning` entre eles, retorna `10039`, e [Score e modos](/pt-br/documentacao/plataforma/firewall/waf/score-e-modos/#modos) dá o efeito de cada um.
+- **Confirme que o rule set existe**: um `waf_id` desconhecido retorna `25036 Invalid Informed WAF`.
+- **Coloque o corpo inteiro em um arquivo para Azion CLI**: `azion create firewall-rule` aceita apenas `--firewall-id` e `--file`.
+
+A criação então retorna `202`, ecoando o comportamento e o seu modo.
+
+### A criação de um rule set é respondida com 500 Internal Server Error
+
+`POST /v4/workspace/wafs` retorna `500`, código `10067`, `Internal Server Error`, para um corpo cujos campos parecem todos válidos.
+
+Uma família de ameaças listada duas vezes em `thresholds` falha na validação, sob uma mensagem que não nomeia nem a duplicata nem o campo, como os erros de [Rule sets do WAF](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/#erros) mostram.
+
+- **Nomeie cada uma das oito [famílias de ameaças](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/#familias-de-ameacas) uma única vez**: `thresholds` aceita no máximo oito entradas, e uma única entrada também cria o rule set.
+- **Separe uma duplicata de um valor desconhecido**: um `threat` ou uma `sensitivity` desconhecidos retornam `400` e `10039`, com um ponteiro que indexa a entrada errada.
+
+A criação então retorna `202`, ecoando os thresholds ordenados por `threat`.
+
+### Azion CLI recusa todo valor de conditions com Ensure this field has at least 1 elements
+
+Toda entrada de `--conditions` recebe `Error: failed to create the WAF Exception: ["Ensure this field has at least 1 elements."]`.
+
+Azion CLI 4.23.0 envia `conditions` como um array vazio, qualquer que seja o conteúdo da flag, e a API o recusa com `10049`, como [Exceções do WAF](/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/#cli) mostra.
+
+- **Crie a exceção a partir de um arquivo**: `azion create waf-exceptions --waf-id <waf-id> --file exc.json`.
+- **Leia o ID da regra com `azion describe waf-exceptions`**: a coluna `RULE ID` de `azion list waf-exceptions` não o contém.
+- **Ou envie o mesmo corpo** para `POST /v4/workspace/wafs/<waf-id>/exceptions`.
+
+A CLI então imprime `Created WAF Exception with ID <exception-id>`.
+
+### Tuning não lista nenhum registro
+
+Em um rule set que o tráfego real alcança, a aba **Tuning** não mostra nenhum registro.
+
+Uma consulta do Tuning cobre um domínio ao longo de uma janela e retorna apenas o que o WAF registrou ali:
+
+- **Escolha um domínio**: a consulta não é executada sem um.
+- **Defina a janela como _Last 3 days_**: não há intervalo mais longo, então correspondências mais antigas se perdem.
+- **Confirme que este é o rule set aplicado**: sem nenhum comportamento _Set WAF_ que o nomeie, ele não registra nada.
+- **Não combine um filtro de endereço com um filtro de lista**: Azion Console recusa o par, como [Exceções do WAF](/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/#tuning) mostra.
+
+O Tuning então lista uma linha por regra interna que correspondeu, com o seu **Rule ID** e **Hits**.
+
+### Um rule set que você não usa mais é recusado com Cannot Delete WAF
+
+`DELETE /v4/workspace/wafs/<waf-id>` falha com `400`, código `26007`, `Cannot Delete WAF`, e o rule set permanece.
+
+Uma regra ainda aplica o rule set por um comportamento `set_waf`, e a recusa nomeia cada uma dessas regras como `<firewall-name> - <rule-name>`, como os erros de [Rule sets do WAF](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/#erros) mostram.
+
+- **Exclua cada regra, ou aponte o [_Set WAF_](/pt-br/documentacao/plataforma/firewall/rules-engine/#set-waf) dela para outro rule set**: um `DELETE` de regra retorna `202`.
+- **Repita a exclusão**: ela retorna `202` com `{"state": "pending"}`.
+
+O rule set é removido, e nenhuma regra aponta para um rule set inexistente.
+
+---
+
+## Network Shield
+
+Network Shield adiciona o critério `${network}` a um firewall, o que permite que uma regra compare o endereço do cliente com uma [network list](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/). Para a correspondência de listas, consulte [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#network-shield).
+
+### Um cliente listado ainda alcança a aplicação
+
+Um cliente cujo endereço, ASN ou país aparece em uma network list passa.
+
+Verifique o que impede uma regra de `${network}` de recusá-lo:
+
+- **Propagação**: uma regra nova sobre uma lista `countries` ou `asn` fica no extremo lento dos [atrasos](/pt-br/documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/#uma-lista-por-tras-de-muitas-regras).
+- **O vínculo**: um firewall só age por meio de um [deployment que o nomeia](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#um-firewall-nao-age-sobre-as-requisicoes-de-um-workload).
+- **O que a lista armazena**: um item `ip_cidr` já vencido no momento da gravação nunca é armazenado.
+- **O operador**: _does not match_ (`is_not_in_list`) deixa passar os clientes listados e recusa todos os outros, enquanto _matches_ (`is_in_list`) os recusa.
+- **O resto do bloco**: critérios unidos com `and` recusam o cliente apenas quando todos valem.
+- **O registro**: uma regra ausente do [Debug Rules](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-requisicao-recusada-nao-nomeia-a-regra-que-a-recusou) não correspondeu.
+
+O cliente listado então recebe `403` sob _Deny (403 Forbidden)_.
+
+### Um cliente legítimo é recusado por uma regra de network list
+
+Uma regra que usa uma network list responde `403` a um cliente que deveria passar.
+
+O [Debug Rules](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-requisicao-recusada-nao-nomeia-a-regra-que-a-recusou) nomeia a regra, e o critério _Network_ dela nomeia a lista.
+
+- **Uma allowlist recusa todo endereço que não contém**: adicione o endereço da linha Your IP da página de erro com `azion update network-list --network-list-id <network-list-id> --add-item "<your-ip>"`, que o mescla aos itens.
+- **Um item `countries` ou `asn` cobre todo endereço [associado a ele](/pt-br/documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/#correspondencia-de-listas)**: liste intervalos exatos em uma lista `ip_cidr`, ou restrinja a regra.
+- **Um item vencido pode continuar correspondendo**: ele [continua armazenado](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#um-item-com-a-data-de-expiracao-vencida-ainda-bloqueia) até a próxima gravação.
+- **Outra regra respondeu antes**: _Deny (403 Forbidden)_ [interrompe a execução](/pt-br/documentacao/plataforma/firewall/como-funciona/#comportamentos-que-encerram-a-lista), então altere a regra que o Debug Rules nomeia.
+
+Quando a mudança se [propaga](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-regra-ainda-nao-age-sobre-as-requisicoes), o cliente chega à aplicação.
+
+### Algumas requisições ainda recebem a resposta antiga depois de uma mudança na lista
+
+Logo depois de uma edição nos itens de uma network list, um teste pode receber a resposta antiga, ou alternar entre a antiga e a nova, por cerca de 100 segundos de [propagação](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-regra-ainda-nao-age-sobre-as-requisicoes). Um `PATCH` de `items` também sobrescreve o array, descarta duplicatas exatas e itens vencidos sem aviso e chega apenas às regras cujo `argument` de `${network}` é o `id` dessa lista.
+
+### Um item com a data de expiração vencida ainda bloqueia
+
+A data de expiração `--LT` de um item `ip_cidr` já passou, mas o seu cliente continua sendo recusado.
+
+A Azion verifica as datas de expiração apenas quando os itens são gravados, então um item vencido continua correspondendo, como [Correspondência de listas](/pt-br/documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/#expiracao-e-anotacoes) mostra.
+
+- **Grave os itens de novo**: toda gravação descarta os vencidos, então reenviar `{"items":["198.51.100.7 --LT2026-09-29T02:36:00Z","192.0.2.10"]}` armazena apenas `"192.0.2.10"`.
+- **Remova só esse item** com `azion update network-list --network-list-id <network-list-id> --remove-item "<item-as-stored>"`, escrito exatamente como `azion describe network-list --network-list-id <network-list-id>` o mostra, incluindo a data de expiração e o comentário.
+- **Ou exclua a linha dele** do campo **List** no Azion Console, em **Edge Libraries** > **Network Lists**, e depois selecione **Save**.
+- **Agende uma gravação para depois da data de expiração**: só uma gravação posterior faz o item deixar de corresponder.
+
+O cliente então passa 62 segundos depois da regravação.
+
+### Uma regra é recusada com Invalid Operator Argument Type
+
+Com Network Shield ativado, uma regra de `${network}` ainda falha com `400`, código `25042`, `Invalid Operator Argument Type`.
+
+O `id` da lista saiu como uma string JSON: a especificação da API v4 tipa o argumento como string, mas a API aceita apenas um inteiro JSON.
+
+- **Tire as aspas do id**, como faz o corpo de regra em [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#o-criterio-network), e crie a regra com `azion create firewall-rule --firewall-id <firewall-id> --file rule.json`.
+- **Ou escolha a lista no Azion Console**: **Select a Network** sempre envia um inteiro.
+
+A regra então retorna `202` e volta com um `argument` inteiro.
+
+### Uma regra é recusada com Entity Not Found ou Entity Not Active
+
+Salvar uma regra de `${network}` falha com `400`, e o `detail` cita a lista que a regra não pôde usar, como os erros de [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/#erros) mostram.
+
+O código `25030` significa que nenhuma lista da conta tem esse `id`. O código `25031` significa que a lista tem `active` em `false`, que só a API e Azion CLI alteram, já que Azion Console não tem controle para isso.
+
+- **Pegue o id** de `GET /v4/workspace/network_lists`.
+- **Reative a lista** com um `PATCH` de `{"active": true}` ou `azion update network-list --network-list-id <network-list-id> --active true`.
+
+A regra então retorna `202`.
+
+### Uma regra é recusada com Invalid Operator ou Invalid Choice
+
+O corpo de uma regra escrito à mão falha no critério `${network}` com `400` e o [código `25039`](/pt-br/documentacao/plataforma/firewall/rules-engine/#erros), `Invalid Operator`, ou `10039`, `Invalid Choice`.
+
+O código `25039` vem de _matches_ ou _does not match_, rótulos do Azion Console e não valores da API, e `10039` vem de `$(network)`, uma grafia que a especificação da API v4 lista e a API rejeita.
+
+- **Use os operadores da API**: `is_in_list` para _matches_ e `is_not_in_list` para _does not match_.
+- **Escreva a variável com chaves**: `${network}`.
+
+A regra então retorna `202`, como o [critério Network](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#o-criterio-network) mostra.
+
+### Network Shield não pode ser desativado
+
+Desativar Network Shield falha com `400`, código `24005`, cujo `detail` lista as regras que o prendem.
+
+Network Shield continua ativado enquanto uma regra usa `${network}`, como [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#o-que-network-shield-acrescenta-a-um-firewall) explica para regras movidas entre firewalls.
+
+- **Libere as regras que a mensagem nomeia**: tire o critério _Network_ delas, ou exclua-as na aba **Rules Engine** ou com um `DELETE`, que retorna `202`.
+- **Depois desative Network Shield**, em **Main Settings** ou com `--network-protection false`, como [Defina as configurações principais de um firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/firewall-definir-main-settings/#altere-os-produtos-habilitados-em-um-firewall) mostra.
+- **Ou mantenha-o ativado**: regras sem o critério _Network_ se comportam igual, como [Boas práticas de Firewall](/pt-br/documentacao/plataforma/firewall/boas-praticas/#mantenha-network-shield-ativado-quer-uma-regra-o-use-ou-nao) explica.
+
+Sem nenhuma regra de `${network}`, Network Shield é desativado.
+
+### Uma lista é recusada com Invalid IP CIDR
+
+Gravar uma lista `ip_cidr` falha com `400`, código `22005`, `Invalid IP CIDR`, cujos `meta.index` e `meta.value` apontam apenas para o primeiro item inválido.
+
+O item não é um endereço ou intervalo IPv4 ou IPv6, como `abc`, ou a sua anotação está malformada, como um `#` inicial ou um `--lt` em minúsculas.
+
+- **Corrija o item de `meta.value` e reenvie**: três itens inválidos levam três rodadas.
+- **Exclua linhas em vez de comentá-las**: um comentário vem depois do endereço, como em `192.0.2.1 #comment`.
+- **Escreva `--LT` em maiúsculas**: `192.0.2.2 --LT2030-01-01T00:00:00Z`.
+- **Conte `meta.index` depois dos itens descartados**: os itens vencidos são descartados antes da contagem.
+
+A gravação então retorna `201` ou `200`, armazenando os itens como enviados, como [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#anotacoes-de-item) mostra.
+
+### Uma lista é recusada com Invalid ASN Number
+
+Gravar uma lista `asn` falha com `400`, código `22011`, `Invalid ASN Number`.
+
+Pela API, um item `asn` é composto só de dígitos, então `abc`, um prefixo `AS` ou um comentário retornam esse erro.
+
+- **Envie apenas o número**: `64496`, nunca `AS64496`, e sem anotação.
+- **Deixe Azion Console marcar a linha**: o texto de ajuda dele aceita um prefixo `AS`, e ele nomeia cada linha que recusa antes de salvar.
+
+A gravação então retorna `201` ou `200`, como [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#tipos-de-lista) mostra.
+
+### Uma lista é recusada com Invalid Country
+
+Gravar uma lista `countries` falha com `400`, código `22015`, `Invalid Country`.
+
+Cada item precisa ser um código ISO 3166-1 alpha-2, duas letras maiúsculas sem nada acrescentado, então `br`, `Brazil`, `XX` e `BR --LT2030-01-01T00:00:00Z` falham.
+
+- **Use o código de duas letras em maiúsculas**: `BR`.
+- **Ou escolha os países no Azion Console**: o campo **Countries** os lista por nome e envia cada código.
+
+A gravação então retorna `201` ou `200`, como [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#tipos-de-lista) mostra.
+
+### Uma lista é recusada com Due Date Invalid Format
+
+Gravar uma lista `ip_cidr` falha com `400`, código `22007`, `Due Date Invalid Format`.
+
+Uma data de expiração é `--LT` seguido de uma data e hora em UTC com segundos inteiros, `YYYY-MM-DDTHH:MM:SSZ`, então `--LT2030-01-01` e `--LT2030-01-01T00:00:00.000Z` falham, e um `--lt` em minúsculas retorna `22005`.
+
+- **Informe a data e a hora completas em UTC, depois qualquer comentário**: `192.0.2.5/32 --LT2030-01-01T00:00:00Z #both`.
+- **Deixe Azion Console marcar a linha**: o campo **List** recusa esses formatos com as mensagens que [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#tipos-de-lista) cita.
+
+A gravação então retorna `201` ou `200`, armazenando o item como enviado.
+
+### Uma lista é recusada com All Network Items Are Expired
+
+Gravar uma lista `ip_cidr` falha com `400`, código `22019`, `All Network Items Are Expired`.
+
+Todo item enviado tem uma data `--LT` já passada. A Azion descarta os itens vencidos antes de armazenar uma lista, que precisa de pelo menos um, então, quando algum item sobrevive, os vencidos somem sem aviso.
+
+- **Inclua pelo menos um item ainda válido**, ou um sem data.
+- **Deixe Azion Console marcar a linha**: o campo **List** sinaliza uma data passada antes de salvar.
+
+A gravação então retorna `201` ou `200` sem os itens vencidos, como [Correspondência de listas](/pt-br/documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/#expiracao-e-anotacoes) mostra.
+
+### Uma lista é recusada com Required Field ou Invalid Choice
+
+Criar ou substituir uma network list falha com `400` e o código `10059`, `Required Field`, ou `10039`, `Invalid Choice`, com o campo em `source.pointer`, como `/data/type` ou `/data/items`.
+
+O código `10059` cobre uma criação sem `type`, um `PUT` sem `type` ou `items` e, duas vezes, os nomes da v3 `list_type` e `ip_list`. O código `10039` cobre qualquer `type` além de `ip_cidr`, `asn` e `countries`, como `geo`.
+
+- **Use os nomes da v4**: `name`, `type` e `items` em uma criação ou um `PUT`, e apenas os campos alterados em um `PATCH`.
+- **Fique nos três tipos**.
+
+A requisição então retorna `201` ou `200`, como os erros de [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#erros) mostram.
+
+### O tipo de uma lista não pode ser alterado
+
+Enviar um `type` diferente em uma atualização falha com `400`, código `22002`, `Cannot Change Network List Type`, mesmo quando os itens caberiam nesse tipo.
+
+O `type` de uma lista é definido de vez na criação, e o formulário de edição do Azion Console o bloqueia.
+
+- **Crie outra lista com o tipo certo**.
+- **Aponte cada regra para ela** em **Select a Network**, na aba **Rules Engine**.
+- **Exclua a lista antiga quando nenhuma regra a usar**.
+
+Quando a mudança se propaga, as regras correspondem à nova lista.
+
+### Uma lista em uso não pode ser excluída nem desativada
+
+Excluir uma network list falha com `400` e o código `22018`, e definir `active` como `false` com `22003`, e nenhum dos dois `detail` nomeia o firewall ou a regra.
+
+Uma regra de firewall ainda referencia a lista por `${network}`, e `active: false` não pausaria a regra de qualquer forma: uma lista referenciada não pode receber `false`.
+
+- **Encontre as regras**: em `GET /v4/workspace/firewalls/<firewall-id>/request_rules`, uma regra que referencia a lista carrega o `id` dela como `argument` de `${network}`.
+- **Remova essas regras, ou aponte-as para outra lista**: a lista fica livre assim que a última exclusão de regra é aceita.
+
+A exclusão da lista então passa, como os erros de [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#erros) mostram.
+
+### A lista Azion IP Tor Exit Nodes não pode ser alterada
+
+Qualquer gravação na lista `Azion IP Tor Exit Nodes` falha, mesmo `{"active": true}`, com `400`, código `22004`, `Cannot Change Global Network List`.
+
+A Azion é dona dessa lista, de `id` `2`, mantém os itens dela atualizados e não deixa nenhuma conta modificá-la.
+
+- **Use-a como é fornecida**: passe `2` como argumento de `${network}`, como [Bloqueie exit nodes do Tor](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/bloquear-redes-tor/) mostra.
+- **Mantenha os seus endereços em uma lista separada**, como [Bloqueie requisições por IP, ASN ou país](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/blocklists-enderecos-ip-edge/) mostra.
+
+As suas regras então usam a lista da Azion ao lado das suas, como [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#listas-mantidas-pela-azion) descreve.
+
+---
+
+## Bot Manager
+
+Bot Manager é uma instância de função que um comportamento _Run Function_ chama, e ele pontua cada requisição que recebe. Para o modelo de score, consulte [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#bot-manager).
+
+### Um cliente é respondido com 204 e um corpo vazio
+
+Toda requisição de um cliente de API, de um health check ou de um monitor recebe `204`, nenhum corpo e dois headers `Set-Cookie` do Bot Manager Lite.
+
+Um cliente que não executa JavaScript e não guarda cookies nunca devolve o [par de cookies](/pt-br/documentacao/plataforma/firewall/bot-manager/score-de-bots/#cookies-de-sessao), então o `204` se repete indefinidamente.
+
+- **Diferencie o `204` de um bloqueio**: a ação `deny` responde `403`.
+- **Não reenvie um par antigo**: ele rende outro `204`.
+- **Deixe o cliente fora dos [critérios](/pt-br/documentacao/plataforma/firewall/rules-engine/#criterios) da regra**, para que a instância nunca o pontue.
+- **Compare com um navegador**: no `threshold` padrão de `30`, o `curl` recebe `204`, enquanto uma requisição com formato de navegador chega à aplicação.
+
+Quando a regra deixa de corresponder ao cliente, as requisições dele chegam à aplicação.
+
+### Uma mudança em um argumento parece não ter efeito
+
+Depois que você edita `threshold` ou `action`, a mesma requisição recebe a mesma resposta por cerca de 105 segundos de [propagação](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-regra-ainda-nao-age-sobre-as-requisicoes): uma instância trocada de `action: allow` para `action: deny` só começou a responder `403` então. Espere cerca de dois minutos e confirme os valores armazenados com `azion describe firewall-instance --firewall-id <firewall-id> --instance-id <instance-id> --format json`.
+
+Uma mudança armazenada ainda sem efeito pode ser a [falha silenciosa de uma chave não lida](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#um-argumento-nao-tem-efeito-e-nenhum-erro-e-retornado).
+
+### Um argumento não tem efeito e nenhum erro é retornado
+
+Um argumento volta exatamente como foi digitado, mas a função age como se ele não existisse, e nada reporta um problema.
+
+Nada valida o objeto de argumentos, então um erro de digitação como `thresold: 5` acrescenta uma chave que a função ignora, como [Argumentos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#campos) explica.
+
+- **Compare as chaves armazenadas com as documentadas**, padrões incluídos.
+- **Verifique os tipos além dos nomes**: um número enviado como string [continua uma string](/pt-br/documentacao/plataforma/firewall/functions-instances/#validacao-de-argumentos).
+- **Julgue o efeito pelo log de report**: os [campos](/pt-br/documentacao/plataforma/firewall/bot-manager/logs/#campos) `score`, `classified` e `action` mostram o que a função fez.
+
+A próxima linha de report então reflete uma mudança nas chaves que a função lê.
+
+### Azion CLI não retorna linhas de log
+
+Enquanto a instância pontua tráfego real, `azion logs cells --function-id <function-id>` e `azion logs http` não imprimem nada.
+
+As linhas de report chegam ao dataset `functionConsoleEvents` do Real-Time Events, não à CLI, como [Logs](/pt-br/documentacao/plataforma/firewall/bot-manager/logs/#onde-os-logs-aparecem) mostra.
+
+- **Consulte `functionConsoleEvents`**: ele retorna um registro por linha escrita.
+- **Dê a cada instância o seu próprio `log_tag`**, que a nomeia no prefixo do report.
+- **Não filtre pelo id do firewall**: `configurationId` guarda o id do **workload**, e `functionId` o da função instalada.
+- **Verifique `internal_logs`**: ele seleciona quais requisições recebem uma linha, `0` por padrão.
+
+Uma resposta vazia do dataset então significa, de fato, que nada foi escrito.
+
+### Uma mudança de limite reclassifica tráfego que já foi pontuado
+
+Depois de uma mudança de `threshold`, `classified` mostra outro valor em tráfego cujo score não mudou.
+
+`classified` compara o score com o limite em vigor, então um limite mais alto interrompe a ação e reclassifica o tráfego de uma vez, como [Logs](/pt-br/documentacao/plataforma/firewall/bot-manager/logs/#classificacao) mostra.
+
+- **Compare janelas por `score` e `matched_rules`**, que descrevem a requisição, não por `classified`, que os gráficos contam.
+- **Saiba o que `threshold: 0` faz**: a ação sempre dispara, então `action: allow` não bloqueia nada e pontua tudo.
+
+`classified` então se lê como o veredito do limite em vigor.
+
+### Usuários legítimos são recusados com 403
+
+Usuários reais, ou crawlers que você quer, recebem `403` e a página de erro padrão da Azion.
+
+O `threshold: 30` e a `action: deny` padrão deixam passar uma [requisição com formato de navegador](/pt-br/documentacao/plataforma/firewall/bot-manager/score-de-bots/#cookies-de-sessao), então uma requisição recusada correspondeu a regras que somaram o limite.
+
+- **Encontre essas regras** em `matched_rules`, nas linhas de report com `classified` em `legitimate` e um `score` perto do limite.
+- **Acompanhe o [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-secure/#bot-manager)**: uma queda em **Good Bot Hits** sugere crawlers recusados, e uma taxa baixa de solução em **Bot CAPTCHA**, bots desafiados.
+- **Desative as regras que os seus logs nomeiam** em `disabled_rules`, ou `disabled_static_rules` no Bot Manager, como [Argumentos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#regras-desabilitadas) descreve.
+- **Eleve o limite quando muitas regras compartilham os falsos positivos**, ou acrescente o `fingerprint` de clientes confiáveis a `good_fingerprint_list`.
+- **Meça com `action: allow` primeiro**, como [Boas práticas de Firewall](/pt-br/documentacao/plataforma/firewall/boas-praticas/#inicie-bot-manager-em-modo-de-observacao) descreve.
+
+A requisição então chega à aplicação, e uma regra desativada não soma a nenhum score.
+
+### O tráfego permanece em under evaluation
+
+Uma grande parte do tráfego é classificada como `under evaluation` e permanece alta.
+
+A função não encontrou nenhum bot, mas não tem os dados de fingerprint para descartar um ataque, como [Logs](/pt-br/documentacao/plataforma/firewall/bot-manager/logs/#under-evaluation) explica: visitantes novos trazem fingerprints inéditos, e um cliente que alterna endereços e user agents está tentando escapar.
+
+- **Leia proporções, não totais**, no gráfico **Bot Traffic** do [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-secure/#bot-manager).
+- **Compare a janela com os seus lançamentos e campanhas**: a parcela cai à medida que os novos fingerprints se consolidam.
+- **Trate uma parcela persistente com endereços variáveis como evasão**: nenhum cliente fica tempo suficiente para ser classificado.
+
+Um pico na parcela então aponta para visitantes novos ou rotação, não para uma mudança de configuração.
+
+### Nenhuma linha de report nomeia uma requisição que você espera que a função pontue
+
+Uma requisição que a instância deveria pontuar chega à aplicação sem linha de report, e os dashboards do Bot Manager não contam nada.
+
+As regras do firewall foram executadas, mas nenhuma chamou a instância, então os dashboards, construídos a partir da saída dela, ficam vazios, enquanto um salto em **Bad Bot Hits** significa que ela é executada e um ataque está em curso.
+
+- **Verifique a regra que chama a instância** no registro do [Debug Rules](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-requisicao-recusada-nao-nomeia-a-regra-que-a-recusou).
+- **Corrija os [critérios](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/#uma-regra-nao-corresponde-a-requisicao-que-voce-espera) dela**: `${request_uri}` `starts_with` `/` corresponde a toda requisição, e `${request_args}` pula as que não têm query string.
+- **Quando ela for executada, veja onde os bots chegam**: **Top Impacted URLs**, **Bot Activity Map** e **Top Bad Bot IPs** mostram endpoints, regiões e endereços recorrentes, e uma [network list](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/) feita do último eleva o score deles por `reputation_network_lists`.
+
+Cada requisição a que a regra corresponde então recebe uma linha de report.
+
+### As regras 18 a 26 do Bot Manager Lite produzem falsos positivos
+
+Requisições que você sabe que são legítimas têm entradas de 18 a 26 em `matched_rules`, com scores que atingem ou passam do limite.
+
+As regras 18 a 26 foram lançadas no Bot Manager Lite v0.2.0 sem calibração. As regras `18`, `19` e `20` somam 4 pontos cada para um `Sec-Fetch-Mode`, um `Sec-Fetch-Dest` ou um `Sec-Fetch-Site` vazio, então um cliente que não envia nenhum deles começa em 12.
+
+- **Fique em `action: allow`** até que os IDs de `matched_rules` estejam em `disabled_rules`, como [Bot Manager Lite](/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/#regras) recomenda.
+- **Veja qual categoria lidera**: **Top Bot Classifications** agrupa por `bot_category`.
+- **Some o score pela tabela de regras**: um total sem explicação significa que outras regras corresponderam.
+
+O score então fecha com as regras que corresponderam, sem as desativadas.
+
+### Um POST, PUT ou PATCH recebe score mais alto do que o esperado
+
+As escritas do seu próprio cliente pontuam mais que as leituras dele, e `matched_rules` inclui 15, 16 ou 17.
+
+As regras `15` e `16` somam 8 pontos cada a um `POST`, `PUT` ou `PATCH` sem `az_botm` ou sem `az_asm`, e a regra `17` soma 16 quando o par falha na verificação de integridade.
+
+- **Guarde o [par de cookies](/pt-br/documentacao/plataforma/firewall/bot-manager/score-de-bots/#cookies-de-sessao) e devolva-o nas escritas**, nunca um par de outra sessão.
+- **Desative as três regras para clientes que não guardam cookies**, em `disabled_rules`, como [Bot Manager Lite](/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/#regras) mostra.
+
+As escritas então pontuam como as leituras, e 15, 16 ou 17 em `matched_rules` marca um cliente que não está mantendo a sua sessão.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Rules Engine para Firewall" href="/pt-br/documentacao/plataforma/firewall/rules-engine/">Cada critério, operador e comportamento que uma regra pode conter, além dos erros que a gravação de uma regra retorna.</DocItem>
+  <DocItem title="Network Lists" href="/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#erros">Campos, tipos e anotações das listas, com a tabela completa de erros de lista.</DocItem>
+  <DocItem title="Exceções do WAF" href="/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/">Campos de exceção, as quinze match zones e a tela Tuning em que as correções do WAF se apoiam.</DocItem>
+  <DocItem title="Logs" href="/pt-br/documentacao/plataforma/firewall/bot-manager/logs/">A linha de report do Bot Manager campo a campo e os lugares onde ela pode ser lida.</DocItem>
+</ItemList>
+</FrameBox>

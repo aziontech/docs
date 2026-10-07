@@ -1,0 +1,320 @@
+---
+title: Use KV Store with a Redis-compatible client
+description: >-
+  Reach KV Store through a Redis-like client interface, with the familiar set,
+  get, delete, and hash operations mapped onto Azion's library.
+meta_tags: 'kv store, redis, sdk, key-value, client, compatibility'
+namespace: documentation_products_kv_store_redis_compatibility
+permalink: /documentation/guides/application-development/data/redis-compatibility/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+The `azion` library exposes a Redis-like client for [KV Store](/en/documentation/platform/kv-store/), so an application already written against Redis patterns keeps the shape of its calls. This guide covers the client, its options, the operations it carries, and how each one maps to the Redis command it stands in for.
+
+:::caution
+The `azion/kv` export this guide uses is not present in the published `azion` package, so the import on this page does not resolve today. The working interface is `Azion.KV`, a runtime global reached from inside a function with no import line. For it, refer to [KV client](/en/documentation/devtools/runtime/api-reference/kv-store/).
+:::
+
+---
+
+## Prerequisites
+
+- An Azion account. To create one, refer to [How to create an account on Azion](/en/documentation/fundamentals/creating-account/).
+- A KV Store namespace. It is created through the Azion API; refer to [Namespaces](/en/documentation/platform/kv-store/namespaces/).
+- Node.js 18 or later, or a compatible JavaScript runtime.
+
+---
+
+## Install the library
+
+```bash
+npm install azion
+```
+
+---
+
+## Create a client
+
+The client follows a Redis-like pattern, with chainable methods and a connection step:
+
+```typescript
+import { createClient } from 'azion/kv';
+
+const client = await createClient()
+  .on('error', (err) => console.error('KV Client Error:', err))
+  .connect();
+```
+
+### Client options
+
+```typescript
+const client = await createClient({
+  namespace: 'my-namespace',
+  apiToken: 'my-token',
+})
+  .on('error', (err) => console.error('KV Error:', err))
+  .connect();
+```
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `namespace` | string | The KV Store namespace the client addresses |
+| `apiToken` | string | An Azion API token, required by the API provider |
+
+---
+
+## Store a value
+
+`set` writes a value, with optional expiration and metadata:
+
+```typescript
+// A plain value
+await client.set('user:123', 'John Doe');
+
+// With an expiration of 10 seconds
+await client.set('session:abc', 'session-data', {
+  expiration: {
+    type: 'EX',
+    value: 10,
+  },
+});
+
+// With metadata
+await client.set('config:theme', 'dark', {
+  metadata: {
+    updatedBy: 'admin',
+    version: 1
+  },
+});
+
+// With both
+await client.set('cache:api-response', JSON.stringify(data), {
+  expiration: {
+    type: 'EX',
+    value: 300, // 5 minutes
+  },
+  metadata: {
+    source: 'external-api',
+    cached_at: Date.now()
+  },
+});
+```
+
+### Expiration types
+
+| Type | Description |
+| --- | --- |
+| `EX` | Expiration time in seconds |
+| `PX` | Expiration time in milliseconds |
+| `EXAT` | Unix timestamp in seconds |
+| `PXAT` | Unix timestamp in milliseconds |
+
+---
+
+## Read a value
+
+`get` returns the value, or `null` when the namespace holds no such key:
+
+```typescript
+const value = await client.get('user:123');
+console.log(value); // 'John Doe'
+
+// A key that does not exist returns null
+const missing = await client.get('non-existent');
+console.log(missing); // null
+```
+
+### Read a value with its metadata
+
+`getWithMetadata` returns the value and the metadata that was written with it:
+
+```typescript
+const result = await client.getWithMetadata('config:theme');
+console.log(result.value);    // 'dark'
+console.log(result.metadata); // { updatedBy: 'admin', version: 1 }
+```
+
+---
+
+## Delete a key
+
+`delete` removes a key, and `del` is an alias for it:
+
+```typescript
+await client.delete('user:123');
+// or
+await client.del('user:123');
+```
+
+---
+
+## Hash operations
+
+The client carries Redis-compatible hash operations for field-value pairs under one key. Each one has an uppercase alias.
+
+### hSet
+
+Writes one field of a hash:
+
+```typescript
+await client.hSet('user:profile:123', 'name', 'John Doe');
+await client.hSet('user:profile:123', 'email', 'john@example.com');
+await client.hSet('user:profile:123', 'role', 'admin');
+
+// The uppercase alias
+await client.HSET('user:profile:123', 'status', 'active');
+```
+
+### hGetAll
+
+Returns every field and value of a hash:
+
+```typescript
+const profile = await client.hGetAll('user:profile:123');
+console.log(profile);
+// { name: 'John Doe', email: 'john@example.com', role: 'admin', status: 'active' }
+
+const data = await client.HGETALL('user:profile:123');
+```
+
+### hVals
+
+Returns every value of a hash, without the field names:
+
+```typescript
+const values = await client.hVals('user:profile:123');
+console.log(values);
+// ['John Doe', 'john@example.com', 'admin', 'active']
+
+const vals = await client.HVALS('user:profile:123');
+```
+
+---
+
+## Provider detection
+
+The client detects the runtime it is executing in and selects a provider:
+
+- **Native provider**: selected inside the Azion Runtime, where a function executes.
+- **API provider**: selected outside Azion, in local development or on an external server.
+
+`getProviderType` reports which one is in use:
+
+```typescript
+const providerType = client.getProviderType();
+console.log(providerType); // 'native' or 'api'
+```
+
+---
+
+## Handle errors
+
+The client reports failures through an `error` event:
+
+```typescript
+const client = await createClient()
+  .on('error', (err) => {
+    console.error('KV Error:', err.message);
+    // Retry, fall back, or surface the failure
+  })
+  .connect();
+```
+
+A single operation is also wrapped in `try`/`catch`:
+
+```typescript
+try {
+  await client.set('key', 'value');
+} catch (error) {
+  console.error('Failed to set value:', error);
+}
+```
+
+---
+
+## Close the connection
+
+Close the client when the work is finished:
+
+```typescript
+await client.disconnect();
+// or
+await client.quit();
+```
+
+---
+
+## Complete example
+
+The operations above, composed into one run:
+
+```typescript
+import { createClient } from 'azion/kv';
+
+async function main() {
+  const client = await createClient({
+    namespace: 'my-app',
+  })
+    .on('error', (err) => console.error('KV Error:', err))
+    .connect();
+
+  try {
+    // Store user data
+    await client.set('user:1', JSON.stringify({ name: 'Alice', age: 30 }), {
+      expiration: { type: 'EX', value: 3600 }, // 1 hour
+      metadata: { created: Date.now() },
+    });
+
+    // Store a profile as a hash
+    await client.hSet('profile:1', 'theme', 'dark');
+    await client.hSet('profile:1', 'language', 'en');
+    await client.hSet('profile:1', 'notifications', 'true');
+
+    // Read the user data back
+    const userData = await client.get('user:1');
+    console.log('User:', JSON.parse(userData));
+
+    // Read it with its metadata
+    const result = await client.getWithMetadata('user:1');
+    console.log('Created at:', result.metadata.created);
+
+    // Read every profile field
+    const profile = await client.hGetAll('profile:1');
+    console.log('Profile:', profile);
+
+    // Remove the key
+    await client.delete('user:1');
+
+  } finally {
+    await client.disconnect();
+  }
+}
+
+main().catch(console.error);
+```
+
+---
+
+## Redis method mapping
+
+| Redis command | Client method | Description |
+| --- | --- | --- |
+| `GET` | `get(key)` | Read a value |
+| `SET` | `set(key, value, options?)` | Write a value |
+| `DEL` | `delete(key)` / `del(key)` | Remove a key |
+| `HSET` | `hSet(key, field, value)` / `HSET(...)` | Write a hash field |
+| `HGETALL` | `hGetAll(key)` / `HGETALL(key)` | Read every hash field |
+| `HVALS` | `hVals(key)` / `HVALS(key)` | Read every hash value |
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="KV client" href="/en/documentation/devtools/runtime/api-reference/kv-store/" label="The Azion.KV interface a function uses, with every method and option." />
+  <DocCard title="Manage key-value data from a function" href="/en/documentation/guides/application-development/data/manage-with-functions/" label="Store, read, and delete data from inside a function." />
+  <DocCard title="Namespaces" href="/en/documentation/platform/kv-store/namespaces/" label="Create the namespace this client addresses, through the Azion API." />
+  <DocCard title="KV Store" href="/en/documentation/platform/kv-store/" label="What the product is, its two interfaces, and where it stops." />
+</DocCardGroup>

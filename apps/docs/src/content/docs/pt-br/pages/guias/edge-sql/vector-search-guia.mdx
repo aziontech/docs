@@ -1,0 +1,243 @@
+---
+title: Construa uma busca semântica com embeddings
+description: >-
+  Armazene embeddings da OpenAI em uma tabela do SQL Database, indexe-os para
+  busca por vizinhos aproximados e retorne os documentos mais próximos da
+  pergunta.
+meta_tags: 'vector search, SQL Database, vector embeddings, semantic search, AI-based applications'
+namespace: documentation_guides_edge_sql_vector_search
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/dados/edge-sql-vector-search/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+
+Neste tutorial, você vai construir uma busca semântica que retorna os documentos de significado mais próximo a uma pergunta, sobre dados armazenados em [SQL Database](/pt-br/documentacao/plataforma/sql-database/). Você vai criar um banco de dados, adicionar uma tabela com uma coluna vetorial e um índice sobre ela, gerar embeddings com a OpenAI, armazená-los e consultar a tabela por similaridade.
+
+O artefato é uma função TypeScript que roda em uma aplicação Azion. Ela acessa o banco de dados pela [biblioteca SQL da Azion](/pt-br/documentacao/devtools/azion-lib/sql/) e produz seus embeddings com o pacote LangChain OpenAI.
+
+---
+
+## Pré-requisitos
+
+- Node.js instalado. A aplicação e a biblioteca `azion` rodam sobre ele.
+- Azion CLI instalada. Para mais informações, consulte [Azion CLI](/pt-br/documentacao/devtools/cli/).
+- Um personal token da Azion. Para mais informações, consulte [Como criar um personal token](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- SQL Database habilitado na conta. O produto está em Preview, e o acesso é solicitado pelo time de suporte técnico. Para solicitá-lo, consulte [Technical Support](/pt-br/documentacao/suporte/).
+- Uma OpenAI API key. A etapa de embedding chama a OpenAI API com ela. Para criar uma, consulte [Create and export an API key](https://platform.openai.com/docs/quickstart/create-and-export-an-api-key).
+
+---
+
+## 1. Crie o banco de dados
+
+O banco de dados é o contêiner em que a tabela vive, e `createDatabase` o cria a partir do código da aplicação. Para configurar o projeto e criá-lo:
+
+<DocSteps>
+  <DocStep title="Instale as dependências">
+
+  No diretório da aplicação, instale a biblioteca `azion` e o pacote LangChain OpenAI:
+
+  ```bash
+  npm install azion @langchain/openai
+  ```
+
+  Os dois pacotes ficam listados nas dependências do projeto.
+
+  </DocStep>
+  <DocStep title="Armazene as credenciais">
+
+  No arquivo `.env`, adicione o personal token e a OpenAI API key:
+
+  ```bash
+  AZION_TOKEN=[TOKEN VALUE]
+  OPENAI_API_KEY=[OPENAI API KEY]
+  ```
+
+  `AZION_TOKEN` autentica a biblioteca, e `OPENAI_API_KEY` autentica as chamadas de embedding.
+
+  </DocStep>
+  <DocStep title="Crie o banco de dados em main.ts">
+
+  Em `main.ts`, importe o que a função usa e crie o banco de dados. `createDatabase` responde com `data` e `error`, e uma falha carrega sua mensagem em `error`:
+
+  ```typescript
+  import { createDatabase, useExecute, useQuery } from 'azion/sql'
+  import { OpenAIEmbeddings } from '@langchain/openai'
+
+  export default async function vectorSearch() {
+    const { error: createError } = await createDatabase('vectorDatabase', { debug: true })
+
+    if (createError) {
+      return Response.json({ error: createError.message }, { status: 500 })
+    }
+  ```
+
+  </DocStep>
+</DocSteps>
+
+A conta passa a ter um banco de dados chamado `vectorDatabase`. O provisionamento é assíncrono: o status é `creating` primeiro e passa a `created` cerca de 15 segundos depois, e uma instrução só roda contra o banco de dados depois que o status é `created`.
+
+---
+
+## 2. Crie a tabela e o índice vetorial
+
+A tabela guarda o texto de cada documento e seu embedding. Um vetor vive em uma coluna própria, declarada com um tipo blob que carrega sua contagem de dimensões: `F32_BLOB(1536)` guarda 1.536 elementos de ponto flutuante de 32 bits, que é o número de dimensões que o modelo `text-embedding-3-small` retorna.
+
+O índice faz uma busca consultar uma estrutura de vizinhos aproximados mais próximos em vez de cada linha. Ele é construído sobre `libsql_vector_idx(embedding, 'metric=cosine')`, e a tabela que ele cobre precisa de um `ROWID` ou de uma `PRIMARY KEY` de coluna única, que `id INTEGER PRIMARY KEY AUTOINCREMENT` fornece.
+
+Continue em `main.ts` e rode as duas instruções com `useExecute`, que atende as instruções que criam e escrevem:
+
+```typescript
+  const setupStatements = [
+    `CREATE TABLE documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content TEXT NOT NULL,
+      embedding F32_BLOB(1536)
+    );`,
+    `CREATE INDEX documents_idx ON documents (
+      libsql_vector_idx(embedding, 'metric=cosine')
+    );`
+  ]
+
+  const { error: setupError } = await useExecute('vectorDatabase', setupStatements)
+
+  if (setupError) {
+    return Response.json({ error: setupError.message }, { status: 500 })
+  }
+```
+
+O banco de dados passa a ter uma tabela `documents` e um índice `documents_idx`. Criar um índice vetorial também adiciona uma tabela sombra chamada `documents_idx_shadow`, que tanto `getTables` quanto o EdgeSQL Shell listam ao lado da tabela.
+
+---
+
+## 3. Gere e armazene os embeddings
+
+O modelo de embedding transforma texto em um vetor. `text-embedding-3-small` retorna 1.536 dimensões, o número que a coluna `embedding` declara, e o mesmo modelo produz os vetores armazenados aqui e o vetor que a busca usa na etapa 4.
+
+Continue em `main.ts`. Construa o modelo, gere o embedding de cada documento com `embedQuery` e envolva o resultado em `vector('[...]')`, que converte um array de números no tipo que a coluna guarda:
+
+```typescript
+  const embeddings = new OpenAIEmbeddings({
+    model: 'text-embedding-3-small',
+    verbose: false,
+    apiKey: process.env.OPENAI_API_KEY
+  })
+
+  const documents = [
+    'Paris is the capital of France',
+    'The Eiffel Tower is a French landmark',
+    'London is the capital of England',
+    'Big Ben is located in London',
+    'Brasilia is the capital of Brazil',
+    'The Amazon rainforest is in Brazil',
+    'French cuisine is world-famous',
+    'Tea is popular in England',
+    'The English Channel separates Britain and France'
+  ]
+
+  const insertStatements = []
+  for (const doc of documents) {
+    const embedding = await embeddings.embedQuery(doc)
+    insertStatements.push(
+      `INSERT INTO documents (content, embedding) VALUES ('${doc}', vector('[${embedding}]'));`
+    )
+  }
+
+  const { error: insertError } = await useExecute('vectorDatabase', insertStatements, { debug: true })
+
+  if (insertError) {
+    return Response.json({ error: insertError.message }, { status: 500 })
+  }
+```
+
+A tabela `documents` passa a ter uma linha por entrada da lista, cada uma com seu texto e seu embedding, e o índice cobre essas linhas. `vector('[...]')` rejeita um vetor com mais de 65.536 dimensões.
+
+---
+
+## 4. Consulte por similaridade
+
+Uma busca gera o embedding da pergunta com o mesmo modelo e pede ao índice as linhas mais próximas. `vector_top_k` recebe o nome do índice, o vetor de consulta e o número de linhas a retornar, e responde com uma coluna `id` pela qual a tabela é juntada em `rowid`:
+
+```sql
+SELECT content FROM vector_top_k('documents_idx', vector('[...]'), 2) JOIN documents ON documents.rowid = id;
+```
+
+Continue em `main.ts` e rode a instrução com `useQuery`, que atende as instruções que retornam linhas:
+
+```typescript
+  const query = 'What is the capital of Brazil?'
+  const queryEmbedding = await embeddings.embedQuery(query)
+
+  const searchStatements = [
+    `SELECT content FROM vector_top_k('documents_idx', vector('[${queryEmbedding}]'), 2)
+     JOIN documents ON documents.rowid = id;`
+  ]
+
+  const { data: searchData, error: searchError } = await useQuery('vectorDatabase', searchStatements)
+
+  if (searchError) {
+    return Response.json({ error: searchError.message }, { status: 500 })
+  }
+
+  return Response.json({ data: searchData })
+}
+```
+
+A resposta carrega `results`, uma entrada por instrução, cada uma com suas `columns` e suas `rows`. Uma instrução que falha não faz a chamada falhar: sua mensagem chega em `error` e na entrada correspondente de `results`, e é por isso que cada operação acima lê `error` antes de ler `data`.
+
+A função retorna as duas linhas cujos embeddings estão mais próximos da pergunta, e uma falha em qualquer ponto da cadeia retorna uma mensagem JSON com status `500`.
+
+:::note[nota]
+SQL Database também suporta a integração LangChain Vector Store para armazenamento de documentos e o LangChain Retriever para busca híbrida, que combina busca vetorial com busca full-text.
+:::
+
+---
+
+## 5. Execute a função
+
+A função cria seu próprio banco de dados, tabela, índice e linhas na primeira requisição. Para executá-la localmente:
+
+<DocSteps>
+  <DocStep title="Construa a aplicação">
+
+  No diretório da aplicação, construa-a:
+
+  ```bash
+  azion build
+  ```
+
+  A saída do build é escrita no diretório do projeto.
+
+  </DocStep>
+  <DocStep title="Inicie o servidor local">
+
+  Sirva a função a partir da sua máquina:
+
+  ```bash
+  azion dev
+  ```
+
+  A função responde no endereço local que o comando imprime.
+
+  </DocStep>
+  <DocStep title="Envie uma requisição">
+
+  Requisite esse endereço local. A função cria o banco de dados, armazena os embeddings, gera o embedding de `What is the capital of Brazil?` e busca no índice.
+
+  </DocStep>
+</DocSteps>
+
+A resposta carrega os documentos cujos embeddings estão mais próximos da pergunta, e a conta passa a ter o banco de dados `vectorDatabase` com a tabela `documents` e suas linhas. Para buscar outra coisa, mude o valor de `query` e envie a requisição novamente.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Vector search" href="/pt-br/documentacao/plataforma/sql-database/vector-search/" label="Todos os tipos vetoriais, todas as funções vetoriais e como o índice é construído." />
+  <DocCard title="Bancos de dados e consultas" href="/pt-br/documentacao/plataforma/sql-database/bancos-de-dados-e-consultas/" label="Todos os campos que um banco de dados carrega, as cinco operações e os códigos de erro." />
+  <DocCard title="Consulte um banco de dados de uma function" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/listando-dados-edge-functions-edge-sql/" label="Leia a mesma tabela de uma função em tempo de execução." />
+  <DocCard title="Boas práticas" href="/pt-br/documentacao/plataforma/sql-database/boas-praticas/" label="Como escrever instruções e tratar seus erros antes de colocar isso em produção." />
+</DocCardGroup>

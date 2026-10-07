@@ -1,0 +1,278 @@
+---
+title: Query a zone with dig
+description: Install dig, ask Azion's nameservers for a zone's records, compare a public resolver, trace the delegation, and check DNSSEC signatures.
+meta_tags: 'Edge DNS, dig, dig command, dns lookup, nameserver, dnssec'
+namespace: documentation_how_to_troubleshoot_dig
+permalink: /documentation/guides/application-security/dns/run-the-dig-command/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+
+You can query an [Edge DNS](/en/documentation/platform/edge-dns/) zone with `dig` to see what Azion's nameservers answer for each record. The queries work before and after you delegate the domain. `dig`, the Domain Information Groper, is part of BIND, the DNS toolset that the Internet Systems Consortium (ISC) maintains. It sends one query to a resolver or a nameserver and prints the full response.
+
+`host` and `nslookup` ask the same questions with shorter output. All three check DNS answers only: to test whether the application behind a name responds over HTTP or TLS, use a client such as `curl` or `openssl s_client`. To see the network path to a nameserver, refer to [Trace the route to a host](/en/documentation/guides/application-security/dns/run-the-traceroute-command/).
+
+---
+
+## Prerequisites
+
+- A zone in Edge DNS with at least one record. To create them, refer to [Create, edit, or delete a zone](/en/documentation/guides/application-security/dns/edge-dns-configure-main-settings/) and [Add, edit, or delete a record](/en/documentation/guides/application-security/dns/add-records/).
+- A terminal: Terminal on macOS or Linux, and Command Prompt, PowerShell, or Git Bash on Windows.
+- `dig` on your machine. To get it, see [Install dig](#install-dig).
+
+---
+
+## Install dig
+
+Most macOS versions and some Linux distributions include `dig`. Windows and many Linux distributions do not.
+
+### macOS
+
+`dig` comes with macOS. To confirm, print its version:
+
+```bash
+dig -v
+```
+
+The command prints the version of the tool:
+
+```text
+DiG 9.10.6
+```
+
+### Linux
+
+On Debian-based distributions, such as Ubuntu and Kali Linux, `dig` is in the `dnsutils` package. To install it and confirm the version, run:
+
+```bash
+sudo apt-get install dnsutils
+dig -v
+```
+
+The second command prints the installed version of DiG. For another distribution, refer to its documentation for the package that holds `dig`.
+
+### Windows
+
+On Windows, `dig` comes with the BIND tools. To install them:
+
+<DocSteps>
+  <DocStep title="Download BIND">
+
+  From the [ISC downloads page](https://www.isc.org/download/), download the *Current-Stable, ESV* version of BIND.
+
+  </DocStep>
+  <DocStep title="Extract the archive">
+
+  Extract the whole archive, such as `BIND9.18.14.tar.xz`, into a dedicated folder.
+
+  </DocStep>
+  <DocStep title="Run the installer as an administrator">
+
+  In the folder, run `BINDInstall.exe` as an administrator.
+
+  </DocStep>
+  <DocStep title="Select Tools Only">
+
+  Select **Tools Only** to install only `dig`, `host`, `nslookup`, and `nsupdate`.
+
+  </DocStep>
+</DocSteps>
+
+The three query tools are available in your terminal. ISC removed Windows support from BIND in a 2021 update, so the tools run on Windows without support from ISC.
+
+---
+
+## Query Azion's nameserver
+
+With no server named, `dig` asks the resolvers your system uses, usually configured in `resolv.conf`, and gets their cached answers. With no arguments at all, it queries the DNS root zone.
+
+To ask Azion's nameserver directly, without your resolver's cache, put `@` before the nameserver. This works before you delegate the domain. Replace `example.com` with your domain:
+
+```bash
+dig @ns1.aziondns.net www.example.com A
+```
+
+The response shows the record and the server that answered:
+
+```text
+; <<>> DiG 9.10.6 <<>> @ns1.aziondns.net www.example.com A
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 17320
+;; flags: qr aa rd; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+;; WARNING: recursion requested but not available
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 4096
+;; QUESTION SECTION:
+;www.example.com.	IN	A
+
+;; ANSWER SECTION:
+www.example.com. 300 IN	A	192.0.2.1
+
+;; Query time: 39 msec
+;; SERVER: 179.191.160.2#53(179.191.160.2)
+…
+```
+
+`status: NOERROR` with the `aa` flag marks an authoritative answer from the nameserver that hosts the zone.
+
+:::caution
+Query a name only after you create its record. A name queried before it existed is answered `NXDOMAIN` for up to one hour, the SOA minimum. For more information, refer to [How Edge DNS works](/en/documentation/platform/edge-dns/how-it-works/#caching-and-propagation).
+:::
+
+---
+
+## Read the response
+
+Each part of the full response answers a different question:
+
+| Part | What it tells you |
+| --- | --- |
+| `status` in the header | The result of the query: `NOERROR` when the name has records, `NXDOMAIN` when the name does not exist, `SERVFAIL` when the server failed to answer. |
+| `flags` in the header | `aa` marks an authoritative answer, from a nameserver that hosts the zone. `ra` marks a resolver that looks up names for you. |
+| `WARNING: recursion requested but not available` | Azion's nameservers are authoritative only. They answer for the zones they host and do not look up other domains. |
+| OPT PSEUDOSECTION | The EDNS options of the query. It shows `flags: do` when you ask for DNSSEC signatures. |
+| QUESTION SECTION | The name and the record type you asked for. |
+| ANSWER SECTION | One line per value: name, TTL in seconds, class, type, and value. Azion's nameservers count the TTL down while they hold an answer in cache. |
+| AUTHORITY SECTION and ADDITIONAL SECTION | Referrals and related records, such as the SOA returned with a name that does not exist. |
+| `Query time` | How long the server took to answer, in milliseconds. |
+| `SERVER` | The address of the server that answered. `179.191.160.2` is `ns1.aziondns.net`. |
+
+---
+
+## Print only the values
+
+`+short` drops every part of the response except the values. To print the address of a name:
+
+```bash
+dig +short @ns1.aziondns.net www.example.com A
+```
+
+The output is the value of the record:
+
+```text
+192.0.2.1
+```
+
+Change the record type after the name to read another record set. An MX query prints each mail server with its priority:
+
+```bash
+dig +short @ns1.aziondns.net example.com MX
+```
+
+```text
+10 mail.example.com.
+20 mail2.example.com.
+```
+
+At the apex, Azion's nameservers answer an NS query with their own names:
+
+```bash
+dig +short @ns1.aziondns.net example.com NS
+```
+
+```text
+ns3.aziondns.org.
+ns2.aziondns.com.
+ns1.aziondns.net.
+```
+
+Each output line is one value of the record set.
+
+---
+
+## Compare with a public resolver
+
+A public resolver returns what users on the internet receive, including its cached copies. Google's public resolvers are `8.8.8.8`, `8.8.4.4`, `2001:4860:4860::8888`, and `2001:4860:4860::8844`. To ask one of them for the same record:
+
+```bash
+dig @8.8.8.8 www.example.com A
+```
+
+Before the domain is delegated to Azion, the resolver finds no answer:
+
+```text
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 19090
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+…
+;; SERVER: 8.8.8.8#53(8.8.8.8)
+…
+```
+
+The SOA in the AUTHORITY SECTION belongs to the registry of the top-level domain, not to Azion. After the registrar delegates the domain to Azion's nameservers, the resolver returns the values that `ns1.aziondns.net` returns, once its cached copy expires.
+
+Each resolver answers from its own cache, so two resolvers can return different values for a while. Some networks also intercept or filter DNS queries, which changes the answers you see. To find why the answers differ, refer to [Troubleshoot Edge DNS](/en/documentation/platform/edge-dns/troubleshooting/).
+
+---
+
+## Trace the delegation
+
+`+trace` follows the delegation from the root zone, through the servers of the top-level domain, to the nameservers that answer for the domain. To trace it:
+
+```bash
+dig example.com +trace
+```
+
+`dig` prints one block per referral, each listing the nameservers of the next level. For a domain delegated to Edge DNS, the last referral lists `ns1.aziondns.net`, `ns2.aziondns.com`, and `ns3.aziondns.org`. If it lists other nameservers, the registrar still delegates the domain elsewhere. To change that, refer to [Migrate nameservers to Azion](/en/documentation/guides/platform/migration/migrate-ns-to-azion/).
+
+---
+
+## Check DNSSEC signatures
+
+When DNSSEC is on for the zone, Azion signs its answers. `+dnssec` asks the nameserver to return the signatures with the answer:
+
+```bash
+dig +dnssec @ns1.aziondns.net www.example.com A
+```
+
+The OPT PSEUDOSECTION shows `flags: do`. A signed answer carries an `RRSIG` record, algorithm 13, next to the `A` record in the ANSWER SECTION. For a few minutes after you turn DNSSEC on, an answer cached earlier can still come back without an `RRSIG`.
+
+To read the zone's public keys, query its DNSKEY records at the apex:
+
+```bash
+dig +short @ns1.aziondns.net example.com DNSKEY
+```
+
+The zone publishes two keys, both with algorithm 13:
+
+```text
+257 3 13 fvkK…ikw==
+256 3 13 PfUf…4Q==
+```
+
+Flags `257` mark the key-signing key, and `256` the zone-signing key. A signature shows that the zone is signed, not that resolvers validate it. Validation also needs the DS record at your registrar. For the steps, refer to [Turn on DNSSEC for a zone](/en/documentation/guides/application-security/dns/activate-dnssec/).
+
+---
+
+## Query several names at once
+
+In batch mode, `dig` reads one query per line from a file, written as you would type it after `dig`. Create a file named `domains.txt` with one name and record type per line:
+
+```text
+www.example.com A
+example.com MX
+example.com NS
+```
+
+To send every query in the file to Azion's nameserver, pass the file to `-f`:
+
+```bash
+dig @ns1.aziondns.net -f domains.txt
+```
+
+`dig` prints one full response per line of the file, in the order of the file.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Troubleshoot Edge DNS" href="/en/documentation/platform/edge-dns/troubleshooting/" label="Find why a name returns NXDOMAIN, an old value, or no signature." />
+  <DocCard title="Migrate nameservers to Azion" href="/en/documentation/guides/platform/migration/migrate-ns-to-azion/" label="Delegate the domain so public resolvers ask Azion's nameservers." />
+  <DocCard title="Weight records to balance traffic" href="/en/documentation/guides/application-security/dns/load-balance-dns/" label="Spread answers across addresses and check them with dig." />
+  <DocCard title="Turn on DNSSEC for a zone" href="/en/documentation/guides/application-security/dns/activate-dnssec/" label="Sign the zone and give the DS record to your registrar." />
+</DocCardGroup>

@@ -1,0 +1,250 @@
+---
+title: Troubleshoot Azion Lib
+description: Fix Azion Lib calls that fail to load, are refused for the token, return an error envelope, or throw instead of returning one.
+meta_tags: 'Azion Lib troubleshooting, Invalid authentication credentials, import type, does not provide an export named, bucket does not exist, maximum number of databases, device group, cache setting, JWT errors'
+namespace: documentation_azion_lib_troubleshooting
+permalink: /documentation/devtools/azion-lib/troubleshooting/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+This page lists the errors you can meet with the [Azion Lib](/en/documentation/devtools/azion-lib/) packages, each with its cause and its fix. Loading and authentication come first, then Storage, SQL, Applications, and JWT.
+
+---
+
+## A type import fails with does not provide an export named
+
+A TypeScript file that imports from an Azion Lib package stops at load, before any call runs:
+
+```text
+SyntaxError: The requested module '@aziontech/storage' does not provide an export named 'AzionBucket'
+```
+
+The import mixes a function and a type, as in `import { getBucket, AzionBucket } from '@aziontech/storage'`. When Node.js strips the types of the file, or in a project with `verbatimModuleSyntax`, the import stays as written, and the package has no runtime export with the name of the type.
+
+- **Import types with import type**: keep the functions in the value import and move each type to its own line, such as `import type { AzionBucket } from '@aziontech/storage';`. This applies to every Azion Lib package.
+- **Let tsc report it**: run `tsc` with `--verbatimModuleSyntax`. It reports `TS1484` on a mixed import. Without the flag, `tsc` accepts the file.
+
+The file loads and the call runs. Every TypeScript sample on the Azion Lib pages imports its types with `import type`.
+
+---
+
+## A call fails with Invalid authentication credentials
+
+A call returns an authentication error, or throws one, and reaches no resource. The message depends on the package and on whether a token reached the call:
+
+| Package | Invalid token | No token |
+| --- | --- | --- |
+| `@aziontech/storage`, `@aziontech/sql` | `error.message` is `Invalid authentication credentials.` | `error.message` is `Authentication credentials were not provided.` |
+| `azion/purge` | `error.message` is `Error: HTTP error! Status: 401 - Unauthorized` | The same message |
+| `azion/domains` | `error.message` is `Error: HTTP error! Status: 401 - UNAUTHORIZED` | The same message |
+| `azion/applications` | `getApplications` throws `Error: HTTP error! Status: 401 - UNAUTHORIZED` | The same error |
+| `azion/ai` | `error.message` is `HTTP error! status: 403`, and `JSON.stringify` of the result prints `{"data":null,"error":{}}` | The same result |
+
+The call carried a token the API refuses, or no token at all. A function called on its own reads the token from the `AZION_TOKEN` environment variable when it runs. A client reads it from its `token` field.
+
+- **Set AZION_TOKEN**: export your personal token in `AZION_TOKEN` before you run the code that calls the functions.
+- **Pass the token to the client**: a client created with `createClient` takes the token in `token`. For the client options, refer to [Client](/en/documentation/devtools/azion-lib/client/).
+- **Use a valid personal token**: the API refuses any other value. For more information, refer to [Personal tokens](/en/documentation/fundamentals/personal-tokens/).
+
+With a valid token, the call returns its result in `data`.
+
+---
+
+## A storage call returns The specified bucket does not exist
+
+A call of `@aziontech/storage` returns an error envelope instead of the bucket or the object:
+
+```text
+{"error":{"message":"The specified bucket does not exist.","operation":"get bucket"}}
+```
+
+No bucket in the account has the name you passed. `deleteBucket` returns the same message with `operation` set to `delete bucket`. For an object key that the bucket does not hold, `getObjectByKey` and `deleteObject` return `The specified bucket object does not exist.`, with `get object by key` or `delete object` in `operation`.
+
+- **List the buckets**: `getBuckets` returns the name of every bucket in the account. Compare the name you pass with that list.
+- **List the objects**: `getObjects` returns the keys a bucket holds.
+
+For the other messages these functions return, refer to [Storage errors](/en/documentation/devtools/azion-lib/storage/#errors). With an existing name, `getBucket` returns the bucket in `data`.
+
+---
+
+## createDatabase returns The maximum number of databases has been reached
+
+`createDatabase` of `@aziontech/sql` returns an error envelope and creates no database:
+
+```text
+{"error":{"message":"The maximum number of databases has been reached.","operation":"post database"}}
+```
+
+The account already holds the maximum number of databases it can have. The API answers the request with HTTP `403`.
+
+- **List the databases**: `getDatabases` returns every database in the account, with its name and its status.
+- **Delete a database you no longer need**: `deleteDatabase` takes the database ID. Deletion is permanent. For the sample, refer to [SQL](/en/documentation/devtools/azion-lib/sql/#deletedatabase).
+- **Check the limit of your plan**: for the number of databases each plan allows, refer to [Limits per plan](/en/documentation/platform/sql-database/limits/#limits-per-plan).
+
+When the account is below its limit, `createDatabase` returns the new database in `data`.
+
+---
+
+## An application call throws instead of returning an error
+
+A call of `azion/applications` ends the program with an error that your code does not handle:
+
+```text
+Error: HTTP error! Status: 404 - NOT FOUND
+```
+
+The module calls Azion API v3, and its functions report errors in two ways. The five application-level functions, `createApplication`, `getApplication`, `getApplications`, `putApplication`, and `patchApplication`, throw on any HTTP error. The functions for origins, cache settings, device groups, function instances, and rules return `{ error: { message, operation } }` instead.
+
+- **Wrap the application-level functions in try and catch**: a missing application, a refused token, and a refused payload all throw.
+- **Check error on the other functions**: read `error.message` and `error.operation` after each call.
+- **Pass one object**: every function takes one object, such as `getApplication({ applicationId })`. A positional ID, as in `getApplication(1234)`, sends no ID, and the API answers `404`.
+
+This script shows both behaviors. Replace `1791120663` with the ID of one of your applications:
+
+```javascript
+// getApplication throws on an HTTP error; getOrigin returns the error in its envelope
+import { getApplication, getOrigin } from 'azion/applications';
+try {
+  const r = await getApplication({ applicationId: 1 });
+  console.log('getApplication(1) returned', JSON.stringify(r));
+} catch (e) {
+  console.log('getApplication(1) THROWN', e.name + ':', e.message);
+}
+console.log('getOrigin missing key ->', JSON.stringify(await getOrigin({ applicationId: 1791120663, originKey: '00000000-0000-0000-0000-000000000000' })));
+```
+
+The catch block receives the `404` from `getApplication`, and `getOrigin` returns it in `error`:
+
+```text
+getApplication(1) THROWN Error: HTTP error! Status: 404 - NOT FOUND
+getOrigin missing key -> {"error":{"message":"HTTP error! Status: 404 - NOT FOUND","operation":"get origin"}}
+```
+
+The program reaches its last line. For every function of the module, refer to [Applications](/en/documentation/devtools/azion-lib/application/).
+
+---
+
+## A device group create fails with 400 BAD REQUEST
+
+`createDeviceGroup` of `azion/applications` returns `{"error":{"message":"HTTP error! Status: 400 - BAD REQUEST","operation":"create device group"}}`. The library drops the reason the API gives.
+
+The API refuses the name of the group. For a name such as `Mobile Devices`, it answers `{"name":["This value does not match the required pattern."]}`. Names with a space or a hyphen are refused.
+
+To fix it, use only letters and digits in the name, such as `MobileDevices`. Azion Console shows `Name must be alphanumeric` for other characters. For the fields of a device group, refer to [Device groups](/en/documentation/platform/applications/device-groups/).
+
+This script creates a device group with an accepted name. Replace `1791120663` with the ID of your application:
+
+```typescript
+import { createDeviceGroup } from 'azion/applications';
+
+const applicationId = 1791120663; // Replace with the actual application ID
+
+// Create a new device group
+const deviceGroupData = {
+  name: 'MobileDevices',
+  user_agent: 'Mobile|Android|iPhone',
+};
+
+const { data: newDeviceGroup, error } = await createDeviceGroup({ applicationId, data: deviceGroupData });
+
+if (error) {
+  console.error('Error creating device group:', error);
+} else {
+  console.log('Device group created successfully:', newDeviceGroup);
+}
+```
+
+The function returns the new device group with its ID:
+
+```text
+Device group created successfully: {
+  id: 8903,
+  name: 'MobileDevices',
+  user_agent: 'Mobile|Android|iPhone'
+}
+```
+
+---
+
+## A cache setting create fails on an application without an origin
+
+`createCacheSetting` of `azion/applications` returns `{"error":{"message":"HTTP error! Status: 400 - BAD REQUEST","operation":"create cache setting"}}`, and the application has no origin.
+
+The API refuses a cache setting on an application that has no origin. Its answer, which the library drops, is `It's not possible to create Cache Settings for Originless Edge Application`.
+
+- **Create an origin first**: call `createOrigin` on the application, then call `createCacheSetting` again. For both functions, refer to [Applications](/en/documentation/devtools/azion-lib/application/).
+
+On an application with an origin, `createCacheSetting` returns the new cache setting in `data`, with its `id`.
+
+---
+
+## A JWT error class import fails with does not provide an export named
+
+A file that imports an error class from `@aziontech/jwt`, such as `JwtAlgorithmNotImplemented`, stops at load with a line that ends like this:
+
+```text
+SyntaxError: … does not provide an export named 'JwtAlgorithmNotImplemented'
+```
+
+The type declarations of the package list seven error classes, but the module exports only `decode`, `sign`, `verify`, and a default export. TypeScript accepts the import, and Node.js refuses it. `azion/jwt` behaves the same way.
+
+- **Match err.name**: remove the class import and compare the `name` of the error you catch with the class name. `instanceof` cannot work without the class.
+
+This sample verifies a token, then verifies it again with a wrong key and prints the name and message of the error:
+
+```typescript
+import { sign, verify } from '@aziontech/jwt';
+import type { JWTPayload } from '@aziontech/jwt';
+
+const secret: string = 'your-secret-key';
+const token: string = await sign({ userId: 123, exp: Math.floor(Date.now() / 1000) + 3600 }, secret);
+
+try {
+  const payload: JWTPayload = await verify(token, secret);
+  console.log(payload); // Outputs the payload if verification is successful
+} catch (err) {
+  console.error((err as Error).name, (err as Error).message);
+}
+
+try {
+  await verify(token, 'another-secret');
+} catch (err) {
+  console.error((err as Error).name, (err as Error).message); // A wrong key rejects with JwtTokenSignatureMismatched
+}
+```
+
+The first call prints the payload, and the second prints `JwtTokenSignatureMismatched`:
+
+```text
+{ userId: 123, exp: 1791127003 }
+JwtTokenSignatureMismatched token(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEyMywiZXhwIjoxNzkxMTI3MDAzfQ.myf2vixa4QI6GQCxHu6h5t3UpZwMya3J1UIr2W3d8pU) signature mismatched
+```
+
+The seven names, the case that raises each one, and its message, with the token replaced by `<token>`:
+
+| `err.name` | Raised when | Message |
+| --- | --- | --- |
+| `JwtTokenExpired` | The `exp` claim is in the past | `token (<token>) expired` |
+| `JwtTokenSignatureMismatched` | The key does not match the signature | `token(<token>) signature mismatched` |
+| `JwtTokenNotBefore` | The `nbf` claim is in the future | `token (<token>) is being used before it's valid` |
+| `JwtTokenIssuedAt` | The `iat` claim is in the future | `Incorrect "iat" claim must be a older than "1791122019" (iat: "1791122619")` |
+| `JwtAlgorithmNotImplemented` | `sign` receives the algorithm `none` | `none is not an implemented algorithm` |
+| `JwtTokenInvalid` | `decode` receives a string that is not a JWT | `invalid JWT token: abc` |
+| `JwtHeaderInvalid` | The header is not valid, such as a `typ` of `XYZ` | `jwt header is invalid: {"alg":"HS256","typ":"XYZ"}` |
+
+The catch block identifies the error by its name. For the functions, refer to [JWT](/en/documentation/devtools/azion-lib/jwt/).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How Azion Lib works" href="/en/documentation/devtools/azion-lib/how-it-works/">How the packages find the token, which API each one calls, and how each one reports an error.</DocItem>
+  <DocItem title="Azion Lib quickstart" href="/en/documentation/devtools/azion-lib/quickstart/">A first call with a package, from the install to the result.</DocItem>
+  <DocItem title="SQL" href="/en/documentation/devtools/azion-lib/sql/">The SQL functions and the messages each one returns in its error envelope.</DocItem>
+  <DocItem title="Purge" href="/en/documentation/devtools/azion-lib/purge/">The purge functions and the 400 errors a cache key or an unknown host returns.</DocItem>
+</ItemList>
+</FrameBox>

@@ -1,0 +1,377 @@
+---
+title: Boas práticas do Terraform Provider
+description: >-
+  Organize, proteja, versione e automatize configurações do Azion Terraform
+  Provider para manter state, tokens e alterações sob controle.
+meta_tags: 'terraform, boas práticas, infraestrutura como código, CI/CD, api v4'
+namespace: documentation_terraform_best_practices
+permalink: /documentacao/devtools/terraform/best-practices/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Uma configuração do Terraform descreve uma infraestrutura que várias pessoas e pipelines alteram ao longo do tempo. Quando os arquivos seguem um único layout, o state fica em um único lugar compartilhado e o token fica fora do repositório, cada execução começa com a mesma visão da conta. Sem isso, dois applies podem gravar o mesmo state ao mesmo tempo, um token vaza junto com um commit e uma versão do provider chega a uma configuração que nunca a pediu.
+
+Estas práticas se aplicam a configurações que usam o [Azion Terraform Provider](/pt-br/documentacao/devtools/terraform/) v2.0, que funciona apenas com a Azion API v4.
+
+Na ordem, as práticas cobrem o layout de arquivos, os nomes dos recursos, o backend remoto e o seu lock, a variável sensível do token, o arquivo `.gitignore` e o token no ambiente. Em seguida, cobrem módulos, o pipeline de CI/CD, a versão do provider, outputs, referências entre recursos, comentários e arquivos README de módulos.
+
+---
+
+## Divida a configuração em arquivos por função
+
+O Terraform lê todos os arquivos `.tf` de um diretório como uma única configuração, então dividir os arquivos não muda nada em tempo de execução. A divisão mostra a quem lê onde procurar: o provider, as variáveis, os outputs e o backend ficam cada um no seu próprio arquivo. Módulos reutilizáveis ficam em `modules/`, e cada ambiente tem o seu próprio diretório em `environments/`. O custo é ter mais arquivos para abrir em um projeto pequeno.
+
+O layout abaixo separa a configuração raiz, dois módulos e três ambientes:
+
+```text
+terraform/
+├── main.tf              # Provider and main configurations
+├── variables.tf         # Input variables
+├── outputs.tf           # Outputs
+├── providers.tf         # Provider configurations
+├── backend.tf           # Backend configuration
+├── modules/
+│   ├── workload/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   └── application/
+│       ├── main.tf
+│       ├── variables.tf
+│       └── outputs.tf
+└── environments/
+    ├── dev/
+    │   ├── main.tf
+    │   └── terraform.tfvars
+    ├── staging/
+    └── prod/
+```
+
+Para verificar, confirme que cada arquivo contém apenas os blocos que o seu nome anuncia, como o bloco `backend` em `backend.tf`.
+
+---
+
+## Nomeie cada recurso pelo que ele atende
+
+O Terraform identifica um recurso pelo seu tipo e pelo seu nome local, como em `azion_workload.api_gateway`, e o `terraform state show` e todas as referências usam esse endereço. Um nome local como `w1` não diz a ninguém qual workload ele é. Um nome local como `api_gateway`, com um argumento `name` como `api-gateway-prod`, diz o que o workload atende e em qual ambiente. O custo é uma convenção de nomes que a equipe combina e mantém.
+
+O primeiro bloco mostra o nome a evitar, e o segundo, o nome a usar:
+
+```hcl
+# Avoid: the names say nothing about the workload
+resource "azion_workload" "w1" {
+  name = "w1"
+}
+
+# Use: the names say what the workload serves and where
+resource "azion_workload" "api_gateway" {
+  name = "api-gateway-prod"
+}
+```
+
+Para verificar, execute `terraform state list` e confirme que cada endereço nomeia o recurso que gerencia.
+
+---
+
+## Armazene o state em um backend remoto
+
+O Terraform registra o que criou em um arquivo de state. Mantido em uma única máquina como `terraform.tfstate`, o state fica fora do alcance de todas as outras pessoas e pipelines que executam a configuração. Cada uma delas então faz o plan com uma visão diferente da conta. Um backend remoto mantém uma única cópia do state, que toda execução lê e grava. O custo é uma infraestrutura fora da configuração: o bucket e a tabela de lock que o bloco nomeia precisam existir para que o Terraform os use.
+
+O arquivo `backend.tf` abaixo armazena o state em um backend `s3`, criptografado, com uma tabela de lock:
+
+```hcl
+# backend.tf
+terraform {
+  backend "s3" {
+    bucket         = "my-terraform-state"
+    key            = "azion/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "terraform-locks"
+  }
+}
+```
+
+Para verificar, execute `terraform state list` em uma segunda máquina ou no pipeline e confirme que ele lista os mesmos recursos.
+
+---
+
+## Bloqueie o state durante cada execução
+
+Um lock permite que apenas uma execução por vez altere o state, então dois applies iniciados juntos não podem sobrescrever o registro um do outro. Com o backend `s3`, o lock fica em uma tabela do DynamoDB. A linha `dynamodb_table = "terraform-locks"` no bloco `backend` o ativa, como mostra o bloco completo em [Armazene o state em um backend remoto](#armazene-o-state-em-um-backend-remoto). O custo é mais um recurso fora da configuração, que precisa existir antes que o backend possa usá-lo.
+
+Para verificar, confirme que `dynamodb_table` está definido no bloco `backend` de cada ambiente.
+
+---
+
+## Marque a variável do token como sensível
+
+O provider recebe um [personal token](/pt-br/documentacao/fundamentos/personal-tokens/) da Azion no argumento `api_token`. O Terraform não mostra na saída o valor de uma variável marcada como `sensitive`, então o token fica fora da tela e dos logs do pipeline. A variável que alimenta o argumento é declarada assim:
+
+```hcl
+variable "api_token" {
+  type        = string
+  description = "Azion Personal Token"
+  sensitive   = true
+}
+```
+
+Em seguida, o bloco `provider "azion"` repassa o valor com `api_token = var.api_token`. O custo é um limite: marcar a variável não mantém o valor fora de um arquivo `.tfvars`, então mantenha esse arquivo fora do repositório, como mostra [Mantenha segredos e state fora do repositório](#mantenha-segredos-e-state-fora-do-repositorio).
+
+Para verificar, execute `terraform plan` e confirme que o valor do token não aparece na saída.
+
+---
+
+## Mantenha segredos e state fora do repositório
+
+Um arquivo enviado em um commit para um repositório chega a todas as pessoas que podem ler o repositório. O arquivo `.gitignore` abaixo exclui os arquivos de state e os seus backups, todos os arquivos `.tfvars`, o diretório `.terraform/` e um arquivo `secrets.tf`:
+
+```text
+# Terraform
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform/
+terraform.tfvars
+secrets.tf
+```
+
+O custo é que os valores das variáveis circulam fora do repositório, então cada pessoa e cada pipeline os fornece, como mostra [Passe o token por uma variável de ambiente](#passe-o-token-por-uma-variavel-de-ambiente).
+
+Para verificar, execute `git status` depois de `terraform apply` e confirme que ele não lista nenhum arquivo `.tfstate` ou `.tfvars`.
+
+---
+
+## Passe o token por uma variável de ambiente
+
+Uma variável de ambiente mantém o token no shell ou no pipeline que executa o Terraform, fora de todos os arquivos. O Terraform lê `TF_VAR_api_token` como o valor da variável `api_token`:
+
+```bash
+export TF_VAR_api_token="[TOKEN VALUE]"
+```
+
+Esse caminho exige a variável sensível `api_token` e `api_token = var.api_token` no bloco `provider "azion"`. O provider também lê `AZION_API_TOKEN` diretamente, sem variável e com um bloco de provider vazio. O pipeline de CI/CD em [Execute o plan em cada pull request e o apply apenas na main](#execute-o-plan-em-cada-pull-request-e-o-apply-apenas-na-main) usa esse caminho. O custo é que a variável dura apenas enquanto dura a sessão do shell ou o job do pipeline, então cada um precisa defini-la novamente.
+
+Para verificar, execute `terraform plan` em um shell novo com a variável definida e confirme que ele não falha com `personal token is required`. Para esse erro, consulte [Solucionar problemas do Terraform Provider](/pt-br/documentacao/devtools/terraform/solucao-de-problemas/).
+
+---
+
+## Agrupe recursos repetidos em módulos
+
+Um módulo transforma um grupo de recursos em um único bloco que recebe entradas. Cada ambiente então chama o mesmo código com os seus próprios valores, em vez de copiá-lo. O custo é mais uma camada para ler, e uma alteração no módulo chega a todas as configurações que o chamam.
+
+O módulo abaixo cria um workload nomeado a partir de `var.name` e `var.environment` e expõe o seu ID como o output `workload_id`:
+
+```hcl
+# modules/workload/main.tf
+variable "name" {
+  type = string
+}
+
+variable "environment" {
+  type = string
+}
+
+resource "azion_workload" "this" {
+  name = "${var.name}-${var.environment}"
+}
+
+output "workload_id" {
+  value = azion_workload.this.id
+}
+```
+
+O `main.tf` raiz chama o módulo uma vez por workload, com os valores de cada um:
+
+```hcl
+# main.tf
+module "api_workload" {
+  source      = "./modules/workload"
+  name        = "api"
+  environment = "prod"
+}
+```
+
+Para verificar, execute `terraform init` e depois `terraform plan` e confirme que o plan cria um workload chamado `api-prod`.
+
+---
+
+## Execute o plan em cada pull request e o apply apenas na main
+
+Um pipeline executa os mesmos comandos para cada alteração, então o plan é revisado antes que qualquer coisa chegue à conta. No workflow do GitHub Actions abaixo, cada push e cada pull request para a `main` executa `terraform init` e `terraform plan`. Apenas uma execução na `main` faz o apply, com `-auto-approve`, porque não há ninguém para responder à pergunta de confirmação. As etapas de plan e apply leem o token do secret de repositório `AZION_API_TOKEN`. O custo é um secret para gerenciar nas configurações do repositório e um apply que roda sem uma segunda revisão assim que uma alteração é mesclada.
+
+O arquivo de workflow contém o pipeline inteiro:
+
+```yaml
+# .github/workflows/terraform.yml
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan
+        env:
+          AZION_API_TOKEN: ${{ secrets.AZION_API_TOKEN }}
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve
+        env:
+          AZION_API_TOKEN: ${{ secrets.AZION_API_TOKEN }}
+```
+
+Para verificar, abra um pull request e confirme que o workflow executa a etapa de plan e pula a etapa de apply.
+
+---
+
+## Fixe a versão do provider
+
+O `terraform init` instala a versão do provider que o bloco `required_providers` permite. Uma versão exata mantém cada execução, em cada máquina e pipeline, na versão para a qual a configuração foi escrita. O provider v2.0 renomeou os recursos da v1.x quando passou para a Azion API v4, e uma versão fixada mantém uma alteração desse tipo fora da configuração até que você a migre. Para essa alteração, consulte [Migre do provider v1.x para o v2.0](/pt-br/documentacao/devtools/terraform/migration-v3-to-v4/).
+
+O bloco `required_providers` abaixo fixa o provider em uma única versão:
+
+```hcl
+terraform {
+  required_providers {
+    azion = {
+      source  = "aziontech/azion"
+      version = "2.0.0"  # An exact version, not a range
+    }
+  }
+}
+```
+
+O custo é que uma versão posterior só chega quando você edita a versão fixada e executa `terraform init -upgrade`.
+
+Para verificar, execute `terraform init` e confirme que ele instala `aziontech/azion` na versão `2.0.0`.
+
+---
+
+## Exporte como outputs os IDs que outras configurações usam
+
+Um output publica um valor depois do `terraform apply`, então outra configuração, um script ou uma pessoa lê o ID de um workload ou de uma aplicação em vez de procurá-lo. Uma `description` diz o que é o valor a quem ler os outputs depois. O custo é um contrato estável: tudo o que lê um output deixa de funcionar quando você o renomeia ou o remove.
+
+Os outputs abaixo exportam os IDs do workload e da aplicação:
+
+```hcl
+output "workload_id" {
+  description = "ID of the created workload"
+  value       = azion_workload.main.id
+}
+
+output "application_id" {
+  description = "ID of the created application"
+  value       = azion_application_main_setting.main.id
+}
+```
+
+Dentro de um módulo, os mesmos blocos ficam no seu `outputs.tf`. Por exemplo, `modules/application/outputs.tf` exporta `application_id` a partir de `azion_application_main_setting.this.id` e `application_name` a partir de `azion_application_main_setting.this.name`.
+
+Para verificar, confirme que cada output tem uma `description` e lê um atributo de recurso, nunca um ID literal.
+
+---
+
+## Referencie recursos em vez de fixar IDs no código
+
+Uma referência como `azion_application_main_setting.example.id` passa o ID que o Terraform conhece depois de criar a aplicação e faz o Terraform criar a aplicação primeiro. Um ID fixo no código, como `"12345"`, pertence a uma única conta, deixa de funcionar quando a aplicação é criada de novo com outro ID e não dá ao Terraform nenhuma ordem a seguir. O custo é que o recurso referenciado precisa estar na mesma configuração ou ser lido por um data source.
+
+O primeiro bloco mostra o ID fixo a evitar, e o segundo, a referência a usar:
+
+```hcl
+# Avoid: an ID copied from one account
+resource "azion_application_rule_engine" "example" {
+  application_id = "12345"
+}
+
+# Use: a reference that also sets the order
+resource "azion_application_rule_engine" "example" {
+  application_id = azion_application_main_setting.example.id
+}
+```
+
+Como uma referência já define a ordem, uma lista `depends_on` que nomeia o mesmo recurso a repete. Um deployment com `workload_id = azion_workload.main.id` não precisa de `depends_on = [azion_workload.main]`. Para saber como as referências ordenam os recursos, consulte [Como o Terraform Provider funciona](/pt-br/documentacao/devtools/terraform/como-funciona/).
+
+Para verificar, procure na configuração IDs entre aspas em argumentos `_id` e substitua cada um por uma referência ou por um data source.
+
+---
+
+## Comente por que cada recurso existe
+
+Um comentário registra para que serve um recurso e quem depende dele, o que nem o seu tipo nem os seus argumentos dizem. O custo é a manutenção: um comentário que não corresponde mais ao seu recurso confunde mais do que nenhum comentário.
+
+O comentário abaixo diz qual API o workload atende e em qual ambiente:
+
+```hcl
+# Workload for the main API
+# This workload manages the production API
+resource "azion_workload" "api" {
+  name = "api-prod"
+}
+```
+
+Para verificar, leia cada bloco comentado depois de uma alteração e confirme que o comentário ainda corresponde ao que o bloco gerencia.
+
+---
+
+## Documente cada módulo em um arquivo README
+
+Um arquivo `README.md` em cada módulo mostra como chamá-lo, quais entradas ele recebe e quais outputs ele retorna. Assim, quem chama o módulo não precisa ler o seu código. O custo é a manutenção manual: atualize o README na mesma alteração que muda as variáveis e os outputs do módulo.
+
+O README abaixo documenta um módulo de workload com uma entrada e um output:
+
+````markdown
+# Workload Module
+
+## Usage
+
+```hcl
+module "workload" {
+  source = "./modules/workload"
+  name   = "api"
+}
+```
+
+## Inputs
+
+| Name | Description | Type | Default |
+|------|-------------|------|---------|
+| name | Workload name | string | n/a |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| workload_id | Workload ID |
+````
+
+Para verificar, compare as tabelas Inputs e Outputs de cada README com os blocos `variable` e `output` do seu módulo.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Primeiros passos com o Azion Terraform Provider" href="/pt-br/documentacao/devtools/terraform/getting-started/">Instale o Terraform, configure o provider com um personal token e aplique uma primeira configuração.</DocItem>
+  <DocItem title="Recursos e data sources" href="/pt-br/documentacao/devtools/terraform/examples/">Todos os recursos e data sources que o provider gerencia, agrupados por produto.</DocItem>
+  <DocItem title="Recursos de Workloads" href="/pt-br/documentacao/devtools/terraform/workloads/">Os recursos e data sources de workload que os exemplos desta página usam.</DocItem>
+  <DocItem title="Recursos de Applications" href="/pt-br/documentacao/devtools/terraform/applications/">Os recursos de main settings e de rules engine de aplicação que os outputs e as referências usam.</DocItem>
+</ItemList>
+</FrameBox>

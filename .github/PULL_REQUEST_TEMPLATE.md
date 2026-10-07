@@ -1,24 +1,11 @@
-## What & why
+## Summary
 
-**Related issue:** <!-- EDU-1234 / #123 / none — the ticket lives here and in the branch name, never in the title -->
-**Pages affected:** <!-- permalinks or file paths -->
+<!-- 1–3 bullets: what changed and why. Don't restate the diff. -->
 
-## Type of change
+## How to test
 
-- [ ] 🆕 New content (`feat`)
-- [ ] 🩹 Fix (`fix`) — typo, broken link, wrong information
-- [ ] ♻️ Content update (`docs`) — rewrite, expansion, upkeep
-- [ ] 🌐 Translation sync (`i18n`)
-- [ ] 🏗️ Platform / structure (`refactor` / `chore`) — reviewed by UXE, no content mixed in
+<!-- Numbered, concrete steps to verify THIS PR: the command to run (pnpm dev / pnpm build:local), the page or permalink to open, and the expected result. -->
 
-## Author checklist
+## Notes
 
-- [ ] PR title follows `type(scope): summary` (see [GOVERNANCE.md §4](GOVERNANCE.md))
-- [ ] Frontmatter complete: `title`, `description`, `meta_tags`, `namespace`, `permalink`, `last_reviewed`
-- [ ] No legacy "edge-" product names in the copy
-- [ ] How-to/tutorial content includes at least one runnable, copy-paste-tested code block
-- [ ] Screenshots (if any) have alt text and follow image standards
-- [ ] Internal links are relative and resolve locally
-- [ ] **If any permalink changed or page moved: redirect added in this PR**
-- [ ] **i18n:** `pt-br` updated in this PR **or** follow-up `i18n` issue created: <!-- link -->
-- [ ] I ran `pnpm build:local` (build + frontmatter check) without errors
+<!-- Breaking change (what + migration), permalink change + its redirect, i18n follow-up, new dependency, related issue. Write "None" when there is nothing. -->

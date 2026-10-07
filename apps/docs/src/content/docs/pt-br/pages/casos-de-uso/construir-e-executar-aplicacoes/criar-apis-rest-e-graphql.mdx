@@ -1,0 +1,369 @@
+---
+title: Criar APIs REST e GraphQL
+description: >-
+  Execute uma API como uma function que lê o SQL Database, grava pela Azion API,
+  guarda respostas de lista em cache e reporta latência e erros.
+meta_tags: 'rest api, api backend, functions, sql database, read replica, cache api, environment variables, real-time metrics'
+namespace: use_case_build_rest_and_graphql_apis
+permalink: /documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-rest-e-graphql/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+
+Um time de desenvolvimento constrói o backend REST ou GraphQL que os clientes web e mobile dele chamam, com usuários em várias regiões e sem nenhum servidor que ele queira operar. A API guarda os registros em um banco de dados relacional, a maioria das chamadas lê e algumas chamadas gravam. Esta página implanta uma function que implementa todos os endpoints de uma API REST, lê os registros do SQL Database, grava-os pela Azion API e mantém a resposta de lista em cache por pouco tempo. O resultado é medido pelo tempo de resposta da API por região, pela taxa de erros sob carga e pelo tempo entre uma mudança de código e a produção.
+
+Este caso de uso não cobre APIs que reagem a eventos em vez de chamadores, que [Criar APIs orientadas a eventos](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-orientadas-a-eventos/) cobre, nem controles de segurança na frente de uma API que roda em outro lugar, que [Proteger APIs públicas contra abuso](/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/proteger-apis-publicas-contra-abuso/) cobre.
+
+## Pré-requisitos
+
+- A Azion CLI instalada, com o seu personal token salvo. Para configurá-la, consulte [Primeiros passos com a Azion CLI](/pt-br/documentacao/devtools/cli/primeiros-passos/).
+- SQL Database habilitado na sua conta e a permissão **Edit SQL Database**. O produto está em Preview, então solicite acesso pelo [Technical Support](/pt-br/documentacao/suporte/).
+- Um personal token para as chamadas ao banco de dados, separado do que a CLI usa, porque a function o armazena. Para criar um, consulte [Personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- Node.js e um gerenciador de pacotes, que a CLI usa para construir o projeto.
+- Os nomes que esta página usa: `tasks-api` para o banco de dados e para o cache de respostas, `/api/tasks` para o caminho da API, `TASKS_DB_ID` e `TASKS_SQL_TOKEN` para as variáveis de ambiente da function e `api.example.com` para o domínio. O deploy exibe um domínio `xxxxxxxxxx.map.azionedge.net`; para servir a API no seu próprio domínio, consulte [Adicione um domínio a um workload](/pt-br/documentacao/guias/plataforma/migracao/configurar-dominio/). Substitua cada valor pelo seu em todos os passos.
+
+---
+
+## Produtos necessários
+
+| A API precisa de | O que significa | Produto | Documentado em |
+| --- | --- | --- | --- |
+| Endpoints que rodam sem nenhum servidor para operar | Uma function, implantada com a Azion CLI, que a aplicação executa em toda requisição | Functions | [Faça o deploy de uma function com a Azion CLI](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/deploy-function-with-cli/) |
+| Registros que todos os endpoints leem e gravam | Leituras de uma read replica do banco de dados dentro da function, e gravações pela Azion API | SQL Database | [Grave linhas no SQL Database a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/) |
+| Uma resposta de lista que não é reconstruída a cada chamada | Uma resposta que a function guarda com a Cache API do runtime, sob um `max-age` | Cache | [Armazene em cache a resposta de uma function com a Cache API](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/) |
+| Latência e erros no domínio da API | Os dashboards **Requests** e **Status Codes** filtrados pelo domínio, e as invocações de **Functions** | Real-Time Metrics | [Dashboards de Build](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/) |
+
+---
+
+## Arquitetura de referência
+
+Esta página constrói a *API de serviço único sobre o SQL Database*: uma function implementa todos os endpoints e lê e grava um banco de dados no SQL Database.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Client["Cliente da API"] -->|"Requisição HTTPS"| App["aplicação"]
+  App -->|"Rules Engine: Run Function"| Fn["function da API, todos os endpoints"]
+  Fn -->|"resposta compartilhável"| Cache["Cache"]
+  Fn -->|"leitura"| Replica["read replica do SQL Database"]
+  Fn -->|"gravação, pela Azion API"| Main["instância principal do SQL Database"]
+  Main -->|"copia os dados"| Replica
+  Fn -->|"sessão ou configuração, opcional"| KV["KV Store"]
+  App -->|"tempo de requisição e status codes"| RTM["Real-Time Metrics"]
+```
+
+Leia o diagrama da function para fora. Toda requisição que a aplicação recebe executa a mesma function, então a function é o único lugar que conhece todos os endpoints. A partir dela, os caminhos se dividem pelo que o endpoint faz: uma resposta que todo cliente pode compartilhar vai para o Cache, uma leitura vai para uma réplica do banco de dados e uma gravação vai para a instância principal. O KV Store fica ao lado do banco de dados para valores lidos por chave, como uma sessão, e o design funciona sem ele. O Real-Time Metrics lê o que a aplicação registra e não muda nada no caminho da requisição.
+
+### Fluxo de dados
+
+1. A requisição de um cliente chega ao workload no domínio da API, que a entrega à aplicação, e uma regra da aplicação executa a function da API.
+2. A function compara o método e o caminho. Um caminho fora de `/api/tasks` responde `404`.
+3. Um `GET` da lista de tarefas é respondido pela cópia que a function guardou no Cache. Quando não existe cópia, a function lê as linhas e guarda a nova resposta por 60 segundos.
+4. Um `GET` de uma tarefa abre uma conexão com uma read replica do banco de dados com `Database.open`, que recebe o nome do banco de dados e nenhum token, então os dados de que uma leitura precisa ficam dentro da Azion.
+5. Um `POST` ou um `DELETE` envia o statement ao endpoint de query do banco de dados na Azion API, com o personal token que a function lê de uma variável de ambiente, porque a instância principal é a única que aplica gravações. As réplicas passam a ter a mudança em seguida.
+6. Depois de uma gravação, a function apaga a resposta de lista guardada, para que a requisição de lista seguinte leia as linhas de novo.
+
+### Componentes
+
+- **aplicação**: o Platform Resource que recebe as requisições da API no domínio dela e as encaminha para a function com uma regra do Rules Engine.
+- **Functions**: uma function implementa todos os endpoints. Um deploy substitui o código de todos os endpoints juntos, e é isso que faz da API uma unidade, então um deploy, um rollback ou uma mudança de schema chega a todos os endpoints no mesmo momento.
+- **SQL Database**: guarda os dados relacionais da API. Uma function lê por uma read replica sem token, e as gravações vão para a instância principal pela Azion API com um personal token.
+- **KV Store**: guarda sessões e configurações lidas por chave, uma opção de design. Ele tem consistência eventual e não tem compare-and-set, então carrega valores que toleram um atraso curto, não os registros da API.
+- **Cache**: guarda as respostas que todo cliente pode compartilhar, como uma lista ou uma consulta, para que uma chamada repetida pule a leitura no banco de dados.
+- **Real-Time Metrics**: reporta o tempo de requisição e os status codes da API por domínio e o número de vezes que a function rodou.
+
+### Outros designs para este caso de uso
+
+- *API de serviço único sobre um banco de dados externo*: para times cujos dados já estão em um banco de dados gerenciado como Neon, MongoDB Atlas, TiDB ou Turso, que uma function consulta pelo driver serverless ou pela API HTTP dele. Toda chamada fora do cache chega ao banco de dados externo, então a latência e a disponibilidade dele entram nos fluxos de requisição e de falha.
+- *API de microsserviços sobre Functions*: para times que dividem uma API em serviços de times diferentes, cada um uma function com o seu próprio armazenamento, implantada e versionada de forma independente. Uma regra do Rules Engine encaminha cada prefixo de caminho para o seu serviço e os serviços chamam uns aos outros por HTTP pelas mesmas regras, então um deploy muda um serviço e deixa os outros na versão que tinham.
+
+---
+
+## Configure o banco de dados de tarefas
+
+A API de tarefas guarda os registros em uma tabela de um banco de dados chamado `tasks-api`. A function lê o banco de dados pelo nome e grava nele pelo identificador, então esta seção cria o banco de dados pela API, cuja resposta de criação retorna esse identificador. O Azion Console também pode criar o banco de dados e executar o statement na aba **Editor**, como [Crie e gerencie bancos de dados](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gerenciar-bancos-dados-edge-sql/) mostra.
+
+Para criar o banco de dados:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/sql/databases \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "tasks-api"}'
+```
+
+A API responde `202`. Guarde `data.id`: é o identificador do banco de dados em que a function grava.
+
+```json
+{"state":"pending","data":{"id":<database-id>,"name":"tasks-api","status":"creating","active":true,...}}
+```
+
+O provisionamento leva cerca de 15 segundos. Envie `GET /v4/workspace/sql/databases/<database-id>` até que `status` mostre `created` e, depois, crie a tabela e duas linhas para ler de volta. `completed` é uma coluna inteira, `0` ou `1`, porque a function a lê como número:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/sql/databases/<database-id>/query \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"statements": [
+    "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0);",
+    "INSERT INTO tasks (title, completed) VALUES ('\''Write the API spec'\'', 0);",
+    "INSERT INTO tasks (title, completed) VALUES ('\''Deploy the API'\'', 1);"
+  ]}'
+```
+
+A API responde `200` com `"state": "executed"` e uma entrada por statement em `data`. Um statement que falha também responde `200`, com `error` no lugar de `results` na entrada dele, então verifique cada entrada:
+
+```json
+{"state":"executed","data":[{"results":{"columns":[],"rows":[],"rows_read":0,"rows_written":0,...}},...]}
+```
+
+O banco de dados `tasks-api` tem a tabela `tasks` e duas linhas.
+
+---
+
+## Configure as credenciais de gravação da function
+
+Uma function lê um banco de dados por uma réplica somente leitura, e um statement que grava falha nela com ``attempt to write a readonly database``. Por isso, a function da API envia as gravações para a Azion API e precisa de dois valores para isso: o identificador do banco de dados e um personal token. Armazene os dois como [Grave linhas no SQL Database a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/) descreve, com os nomes de chave da API:
+
+```bash
+azion create variables --key TASKS_DB_ID --value <database-id> --secret false
+azion create variables --key TASKS_SQL_TOKEN --value <personal-token> --secret true
+```
+
+Uma variável só chega à function depois de um deploy, então crie as duas antes do deploy feito na configuração da function da API.
+
+---
+
+## Configure a function da API
+
+A function da API é um handler ES Modules que implementa todos os endpoints sob `/api/tasks`. Ela lê com a classe `Database` do global `Azion.Sql`. As gravações dela seguem [Grave linhas no SQL Database a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/), e a lista dela segue [Armazene em cache a resposta de uma function com a Cache API](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/), com estes valores:
+
+- **Gravações**: `writeTasks` envia um statement por chamada, com `TASKS_DB_ID` e `TASKS_SQL_TOKEN`, e lança um erro quando a requisição ou o statement falha.
+- **Cache da lista**: o cache `tasks-api`, a chave `<origin>/api/tasks` e `max-age=60`. Todo `POST` e todo `DELETE` apaga essa chave depois da gravação, então os 60 segundos só limitam por quanto tempo uma lista fica desatualizada quando essa exclusão não roda.
+
+<DocSteps>
+  <DocStep title="Crie o projeto">
+
+  Execute `azion init`, insira `tasks-api` como nome e selecione o preset _Javascript_ e o template _Hello World_, como [Faça o deploy de uma function com a Azion CLI](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/deploy-function-with-cli/) mostra. Depois, vá para o diretório do projeto.
+
+  </DocStep>
+  <DocStep title="Substitua o handler">
+
+  Substitua o conteúdo de `index.js`, o entrypoint que o build lê, pelo código abaixo.
+
+  </DocStep>
+  <DocStep title="Implante o projeto">
+
+  Execute `azion deploy` no diretório do projeto. O comando constrói o projeto, cria a aplicação e a function, instancia a function e exibe o domínio que a serve.
+
+  </DocStep>
+</DocSteps>
+
+```javascript
+const { Database } = Azion.Sql;
+
+const DATABASE_NAME = 'tasks-api';
+const CACHE_NAME = 'tasks-api';
+const LIST_MAX_AGE = 60;
+
+function json(body, status = 200, headers = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...headers },
+  });
+}
+
+// Reads come from a read replica. Integer parameters bind; string parameters are refused.
+async function readTasks(id) {
+  const connection = await Database.open(DATABASE_NAME);
+  const rows = id === undefined
+    ? await connection.query('SELECT id, title, completed FROM tasks ORDER BY id')
+    : await connection.query('SELECT id, title, completed FROM tasks WHERE id = ?', [id]);
+  const tasks = [];
+  let row = await rows.next();
+  while (row) {
+    tasks.push({ id: row.getValue(0), title: row.getValue(1), completed: row.getValue(2) === 1 });
+    row = await rows.next();
+  }
+  return tasks;
+}
+
+// Writes go to the main instance through the Azion API. A failed statement still answers 200.
+async function writeTasks(statement) {
+  const response = await fetch(
+    `https://api.azion.com/v4/workspace/sql/databases/${Azion.env.get('TASKS_DB_ID')}/query`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Token ${Azion.env.get('TASKS_SQL_TOKEN')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ statements: [statement] }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Azion API answered ${response.status}`);
+  }
+  const entry = (await response.json()).data[0];
+  if (entry.error) {
+    throw new Error(entry.error);
+  }
+  return entry.results;
+}
+
+// The query endpoint takes SQL strings, so a text value is quoted and its quotes doubled.
+function sqlText(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const match = url.pathname.match(/^\/api\/tasks(?:\/(\d+))?$/);
+    if (!match) {
+      return json({ error: 'Not found' }, 404);
+    }
+    const id = match[1] === undefined ? undefined : Number(match[1]);
+    const cache = await caches.open(CACHE_NAME);
+    const listKey = `${url.origin}/api/tasks`;
+
+    try {
+      if (request.method === 'GET' && id === undefined) {
+        const cached = await cache.match(listKey);
+        if (cached) {
+          return cached;
+        }
+        const list = json(await readTasks(), 200, {
+          'cache-control': `max-age=${LIST_MAX_AGE}`,
+          'x-tasks-cached-at': new Date().toISOString(),
+        });
+        await cache.put(listKey, list.clone());
+        return list;
+      }
+      if (request.method === 'GET') {
+        const [task] = await readTasks(id);
+        return task ? json(task) : json({ error: 'Task not found' }, 404);
+      }
+      if (request.method === 'POST' && id === undefined) {
+        const { title, completed = false } = await request.json();
+        if (typeof title !== 'string' || title.length === 0) {
+          return json({ error: 'title is required' }, 400);
+        }
+        const results = await writeTasks(
+          `INSERT INTO tasks (title, completed) VALUES (${sqlText(title)}, ${completed ? 1 : 0}) RETURNING id`,
+        );
+        await cache.delete(listKey);
+        return json({ id: results.rows[0][0], title, completed: Boolean(completed) }, 201);
+      }
+      if (request.method === 'DELETE' && id !== undefined) {
+        const results = await writeTasks(`DELETE FROM tasks WHERE id = ${id}`);
+        await cache.delete(listKey);
+        return results.rows_written > 0
+          ? json({ message: 'Task deleted' })
+          : json({ error: 'Task not found' }, 404);
+      }
+      return json({ error: 'Method not allowed' }, 405);
+    } catch (error) {
+      console.log(error.message);
+      return json({ error: 'Internal error' }, 500);
+    }
+  },
+};
+```
+
+O código toma mais três decisões:
+
+- **As leituras ficam dentro da Azion.** `Database.open` não precisa de token, e o parâmetro `?` carrega o ID da tarefa como inteiro, que a réplica vincula. Passar uma string JavaScript como parâmetro falha com ``unknown variant `String` ``.
+- **A exclusão reporta uma tarefa inexistente.** `rows_written` conta as linhas que o statement gravou, então `0` significa que nenhuma tarefa tinha aquele ID.
+- **A cópia da lista carrega o próprio timestamp.** `x-tasks-cached-at` é definido uma única vez, quando a function guarda a resposta, então duas respostas com o mesmo valor vieram da mesma cópia guardada.
+
+A API responde no domínio que o deploy exibiu, todos os endpoints rodam na function, e a resposta de lista fica em cache por 60 segundos. O primeiro deploy pode levar vários minutos para responder em todas as localidades.
+
+---
+
+## Verifique a configuração
+
+Cada verificação chama a API no domínio dela. Um primeiro deploy que ainda não responde ainda está se propagando; espere alguns minutos e tente de novo.
+
+- **O endpoint de lista lê o banco de dados.** Requisite a lista:
+
+  ```bash
+  curl -i https://api.example.com/api/tasks
+  ```
+
+  A resposta traz `200` e as duas linhas que a tabela guarda:
+
+  ```json
+  [{"id":1,"title":"Write the API spec","completed":false},{"id":2,"title":"Deploy the API","completed":true}]
+  ```
+
+- **A lista vem da cópia em cache.** Repita a requisição em até 60 segundos. O header `x-tasks-cached-at` traz o mesmo valor da primeira resposta.
+
+- **Uma gravação chega ao banco de dados.** Crie uma tarefa:
+
+  ```bash
+  curl -i -X POST https://api.example.com/api/tasks \
+    -H "Content-Type: application/json" \
+    -d '{"title": "Review the logs"}'
+  ```
+
+  A resposta traz `201` e o ID que o banco de dados atribuiu:
+
+  ```json
+  {"id":3,"title":"Review the logs","completed":false}
+  ```
+
+  Um `500` aqui significa que a gravação falhou. Leia a mensagem que a function registrou no log, como [Consultar logs de console de uma function](/pt-br/documentacao/guias/plataforma/observabilidade/consultar-function-console-events/) mostra: `Azion API answered 401` aponta para o valor de `TASKS_SQL_TOKEN`, e uma mensagem de erro do banco de dados aponta para o statement.
+
+- **Uma gravação atualiza a lista.** Requisite a lista de novo. A resposta traz um novo valor de `x-tasks-cached-at` e três tarefas.
+
+- **Uma tarefa inexistente responde 404.** Apague a mesma tarefa duas vezes:
+
+  ```bash
+  curl -X DELETE https://api.example.com/api/tasks/3
+  ```
+
+  A primeira chamada responde `{"message":"Task deleted"}`, e a segunda responde `404` com `{"error":"Task not found"}`.
+
+---
+
+## Medindo resultados
+
+| Métrica | Onde ler | Como fica quando funciona |
+| --- | --- | --- |
+| Tempo de resposta da API por região | **Average Request Time** no dashboard **Requests** do Real-Time Metrics, filtrado por **Host** pelo domínio da API e por **Country**. Consulte [Filtre um dashboard de Real-Time Metrics](/pt-br/documentacao/guias/plataforma/observabilidade/adicionar-filtros-metrics/) | Comparável entre os países de onde os seus clientes chamam e estável conforme o tráfego cresce |
+| Taxa de erros sob carga | **HTTP Status Codes 5XX** no dashboard **Status Codes**, filtrado pelo domínio da API. Consulte [Dashboards de Build](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#status-codes) | Nenhuma série de `500` subindo com o volume de requisições; uma subida aponta para gravações que falharam, que a function registra no log |
+| Com que frequência o código da API roda | **Total Invocations** na aba **Functions**, série **Edge Application Invocations**. Consulte [Dashboards de Build](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#functions) | Acompanha o número de requisições da API, já que toda requisição executa a function |
+| Tempo entre uma mudança de código e a produção | O log de deploy que `azion deploy` indica no Azion Console. Consulte [Como a Azion CLI funciona](/pt-br/documentacao/devtools/cli/como-funciona/#de-um-projeto-a-um-deployment) | Cada deploy termina, e o novo código responde assim que se propaga, em cerca de dois minutos para um deploy depois do primeiro |
+
+---
+
+## Boas práticas
+
+- **Leia pela réplica e grave pela API.** `Database.open` chega a uma read replica sem token e recusa gravações. Enviar as leituras para a API gasta o personal token em toda chamada e adiciona uma requisição que a réplica responde diretamente. Para como a instância principal e as réplicas dividem o trabalho, consulte [Como o SQL Database funciona](/pt-br/documentacao/plataforma/sql-database/como-funciona/).
+- **Verifique cada statement, não o status HTTP.** Um statement que falha retorna `200` com `error` na entrada dele. Um cliente que lê só o status reporta um insert que falhou como sucesso, e o registro nunca é gravado:
+
+  ```javascript
+  const entry = (await response.json()).data[0];
+  if (entry.error) throw new Error(entry.error);
+  ```
+
+- **Dê à function um token só dela, com uma expiração planejada.** Um personal token expira na data escolhida quando ele é criado, e todas as gravações falham a partir desse momento. Um token usado só pela function pode ser substituído e implantado de novo sem mexer no token da CLI. Para as opções de expiração, consulte [Personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- **Nunca monte um statement a partir do texto bruto da requisição.** O endpoint de query recebe strings SQL, então um título que carrega uma aspa muda o statement que o banco de dados executa. Coloque os valores de texto entre aspas e duplique as aspas deles, como `sqlText` faz, e valide cada campo antes que ele chegue a um statement.
+- **Guarde em cache só o que todo cliente pode ler.** Uma resposta guardada com a Cache API é devolvida a qualquer requisição seguinte com a mesma chave. Guarde em cache respostas de lista e de consulta que são as mesmas para todo cliente, e nunca uma resposta construída a partir das credenciais de um cliente.
+
+---
+
+## Guias deste caso de uso
+
+<DocCardGroup cols={2}>
+  <DocCard title="Grave linhas no SQL Database a partir de uma function" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/" label="Armazena as credenciais do banco de dados como variáveis de ambiente e envia as gravações que a function da API faz." />
+  <DocCard title="Armazene em cache a resposta de uma function com a Cache API" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/" label="Guarda a resposta de lista sob um max-age e a apaga depois de cada gravação." />
+</DocCardGroup>

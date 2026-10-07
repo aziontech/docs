@@ -1,0 +1,500 @@
+---
+title: Migre nameservers para a Azion
+description: Mova o DNS de um domínio para o Edge DNS, teste a zona, delegue o domínio aos nameservers da Azion e aponte os hostnames dele para um workload.
+meta_tags: 'Edge DNS, migrate nameservers, dns migration, registrar, delegation, workloads'
+namespace: docs_guides_migrate_nameserver
+permalink: /documentacao/guias/plataforma/migracao/migrar-ns-para-a-azion/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+Você pode migrar os nameservers de um domínio para o [Edge DNS](/pt-br/documentacao/plataforma/edge-dns/) pelo Azion Console, pela Azion CLI ou pela Azion API. Depois disso, os nameservers da Azion respondem a todas as consultas DNS do domínio, e você gerencia os registros dele na Azion em vez de no seu provedor atual.
+
+A ordem do trabalho importa. Os resolvers só consultam a Azion depois que o registrador delega o domínio, e recebem `NXDOMAIN` para todo nome que a zona não contém. Por isso, você recria e testa a zona primeiro e altera o registrador por último. O Edge DNS hospeda a zona, e um [workload](/pt-br/documentacao/plataforma/workloads/) serve a sua aplicação nos hostnames cujos registros apontam para ele.
+
+Para apontar um hostname para um workload enquanto o seu provedor atual mantém o DNS do domínio, consulte [Aponte um domínio para um workload](/pt-br/documentacao/guias/plataforma/migracao/apontar-dominio-para-a-azion/).
+
+---
+
+Selecione a sua interface uma vez. Os pré-requisitos e as etapas abaixo mostram apenas esse caminho.
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.cli">CLI</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+</Tabs>
+
+## Pré-requisitos
+
+- Um domínio que você controla, acesso ao registrador do domínio e a lista de registros que o seu provedor de DNS atual serve para ele.
+- A permissão **Edit Edge DNS**, que requer **View Edge DNS**. Consulte [Permissões de equipes](/pt-br/documentacao/fundamentos/teams-permissions/).
+- Um workload que serve a sua aplicação. Para criar um, consulte [Primeiros passos com Workloads](/pt-br/documentacao/plataforma/workloads/primeiros-passos/).
+- O `dig` na sua máquina, para as etapas 3 e 6. Para instalá-lo, consulte [Consulte uma zona com o dig](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/executar-o-comando-dig/).
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+- Acesso ao Azion Console. Para entrar, consulte [Como acessar o Azion Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/como-acessar-o-azion-console/).
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+- A [Azion CLI](/pt-br/documentacao/devtools/cli/) instalada e autorizada.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+- Um [personal token](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/) e o `curl`.
+- Para todos os endpoints e campos, consulte a [referência da Azion API](https://api.azion.com/).
+
+</Fragment>
+
+</Tabs>
+
+---
+
+## 1. Crie a zona do domínio
+
+O Edge DNS mantém os registros de um domínio em uma zona. Substitua `example.com` pelo seu domínio em todo este guia.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Para criar a zona pelo Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a página Edge DNS">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Edge DNS**.
+
+  </DocStep>
+  <DocStep title="Selecione + Zone" />
+  <DocStep title="Nomeie a zona">
+
+  Na seção **General**, digite um **Name** que identifica a zona nas listas, como `example-zone`.
+
+  </DocStep>
+  <DocStep title="Digite o domínio">
+
+  Na seção **Domain Name**, digite em **Domain Name** o domínio raiz que você migra, como `example.com`.
+
+  </DocStep>
+  <DocStep title="Mantenha Active ativado">
+
+  Na seção **Status**, mantenha **Active** ativado.
+
+  </DocStep>
+  <DocStep title="Selecione Create" />
+</DocSteps>
+
+O Console mostra `Your DNS zone has been created. To complete the setup, ensure the Azion nameservers are configured in your domain provider.` e abre a aba **Records** da zona. A etapa 4 trata dos nameservers.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para criar a zona pela Azion CLI, execute:
+
+```bash
+azion create dns-zone --name example-zone --domain example.com --active=true
+```
+
+A CLI retorna o ID da zona:
+
+```text
+Created DNS zone with ID 1235
+```
+
+Anote o ID. A etapa 4 usa esse valor como `<zone-id>`.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para criar a zona pela Azion API, envie uma requisição `POST` com o nome e o domínio. Substitua `[TOKEN VALUE]` pelo seu personal token:
+
+```bash
+curl -X POST https://api.azion.com/v4/workspace/dns/zones \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"example-zone","domain":"example.com","active":true}'
+```
+
+A API responde `201` com a zona:
+
+```json
+{
+  "state": "executed",
+  "data": {
+    "id": 1234,
+    "name": "example-zone",
+    "domain": "example.com",
+    "active": true,
+    "nameservers": ["ns1.aziondns.net", "ns2.aziondns.com", "ns3.aziondns.org"],
+    "product_version": "2.0"
+  }
+}
+```
+
+Anote o `id`. A etapa 5 usa esse valor como `<zone-id>`, e a etapa 4 usa o array `nameservers`.
+
+</Fragment>
+
+</Tabs>
+
+O domínio de uma zona não pode mudar, e apenas uma zona na Azion pode hospedar um domínio. Para todas as configurações da zona, consulte [Crie, edite ou exclua uma zona](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/edge-dns-definir-main-settings/).
+
+---
+
+## 2. Copie os registros do domínio
+
+A zona responde apenas pelos registros que você adiciona a ela. Exporte ou liste os registros no seu provedor de DNS atual e recrie-os no Edge DNS antes da mudança no registrador.
+
+Para copiar os registros:
+
+1. Deixe de fora os registros NS e SOA do domínio raiz. O Edge DNS responde por ambos para a própria zona, e a API recusa um registro NS em `@` com `19021`.
+2. Adicione todos os outros registros à zona com o mesmo nome, tipo e valor. Para os passos em cada interface, consulte [Adicione, edite ou exclua um registro](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/adicionar-registros/).
+3. Digite cada nome relativo à zona: `www` para `www.example.com` e `@` para o próprio `example.com`. O Edge DNS adiciona o domínio, então um nome digitado com o domínio é servido com o domínio duas vezes.
+
+A zona agora contém todos os nomes pelos quais o seu domínio responde. Para o formato do valor de cada tipo de registro, consulte [Tipos de registro](/pt-br/documentacao/plataforma/edge-dns/tipos-de-registro/).
+
+Um registro CNAME em `@` é recusado com `19005`. Se o seu provedor atual aponta o domínio raiz para outro hostname, use um registro ANAME, como mostra [Aponte um domínio raiz com ANAME](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/acessar-root-domain/).
+
+---
+
+## 3. Teste a zona nos nameservers da Azion
+
+Consulte diretamente o nameserver da Azion antes de mexer no registrador. A consulta ignora o cache do seu resolver, então mostra o que o Edge DNS responde hoje pela zona.
+
+:::caution[Atenção]
+Consulte um nome somente depois de adicionar o registro dele. Um nome consultado antes de o registro existir é respondido com `NXDOMAIN` por até uma hora, o mínimo do SOA.
+:::
+
+Para testar um registro, consulte `ns1.aziondns.net` por um dos nomes que você adicionou:
+
+```bash
+dig +short @ns1.aziondns.net www.example.com A
+```
+
+O nameserver retorna o valor do registro:
+
+```text
+192.0.2.1
+```
+
+Execute a mesma consulta para cada nome e tipo que você copiou e compare cada resposta com a do seu provedor atual. Sem `+short`, o cabeçalho da saída mostra `status: NOERROR` e a flag `aa`, que marca uma resposta autoritativa.
+
+O primeiro registro de uma zona pode levar alguns minutos para ser respondido. Se uma consulta não exibir nada, consulte [Um registro novo retorna NXDOMAIN](/pt-br/documentacao/plataforma/edge-dns/solucao-de-problemas/#um-registro-novo-retorna-nxdomain).
+
+Para ver os nameservers que a zona declara para si mesma, consulte o conjunto NS dela:
+
+```bash
+dig +short @ns1.aziondns.net example.com NS
+```
+
+A zona lista os três nameservers do Edge DNS:
+
+```text
+ns3.aziondns.org.
+ns2.aziondns.com.
+ns1.aziondns.net.
+```
+
+A zona responde como o seu provedor atual responde. O domínio está pronto para a mudança.
+
+---
+
+## 4. Delegue o domínio aos nameservers da Azion
+
+O registrador informa aos resolvers quais nameservers respondem pelo domínio. Substituir os nameservers atuais pelos da Azion leva todas as consultas do domínio para o Edge DNS.
+
+Obtenha os três nameservers pela interface que você usou na etapa 1:
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Na página **Zones** do **Edge DNS**, selecione **Copy Nameserver Values**. A opção copia os três nomes, separados por ponto e vírgula.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Execute `azion describe dns-zone --zone-id <zone-id>`. A saída lista os três nomes em `Nameservers:`.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Leia o array `nameservers` da zona, retornado na etapa 1.
+
+</Fragment>
+
+</Tabs>
+
+Para delegar o domínio no registrador:
+
+1. Abra as configurações de nameserver do domínio no registrador.
+2. Substitua os nameservers atuais pelos três nameservers do Edge DNS: `ns1.aziondns.net`, `ns2.aziondns.com` e `ns3.aziondns.org`.
+3. Salve a alteração.
+
+O registrador lista os três nameservers do Edge DNS para o domínio. A etapa 6 verifica quando os resolvers passam a segui-los.
+
+Se o registrador mantém um registro DS do domínio vindo do seu provedor atual, os resolvers que validam podem rejeitar as respostas do Edge DNS. Para corrigir isso, consulte [A validação falha depois de ativar o DNSSEC](/pt-br/documentacao/plataforma/edge-dns/solucao-de-problemas/#a-validacao-falha-depois-de-ativar-o-dnssec).
+
+---
+
+## 5. Aponte os hostnames para o workload
+
+Um workload serve a sua aplicação nos hostnames que você adiciona a ele. Você adiciona cada hostname do seu domínio ao workload e depois cria na zona um registro CNAME que aponta o hostname para o domínio da Azion do workload.
+
+Workloads substitui Domains. Se a sua conta ainda serve aplicações por meio de Domains, siga os passos de Domains no painel do Console ou os passos da API v3 no painel da API. Para saber como um workload recebe um hostname, consulte [Configurações de workload](/pt-br/documentacao/plataforma/workloads/configuracoes/) e [Aponte um domínio para um workload](/pt-br/documentacao/guias/plataforma/migracao/apontar-dominio-para-a-azion/).
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Para apontar um hostname para um workload pelo Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a página Workloads">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Workloads**.
+
+  </DocStep>
+  <DocStep title="Abra o workload">
+
+  Selecione o workload que serve a sua aplicação.
+
+  </DocStep>
+  <DocStep title="Adicione os seus hostnames">
+
+  Nos campos **Subdomain** e **Domain**, adicione os hostnames do seu domínio. Se o workload já os lista, mantenha-os à mão.
+
+  </DocStep>
+  <DocStep title="Abra a página Edge DNS">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Edge DNS**.
+
+  </DocStep>
+  <DocStep title="Abra os registros da zona">
+
+  Na página **Zones**, selecione a zona e, em seguida, selecione a aba **Records**.
+
+  </DocStep>
+  <DocStep title="Selecione + Record" />
+  <DocStep title="Digite o hostname">
+
+  Em **Name**, digite o hostname relativo à zona, como `www`. Digite `*` para todo nome que a zona não lista. O Console adiciona o domínio para você.
+
+  </DocStep>
+  <DocStep title="Selecione o tipo CNAME">
+
+  Em **Record Type**, selecione *CNAME - Canonical name*.
+
+  </DocStep>
+  <DocStep title="Digite o domínio da Azion">
+
+  Em **Value**, digite o domínio da Azion do workload, como `<your-workload>.map.azionedge.net`.
+
+  </DocStep>
+  <DocStep title="(Opcional) Defina o TTL e a política">
+
+  Altere **TTL (seconds)** e **Policy Type** se o seu registro precisar de outros valores.
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+O Console mostra `Edge DNS Record has been created`. Repita os passos do registro para cada hostname que o workload serve.
+
+Se a sua conta usa **Domains**, adicione os hostnames ali em vez de em um workload:
+
+<DocSteps>
+  <DocStep title="Abra a página Domains">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Domains**.
+
+  </DocStep>
+  <DocStep title="Abra o domínio">
+
+  Selecione o domínio que serve a sua aplicação.
+
+  </DocStep>
+  <DocStep title="Adicione os seus hostnames">
+
+  No campo **CNAME**, adicione os hostnames do seu domínio. Se o domínio já os lista, mantenha-os à mão.
+
+  </DocStep>
+</DocSteps>
+
+Em seguida, crie cada registro CNAME no Edge DNS com os passos acima e digite em **Value** o domínio da Azion do domínio.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para apontar um hostname para um workload com a API v4, primeiro liste os seus workloads:
+
+```bash
+curl -X GET https://api.azion.com/v4/workspace/workloads \
+  -H "Authorization: Token [TOKEN VALUE]"
+```
+
+A resposta lista cada workload com os hostnames dele em `domains` e o domínio da Azion dele em `workload_domain`:
+
+```json
+{
+  "count": 3,
+  "results": [
+    {
+      "id": "<workload-id>",
+      "name": "My workload",
+      "active": true,
+      …
+      "domains": ["xxxxxxx.azion.app"],
+      "workload_domain_allow_access": false,
+      "workload_domain": "xxxxxxxx.map.azionedge.net",
+      "product_version": "1.0"
+    },
+    …
+  ]
+}
+```
+
+Anote o `id` do workload e o `workload_domain` dele. Se `domains` não lista nenhum dos seus hostnames, envie-os em uma requisição `PATCH`. Substitua `<workload-id>` pelo `id`:
+
+```bash
+curl -X PATCH https://api.azion.com/v4/workspace/workloads/<workload-id> \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"domains":["example.com","*.example.com"]}'
+```
+
+O campo `domains` recebe a lista de hostnames que o workload serve.
+
+Para criar o registro CNAME, envie uma requisição `POST` para os registros da zona. Substitua `<zone-id>` pelo `id` da etapa 1:
+
+```bash
+curl -X POST https://api.azion.com/v4/workspace/dns/zones/<zone-id>/records \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"CNAME","name":"www","rdata":["<your-workload>.map.azionedge.net"],"ttl":20,"description":"www record"}'
+```
+
+A API responde `201` com o registro. O `name` é relativo à zona, `rdata` contém o domínio do workload e `ttl` define o tempo de vida em segundos. Repita a requisição para cada hostname que o workload serve.
+
+Se a sua conta usa Domains com a API v3, liste os seus domínios:
+
+```bash
+curl -X GET https://api.azionapi.net/domains \
+  -H "Accept: application/json; version=3" \
+  -H "Authorization: Token [TOKEN VALUE]"
+```
+
+A resposta lista cada domínio com os hostnames dele em `cnames` e o domínio da Azion dele em `domain_name`:
+
+```json
+{
+  …
+  "results": [
+    {
+      "id": <domain-id>,
+      "name": "example.com CA1 DC-example.com",
+      "cnames": [],
+      "cname_access_only": true,
+      "digital_certificate_id": <digital-certificate-id>,
+      "edge_application_id": <edge-application-id>,
+      "is_active": true,
+      "domain_name": "xxxxxxxxxx.map.azionedge.net"
+    }
+  ]
+}
+```
+
+Anote o `id` do domínio e o `domain_name` dele. Se `cnames` não lista nenhum dos seus hostnames, envie-os em uma requisição `PATCH`. Substitua `<domain-id>` pelo `id`:
+
+```bash
+curl -X PATCH https://api.azionapi.net/domains/<domain-id> \
+  -H "Accept: application/json; version=3" \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"cnames":["example.com","*.example.com"]}'
+```
+
+Para criar o registro CNAME com a API v3, envie uma requisição `POST` para os registros da zona. Substitua `<zone-id>` pelo `id` da etapa 1:
+
+```bash
+curl -X POST https://api.azionapi.net/intelligent_dns/<zone-id>/records \
+  -H "Accept: application/json; version=3" \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"record_type":"CNAME","entry":"www","answers_list":["xxxxxxxxxx.map.azionedge.net"],"description":"www record","ttl":20}'
+```
+
+Na API v3, `record_type` é o tipo, `entry` é o nome relativo à zona e `answers_list` contém os valores. A resposta retorna o registro:
+
+```json
+{
+  "results": {
+    "answers_list": ["xxxxxxxxxx.map.azionedge.net"],
+    "zone_id": <zone-id>,
+    "record_type": "CNAME",
+    "ttl": 20,
+    "policy": "simple",
+    "entry": "www",
+    "id": <record-id>,
+    "description": "www record"
+  }
+}
+```
+
+</Fragment>
+
+</Tabs>
+
+Um registro com o nome `*` responde por todo nome que a zona não lista, então um único registro pode enviar `www` e `blog` para o workload. Para os nomes que um wildcard abrange, consulte [Responda a subdomínios com wildcard](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/registro-wildcard/).
+
+Um registro cujo nome ninguém consultou antes de ele existir responde em segundos. Uma alteração em um registro existente pode levar alguns minutos para chegar a todos os nameservers. Para entender o motivo, consulte [Como o Edge DNS funciona](/pt-br/documentacao/plataforma/edge-dns/como-funciona/#cache-e-propagacao).
+
+---
+
+## 6. Verifique o domínio por um resolver público
+
+Um resolver público só chega à Azion pela delegação que o registrador publica. Consultar um deles mostra se a internet já segue a mudança da etapa 4.
+
+Para consultar um resolver público, execute:
+
+```bash
+dig @8.8.8.8 www.example.com A
+```
+
+Enquanto o resolver ainda não segue a delegação, o cabeçalho pode mostrar `NXDOMAIN` sem resposta:
+
+```text
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 19090
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+…
+```
+
+O resolver também pode retornar os registros do seu provedor anterior. Quando ele passa a seguir a delegação, retorna o mesmo valor que `ns1.aziondns.net` retornou na etapa 3. Se isso não acontecer, consulte [Resolvers públicos retornam NXDOMAIN enquanto os nameservers da Azion respondem](/pt-br/documentacao/plataforma/edge-dns/solucao-de-problemas/#resolvers-publicos-retornam-nxdomain-enquanto-os-nameservers-da-azion-respondem).
+
+O Edge DNS agora responde pelo seu domínio. A partir daqui, você adiciona e altera os registros dele no Edge DNS, não no seu provedor anterior.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Aponte um domínio raiz com ANAME" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/acessar-root-domain/" label="Envie o próprio domínio raiz para um workload." />
+  <DocCard title="Ative o DNSSEC em uma zona" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/ativar-dnssec/" label="Assine a zona migrada e entregue o registro DS ao registrador." />
+  <DocCard title="Solucionar problemas de Edge DNS" href="/pt-br/documentacao/plataforma/edge-dns/solucao-de-problemas/" label="Corrija uma zona ou um registro que não responde como esperado." />
+  <DocCard title="Use a integração Massive Redirect" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/massive-redirect-integration/" label="Redirecione muitos endereços de uma vez quando a migração de um domínio os altera." />
+</DocCardGroup>

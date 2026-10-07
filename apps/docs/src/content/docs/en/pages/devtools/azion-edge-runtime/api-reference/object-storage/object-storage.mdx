@@ -1,0 +1,412 @@
+---
+title: Object Storage API
+description: >-
+  Object Storage API reference: the azion:storage module a function uses to put,
+  get, delete, and list the objects of a bucket.
+meta_tags: 'azion runtime, object storage, azion:storage, bucket, storage, functions'
+namespace: documentation_runtime_storage
+permalink: /documentation/devtools/runtime/api-reference/storage/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+The Azion Runtime Object Storage API gives a function from [Functions](/en/documentation/platform/functions/) read and write access to the objects of an [Object Storage](/en/documentation/platform/object-storage/) bucket. The function imports the `Storage` class from the `azion:storage` module, names a bucket, and calls `put`, `get`, `delete`, and `list` on it. No token is involved: the constructor takes the bucket name and nothing else.
+
+:::note
+Under `azion dev`, the module stores objects on the local disk and behaves differently: `put` without an `options` object fails with `TypeError: Cannot read properties of undefined (reading 'content-length')`, a number in `metadata` is accepted, a missing key throws `ENOENT` instead of `StorageError: Object not found`, and `list` returns keys without the leading slash and without `content_length`. Test storage calls on a deployed function.
+:::
+
+---
+
+## Constructor
+
+Import the `Storage` class and create one instance per bucket:
+
+```javascript
+import Storage from "azion:storage";
+
+const storage = new Storage("my-bucket");
+```
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `bucket` | string | Name of the bucket. **Required**: without it, the constructor throws `StorageError: bucketName must be a string`. |
+
+The constructor returns a `Storage` object whose methods read and write that bucket. It does not check that the bucket exists: an unknown name fails on the first method call with a `Bucket not found` error.
+
+The bucket is created when you deploy a static application with the [Azion CLI](/en/documentation/devtools/cli/), or through the [Azion API](https://api.azion.com/). The CLI also creates and manages buckets directly; for more information, refer to [Azion CLI storage](/en/documentation/devtools/cli/resources/storage/). The bucket's `workloads_access` setting decides what the platform may do with its objects; for more information, refer to [Buckets and objects](/en/documentation/platform/object-storage/buckets-and-objects/).
+
+---
+
+## Methods
+
+Every `Storage` method is asynchronous and returns a promise. Call it with `await`, or pass the promise to `event.waitUntil`.
+
+### put
+
+`put` stores an object in the bucket under a key:
+
+```javascript
+await storage.put(key, value, options);
+```
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `key` | string | Yes | Identifier of the object in the bucket. |
+| `value` | `ArrayBuffer` or [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream) | Yes | Content of the object. The examples pass the `Uint8Array` that `TextEncoder` returns. A string throws `TypeError: value must be an ArrayBuffer or a ReadableStream`. With a `ReadableStream`, the Stream APIs apply and `content-length` is required. |
+| `options` | object | With a `ReadableStream` | Attributes of the object, described in the next table. |
+
+The `options` object takes these attributes:
+
+| Attribute | Type | Default | Description |
+| --- | --- | --- | --- |
+| `content-type` | string | `application/octet-stream` | Media type of the object, like the HTTP `content-type` header. It describes how the content is treated. Optional. |
+| `content-length` | string | — | Size of the object, in bytes. Required when `value` is a `ReadableStream`; without it, `put` throws `TypeError: Cannot read properties of undefined (reading 'content-length')`. |
+| `metadata` | object | — | A JavaScript object stored with the object. Every property value must be a string: a number throws `TypeError: serde_v8 error: invalid type; expected: string, got: Number`. |
+
+`put` resolves with `undefined`. It throws a `StorageError` when the bucket does not exist.
+
+### get
+
+`get` retrieves the object stored under a key:
+
+```javascript
+const storageObject = await storage.get(key);
+```
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `key` | string | Yes | Identifier of the object in the bucket. |
+
+`get` resolves with a [StorageObject](#storageobject). It throws `StorageError: Object not found` when the key holds no object, and a `StorageError` when the bucket does not exist.
+
+### delete
+
+`delete` removes the object stored under a key:
+
+```javascript
+await storage.delete(key);
+```
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `key` | string | Yes | Identifier of the object in the bucket. |
+
+`delete` resolves with `undefined`, also when the key holds no object. It throws a `StorageError` when the bucket does not exist.
+
+### list
+
+`list` returns the objects of the bucket:
+
+```javascript
+const objectsList = await storage.list();
+```
+
+`list` takes no parameters. It resolves with a [StorageObjectList](#storageobjectlist), and throws a `StorageError` when the bucket does not exist.
+
+---
+
+## StorageObject
+
+`get` resolves with a `StorageObject`, which carries the content of the object and its attributes:
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `content` | `ReadableStream` | Read-only. The content of the object, as a stream. |
+| `arrayBuffer()` | async function | Returns an `ArrayBuffer` with the content of the object. It consumes the `content` stream. |
+| `metadata` | [Map](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) | Read-only. The metadata stored with the object. Read one value with `metadata.get("info")`. |
+| `contentType` | string | Read-only. The `content-type` of the object. |
+| `contentLength` | number | Read-only. Size of the content, in bytes. |
+
+---
+
+## StorageObjectList
+
+`list` resolves with a `StorageObjectList`. Its `entries` array holds one item per object, and each item carries two properties:
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `key` | string | Key of the object, with a leading slash: an object stored as `test2` is listed as `/test2`. |
+| `content_length` | number | Size of the object, in bytes. |
+
+---
+
+## Examples
+
+Each example is a complete function that uses the bucket `my-bucket`. Replace the name with one of your buckets.
+
+### Persist the request body
+
+This function streams the body of the request into the object `test`:
+
+```javascript
+import Storage from "azion:storage";
+
+async function handleRequest(event) {
+    try{
+        const bucket = "my-bucket";
+        const storage = new Storage(bucket);
+        const key = "test";
+        const inputStream = event.request.body;
+        let contentLength = event.request.headers.get("content-length");
+        await storage.put(key, inputStream, { "content-length": contentLength });
+        return new Response("OK");
+    }catch(error){
+        return new Response(error, {status:500});
+    }
+}
+
+addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event));
+});
+```
+
+For a `POST` request with a text body, the function stores the body and responds `OK`.
+
+### Persist a JSON object
+
+This function encodes a JSON object and stores it as the object `test`:
+
+```javascript
+import Storage from "azion:storage";
+
+async function handleRequest(event) {
+    try{
+        const bucket = "my-bucket";
+        const storage = new Storage(bucket);
+        const key = "test";
+        const data = JSON.stringify({
+            name:"John",
+            address:"Abbey Road"
+        });
+        const buffer = new TextEncoder().encode(data);
+        await storage.put(key, buffer);
+        return new Response("OK");
+    }catch(error){
+        return new Response(error, {status:500});
+    }
+}
+
+addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event));
+});
+```
+
+The function responds `OK` once the object is stored.
+
+### Store a JSON object with metadata
+
+This function stores a JSON object as `test2`, with the `application/json` content type and two metadata values:
+
+```javascript
+import Storage from "azion:storage";
+
+async function handleRequest(event) {
+    try{
+        const bucket = "my-bucket";
+        const storage = new Storage(bucket);
+        const key = "test2";
+        const data = JSON.stringify({
+            name:"Paul",
+            address:"Abbey Road"
+        });
+        const buffer = new TextEncoder().encode(data);
+        const options = { "content-type": "application/json",
+                          "metadata": {
+                            info:"test info",
+                            counter: "1",
+                          }}
+        await storage.put(key, buffer, options);
+        return new Response("OK");
+    }catch(error){
+        return new Response(error, {status:500});
+    }
+}
+
+addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event));
+});
+```
+
+The function responds `OK` once the object is stored.
+
+### Return the content of an object
+
+This function retrieves the object `test` and returns its content stream as the response body:
+
+```javascript
+import Storage from "azion:storage";
+
+async function handleRequest(event) {
+    try{
+        const bucket = "my-bucket";
+        const storage = new Storage(bucket);
+        const key = "test";
+        const storageObject = await storage.get(key);
+        return new Response(storageObject.content);
+    }catch(error){
+        return new Response(error, {status:500});
+    }
+}
+
+addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event));
+});
+```
+
+When `test` holds the JSON object from the Persist a JSON object example, the function responds with this body:
+
+```text
+{"name":"John","address":"Abbey Road"}
+```
+
+### Decode a JSON object
+
+This function reads the object `test` with `arrayBuffer()` and decodes it to text:
+
+```javascript
+import Storage from "azion:storage";
+
+async function handleRequest(event) {
+    try{
+        const bucket = "my-bucket";
+        const storage = new Storage(bucket);
+        const key = "test";
+        const storageObject = await storage.get(key);
+        const data = new TextDecoder().decode(await storageObject.arrayBuffer());
+        return new Response(data);
+    }catch(error){
+        return new Response(error, {status:500});
+    }
+}
+
+addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event));
+});
+```
+
+When `test` holds the JSON object from the Persist a JSON object example, the function responds with this body:
+
+```text
+{"name":"John","address":"Abbey Road"}
+```
+
+### Read the metadata of an object
+
+This function retrieves the object `test2` and returns its `info` metadata value:
+
+```javascript
+import Storage from "azion:storage";
+
+async function handleRequest(event) {
+    try{
+        const bucket = "my-bucket";
+        const storage = new Storage(bucket);
+        const key = "test2"
+        const storageObject = await storage.get(key);
+        return new Response(storageObject.metadata.get("info"));
+    }catch(error){
+        return new Response(error, {status:500});
+    }
+}
+
+addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event));
+});
+```
+
+When `test2` holds the object from the Store a JSON object with metadata example, the function responds `test info`.
+
+### Delete an object
+
+This function removes the object `test` from the bucket:
+
+```javascript
+import Storage from "azion:storage";
+
+async function handleRequest(event) {
+    const bucket = "my-bucket";
+    const storage = new Storage(bucket);
+    const key = "test";
+    try{
+        await storage.delete(key);
+    }catch(error){
+        return new Response(error, {status:500});
+    }
+    return new Response("Ok");
+}
+
+addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event));
+});
+```
+
+The function responds `Ok` once the object is removed.
+
+### List the objects of a bucket
+
+This function lists the objects of the bucket and logs the key and size of each one:
+
+```javascript
+import Storage from "azion:storage";
+
+async function handleRequest(event) {
+    try{
+        const bucket = "my-bucket";
+        const storage = new Storage(bucket);
+        const objectsList = await storage.list();
+        for (const entry of objectsList.entries) {
+            console.log(`key: ${entry.key} length: ${entry.content_length}`);
+        }
+        return new Response("Ok");
+    }catch(error){
+        return new Response(error, {status:500});
+    }
+}
+
+addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event));
+});
+```
+
+For a bucket that holds four objects, the function responds `Ok` and logs these lines:
+
+```text
+key: /examples/a.json length: 38
+key: /examples/b.json length: 15
+key: /examples/c.txt length: 13
+key: /test2 length: 38
+```
+
+---
+
+## Errors
+
+A failed call throws an error whose `name` is `StorageError`, or a `TypeError` for an argument the method refuses. The runtime has no global `StorageError` class, so match on `error.name`. Each string below is the error as `new Response(error)` returns it; `<bucket-name>` stands for the name the function passed.
+
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `StorageError: bucketName must be a string` | The constructor received no bucket name. | Pass the bucket name to `new Storage()`. |
+| `StorageError: storage put error: Bucket not found: <bucket-name>` | `put` named a bucket the account does not have. | Pass the name of an existing bucket. |
+| `StorageError: Bucket not found: <bucket-name>` | `get` named a bucket the account does not have. | Pass the name of an existing bucket. |
+| `StorageError: storage delete error: Bucket not found: <bucket-name>` | `delete` named a bucket the account does not have. | Pass the name of an existing bucket. |
+| `StorageError: storage list error: Bucket not found: <bucket-name>` | `list` named a bucket the account does not have. | Pass the name of an existing bucket. |
+| `StorageError: Object not found` | `get` named a key that holds no object. | Check the key, or call `list` to see the keys of the bucket. |
+| `TypeError: value must be an ArrayBuffer or a ReadableStream` | `put` received another type of value, such as a string. | Encode the value with `TextEncoder`, as the JSON examples do. |
+| `TypeError: Cannot read properties of undefined (reading 'content-length')` | `put` received a `ReadableStream` without `content-length`. | Pass the size in bytes as `content-length` in `options`. |
+| `TypeError: serde_v8 error: invalid type; expected: string, got: Number` | A `metadata` value passed to `put` is not a string. | Convert every metadata value to a string. |
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Object Storage" href="/en/documentation/platform/object-storage/">How buckets hold objects, and how an application serves them through a connector.</DocItem>
+  <DocItem title="Buckets and objects" href="/en/documentation/platform/object-storage/buckets-and-objects/">The `workloads_access` levels and the Azion API calls on the same buckets.</DocItem>
+  <DocItem title="Azion CLI storage" href="/en/documentation/devtools/cli/resources/storage/">Create a bucket and manage its objects from the terminal.</DocItem>
+  <DocItem title="Handlers" href="/en/documentation/devtools/runtime/api-reference/handlers/">The handler shapes a function exports, and the request each one receives.</DocItem>
+</ItemList>
+</FrameBox>

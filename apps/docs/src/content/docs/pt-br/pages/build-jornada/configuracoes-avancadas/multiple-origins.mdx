@@ -1,0 +1,351 @@
+---
+title: Balanceie o tráfego entre múltiplas origens
+description: >-
+  Distribua as requisições de uma aplicação entre vários endereços de origem com
+  um connector com Load Balancer e uma regra do Rules Engine que o define.
+meta_tags: 'load balancer, multiple origins, connector, round robin, weight, server role, backup origin, set connector, rules engine, applications'
+namespace: docs_guides_build_advanced_multi_origins
+permalink: /documentacao/guias/performance-e-confiabilidade/disponibilidade/configure-multiplas-origens/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+Você pode distribuir as requisições de uma [aplicação](/pt-br/documentacao/plataforma/applications/) entre vários servidores de origem ao habilitar [Load Balancer](/pt-br/documentacao/plataforma/connectors/#load-balancer) em um [connector](/pt-br/documentacao/plataforma/connectors/). Uma regra do [Rules Engine](/pt-br/documentacao/plataforma/applications/rules-engine/) então envia as requisições a esse connector, e Load Balancer as distribui entre os endereços dele com um algoritmo de balanceamento. Para conectar uma aplicação a uma única origem, consulte [Conecte uma aplicação a uma origem](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/definir-origens/).
+
+Uma conta que [não migrou para a API v4](/pt-br/documentacao/guias/seguranca-de-aplicacoes/acesso-e-compliance/verificar-migracao-conta/) configura o balanceamento de carga nas Origins legadas da aplicação. Para mais informações, consulte [Origins](/pt-br/documentacao/plataforma/connectors/origins/#load-balancer).
+
+:::caution[Atenção]
+Com Load Balancer habilitado, a transferência de dados pode gerar custos relacionados ao uso. Para mais informações, consulte [Preços](/pt-br/documentacao/fundamentos/precos/).
+:::
+
+---
+
+Escolha a interface em que você trabalha. Os pré-requisitos e os procedimentos mudam conforme a sua escolha.
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+</Tabs>
+
+## Pré-requisitos
+
+- Uma aplicação servida por um [workload](/pt-br/documentacao/plataforma/workloads/). Para criar os dois, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+- Dois ou mais servidores de origem que guardam o mesmo conteúdo e estão configurados da mesma forma para a aplicação.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+- Acesso ao Azion Console. Para entrar, consulte [Acesse Azion Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/como-acessar-o-azion-console/).
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+- Um personal token, enviado no header `Authorization` como `Token [TOKEN VALUE]`. Para criar um, consulte [Gerencie um personal token](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- `curl` ou outro cliente HTTP.
+- O ID da aplicação. Azion Console mostra o ID no endereço da página da aplicação, depois de `/applications/edit/`.
+
+</Fragment>
+
+</Tabs>
+
+---
+
+## Planeje os endereços
+
+O exemplo desta página balanceia três servidores de origem. Cada um está hospedado em um provedor de armazenamento ou serviço de cloud diferente, porque quedas de servidor raramente ocorrem ao mesmo tempo. Os três guardam o mesmo conteúdo e estão configurados da mesma forma para a aplicação. Dois deles dividem o tráfego, e o terceiro fica de reserva para manutenção e picos de tráfego.
+
+| Endereço | Servidor | Capacidade de carga | Peso | Função do servidor | Ativo |
+| --- | --- | --- | --- | --- | --- |
+| `example.com` | Primário | Alta | `3` | `primary` | Sempre |
+| `example.net` | Secundário | Média, suficiente para grandes picos de tráfego | `2` | `primary` | Sempre |
+| `example.org` | Backup | Baixa | `1`, o padrão quando o peso fica em branco | `backup` | Apenas durante uma manutenção ou um pico de tráfego |
+
+O peso acompanha a capacidade de carga de cada servidor. Tanto `example.com` quanto `example.net` são primários, e o peso maior faz de `example.com` o endereço preferido para conexões. `example.org` fica inativo até que uma manutenção ou um pico precise dele. Para saber como o peso, a função do servidor e o estado ativo distribuem as requisições, consulte [Load Balancer](/pt-br/documentacao/plataforma/connectors/load-balancer/metodos-de-balanceamento/#peso).
+
+---
+
+## Crie um connector com Load Balancer
+
+Load Balancer pertence ao connector, em `attributes.modules` na API. Um connector criado sem Load Balancer o mantém desabilitado até que você habilite o Load Balancer no connector. Este é o objeto `attributes.modules` de um connector HTTP que a API criou sem balanceamento de carga:
+
+```json
+{
+  "load_balancer": {
+    "enabled": false,
+    "config": null
+  },
+  "origin_shield": {
+    "enabled": false,
+    "config": null
+  }
+}
+```
+
+Para balancear os três endereços do exemplo com o [algoritmo Round-Robin](/pt-br/documentacao/plataforma/connectors/load-balancer/metodos-de-balanceamento/#metodo-de-balanceamento), o connector traz estes valores. Cada chave fica em `attributes`:
+
+| Chave | Valor no exemplo |
+| --- | --- |
+| `type` | `http` |
+| `modules.load_balancer.enabled` | `true` |
+| `modules.load_balancer.config.method` | `round_robin` |
+| `modules.load_balancer.config.max_retries` | `0` |
+| `modules.load_balancer.config.connection_timeout` | `60` |
+| `modules.load_balancer.config.read_write_timeout` | `120` |
+| `addresses[].address` | `example.com`, `example.net` e `example.org` |
+| `addresses[].modules.load_balancer.weight` | `3`, `2` e `1` |
+| `addresses[].modules.load_balancer.server_role` | `primary`, `primary` e `backup` |
+| `addresses[].active` | `true`, `true` e `false` |
+| `connection_options.transport_policy` | `preserve` |
+| `connection_options.host` | `${host}`, que encaminha o header `Host` da requisição do usuário |
+
+No Azion Console, você configura connectors no menu Connectors, e não em uma aba da aplicação. Para cada campo, consulte [Load Balancer](/pt-br/documentacao/plataforma/connectors/#load-balancer) e [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#enderecos).
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Para criar o connector no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a página Connectors">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Connectors**.
+
+  </DocStep>
+  <DocStep title="Inicie um novo connector" />
+  <DocStep title="Dê um nome ao connector">
+
+  Na seção **General**, insira `balanced-origins` em **Name**.
+
+  </DocStep>
+  <DocStep title="Selecione o tipo HTTP">
+
+  Na seção **Connector Type**, selecione o tipo HTTP.
+
+  </DocStep>
+  <DocStep title="Ative Load Balancer">
+
+  Na seção **Modules**, ative **Load Balancer**. O connector passa a aceitar mais de um endereço.
+
+  </DocStep>
+  <DocStep title="Selecione o método">
+
+  Na seção **Load Balancer Configuration**, selecione _Round Robin_ em **Method**.
+
+  </DocStep>
+  <DocStep title="Desative as novas tentativas">
+
+  Insira `0` em **Max Retries**, o valor para nenhuma nova tentativa.
+
+  </DocStep>
+  <DocStep title="Defina os timeouts">
+
+  Insira `60` em **Connection Timeout** e `120` em **Read/Write Timeout**.
+
+  </DocStep>
+  <DocStep title="Defina o primeiro endereço primário">
+
+  Na seção **Address Management**, insira `example.com` em **Address** e `3` em **Weight**. Selecione _Primary_ em **Server Role** e mantenha **Active** ativado.
+
+  </DocStep>
+  <DocStep title="Adicione um segundo endereço" />
+  <DocStep title="Defina o segundo endereço primário">
+
+  Insira `example.net` em **Address** e `2` em **Weight**. Selecione _Primary_ em **Server Role** e mantenha **Active** ativado.
+
+  </DocStep>
+  <DocStep title="Adicione um terceiro endereço" />
+  <DocStep title="Defina o endereço de backup">
+
+  Insira `example.org` em **Address** e `1` em **Weight**. Selecione _Backup_ em **Server Role** e desative **Active**.
+
+  </DocStep>
+  <DocStep title="Mantenha o protocolo da requisição do usuário">
+
+  Em **Transport Protocol Policy**, selecione a opção que preserva o protocolo da requisição do usuário.
+
+  </DocStep>
+  <DocStep title="Encaminhe o header Host da requisição do usuário">
+
+  Insira `${host}` como o host que o connector envia à origem no header `Host`.
+
+  </DocStep>
+  <DocStep title="Selecione Create" />
+</DocSteps>
+
+Azion Console mostra `Connector successfully created`.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para criar o connector com a API, envie os valores da tabela em uma requisição `POST` para `/v4/workspace/connectors`. Copie o ID do connector, que a API retorna em `data.id`. A regra que envia as requisições ao connector o identifica por esse ID.
+
+</Fragment>
+
+</Tabs>
+
+---
+
+## Envie as requisições ao connector
+
+Um connector não recebe nenhuma requisição até que uma regra o defina. A regra desta seção é executada na fase de requisição da aplicação. O critério dela corresponde a todos os paths, com a variável `${uri}`, o operador `starts_with` e `/` como argumento, então o connector serve a aplicação inteira. O behavior dela define o connector.
+
+A variável `${uri}` funciona em todas as aplicações. Um critério com `${request_uri}` precisa de [Application Accelerator](/pt-br/documentacao/plataforma/applications/application-accelerator/primeiros-passos/) ativado na aplicação. Para todas as variáveis e todos os operadores, consulte [Rules Engine para Applications](/pt-br/documentacao/plataforma/applications/rules-engine/#criterios).
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Para criar a regra no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a aplicação">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Applications** e selecione a sua aplicação.
+
+  </DocStep>
+  <DocStep title="Selecione a aba Rules Engine" />
+  <DocStep title="Inicie uma regra">
+
+  Selecione **+ Rule**.
+
+  </DocStep>
+  <DocStep title="Dê um nome à regra">
+
+  Na seção **General**, insira um **Name**, como `balance-origins`.
+
+  </DocStep>
+  <DocStep title="Selecione a fase">
+
+  Na seção **Phase**, selecione _Request Phase_. Uma regra mantém a fase em que é criada.
+
+  </DocStep>
+  <DocStep title="Defina o critério">
+
+  Na seção **Criteria**, defina a variável como `${uri}`, o operador como `starts_with` e o argumento como `/`.
+
+  </DocStep>
+  <DocStep title="Defina o connector">
+
+  Na seção **Behaviors**, selecione _Set Connector_ e, em seguida, selecione o connector com Load Balancer em **Connector**.
+
+  </DocStep>
+  <DocStep title="Salve a regra">
+
+  Selecione **Save**.
+
+  </DocStep>
+</DocSteps>
+
+A regra aparece na aba **Rules Engine** da aplicação, em **Request**.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para criar a regra com a API, envie uma requisição `POST` ao endpoint `request_rules` da aplicação. Substitua `<application-id>` pelo ID da sua aplicação e `<connector-id>` pelo ID do connector:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "balance-origins",
+  "active": true,
+  "criteria": [
+    [
+      {
+        "variable": "${uri}",
+        "conditional": "if",
+        "operator": "starts_with",
+        "argument": "/"
+      }
+    ]
+  ],
+  "behaviors": [
+    {
+      "type": "set_connector",
+      "attributes": {
+        "value": <connector-id>
+      }
+    }
+  ]
+}'
+```
+
+A API responde `202` e retorna a regra:
+
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": <rule-id>,
+    "name": "balance-origins",
+    "active": true,
+    "criteria": [
+      [
+        {
+          "conditional": "if",
+          "variable": "${uri}",
+          "operator": "starts_with",
+          "argument": "/"
+        }
+      ]
+    ],
+    "behaviors": [
+      {
+        "type": "set_connector",
+        "attributes": {
+          "value": <connector-id>
+        }
+      }
+    ],
+    "description": "",
+    "order": 0,
+    "last_editor": "user@example.com",
+    "last_modified": "2026-09-30T23:44:22.750242Z",
+    "created_at": "2026-09-30T23:44:22.750262Z"
+  }
+}
+```
+
+A regra é a primeira da fase de requisição da aplicação, com `order` `0`.
+
+</Fragment>
+
+</Tabs>
+
+Para o behavior e os atributos dele, consulte [Set Connector](/pt-br/documentacao/plataforma/applications/rules-engine/#set-connector).
+
+---
+
+## Confirme que a aplicação responde
+
+A regra leva alguns minutos para se propagar. Até lá, a aplicação responde como respondia antes de a regra existir.
+
+Para confirmar a rota, envie uma requisição ao domínio do seu workload, com esse domínio no lugar de `<your-workload-domain>`:
+
+```bash
+curl -i https://<your-workload-domain>/
+```
+
+A resposta vem de um dos endereços ativos do connector. O domínio de um workload termina em `.map.azionedge.net`, e a API o retorna em `workload_domain` quando cria o workload. Se a resposta ainda não vier dos seus servidores de origem, envie a requisição novamente até que venha. Se nunca vier, consulte [Solucionar problemas de Applications](/pt-br/documentacao/plataforma/applications/solucao-de-problemas/).
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Load Balancer" href="/pt-br/documentacao/plataforma/connectors/#load-balancer" label="Os métodos de balanceamento e como o peso, a função do servidor e o estado ativo distribuem as requisições." />
+  <DocCard title="Connectors" href="/pt-br/documentacao/plataforma/connectors/" label="Todas as opções de conexão de um connector HTTP e os outros tipos de connector." />
+  <DocCard title="Rules Engine para Applications" href="/pt-br/documentacao/plataforma/applications/rules-engine/" label="Envie parte da aplicação ao connector com um critério mais restrito." />
+  <DocCard title="Conecte uma aplicação a uma origem" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/definir-origens/" label="Crie um connector para uma única origem HTTP e a regra que o define." />
+</DocCardGroup>

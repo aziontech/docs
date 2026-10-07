@@ -1,0 +1,331 @@
+---
+title: Mirror production traffic to a test origin with Functions
+description: >-
+  Build a function on a firewall that sends a copy of every matched request to a
+  test origin, then read the mirrored responses in Real-Time Events.
+meta_tags: 'functions, firewall, traffic mirroring, test origin, real-time events, rules engine'
+namespace: docs_guides_test_origin_functions
+permalink: /documentation/guides/application-development/functions-and-runtime/test-origin-with-functions/
+---
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+In this tutorial, you will build a function that copies production requests to a test origin. The copy lets new software answer real requests before it serves users. You will create the function, instantiate it on a firewall, and trigger it with a Rules Engine rule. Then you will read the mirrored responses in [Real-Time Events](/en/documentation/platform/real-time-events/).
+
+---
+
+## Prerequisites
+
+- An Azion account. To create one, refer to [How to create an account on Azion](/en/documentation/fundamentals/creating-account/).
+- The **Edit Functions** permission on the account. It also requires the permission **View Functions**.
+- The **Edit Firewall** permission on the account. It also requires the permission **View Firewall**. Refer to [Teams Permissions](/en/documentation/fundamentals/teams-permissions/).
+- An application that receives production traffic, on a domain you control. To configure the domain, refer to [Add a custom domain to a workload](/en/documentation/guides/platform/migration/configure-a-domain/).
+- A firewall associated with that domain. To create one, refer to [Set a firewall's main settings](/en/documentation/guides/application-security/firewall-and-waf/firewall-configure-main-settings/).
+- A test origin that answers over HTTPS.
+
+---
+
+## 1. Create the traffic mirroring function
+
+A function runs on a firewall when it exports a `firewall` handler. To create the function:
+
+<DocSteps>
+  <DocStep title="Open the Functions page">
+
+  Access [Azion Console](https://console.azion.com/) > **Products Menu** > **Libraries** > **Functions**.
+
+  </DocStep>
+  <DocStep title="Select + Function" />
+  <DocStep title="Name the function">
+
+  Enter a name for the function. For example: `traffic-mirroring`.
+
+  </DocStep>
+  <DocStep title="Paste the code in the Code tab">
+
+  In the **Code** tab, paste the following code:
+
+  ```javascript
+  const TEST_ORIGIN = 'example.com';
+  const TEST_TIMEOUT = 5000;
+
+  async function mirror(testUrl, options) {
+    try {
+      const start = Date.now();
+      const response = await fetch(testUrl, options);
+      const seconds = (Date.now() - start) / 1000;
+
+      console.log(`[${response.status}, ${seconds}s]`);
+
+      if (response.status > 399) {
+        console.warn(
+          JSON.stringify({
+            request_method: options.method,
+            request_path: new URL(testUrl).pathname,
+            request_headers: options.headers,
+            request_body: options.body,
+            response_status: response.status,
+            response_body: await response.text(),
+            response_time: seconds,
+          })
+        );
+      }
+    } catch (error) {
+      if (error.name === 'TimeoutError') {
+        console.warn('Test origin timeout');
+      } else {
+        console.warn(`Error: ${error.message}`);
+      }
+    }
+  }
+
+  export default {
+    firewall: async (request, env, ctx) => {
+      const originalUrl = new URL(request.url);
+      const testUrl = `${originalUrl.protocol}//${TEST_ORIGIN}${originalUrl.pathname}${originalUrl.search}`;
+
+      const options = {
+        method: request.method,
+        headers: Object.fromEntries(request.headers),
+        signal: AbortSignal.timeout(TEST_TIMEOUT),
+      };
+
+      // A request body can be read once, so read it before the copy starts.
+      if (request.body) {
+        options.body = await request.text();
+      }
+
+      // waitUntil keeps the copy off the request path.
+      ctx.waitUntil(mirror(testUrl, options));
+    },
+  };
+  ```
+
+  </DocStep>
+  <DocStep title="Replace the test origin">
+
+  Replace `example.com` with the domain of your test origin.
+
+  </DocStep>
+  <DocStep title="Select Save" />
+</DocSteps>
+
+The function is saved and available to instantiate on a firewall.
+
+`ctx.waitUntil()` extends the execution past the point where the handler returns. The copy therefore leaves the request path, and the original request reaches the production origin with no added latency. The handler never calls `ctx.deny()`, so no request is blocked. [AbortSignal.timeout()](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static) ends a copy after 5 seconds, and a slower test origin needs a higher value.
+
+:::tip
+The sample uses the ES Modules pattern. To move a function from the Service Worker pattern to this one, refer to [Migrate handler patterns in Functions](/en/documentation/guides/application-development/functions-and-runtime/migrate-handler-patterns/).
+:::
+
+---
+
+## 2. Instantiate the function on the firewall
+
+A function instance binds the function to one firewall, and a firewall runs a function only with the **Functions** module turned on. To create the instance:
+
+<DocSteps>
+  <DocStep title="Open the firewall">
+
+  In Azion Console, go to **Products Menu** > **Firewall** > **your firewall**.
+
+  </DocStep>
+  <DocStep title="In the Main Settings tab, turn on the Functions module" />
+  <DocStep title="Select Save" />
+  <DocStep title="Go to the Functions Instances tab" />
+  <DocStep title="Select + Function Instance" />
+  <DocStep title="Name the instance">
+
+  Enter a name for the instance. For example: `traffic-mirroring instance`.
+
+  </DocStep>
+  <DocStep title="Select the function">
+
+  Select the `traffic-mirroring` function. Only functions whose **Initiator Type** is set to _Firewall_ appear in the list.
+
+  </DocStep>
+  <DocStep title="Select Save" />
+</DocSteps>
+
+The instance appears in the **Functions Instances** tab. It does not run until a Rules Engine rule selects it.
+
+---
+
+## 3. Add the rule that runs the function
+
+A Rules Engine rule sets the criteria that trigger the instance. To mirror the requests whose URI starts with `/api`:
+
+<DocSteps>
+  <DocStep title="Go to the Rules Engine tab">
+
+  In the same firewall, go to the **Rules Engine** tab.
+
+  </DocStep>
+  <DocStep title="Select + Rule" />
+  <DocStep title="Name the rule">
+
+  Enter a name for the rule. For example: `Mirror traffic to the test origin`.
+
+  </DocStep>
+  <DocStep title="Select the variable in the Criteria section">
+
+  In the **Criteria** section, select the `Request URI` variable.
+
+  </DocStep>
+  <DocStep title="Select starts with as the comparison operator" />
+  <DocStep title="Enter the argument">
+
+  Enter `/api` as the argument.
+
+  </DocStep>
+  <DocStep title="In the Behaviors section, select Run Function" />
+  <DocStep title="Select the instance you created" />
+  <DocStep title="Select Save" />
+</DocSteps>
+
+The rule runs the instance on every request whose URI starts with `/api`. Changes can take a few minutes to propagate. Wait before you send a request that matches the criteria.
+
+:::caution
+Every request the rule matches produces a second request to the test origin. A criterion of **matches regex** with `.*` mirrors all traffic. Widen the criteria only when the test origin absorbs the added volume.
+:::
+
+---
+
+## 4. Verify the mirrored requests in Real-Time Events
+
+Send a request that matches the rule criteria:
+
+```bash
+curl https://<your-domain>/api/
+```
+
+The firewall runs the instance on that request, and the function sends a copy to the test origin. To read what the test origin answered:
+
+<DocSteps>
+  <DocStep title="Open Real-Time Events">
+
+  Access [Azion Console](https://console.azion.com/) > **Real-Time Events**.
+
+  </DocStep>
+  <DocStep title="Select the Functions Console tab" />
+  <DocStep title="Use the filters to narrow the query" />
+  <DocStep title="Select an entry to see its details" />
+</DocSteps>
+
+A copy that succeeds logs the status of the test origin and its response time:
+
+```
+[200, 0.142s]
+```
+
+A response above `399` logs the request and the response as JSON, so the failure carries its own context. A copy that exceeds the timeout logs `Test origin timeout`.
+
+Read the entries against four measures:
+
+- **Response time**: how the latency of the test origin compares with production.
+- **Error rate**: how many entries carry a 4xx or 5xx status.
+- **Timeout frequency**: how often a copy exceeds the timeout.
+- **Request coverage**: whether the test origin answers every method the rule matches, including `POST`, `PUT`, and `DELETE`.
+
+When the test origin answers production traffic inside your latency and error budget, it is ready to serve production.
+
+:::caution
+Do not `await` `mirror()` inside the handler. Pass it to `ctx.waitUntil()` instead. A handler that awaits `mirror()` holds every user request until the test origin answers.
+:::
+
+---
+
+## 5. (Optional) Set the test origin from an environment variable
+
+Environment variables hold the test origin and the timeout outside the code, so one function serves several tests. To read both values from the environment:
+
+<DocSteps>
+  <DocStep title="Create the environment variables">
+
+  Create `TEST_ORIGIN` and `TEST_TIMEOUT` on the function, as described in [Environment variables](/en/documentation/platform/functions/environment-variables/).
+
+  </DocStep>
+  <DocStep title="Replace the code in the Code tab">
+
+  In the **Code** tab, replace the code with the following:
+
+  ```javascript
+  const DEFAULT_TIMEOUT = 10000;
+
+  async function mirror(testUrl, options) {
+    try {
+      const start = Date.now();
+      const response = await fetch(testUrl, options);
+      const seconds = (Date.now() - start) / 1000;
+
+      console.log(`[${response.status}, ${seconds}s]`);
+
+      if (response.status > 399) {
+        console.warn(
+          JSON.stringify({
+            request_method: options.method,
+            request_path: new URL(testUrl).pathname,
+            request_headers: options.headers,
+            request_body: options.body,
+            response_status: response.status,
+            response_body: await response.text(),
+            response_time: seconds,
+          })
+        );
+      }
+    } catch (error) {
+      if (error.name === 'TimeoutError') {
+        console.warn('Test origin timeout');
+      } else {
+        console.warn(`Error: ${error.message}`);
+      }
+    }
+  }
+
+  export default {
+    firewall: async (request, env, ctx) => {
+      const testOrigin = Azion.env.get('TEST_ORIGIN');
+      const testTimeout = Number(Azion.env.get('TEST_TIMEOUT')) || DEFAULT_TIMEOUT;
+
+      const originalUrl = new URL(request.url);
+      const testUrl = `${originalUrl.protocol}//${testOrigin}${originalUrl.pathname}${originalUrl.search}`;
+
+      const options = {
+        method: request.method,
+        headers: Object.fromEntries(request.headers),
+        signal: AbortSignal.timeout(testTimeout),
+      };
+
+      // A request body can be read once, so read it before the copy starts.
+      if (request.body) {
+        options.body = await request.text();
+      }
+
+      // waitUntil keeps the copy off the request path.
+      ctx.waitUntil(mirror(testUrl, options));
+    },
+  };
+  ```
+
+  `Azion.env.get()` returns the value of a key at run time. When `TEST_TIMEOUT` carries no value, the function falls back to `10000` ms.
+
+  </DocStep>
+  <DocStep title="Select Save" />
+</DocSteps>
+
+The function reads the test origin at run time, so the next test origin needs no code edit.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Run a function on a firewall" href="/en/documentation/guides/application-development/functions-and-runtime/firewall/" label="The same three objects for any firewall function, from the function to the rule that triggers it." />
+  <DocCard title="Instantiate a function on a firewall" href="/en/documentation/guides/application-security/firewall-and-waf/instantiate-functions/" label="Create the instance from the Azion API, and pass its configuration as Args in JSON." />
+  <DocCard title="Functions for Firewall" href="/en/documentation/platform/firewall/functions/" label="The outcomes a firewall function returns, and the request and response headers it adds." />
+  <DocCard title="Rules Engine for Firewall" href="/en/documentation/platform/firewall/rules-engine/" label="Every criteria variable, comparison operator, and behavior a firewall rule accepts." />
+  <DocCard title="Data Stream" href="/en/documentation/platform/data-stream/" label="Send the same log output to an endpoint you own, for monitoring that outlives a test." />
+  <DocCard title="Troubleshoot function execution and logs" href="/en/documentation/platform/functions/troubleshooting/" label="What to check when a function produces no log output or never runs." />
+</DocCardGroup>

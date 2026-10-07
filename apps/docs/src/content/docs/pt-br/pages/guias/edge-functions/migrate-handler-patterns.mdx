@@ -1,0 +1,300 @@
+---
+title: Migre padrões de handler em Functions
+description: >-
+  Mova uma função do handler legado Service Worker para o handler ES Modules,
+  com o antes e o depois de fetch e firewall.
+meta_tags: 'functions, handler patterns, es modules, service worker, migration, fetch handler, firewall handler'
+namespace: documentation_guides_migrate_handler_patterns
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/migrar-padroes-de-handler/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+[Functions](/pt-br/documentacao/plataforma/functions/) suporta dois padrões de handler: **ES Modules**, que Azion recomenda, e **Service Worker**, que Azion mantém para compatibilidade com código legado. O código Service Worker existente continua funcionando, então a migração é um trabalho a planejar e não uma quebra a reparar. Código que não segue nenhum dos dois padrões não é suportado.
+
+---
+
+## Padrões de handler suportados
+
+Os dois padrões entregam ao handler a mesma requisição e o mesmo contexto de execução. Eles diferem na forma como o código os recebe.
+
+### ES Modules
+
+Uma função ES Modules exporta um objeto padrão. O método `fetch` desse objeto recebe a requisição, as variáveis de ambiente e bindings e o contexto de execução. Um método `firewall` recebe os mesmos três argumentos:
+
+```javascript
+export default {
+  fetch: (request, env, ctx) => {
+    return new Response('Hello World');
+  },
+  firewall: (request, env, ctx) => {
+    // Bloqueia a requisição antes que ela chegue ao handler fetch.
+    ctx.deny();
+  }
+};
+```
+
+Um export padrão cujo método `fetch` recebe `request`, `env` e `ctx` segue esse padrão, seja ele um objeto literal ou a instância de aplicação que um framework retorna. Uma instância de aplicação construída com um framework atende ao requisito, então um app Hono exportado com `export default app` é um handler ES Modules. Para uma função escrita dessa forma, consulte [Crie uma API RESTful de tarefas com Functions e SQL Database](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/api-restful-edge-functions-edge-sql/).
+
+### Service Worker
+
+Uma função Service Worker registra um listener com `addEventListener`. O listener lê a requisição a partir de um objeto de evento e responde com `event.respondWith`:
+
+```javascript
+addEventListener('fetch', (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+addEventListener('firewall', (event) => {
+  // Bloqueia a requisição antes que ela chegue ao listener fetch.
+  event.deny();
+});
+
+async function handleRequest(request) {
+  return new Response('Hello World');
+}
+```
+
+---
+
+## Parâmetros dos handlers
+
+Um handler ES Modules recebe três argumentos. Um listener Service Worker recebe um objeto de evento que carrega os mesmos valores. Para a assinatura como a referência do runtime a descreve, consulte [Handlers](/pt-br/documentacao/devtools/runtime/api-reference/handlers/).
+
+### `fetch(request, env, ctx)` em ES Modules
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `request` | [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) | O objeto da requisição HTTP recebida |
+| `env` | Object | Variáveis de ambiente e bindings |
+| `ctx` | Object | Contexto de execução. Use `ctx.waitUntil(promise)` para estender o tempo de vida da função para tarefas assíncronas |
+
+### `firewall(request, env, ctx)` em ES Modules
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `request` | [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) | O objeto da requisição HTTP recebida |
+| `env` | Object | Variáveis de ambiente e bindings |
+| `ctx` | Object | Contexto de execução. Chame `ctx.deny()` para bloquear a requisição imediatamente. Se `ctx.deny()` não for chamado, a requisição continua para o handler `fetch` |
+
+### O objeto de evento em Service Worker
+
+| Propriedade | Descrição |
+|---|---|
+| `event.request` | Acesso ao objeto Request |
+| `event.deny()` | Bloqueia a requisição imediatamente. Se não for chamado, a requisição continua para o handler `fetch` |
+
+---
+
+## Migre o handler
+
+A lógica permanece a mesma nos dois padrões. O que muda é onde o handler lê a requisição e onde ele retorna a resposta.
+
+### Migre o handler fetch
+
+O listener vira um método `fetch`. A requisição chega como primeiro argumento e não como uma propriedade do evento.
+
+O código Service Worker registra o listener e delega para uma função nomeada:
+
+```javascript
+addEventListener('fetch', (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  const url = new URL(request.url);
+
+  if (url.pathname === '/api/hello') {
+    return new Response(JSON.stringify({ message: 'Hello World' }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  return new Response('Not Found', { status: 404 });
+}
+```
+
+A versão ES Modules move a mesma lógica para o método `fetch` e retorna a resposta diretamente:
+
+```javascript
+export default {
+  fetch: async (request, env, ctx) => {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/api/hello') {
+      return new Response(JSON.stringify({ message: 'Hello World' }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response('Not Found', { status: 404 });
+  }
+};
+```
+
+### Migre o handler firewall
+
+Três nomes mudam: o listener vira um método `firewall`, `event.request` vira `request` e `event.deny()` vira `ctx.deny()`.
+
+O código Service Worker lê os headers a partir do evento e bloqueia com `event.deny()`:
+
+```javascript
+addEventListener('fetch', (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+addEventListener('firewall', (event) => {
+  const clientIP = event.request.headers.get('X-Forwarded-For');
+  const userAgent = event.request.headers.get('User-Agent');
+
+  // Bloqueia requisições de bots.
+  if (userAgent && userAgent.includes('bot')) {
+    event.deny();
+    return;
+  }
+
+  // Bloqueia um endereço específico.
+  if (clientIP === '192.0.2.100') {
+    event.deny();
+    return;
+  }
+
+  // Sem uma chamada de deny, a requisição continua para o listener fetch.
+});
+
+async function handleRequest(request) {
+  return new Response('Hello World');
+}
+```
+
+A versão ES Modules lê os headers a partir de `request` e bloqueia com `ctx.deny()`:
+
+```javascript
+export default {
+  fetch: async (request, env, ctx) => {
+    return new Response('Acesso concedido');
+  },
+
+  firewall: async (request, env, ctx) => {
+    const clientIP = request.headers.get('X-Forwarded-For');
+    const userAgent = request.headers.get('User-Agent');
+
+    // Bloqueia requisições de bots.
+    if (userAgent && userAgent.includes('bot')) {
+      ctx.deny();
+      return;
+    }
+
+    // Bloqueia um endereço específico.
+    if (clientIP === '192.0.2.100') {
+      ctx.deny();
+      return;
+    }
+
+    // Sem uma chamada de deny, a requisição continua para o handler fetch.
+    return;
+  }
+};
+```
+
+---
+
+## Use o contexto de execução
+
+O argumento `ctx` carrega as duas chamadas que um handler ES Modules faz sobre a própria invocação.
+
+### Tire o trabalho assíncrono do caminho da resposta
+
+`ctx.waitUntil(promise)` estende o tempo de vida da função para além da resposta. Passe para ele o trabalho cujo resultado a resposta não precisa:
+
+```javascript
+export default {
+  fetch: async (request, env, ctx) => {
+    // A resposta retorna sem esperar pela chamada de log.
+    ctx.waitUntil(logRequest(request));
+
+    return new Response('Hello World');
+  }
+};
+
+async function logRequest(request) {
+  console.log(`Requisição para: ${request.url}`);
+}
+```
+
+### Bloqueie requisições por path
+
+O método `firewall` recebe a requisição inteira. O handler pode ler a URL e aplicar uma regra por path. Este handler bloqueia bots em todos os paths e restringe `/admin` a uma única faixa de endereços:
+
+```javascript
+export default {
+  fetch: async (request, env, ctx) => {
+    return new Response('Acesso concedido');
+  },
+
+  firewall: async (request, env, ctx) => {
+    const url = new URL(request.url);
+    const userAgent = request.headers.get('User-Agent');
+    const clientIP = request.headers.get('X-Forwarded-For');
+
+    // Bloqueia requisições de bots.
+    if (userAgent && userAgent.includes('bot')) {
+      ctx.deny();
+      return;
+    }
+
+    // Restringe os paths de admin a uma faixa de endereços.
+    if (url.pathname.startsWith('/admin')) {
+      if (!clientIP || !clientIP.startsWith('192.0.2.')) {
+        ctx.deny();
+        return;
+      }
+    }
+
+    // Sem uma chamada de deny, a requisição continua para o handler fetch.
+    return;
+  }
+};
+```
+
+---
+
+## Padrões não suportados
+
+Azion Runtime reporta `Unsupported handler pattern detected` quando o código não corresponde a nenhum dos padrões suportados. Três formatos produzem esse erro:
+
+```javascript
+// Uma função como export padrão, sem método fetch.
+export default function (request) {
+  return new Response('Hello');
+}
+
+// Um export nomeado no lugar do export padrão.
+export function fetch(request) {
+  return new Response('Hello');
+}
+
+// Um handler que o arquivo declara e nunca exporta.
+function handleRequest(request) {
+  return new Response('Hello');
+}
+```
+
+Os três falham no mesmo requisito: o export padrão precisa ser um objeto que carregue um método `fetch`. Reescreva o código no padrão ES Modules para resolver o erro. O padrão Service Worker também o resolve e Azion recomenda ES Modules para código novo.
+
+Para falhas que o formato do handler não explica, consulte [Solução de problemas de execução e logs de funções](/pt-br/documentacao/plataforma/functions/solucao-de-problemas/).
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Boas práticas de Functions" href="/pt-br/documentacao/plataforma/functions/boas-praticas/" label="Por que ES Modules é o padrão para código novo e os limites dentro dos quais uma invocação executa." />
+  <DocCard title="Execute uma função em uma aplicação" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/funcoes-serverless/" label="Adicione a regra do Rules Engine que executa a instância, em Azion Console ou na Azion API." />
+  <DocCard title="Execute uma função em um firewall" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/firewall/" label="Coloque um handler firewall atrás de uma regra de firewall e bloqueie uma requisição com ctx.deny()." />
+  <DocCard title="Exemplos em JavaScript" href="/pt-br/documentacao/plataforma/functions/javascript-exemplos/" label="Código de handler para adaptar, ainda escrito no padrão Service Worker." />
+  <DocCard title="Escreva e teste uma função" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/primeiros-passos/" label="Escreva o handler em Azion Console e leia a resposta dele antes que a função atenda tráfego." />
+  <DocCard title="Functions" href="/pt-br/documentacao/plataforma/functions/" label="A referência do produto, com o escopo, os limites e o caminho de invocação." />
+  <DocCard title="Azion Runtime" href="/pt-br/documentacao/devtools/runtime/" label="As Web APIs que um handler pode chamar, incluindo Network, Web Streams e primitivas do V8." />
+  <DocCard title="Solução de problemas de execução e logs de funções" href="/pt-br/documentacao/plataforma/functions/solucao-de-problemas/" label="O que fazer quando uma função não executa, para antes de responder ou não produz saída de log." />
+</DocCardGroup>

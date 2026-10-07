@@ -1,0 +1,191 @@
+---
+title: Best practices for Real-Time Metrics
+description: Choose the range, scope, and source of each Real-Time Metrics number so that comparisons, cache checks, and API queries stay accurate.
+meta_tags: 'real-time metrics, best practices, dashboards, time range, filters, graphql'
+namespace: documentation_products_real_time_metrics_best_practices
+permalink: /documentation/platform/real-time-metrics/best-practices/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+A metric answers a question about a trend: whether traffic grew, whether the cache serves more of it, when errors started. The answer holds only when the period, the scope, and the source of the number fit the question. Without that fit, a comparison that includes minutes still being counted shows a drop that did not happen. An account-wide average hides the one domain whose cache stopped working, and an API query with no row limit returns its first 10 rows without an error.
+
+These practices apply to the dashboards of [Real-Time Metrics](/en/documentation/platform/real-time-metrics/) in Azion Console and to queries to its GraphQL API. The mechanisms behind them are on [How Real-Time Metrics works](/en/documentation/platform/real-time-metrics/how-it-works/), and the value of every bound is on [Real-Time Metrics limits](/en/documentation/platform/real-time-metrics/limits/).
+
+In order, the practices cover which number to trust for billing, the length of the range, the newest minutes of a range, the scope of the cache charts, the path from a spike to its requests, copied queries, and the row limit of an API query. Each specimen is a query that ran against the GraphQL API, with its response.
+
+---
+
+## Reconcile charges with Billing data, not Real-Time Metrics
+
+Real-Time Metrics and Billing count the same usage in two ways. Real-Time Metrics counts each event at most once, and Billing exactly once. The two differ by less than 1% on average, and when they differ, the Billing figure is the correct one.
+
+Use Real-Time Metrics for operations, such as seeing a traffic change within minutes, and Billing for what you pay. The cost is a second source: a usage report built from the dashboards carries a small gap against the invoice, so it cannot settle a charge. For the two counting approaches, refer to [Real-Time Info and Precise Billing](/en/documentation/fundamentals/billing-and-subscriptions/#real-time-info-and-precise-billing).
+
+To check it, compare one month's total in both: a gap of about 1% is the expected difference between the two approaches.
+
+---
+
+## Choose a range short enough to keep the resolution you need
+
+Real-Time Metrics sizes each point of a time chart by the length of the selected range, not by the age of the data. A range shorter than 2.5 days plots one point per minute, and a longer one plots one point per hour or per day, as [How Real-Time Metrics works](/en/documentation/platform/real-time-metrics/how-it-works/) details. A spike of a few minutes stands out at minute resolution and flattens into its hour or day bucket on a longer range.
+
+Pick the shortest range that covers the question. For example, **Last 24 hours** plots one point per minute and shows when a change began, while **Last 7 days** and **Last 90 days** plot hours and days and show a trend. The cost is reach: minute resolution never covers more than 2.5 days.
+
+In the API, `tsRange` sets the range. This query over one day returns minute buckets:
+
+```graphql
+query {
+  httpMetrics(
+    limit: 10000
+    filter: { tsRange: { begin: "2026-10-01T14:21:50", end: "2026-10-02T14:21:50" } }
+    aggregate: { sum: requests }
+    groupBy: [ts]
+    orderBy: [ts_ASC]
+  ) {
+    ts
+    sum
+  }
+}
+```
+
+The API answers `200`:
+
+```json
+{
+  "data": {
+    "httpMetrics": [
+      {
+        "ts": "2026-10-01T16:04:00Z",
+        "sum": 74
+      },
+      {
+        "ts": "2026-10-01T16:06:00Z",
+        "sum": 14
+      },
+      {
+        "ts": "2026-10-01T16:07:00Z",
+        "sum": 82
+      },
+      …
+    ]
+  }
+}
+```
+
+With `begin` set to `"2026-07-04T14:21:50"`, 90 days before `end`, the same query returns day buckets, such as `"ts": "2026-07-24T00:00:00Z"`. The `httpBreakdownMetrics` dataset, behind the **Request Breakdown** dashboard, returns hour buckets even for a 1-hour range.
+
+To check the resolution of a result, read the gap between two consecutive `ts` values: 60 seconds for minutes, 3,600 seconds for hours.
+
+---
+
+## End every range you compare or store at least 10 minutes in the past
+
+A metric takes up to 10 minutes to aggregate, so a range that ends now can read lower than the complete window before it. The [variation tag](/en/documentation/platform/real-time-metrics/filters-and-time-range/#variation-tag), which compares the selected range with the preceding window of the same length, can show a drop that disappears a few minutes later.
+
+In the Console, set **End date** in the **Absolute** tab to a time slot at least 10 minutes back. In the API, set the `end` of `tsRange` at least 10 minutes before the query runs. A period that ended more than 10 minutes back is complete and returns the same values on every run, so query it once, keep the result, and later query only the period after it. On `httpBreakdownMetrics`, start and end each period on the hour: a range that began at 13:21:50 returned a row for the bucket that starts at 13:00, so two queries that split an hour can count it twice.
+
+The cost is the newest 10 minutes, which these ranges leave out: read them on a range that ends now, as provisional values. For the aggregation delay and the retention of each dataset, refer to [Real-Time Metrics limits](/en/documentation/platform/real-time-metrics/limits/).
+
+To check it, run the same query again a few minutes later: identical values confirm that the period was complete.
+
+---
+
+## Filter to one domain before you read the cache charts
+
+The cache charts cover the whole account until you filter them. These are **Edge Offload**, **Saved Data**, and **Missed Data** on the [Data Transferred](/en/documentation/platform/real-time-metrics/build-dashboards/#data-transferred) dashboard, and **Requests Offloaded** on [Requests](/en/documentation/platform/real-time-metrics/build-dashboards/#requests), all for [Applications](/en/documentation/platform/applications/). An account-wide offload blends applications with different cache settings, so one domain whose content stopped coming from cache can hide behind the others.
+
+In the Console, filter the dashboard on **Domain** or **Workload**, whichever label your account shows, to keep one workload. In the API, the `hostEq` filter keeps the requests of one hostname:
+
+```graphql
+query CacheOffloadForHost {
+  httpMetrics(
+    limit: 1
+    filter: {
+      tsRange: { begin: "2026-10-01T14:25:25", end: "2026-10-02T14:25:25" }
+      hostEq: "www.example.com"
+    }
+  ) {
+    requestsTotal
+    requestsOffloaded
+    savedRequests
+    missedRequests
+    dataTransferredTotal
+    offload
+    savedData
+    missedData
+    bandwidthOffload
+  }
+}
+```
+
+The API answers `200` with one row for the hostname:
+
+```json
+{
+  "data": {
+    "httpMetrics": [
+      {
+        "requestsTotal": 982,
+        "requestsOffloaded": 5.19,
+        "savedRequests": 51.0,
+        "missedRequests": 931.0,
+        "dataTransferredTotal": 114490585.0,
+        "offload": 0.51,
+        "savedData": 577373.0,
+        "missedData": 113387464.0,
+        "bandwidthOffload": 0.51
+      }
+    ]
+  }
+}
+```
+
+The cost is scope: a Console filter applies to every chart of the dashboard, and switching to a dashboard that reads another dataset clears it. To measure one domain step by step, refer to [Measure cache offload for a domain](/en/documentation/guides/platform/observability/measure-cache-offload/).
+
+To check it, add `savedRequests` and `missedRequests`: they equal `requestsTotal`, and `requestsOffloaded` is the share served from cache, 51 of 982 requests, or 5.19%.
+
+---
+
+## Find the requests behind a spike in Real-Time Events
+
+Real-Time Metrics holds counts aggregated per time bucket, not the requests behind them. A chart shows when a spike happened and how large it was, but not which requests made it. [Real-Time Events](/en/documentation/platform/real-time-events/) holds the raw event of each request.
+
+Narrow the dashboard first: set the range to the minutes of the spike, and filter on the field that isolates it, such as **Status**, or **Domain** or **Workload**. Then open Real-Time Events for the same period. For example, if **Missed Requests** rises at 14:05, a range from 14:00 to 14:30 filtered to one domain tells you which domain and which 30 minutes to read in Real-Time Events. The cost is a second product: Real-Time Events is billed on Storage and Data Scan, while Real-Time Metrics is included at no additional charge.
+
+To check it, confirm that the period you read in Real-Time Events starts and ends on the same minutes as the spike on the chart.
+
+---
+
+## Start an API query from a chart's copied query
+
+**Copy query**, in a chart's menu, puts the GraphQL query behind that chart on the clipboard, with its dataset, fields, aggregation, and filters. An API query, or a panel in a [custom Grafana dashboard](/en/documentation/guides/platform/observability/azion-plugin-grafana-custom-dash/), then starts from a query the Console already runs. The text holds the line `# QUERY`, the query, the line `# VARIABLES`, and the variables as a JSON object.
+
+The cost is one extra move. The query reads its filter values from the variables, so it does not run on its own: paste the query into [GraphiQL Playground](/en/documentation/devtools/graphql/graphql-playground/) and the JSON after `# VARIABLES` into its variables pane. The copied query also keeps the chart's own `limit`, so check that value before you widen the range. For the clipboard format, refer to [Copy query](/en/documentation/platform/real-time-metrics/filters-and-time-range/#copy-query), and for the steps, to [Export a chart's data and query](/en/documentation/guides/platform/observability/analyze-metrics/).
+
+To check it, run the query once before you change it: a `200` with rows confirms that the variables came with it.
+
+---
+
+## Set an explicit row limit in every API query
+
+A query with no `limit` argument returns 10 rows and no error. A one-day query by minute that had 110 rows returned its first 10. Set `limit` to the number of rows you expect, up to 10,000, and set `orderBy`, so you know which rows the limit keeps. The query in [Choose a range short enough to keep the resolution you need](/en/documentation/platform/real-time-metrics/best-practices/#choose-a-range-short-enough-to-keep-the-resolution-you-need) sets `limit: 10000` and `orderBy: [ts_ASC]`.
+
+The cost is a ceiling: above 10,000 rows, the API refuses the query with `400`. Shorten the range, or page through the rows with `offset`, as [GraphQL features](/en/documentation/devtools/graphql/features/) describes. For the exact error, refer to [GraphQL API limits](/en/documentation/devtools/graphql/limits/#query-bounds).
+
+To check it, count the rows of the result: a count equal to the `limit` means rows can be missing, so raise the limit or shorten the range.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="How Real-Time Metrics works" href="/en/documentation/platform/real-time-metrics/how-it-works/">The counting approach behind every chart, and the range lengths that switch the resolution.</DocItem>
+  <DocItem title="Real-Time Metrics limits" href="/en/documentation/platform/real-time-metrics/limits/">The retention of each dataset and the bounds of the Console and the GraphQL API.</DocItem>
+  <DocItem title="Filters and time range" href="/en/documentation/platform/real-time-metrics/filters-and-time-range/">Every control above the charts, from the time-range picker to the chart menu.</DocItem>
+  <DocItem title="Real-Time Metrics guides and tutorials" href="/en/documentation/platform/real-time-metrics/guides/">The procedures that apply these practices, one task per guide.</DocItem>
+</ItemList>
+</FrameBox>

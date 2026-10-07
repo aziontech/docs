@@ -1,0 +1,446 @@
+---
+title: 'node:timers'
+description: >-
+  O módulo node:timers no Azion Runtime: timeouts, intervalos, immediates, os
+  timers baseados em Promise, exemplos e as APIs com suporte.
+permalink: /documentacao/devtools/runtime/node/timers/
+meta_tags: >-
+  node:timers, timers/promises, setTimeout, setInterval, setImmediate, Azion
+  Runtime, compatibilidade com Node.js, polyfills do Node.js
+namespace: documentation_products_azion_runtime_node_timers
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+O módulo `node:timers` reúne as funções do Node.js que agendam a execução de código após um atraso ou em intervalos regulares. Use-o para gerenciar o trabalho assíncrono e para controlar quando cada parte de uma function é executada: adiar trabalho, adicionar um atraso curto ou coordenar tarefas assíncronas com `setTimeout()`. O Azion Runtime fornece o módulo por meio da compatibilidade com Node.js, e os timers baseados em Promise vêm de `node:timers/promises`.
+
+:::note[nota]
+Com `azion dev`, dois comportamentos diferem de uma function após o deploy. `Date.now()` avança durante uma requisição, por isso os tempos decorridos dos exemplos não são `0`. Um callback que não é uma função lança `TypeError: The "callback" argument must be of type function` em vez de `EvalError: eval not allowed on setTimeout/setInterval parameter`.
+:::
+
+---
+
+## Exemplos
+
+Cada exemplo é uma function completa. Quando um exemplo mostra uma resposta, ela é a que uma function com deploy feito retorna.
+
+### setTimeout básico
+
+Esta function registra duas linhas no log, aguarda 2.000 ms em um timer envolvido em uma Promise e depois responde:
+
+```javascript
+/**
+ * An example of using Node.js Timers API in an Azion Function.
+ * Support:
+ * - Partially supported (Extended by library `timers-browserify`)
+ * @module runtime-apis/nodejs/timers/main
+ * @example
+ * // Build and run with the Azion CLI:
+ * azion build
+ * azion dev
+ */
+import timers from "node:timers";
+
+/**
+ * An example of using the Node.js Timers API in an Azion Function.
+ * @param {*} event
+ * @returns {Promise<Response>}
+ */
+const main = async (event) => {
+  console.log("Hello, world!");
+  console.log("Waiting for 2 seconds...");
+  await new Promise((resolve) => timers.setTimeout(resolve, 2000));
+  return new Response("Done!", { status: 200 });
+};
+
+export default main;
+```
+
+A function responde após a espera:
+
+```text
+Done!
+```
+
+### Execução adiada com setTimeout
+
+Esta function agenda dois atrasos sequenciais de 100 ms e retorna as etapas que registrou e o tempo total em milissegundos:
+
+```javascript
+import timers from "node:timers";
+
+// Wrap setTimeout in a promise for async/await usage
+const setTimeoutAsync = (ms) => new Promise((resolve) => timers.setTimeout(resolve, ms));
+
+const main = async (event) => {
+  const startTime = Date.now();
+  const logs = [];
+
+  logs.push(`Start: ${startTime}`);
+
+  // Using the promise-wrapped version - properly awaited
+  await setTimeoutAsync(100);
+  logs.push(`After 100ms delay`);
+
+  // Multiple sequential delays
+  await setTimeoutAsync(100);
+  logs.push(`After additional 100ms`);
+
+  // Calculate total time
+  const totalTime = Date.now() - startTime;
+
+  return new Response(JSON.stringify({
+    logs,
+    totalTimeMs: totalTime
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+O helper `setTimeoutAsync` envolve `timers.setTimeout()` em uma Promise. No Azion Runtime, `util.promisify()` não transforma `timers.setTimeout()` em um timer baseado em Promise: a função promisificada passa o atraso na posição do callback, e a chamada lança `EvalError: eval not allowed on setTimeout/setInterval parameter`. Após o deploy, `totalTimeMs` não mede a espera, porque `Date.now()` não avança durante uma requisição.
+
+### Operações periódicas com setInterval
+
+Esta function executa um callback em um intervalo de 50 ms durante 250 ms, limpa o intervalo e retorna cada tick com o seu tempo decorrido:
+
+```javascript
+import timers from "node:timers";
+
+const main = async (event) => {
+  const startTime = Date.now();
+  const ticks = [];
+  let tickCount = 0;
+
+  // Create interval that runs every 50ms
+  const intervalId = timers.setInterval(() => {
+    tickCount++;
+    const elapsed = Date.now() - startTime;
+    ticks.push({ tick: tickCount, elapsed });
+    console.log(`Tick ${tickCount} at ${elapsed}ms`);
+  }, 50);
+
+  // Run for 250ms then stop
+  await new Promise(resolve => timers.setTimeout(resolve, 250));
+
+  // Clear the interval
+  timers.clearInterval(intervalId);
+
+  console.log(`Total ticks: ${tickCount}`);
+
+  return new Response(JSON.stringify({
+    totalTicks: tickCount,
+    ticks,
+    durationMs: Date.now() - startTime
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+A function responde com quatro ticks:
+
+```json
+{"totalTicks":4,"ticks":[{"tick":1,"elapsed":0},{"tick":2,"elapsed":0},{"tick":3,"elapsed":0},{"tick":4,"elapsed":0}],"durationMs":0}
+```
+
+Todos os valores de `elapsed` e o valor de `durationMs` são `0` porque, após o deploy, `Date.now()` não avança durante uma requisição. `performance.now()` avança. Para mais informações, consulte [Globais](/pt-br/documentacao/devtools/runtime/api-reference/azion-runtime-globals/).
+
+### Execução imediata com setImmediate
+
+Esta function enfileira um callback de `setImmediate()`, um callback de `setTimeout()` com atraso de 0 ms e um callback de `process.nextTick()`, e depois registra a ordem em que eles são executados:
+
+```javascript
+import timers from "node:timers";
+
+const main = async (event) => {
+  const executionOrder = [];
+
+  executionOrder.push("1. Start of function");
+
+  // setImmediate runs after current code completes
+  timers.setImmediate(() => {
+    executionOrder.push("setImmediate callback");
+  });
+
+  // setTimeout with 0 delay still goes through timer phase
+  timers.setTimeout(() => {
+    executionOrder.push("setTimeout(0) callback");
+  }, 0);
+
+  // In Azion Runtime, the nextTick callback runs after the two callbacks above
+  if (typeof process?.nextTick === "function") {
+    process.nextTick(() => {
+      executionOrder.push("nextTick callback");
+    });
+  }
+
+  executionOrder.push("2. End of synchronous code");
+
+  // Wait for all callbacks to execute
+  await new Promise(resolve => timers.setTimeout(resolve, 50));
+
+  executionOrder.push("3. After waiting");
+
+  // Note: The execution order between setImmediate and setTimeout(0)
+  // may vary across environments and is not guaranteed.
+  // In Azion Runtime, this order can differ from Node.js.
+
+  return new Response(JSON.stringify({
+    executionOrder,
+    note: "Order between setImmediate and setTimeout(0) may vary"
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+A function responde com a ordem dos callbacks: primeiro `setImmediate()`, depois `setTimeout()` com atraso de 0 ms e por último `process.nextTick()`:
+
+```json
+{"executionOrder":["1. Start of function","2. End of synchronous code","setImmediate callback","setTimeout(0) callback","nextTick callback","3. After waiting"],"note":"Order between setImmediate and setTimeout(0) may vary"}
+```
+
+### Timeout com cancelamento
+
+Esta function cancela um timeout de 500 ms antes que ele dispare e depois chama uma API com um timeout que aborta a requisição por meio de um `AbortController`:
+
+```javascript
+import timers from "node:timers";
+
+const main = async (event) => {
+  const results = [];
+
+  // Create a timeout that can be cancelled
+  const timeoutId = timers.setTimeout(() => {
+    results.push("Timeout executed");
+  }, 500);
+
+  // Cancel the timeout before it fires
+  timers.setTimeout(() => {
+    results.push("Cancelling timeout");
+    timers.clearTimeout(timeoutId);
+  }, 200);
+
+  // Wait to see what happens
+  await new Promise(resolve => timers.setTimeout(resolve, 600));
+
+  // Timeout with race pattern for API calls
+  const fetchWithTimeout = async (url, timeoutMs) => {
+    const controller = new AbortController();
+    const timeout = timers.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      timers.clearTimeout(timeout);
+      return { success: true, status: response.status };
+    } catch (error) {
+      timers.clearTimeout(timeout);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Test with a fast-responding API
+  const apiResult = await fetchWithTimeout(
+    "https://jsonplaceholder.typicode.com/todos/1",
+    5000
+  );
+  results.push(`API result: ${JSON.stringify(apiResult)}`);
+
+  return new Response(JSON.stringify({ results }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+A function responde com o cancelamento e o resultado da API. O callback cancelado nunca adiciona `Timeout executed`:
+
+```json
+{"results":["Cancelling timeout","API result: {\"success\":true,\"status\":200}"]}
+```
+
+### Promises de timer
+
+Esta function usa os timers baseados em Promise de `node:timers/promises`, descritos na [documentação do timers/promises do Node.js](https://nodejs.org/api/timers.html#timerspromises-api):
+
+```javascript
+import { setTimeout, setInterval, setImmediate } from "node:timers/promises";
+
+const main = async (event) => {
+  const startTime = Date.now();
+  const logs = [];
+
+  logs.push(`Start: ${startTime}`);
+
+  // Promise-based setTimeout
+  await setTimeout(100);
+  logs.push(`After 100ms: ${Date.now() - startTime}ms elapsed`);
+
+  // setTimeout with value
+  const result = await setTimeout(50, "timer result");
+  logs.push(`Got value: ${result}`);
+
+  // Async iterator for setInterval with proper cancellation
+  // Note: Use AbortController to prevent memory leaks
+  let count = 0;
+  const ac = new AbortController();
+  const interval = setInterval(30, undefined, { signal: ac.signal });
+
+  try {
+    for await (const _ of interval) {
+      count++;
+      logs.push(`Interval tick ${count}`);
+      if (count >= 3) {
+        ac.abort(); // Properly cancel the interval
+        break;
+      }
+    }
+  } catch (error) {
+    // AbortError is expected after the abort
+    if (error.name !== "AbortError") {
+      throw error;
+    }
+  }
+
+  // setImmediate as promise
+  await setImmediate();
+  logs.push("After setImmediate");
+
+  // Calculate total time
+  const totalTime = Date.now() - startTime;
+
+  return new Response(JSON.stringify({
+    logs,
+    totalTimeMs: totalTime
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+A function responde com as etapas que registrou:
+
+```json
+{"logs":["Start: 1791120272000","After 100ms: 0ms elapsed","Got value: timer result","Interval tick 1","After setImmediate"],"totalTimeMs":0}
+```
+
+O iterador assíncrono que `setInterval()` retorna produz um valor e depois termina, por isso o loop registra apenas `Interval tick 1`. Os tempos decorridos são `0` porque, após o deploy, `Date.now()` não avança durante uma requisição.
+
+### Lógica de retry com backoff exponencial
+
+Esta function repete uma operação que falha, com backoff exponencial a partir de um atraso inicial de 50 ms, coloca uma operação de 200 ms em disputa com um timeout de 50 ms e retorna os dois resultados como JSON:
+
+```javascript
+import timers from "node:timers";
+
+const setTimeoutAsync = (ms) => new Promise((resolve) => timers.setTimeout(resolve, ms));
+
+// Retry with exponential backoff
+const retryWithBackoff = async (fn, maxRetries, initialDelay = 100) => {
+  let lastError;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const result = await fn();
+      return { success: true, result, attempts: attempt + 1 };
+    } catch (error) {
+      lastError = error;
+      
+      if (attempt < maxRetries - 1) {
+        const delay = initialDelay * Math.pow(2, attempt);
+        console.log(`Attempt ${attempt + 1} failed, retrying in ${delay}ms`);
+        await setTimeoutAsync(delay);
+      }
+    }
+  }
+  
+  return { success: false, error: lastError.message, attempts: maxRetries };
+};
+
+const main = async (event) => {
+  // Simulate a flaky operation
+  let attempts = 0;
+  const flakyOperation = async () => {
+    attempts++;
+    if (attempts < 3) {
+      throw new Error(`Attempt ${attempts} failed`);
+    }
+    return `Success on attempt ${attempts}`;
+  };
+
+  const result = await retryWithBackoff(flakyOperation, 5, 50);
+
+  // Simulate a timeout scenario
+  const timeoutOperation = async () => {
+    await setTimeoutAsync(200);
+    return "This should not appear";
+  };
+
+  const timeoutResult = await Promise.race([
+    timeoutOperation(),
+    setTimeoutAsync(50).then(() => ({ timedOut: true }))
+  ]);
+
+  return new Response(JSON.stringify({
+    retryResult: result,
+    timeoutResult
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+O helper `setTimeoutAsync` envolve `timers.setTimeout()` em uma Promise, a forma que aguarda o atraso no Azion Runtime. Um helper criado com `util.promisify(timers.setTimeout)` lança `EvalError: eval not allowed on setTimeout/setInterval parameter` no primeiro atraso.
+
+---
+
+## APIs com suporte
+
+A tabela lista o status de cada API de `node:timers` e de `node:timers/promises` no Azion Runtime:
+
+| API | Status |
+|-----|--------|
+| `setTimeout()` | 🟢 Com suporte |
+| `clearTimeout()` | 🟢 Com suporte |
+| `setInterval()` | 🟢 Com suporte |
+| `clearInterval()` | 🟢 Com suporte |
+| `setImmediate()` | 🟢 Com suporte |
+| `clearImmediate()` | 🟢 Com suporte |
+| `timers/promises.setTimeout()` | 🟡 Parcialmente suportado |
+| `timers/promises.setInterval()` | 🟡 Parcialmente suportado |
+| `timers/promises.setImmediate()` | 🟢 Com suporte |
+| `timers.active()` | 🟡 Parcialmente suportado |
+| `timers.enroll()` | 🔴 Sem suporte |
+| `timers.unenroll()` | 🔴 Sem suporte |
+| `timers.getActive()` | 🟡 Parcialmente suportado |
+
+As APIs marcadas como 🟡 Parcialmente suportado têm funcionalidade limitada em comparação com a implementação completa do Node.js. `timers/promises.setTimeout()` resolve com o valor passado a ela; com `azion dev`, ela é resolvida na hora, sem aguardar o atraso. O iterador assíncrono que `timers/promises.setInterval()` retorna produz um valor e depois termina. Para aguardar um atraso, envolva `timers.setTimeout()` em uma Promise: `new Promise((resolve) => timers.setTimeout(resolve, ms))`. O Node.js marca `enroll()` e `unenroll()` como obsoletas, e o Azion Runtime não oferece suporte a elas.
+
+Um callback de timer precisa ser uma função. Após o deploy, uma string ou um número no lugar dele lança `EvalError: eval not allowed on setTimeout/setInterval parameter`. `timers.setTimeout()` retorna um objeto de timer com os métodos `ref()` e `unref()`, e o `refresh()` desse objeto não está definido. O módulo `node:timers/promises` exporta `scheduler`, `setImmediate`, `setInterval` e `setTimeout`, além de um export default.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="APIs do Node.js" href="/pt-br/documentacao/devtools/runtime/node/">O status de cada módulo do Node.js no Azion Runtime, incluindo `timers`.</DocItem>
+  <DocItem title="Use APIs do Node.js com polyfills" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/use-polyfills/">Como o build transforma imports `node:` em código que é executado no Azion Runtime.</DocItem>
+  <DocItem title="Globais" href="/pt-br/documentacao/devtools/runtime/api-reference/azion-runtime-globals/">Os objetos globais do Azion Runtime e como `Date.now()` e `performance.now()` se comportam dentro de uma requisição.</DocItem>
+  <DocItem title="Documentação de timers do Node.js" href="https://nodejs.org/api/timers.html">A referência completa do Node.js para cada API de `node:timers` da tabela.</DocItem>
+</ItemList>
+</FrameBox>

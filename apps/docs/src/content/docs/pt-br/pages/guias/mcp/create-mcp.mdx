@@ -1,0 +1,487 @@
+---
+title: Execute um MCP server na Azion
+description: >-
+  Crie um servidor Model Context Protocol com o MCP SDK e o Hono, execute-o como
+  uma function da Azion e faça o deploy dele com a Azion CLI.
+meta_tags: 'MCP server, model context protocol, MCP SDK, McpServer, WebStandardStreamableHTTPServerTransport, Hono, function, azion init, azion dev, azion deploy'
+namespace: documentation_products_guides_mcp
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/automacao/executar-mcp-server/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+
+Você pode executar o seu próprio servidor Model Context Protocol (MCP) como uma [function](/pt-br/documentacao/plataforma/functions/) da Azion e fazer o deploy dele com a [Azion CLI](/pt-br/documentacao/devtools/cli/). Para conectar um agente de código aos MCP servers que a Azion hospeda, consulte [Primeiros passos com o MCP server](/pt-br/documentacao/devtools/mcp/primeiros-passos/).
+
+O MCP é uma especificação aberta que usa JSON-RPC para padronizar como aplicações e agentes de IA se comunicam. Um servidor expõe três tipos de capacidade: ferramentas (ações), recursos (dados como arquivos ou respostas de API) e prompts (templates de prompt compartilhados). Qualquer cliente compatível pode listar e chamar as ferramentas, ler os recursos e buscar os prompts. Um modelo de linguagem pode então chamar as suas funções e ler os seus dados. Para mais informações, consulte a [documentação do MCP](https://modelcontextprotocol.io/introduction).
+
+O servidor desta página usa o [MCP SDK para TypeScript](https://github.com/modelcontextprotocol/typescript-sdk/), `@modelcontextprotocol/sdk`, que implementa o protocolo. O [Hono](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/hono/) roteia as requisições HTTP. O `WebStandardStreamableHTTPServerTransport` do SDK responde a elas por streamable HTTP e funciona com os objetos `Request` e `Response` da Fetch API que uma function recebe e retorna. Para os outros transportes que o protocolo define, consulte [Transports](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports).
+
+---
+
+## Pré-requisitos
+
+- Uma conta da Azion. Para criar uma, consulte [Criar uma conta](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- A Azion CLI instalada e com login feito. Para a configuração, consulte [Primeiros passos com a Azion CLI](/pt-br/documentacao/devtools/cli/primeiros-passos/).
+- Node.js e npm. A CLI executa o Azion Bundler com `npx` para fazer o build do projeto, e o npm instala os pacotes que o servidor importa.
+
+---
+
+## Crie e faça o deploy do servidor
+
+A CLI cria um projeto Hono a partir de um template. Você substitui a entrada do template pelo MCP server, executa o servidor localmente e faz o deploy dele. O servidor usa a classe de alto nível `McpServer`, que registra cada ferramenta, recurso e prompt com uma chamada de método.
+
+Para criar, executar e fazer o deploy do servidor:
+
+<DocSteps>
+  <DocStep title="Crie um projeto Hono">
+
+  Execute `azion init` com um nome para o projeto:
+
+  ```bash
+  azion init --name my-mcp-server
+  ```
+
+  Em `Choose a preset:`, selecione _Hono_. Você pode digitar `Hono` para filtrar a lista. Em `Choose a template:`, selecione _Hono Boilerplate_. Responda `Y` para instalar as dependências e `n` ao servidor de desenvolvimento local e ao deploy. O comando imprime esta saída:
+
+  ```text
+  ? Choose a preset: Hono  [Use arrows to move, type to filter]
+  > Hono
+  ? Choose a preset: Hono
+  ? Choose a template:  [Use arrows to move, type to filter]
+    Azion React Agent
+  > Hono Boilerplate
+  ? Choose a template: Hono Boilerplate
+
+  Fetching selected template...
+
+  Template successfully fetched
+  Template successfully configured
+  🤔 Do you want to install project dependencies? This may be required to generate initial configuration file (Y/n) Y
+  Installing application dependencies
+
+  added 2 packages, and audited 3 packages in 1s
+
+  found 0 vulnerabilities
+  …
+  [Azion] [Build] › ℹ  info      Using preset: typescript
+  [Azion] [Build] › ✔  success   Build completed successfully with only azion.config
+  [Azion] [IaC] › ✔  success   Manifest generated successfully at <project-dir>/.edge/manifest.json
+  🤔 Do you want to start a local development server? (y/N) n
+  If you want to start a local development server later, run 'azion dev'
+  Make sure to change to the new working directory before running building or deploying your project
+  🤔 Do you want to deploy your project? (y/N) n
+  If you want to deploy your application later, run 'azion deploy'
+  Make sure to change to the new working directory before running building or deploying your project
+  Your application my-mcp-server was initialized successfully
+  ```
+
+  O projeto fica na pasta `my-mcp-server`, e a entrada dele é `src/index.ts`. Para todas as perguntas e as flags que as pulam, consulte [Azion CLI init](/pt-br/documentacao/devtools/cli/init/).
+
+  </DocStep>
+  <DocStep title="Instale os pacotes do servidor">
+
+  O template instala somente o `hono`. Vá para a pasta do projeto. Instale o MCP SDK e a versão 3 do `zod`, que o SDK usa:
+
+  ```bash
+  cd my-mcp-server
+  npm install @modelcontextprotocol/sdk zod@3
+  ```
+
+  O npm adiciona os dois pacotes às `dependencies` do `package.json`, ao lado do `hono`.
+
+  </DocStep>
+  <DocStep title="Escreva o servidor">
+
+  Substitua o conteúdo de `src/index.ts` pelo código a seguir. Ele registra uma ferramenta `add` e um recurso `greeting` e responde às requisições MCP em `POST /mcp`:
+
+  ```typescript
+  import { Hono } from 'hono'
+  import type { Context } from 'hono'
+  import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
+  import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
+  import { z } from 'zod'
+
+  const app = new Hono()
+
+  function getServer() {
+    const server = new McpServer({
+      name: "azion-mcp-server",
+      version: "1.0.0"
+    });
+
+    server.registerTool("add",
+      {
+        title: "Addition Tool",
+        description: "Add two numbers",
+        inputSchema: { a: z.number(), b: z.number() }
+      },
+      async ({ a, b }) => ({
+        content: [{ type: "text", text: String(a + b) }]
+      })
+    );
+
+    server.registerResource(
+      "greeting",
+      new ResourceTemplate("greeting://{name}", { list: undefined }),
+      {
+        title: "Greeting Resource",
+        description: "Dynamic greeting generator"
+      },
+      async (uri, { name }) => ({
+        contents: [{
+          uri: uri.href,
+          text: `Hello, ${name}!`
+        }]
+      })
+    );
+
+    return server;
+  }
+
+  app.post('/mcp', async (c: Context) => {
+    try {
+      const server = getServer();
+      const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+
+      await server.connect(transport);
+
+      return await transport.handleRequest(c.req.raw);
+    } catch (error) {
+      console.error('Error handling MCP request:', error);
+
+      return c.json({
+        jsonrpc: '2.0',
+        error: { code: -32603, message: 'Internal server error' },
+        id: null,
+      }, 500);
+    }
+  });
+
+  export default app
+  ```
+
+  Cada requisição recebe um servidor novo e um transporte novo, sem ID de sessão, então o servidor não mantém estado entre as requisições. Uma instância de `McpServer` se conecta a um transporte por vez, então o código cria a instância em `getServer()` a cada requisição. Em caso de erro, o handler registra o erro no log e retorna o erro JSON-RPC `-32603`, `Internal server error`, com o status HTTP `500`.
+
+  </DocStep>
+  <DocStep title="Execute o servidor localmente">
+
+  Na pasta do projeto, inicie o servidor de desenvolvimento local:
+
+  ```bash
+  azion dev
+  ```
+
+  O comando faz o build de `src/index.ts` e serve a function na porta `3333`:
+
+  ```text
+  …
+  [Azion] [Build] › ℹ  info      Using preset: typescript
+  [Azion] [Pre-Build] › ℹ  info      Starting pre-build...
+  [Azion] [Pre-Build] › ℹ  info      Pre-build completed successfully
+  [Azion] [Build] › ℹ  info      Using entry point(s): src/index.ts
+  [Azion] [Build] › ℹ  info      Starting build...
+  [Azion] [Build] › ✔  success   Build completed successfully
+  [Azion] [Post-Build] › ℹ  info      Starting post-build...
+  [Azion] [Post-Build] › ✔  success   Post-build completed successfully
+  [Azion] [Server] › ✔  success   Function running on port 0.0.0.0:3333, url: http://localhost:3333
+  [Azion] [Server] › ℹ  info      Initial scan complete. Ready for changes.
+  ```
+
+  O servidor continua em execução até você interrompê-lo. Para as flags do comando, consulte [Azion CLI dev](/pt-br/documentacao/devtools/cli/dev-comando/).
+
+  </DocStep>
+  <DocStep title="Verifique o servidor localmente">
+
+  Em um segundo terminal, envie uma requisição MCP `initialize` para `http://localhost:3333/mcp`. O cliente precisa aceitar tanto JSON quanto um event stream:
+
+  ```bash
+  curl -s -i -X POST http://localhost:3333/mcp \
+    -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' \
+    --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"1.0.0"}}}'
+  ```
+
+  O servidor responde com um evento que contém o nome e as capacidades dele:
+
+  ```text
+  HTTP/1.1 200 OK
+  cache-control: no-cache, no-transform
+  connection: keep-alive
+  content-type: text/event-stream
+  x-accel-buffering: no
+  Date: Sun, 04 Oct 2026 20:27:33 GMT
+  Transfer-Encoding: chunked
+
+  event: message
+  data: {"result":{"protocolVersion":"2025-03-26","capabilities":{"tools":{"listChanged":true},"resources":{"listChanged":true}},"serverInfo":{"name":"azion-mcp-server","version":"1.0.0"}},"jsonrpc":"2.0","id":1}
+  ```
+
+  Para listar as ferramentas, envie uma requisição `tools/list` para a mesma URL:
+
+  ```bash
+  curl -s -i -X POST http://localhost:3333/mcp \
+    -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' \
+    --data '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+  ```
+
+  O resultado lista a ferramenta `add` com o schema de entrada que o código declara:
+
+  ```text
+  HTTP/1.1 200 OK
+  cache-control: no-cache, no-transform
+  connection: keep-alive
+  content-type: text/event-stream
+  x-accel-buffering: no
+  Date: Sun, 04 Oct 2026 20:27:34 GMT
+  Transfer-Encoding: chunked
+
+  event: message
+  data: {"result":{"tools":[{"name":"add","title":"Addition Tool","description":"Add two numbers","inputSchema":{"type":"object","properties":{"a":{"type":"number"},"b":{"type":"number"}},"required":["a","b"],"additionalProperties":false,"$schema":"http://json-schema.org/draft-07/schema#"},"execution":{"taskSupport":"forbidden"}}]},"jsonrpc":"2.0","id":2}
+  ```
+
+  </DocStep>
+  <DocStep title="Faça o deploy do servidor">
+
+  Interrompa o servidor local, ou abra um segundo terminal, e faça o deploy do projeto a partir da pasta do projeto:
+
+  ```bash
+  azion deploy
+  ```
+
+  A CLI envia o projeto e faz o build dele. No final, ela imprime a URL do domínio do projeto, no formato `https://xxxxxxxxxx.map.azionedge.net`. Para a saída do deploy e as flags dele, consulte [Azion CLI deploy](/pt-br/documentacao/devtools/cli/deploy/).
+
+  </DocStep>
+</DocSteps>
+
+O MCP server roda na infraestrutura distribuída da Azion e responde em `https://<your-domain>/mcp`, em que `<your-domain>` é o domínio que o `azion deploy` imprimiu. O primeiro deploy pode levar vários minutos para responder de todas as localidades. Os deploys seguintes levam cerca de dois minutos.
+
+---
+
+## Leia a configuração do deploy
+
+O `azion deploy` cria os recursos que o `azion.config.ts` declara, e o `azion init` escreveu esse arquivo a partir do template Hono. Ele faz o build de `src/index.ts` com o preset `typescript` e com os polyfills ativados. O build grava a function em `.edge/functions/index.js`, que o arquivo chama de `./functions/index.js`. Uma aplicação executa essa function em todos os caminhos por meio de uma regra de requisição chamada `Execute Function`, e um workload serve a aplicação:
+
+```typescript
+export default {
+  build: {
+    preset: 'typescript',
+    entry: 'src/index.ts',
+    polyfills: true
+  },
+  functions: [
+    {
+      name: '$FUNCTION_NAME',
+      path: './functions/index.js'
+    }
+  ],
+  applications: [
+    {
+      name: '$APPLICATION_NAME',
+      rules: {
+        request: [
+          {
+            name: 'Execute Function',
+            description: 'Execute function for all requests',
+            active: true,
+            criteria: [
+              [
+                {
+                  variable: '${uri}',
+                  conditional: 'if',
+                  operator: 'matches',
+                  argument: '^/'
+                }
+              ]
+            ],
+            behaviors: [
+              {
+                type: 'run_function',
+                attributes: {
+                  value: '$FUNCTION_NAME'
+                }
+              }
+            ]
+          }
+        ]
+      },
+      functionsInstances: [
+        {
+          name: '$FUNCTION_INSTANCE_NAME',
+          ref: '$FUNCTION_NAME'
+        }
+      ]
+    }
+  ],
+  workloads: [
+    {
+      name: '$WORKLOAD_NAME',
+      active: true,
+      infrastructure: 1,
+      deployments: [
+        {
+          name: '$DEPLOYMENT_NAME',
+          current: true,
+          active: true,
+          strategy: {
+            type: 'default',
+            attributes: {
+              application: '$APPLICATION_NAME'
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+A CLI preenche cada nome com `$` quando cria o recurso e registra os IDs dos recursos em `azion/azion.json`. Para todas as configurações do arquivo, consulte [azion.config.js](/pt-br/documentacao/devtools/cli/azion-config-js/).
+
+Uma pasta de projeto que o `azion init` não criou não tem nenhum dos dois arquivos, e o `azion build` se recusa a fazer o build dela com `Azion configuration not found`. Execute `azion link` nessa pasta primeiro e depois `azion build` e `azion deploy`. Para as perguntas que o `azion link` faz, consulte [Azion CLI link](/pt-br/documentacao/devtools/cli/link-comando/).
+
+---
+
+## Conecte um cliente ao servidor
+
+Um cliente MCP precisa da URL do servidor: `https://<your-domain>/mcp` depois do deploy, ou `http://localhost:3333/mcp` enquanto o `azion dev` está em execução. O caminho é `/mcp` porque a rota Hono do servidor é `app.post('/mcp', …)`.
+
+Configure o cliente como para os MCP servers da Azion, com a sua URL no lugar de `https://docs-mcp.azion.com/mcp`. Para as configurações do cliente, consulte [Primeiros passos com o MCP server](/pt-br/documentacao/devtools/mcp/primeiros-passos/). O servidor de exemplo não verifica nenhuma credencial, então o cliente não envia nenhum header `Authorization`, e qualquer pessoa com a URL pode chamar as ferramentas dele.
+
+---
+
+## Use a classe Server
+
+A classe de baixo nível `Server` do SDK substitui os métodos de registro do `McpServer` por handlers de requisição. Você mesmo escreve o handler de cada método MCP, o que dá a você controle total sobre cada resposta. Cada capacidade precisa de um handler que a lista e de outro que a chama ou a lê:
+
+| Capacidade | Método do `McpServer` | Handler de listagem do `Server` | Handler de chamada ou leitura do `Server` |
+| --- | --- | --- | --- |
+| Ferramentas | `registerTool` | `ListToolsRequestSchema` | `CallToolRequestSchema` |
+| Recursos | `registerResource` | `ListResourcesRequestSchema` | `ReadResourceRequestSchema` |
+| Prompts | `registerPrompt` | `ListPromptsRequestSchema` | `GetPromptRequestSchema` |
+
+Registre cada handler com `server.setRequestHandler(<schema>, async (request) => { ... })`. Os schemas vêm de `@modelcontextprotocol/sdk/types.js`, que também exporta os schemas dos outros métodos MCP. Para mais informações, consulte o [MCP SDK para TypeScript](https://github.com/modelcontextprotocol/typescript-sdk/).
+
+O `src/index.ts` a seguir serve as ferramentas e os prompts do pacote do MCP server da HubSpot, `@hubspot/mcp-server`. Ele declara as capacidades `tools`, `prompts` e `resources` e registra quatro handlers. A rota, o transporte e o tratamento de erros são os mesmos do servidor `McpServer`. Adicione o pacote ao projeto antes de fazer o build:
+
+```bash
+npm install @hubspot/mcp-server
+```
+
+```typescript
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { CallToolRequestSchema, GetPromptRequestSchema, ListPromptsRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
+import { getPrompts, getPromptMessages } from '@hubspot/mcp-server/dist/prompts/index.js';
+import { getTools, handleToolCall } from '@hubspot/mcp-server/dist/tools/index.js';
+import '@hubspot/mcp-server/dist/prompts/promptsRegistry.js';
+import '@hubspot/mcp-server/dist/tools/toolsRegistry.js';
+import { Hono } from 'hono';
+
+// Create a server instance for each request
+function getServer() {
+    const server = new Server({
+        name: 'azion-hubspot-mcp-server',
+        version: '1.0.0',
+    }, {
+        capabilities: {
+            tools: {},
+            prompts: {},
+            resources: {},
+        },
+    });
+
+    // Handler for listing tools
+    server.setRequestHandler(ListToolsRequestSchema, async () => {
+        return {
+            tools: getTools(),
+        };
+    });
+
+    // Handler for calling tools
+    server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        const { name, arguments: args } = request.params;
+        return handleToolCall(name, args);
+    });
+
+    // Handler for listing prompts
+    server.setRequestHandler(ListPromptsRequestSchema, async () => {
+        return {
+            prompts: getPrompts(),
+        };
+    });
+
+    // Handler for getting specific prompt
+    server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+        const { name, arguments: args } = request.params;
+        return getPromptMessages(name, args);
+    });
+
+    return server;
+}
+
+// Create Hono app
+const app = new Hono();
+
+app.post('/mcp', async (c) => {
+    try {
+        const server = getServer();
+        const transport = new WebStandardStreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+        });
+
+        await server.connect(transport);
+
+        return await transport.handleRequest(c.req.raw);
+    } catch (error) {
+        console.error('Error handling MCP request:', error);
+        return c.json({
+            jsonrpc: '2.0',
+            error: {
+                code: -32603,
+                message: 'Internal server error',
+            },
+            id: null,
+        }, 500);
+    }
+});
+
+export default app
+```
+
+O pacote da HubSpot lê um access token da HubSpot da variável de ambiente `PRIVATE_APP_ACCESS_TOKEN`. Sem a variável, o `azion dev` faz o build do projeto e depois para com `HubSpot access token is required`.
+
+Execute e faça o deploy deste servidor com os mesmos comandos `azion dev` e `azion deploy` do servidor `McpServer`.
+
+---
+
+## Prepare o servidor para agentes
+
+Um agente escolhe uma ferramenta pelo nome e pela descrição dela e a chama com as entradas que o schema dela declara. Verifique estes pontos antes de passar a URL para outras pessoas:
+
+| Área | Prática |
+| --- | --- |
+| Nomes das ferramentas | Dê a cada ferramenta um nome com um verbo e um substantivo, como `search_docs` ou `create_rule`. |
+| Descrições das ferramentas | Diga quando um agente usa a ferramenta e como. |
+| Entradas das ferramentas | Declare um tipo para cada parâmetro e valide cada valor antes de usá-lo. |
+| Erros | Retorne uma mensagem que diga o que falhou. |
+| Chamadas repetidas | Torne cada ferramenta segura para ser chamada mais de uma vez. |
+| Respostas | Faça cache dos dados que as ferramentas leem com frequência, pagine resultados grandes, defina timeouts para operações longas e comprima respostas grandes. |
+| Acesso | Limite o número de requisições que cada token pode enviar e registre em log toda operação sensível. |
+| Saída | Remova dados sensíveis de uma resposta antes de retorná-la. |
+
+Para um exemplo maior de servidor criado com Hono e com o MCP SDK, consulte o [repositório aziontech/mcp-server](https://github.com/aziontech/mcp-server).
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Como o MCP server funciona" href="/pt-br/documentacao/devtools/mcp/como-funciona/" label="Veja como os MCP servers da Azion autenticam os agentes e respondem às requisições deles." />
+  <DocCard title="Ferramentas e recursos" href="/pt-br/documentacao/devtools/mcp/ferramentas/" label="Compare o seu servidor com as ferramentas e os recursos que os MCP servers da Azion expõem." />
+  <DocCard title="Azion CLI deploy" href="/pt-br/documentacao/devtools/cli/deploy/" label="Leia a saída do deploy e as flags que mudam um deploy." />
+  <DocCard title="Functions" href="/pt-br/documentacao/plataforma/functions/" label="Saiba como funciona a function que executa o seu servidor." />
+  <DocCard title="Implantar servidores MCP remotos" href="/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/implantar-servidores-mcp-remotos/" label="Mapeie uma API existente para ferramentas MCP, atrás de WAF e de um rate limit, com uma linha de log por tool call." />
+</DocCardGroup>

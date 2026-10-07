@@ -1,0 +1,304 @@
+---
+title: Utils
+description: >-
+  Azion Lib functions of the @aziontech/utils package that serve application
+  files from a function and parse an incoming request.
+permalink: /documentation/devtools/azion-lib/utils/
+meta_tags: >-
+  Azion Lib, @aziontech/utils, mountSPA, mountMPA, parseRequest, single-page
+  application, multi-page application, memoryFS
+namespace: documentation_azion_lib_utils
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+The `@aziontech/utils` package is the Azion Lib library of helpers for functions. Two of its functions answer a request with a static file of a single-page application (SPA) or a multi-page application (MPA), and the third turns an incoming request into a plain object. The functions make no API calls, need no token, and return their result directly.
+
+Install the package:
+
+```bash
+npm install @aziontech/utils
+```
+
+Import the functions from `@aziontech/utils/edge`. The package root exports only two objects, `edge` and `node`, so `import { mountSPA } from '@aziontech/utils'` fails with a `SyntaxError`. This page does not document the `node` entry, `@aziontech/utils/node`.
+
+`mountSPA` and `mountMPA` do not run in Node.js, where they fail with `TypeError: fetch failed`, so their samples run inside a function. `parseRequest` runs in Node.js and inside a function. The function samples on this page are JavaScript modules served locally with [azion dev](/en/documentation/devtools/cli/dev-command/), and the Node.js sample is a TypeScript ES module that uses top-level `await`.
+
+---
+
+## Static files in the build
+
+`mountSPA` and `mountMPA` read files through `file:///` URLs. Inside a function, these URLs resolve to the files that the `build.memoryFS` setting of [azion.config.js](/en/documentation/devtools/cli/azion-config-js/#build) embeds in the build. A file that the build does not embed cannot be served.
+
+The samples on this page use a project whose `data/` folder holds `index.html`, `about/index.html`, and `hello.txt`. Add this `build` block to the object that `azion.config.mjs` exports, so the build embeds `data/`:
+
+```javascript
+build: {
+  memoryFS: {
+    injectionDirs: ['./data'],
+    removePathPrefix: './data',
+  },
+},
+```
+
+`injectionDirs` names the folders the build embeds. `removePathPrefix` removes the folder name from each file path, so `data/index.html` is read at `file:///index.html`. With `removePathPrefix: './'`, the same file is read at `file:///data/index.html` instead, and the `mount*` functions do not find it.
+
+---
+
+## mountSPA
+
+Answers a request to a single-page application with a file from the build. A path without a file extension, such as `/dashboard/settings`, returns `index.html`. A path with an extension, such as `/hello.txt`, returns that file.
+
+```typescript
+function mountSPA(requestURL: string): Promise<Response>;
+```
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `requestURL` | `string` | Yes | The URL of the incoming request, `request.url`. |
+
+Returns a `Response` that holds the file. When the build has no file for the path, the call throws an error, `Error: ENOENT: no such file or directory`, and the function answers with status 500 and an empty body.
+
+This function answers every request with `mountSPA` and logs the path and the status:
+
+```javascript
+import { mountSPA } from '@aziontech/utils/edge';
+
+export default {
+  async fetch(request) {
+    // Routes without a file extension get index.html; assets are fetched as they are
+    const myApp = await mountSPA(request.url);
+    console.log('mountSPA', new URL(request.url).pathname, '->', myApp.status);
+    return myApp;
+  },
+};
+```
+
+Served locally with `azion dev`, the root, a route, a file, and a missing file return:
+
+```text
+$ curl http://localhost:3977/
+HTTP/1.1 200 OK
+content-type: text/html
+
+<h1>index</h1>
+
+$ curl http://localhost:3977/dashboard/settings
+HTTP/1.1 200 OK
+content-type: text/html
+
+<h1>index</h1>
+
+$ curl http://localhost:3977/hello.txt
+HTTP/1.1 200 OK
+content-type: text/plain
+
+Hello from memoryFS
+
+$ curl http://localhost:3977/missing.css
+HTTP/1.1 500 Internal Server Error
+Content-Length: 0
+```
+
+The function logs the status of each request it answers, then the error that the missing file raises:
+
+```text
+mountSPA / -> 200
+mountSPA /dashboard/settings -> 200
+mountSPA /hello.txt -> 200
+Error: ENOENT: no such file or directory, open '<project-dir>/.edge/storage/missing.css'
+```
+
+---
+
+## mountMPA
+
+Answers a request to a multi-page application with a file from the build. A path without a file extension returns the `index.html` of the folder that the path names: `/about` and `/about/` both return `about/index.html`, and `/` returns `index.html`. A path with an extension, such as `/hello.txt`, returns that file.
+
+```typescript
+function mountMPA(requestURL: string): Promise<Response>;
+```
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `requestURL` | `string` | Yes | The URL of the incoming request, `request.url`. |
+
+Returns a `Response` that holds the file.
+
+This function answers every request with `mountMPA` and logs the path and the status:
+
+```javascript
+import { mountMPA } from '@aziontech/utils/edge';
+
+export default {
+  async fetch(request) {
+    // /about is served from about/index.html
+    const myApp = await mountMPA(request.url);
+    console.log('mountMPA', new URL(request.url).pathname, '->', myApp.status);
+    return myApp;
+  },
+};
+```
+
+Served locally with `azion dev`, the root, a page with and without a trailing slash, and a file return:
+
+```text
+$ curl http://localhost:3977/
+HTTP/1.1 200 OK
+content-type: text/html
+
+<h1>index</h1>
+
+$ curl http://localhost:3977/about
+HTTP/1.1 200 OK
+content-type: text/html
+
+<h1>about</h1>
+
+$ curl http://localhost:3977/about/
+HTTP/1.1 200 OK
+content-type: text/html
+
+<h1>about</h1>
+
+$ curl http://localhost:3977/hello.txt
+HTTP/1.1 200 OK
+content-type: text/plain
+
+Hello from memoryFS
+```
+
+---
+
+## parseRequest
+
+Reads an incoming request and returns its method, URL parts, headers, cookies, body, and client data as one plain object.
+
+```typescript
+function parseRequest(request: AzionRuntimeRequest): Promise<ParsedRequest>;
+```
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `request` | `AzionRuntimeRequest` | Yes | The incoming request. Pass the request itself, not the fetch event. The type comes from the [Types](/en/documentation/devtools/azion-lib/types/) package. |
+
+Returns the parsed request. The package declares the `ParsedRequest` type but does not export it, so let TypeScript infer the type of the result. The result holds these properties:
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `timestamp` | `string` | The time of the call, in ISO 8601 format. |
+| `method` | `string` | The HTTP method. |
+| `url` | `object` | The URL parts: `full`, `protocol`, `hostname`, `path`, and `query`, an object of the query parameters. |
+| `headers` | `Record<string, string>` | Every request header, with lowercase names. |
+| `cookies` | `Record<string, string>` | The cookies of the `Cookie` header, by name. |
+| `body` | `string \| null` | The request body as text. |
+| `client` | `object` | `ip`, the client IP address, and `userAgent`, the `User-Agent` header. |
+| `referer`, `origin`, `cacheControl`, `pragma`, `contentType`, `contentLength`, `acceptLanguage`, `acceptEncoding`, `priority`, `host` | `string` | The value of the matching request header, or `Unknown` when the request does not carry it. |
+| `authorization` | `string` | `Not Present` when the request has no `Authorization` header. |
+| `metadata` | `AzionRuntimeRequestMetadata` | Declared by the type. The result of a local call has no `metadata` key. |
+
+The TypeScript sample imports `AzionRuntimeRequest` from `@aziontech/types`, so install that package too with `npm install @aziontech/types`. This sample builds a `POST` request by hand and prints four properties of the result:
+
+```typescript
+import { parseRequest } from '@aziontech/utils/edge';
+import type { AzionRuntimeRequest } from '@aziontech/types';
+
+// In a function, pass the incoming request; here one is built by hand
+const request = new Request('https://example.com/products?id=42', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Cookie: 'session=abc123', 'User-Agent': 'docs-sample' },
+  body: JSON.stringify({ qty: 1 }),
+}) as AzionRuntimeRequest;
+
+const parsedRequest = await parseRequest(request);
+console.log(parsedRequest.method, parsedRequest.url, parsedRequest.cookies, parsedRequest.body);
+```
+
+Output:
+
+```text
+POST {
+  full: 'https://example.com/products?id=42',
+  protocol: 'https:',
+  hostname: 'example.com',
+  path: '/products',
+  query: { id: '42' }
+} { session: 'abc123' } {"qty":1}
+```
+
+Inside a function, pass the incoming request. This function returns the whole result as JSON:
+
+```javascript
+import { parseRequest } from '@aziontech/utils/edge';
+
+export default {
+  async fetch(request) {
+    const parsedRequest = await parseRequest(request);
+    return new Response(JSON.stringify(parsedRequest, null, 2), { headers: { 'content-type': 'application/json' } });
+  },
+};
+```
+
+Served locally with `azion dev`, a `POST` request with a cookie and a JSON body returns the result below. Locally, `client.ip` is `Unknown` and the result has no `metadata` key, because the local runtime has no `request.metadata`.
+
+```text
+$ curl -X POST -H 'Content-Type: application/json' -H 'Cookie: session=abc123' -d '{"qty":1}' 'http://localhost:3977/products?id=42'
+HTTP/1.1 200 OK
+content-type: application/json
+
+{
+  "timestamp": "2026-10-04T14:04:50.223Z",
+  "method": "POST",
+  "url": {
+    "full": "http://localhost:3977/products?id=42",
+    "protocol": "http:",
+    "hostname": "localhost",
+    "path": "/products",
+    "query": {
+      "id": "42"
+    }
+  },
+  "headers": {
+    "accept": "*/*",
+    "content-length": "9",
+    "content-type": "application/json",
+    "cookie": "session=abc123",
+    "host": "localhost:3977",
+    "user-agent": "curl/8.7.1"
+  },
+  "cookies": {
+    "session": "abc123"
+  },
+  "body": "{\"qty\":1}",
+  "client": {
+    "ip": "Unknown",
+    "userAgent": "curl/8.7.1"
+  },
+  "referer": "Unknown",
+  "origin": "Unknown",
+  "cacheControl": "Unknown",
+  "pragma": "Unknown",
+  "contentType": "application/json",
+  "contentLength": "9",
+  "acceptLanguage": "Unknown",
+  "acceptEncoding": "Unknown",
+  "priority": "Unknown",
+  "host": "localhost:3977",
+  "authorization": "Not Present"
+}
+```
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Azion Lib" href="/en/documentation/devtools/azion-lib/">The libraries Azion Lib ships and the package that carries each one.</DocItem>
+  <DocItem title="How Azion Lib works" href="/en/documentation/devtools/azion-lib/how-it-works/">Which Azion Lib modules run in Node.js, which run inside a function, and why.</DocItem>
+  <DocItem title="azion.config.js" href="/en/documentation/devtools/cli/azion-config-js/">The build settings, memoryFS among them, that decide which files a function can serve.</DocItem>
+  <DocItem title="Azion CLI dev" href="/en/documentation/devtools/cli/dev-command/">Serve a function locally and test the files and requests it handles.</DocItem>
+</ItemList>
+</FrameBox>

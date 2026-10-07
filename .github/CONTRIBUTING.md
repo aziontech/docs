@@ -25,7 +25,7 @@ pnpm dev                         # local preview
 
 ## Making changes
 
-- All content lives in `src/content/docs/{en,pt-br}` as `.mdx`. English is the source of truth, so write it first. Add the `pt-br` version in the same PR when you can.
+- All content lives in `apps/docs/src/content/docs/{en,pt-br}` as `.mdx`. English is the source of truth, so write it first. Add the `pt-br` version in the same PR when you can.
 - Trunk-based flow: `main` is the only long-lived branch. Branch off it (`EDU-1234-short-slug` or `type/short-slug`), keep the branch alive **3 days or less**, and PR back into `main`. Do not push to `main` directly, do not commit through the web UI, and do not keep personal long-running branches. Embargoed launch content merges behind a draft/publish frontmatter gate instead of waiting in a branch.
 - One concern per PR. Content changes and platform/code changes never travel together.
 
@@ -36,7 +36,7 @@ pnpm build:local     # build + frontmatter validation (CI runs this too)
 pnpm lint:slugcheck  # permalink rules
 ```
 
-- Changed a permalink or moved a page? **Add the redirect in this PR.**
+- Changed a permalink or moved a page? **Add the redirect in this PR**, in `apps/redirects-massive/src/redirects/{en,pt-br}/doc.json`.
 - Can't update `pt-br` yourself? Create the follow-up `i18n` issue and link it in the PR checklist.
 
 ## The PR

@@ -1,0 +1,235 @@
+---
+title: Boas práticas de Connectors
+description: Configure connectors, Load Balancer, Origin Shield e Live Ingest para que as origens continuem alcançáveis, protegidas e endereçadas corretamente.
+meta_tags: 'connectors, best practices, load balancer, origin shield, live ingest, origin'
+namespace: documentation_products_connectors_best_practices
+permalink: /documentacao/plataforma/connectors/boas-praticas/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Um proxy na frente da sua origem decide como cada requisição chega até ela. Quando essa decisão está errada, a falha aparece na origem, e não no proxy. A origem responde pelo site errado, uma alteração parece quebrada porque só alguns servidores já a aplicam ou um servidor que você tirou do ar ainda recebe tráfego. A maioria desses erros vem de configurar o trecho até a origem sem verificar o que a origem espera.
+
+Estas práticas se aplicam a um [connector](/pt-br/documentacao/plataforma/connectors/), aos endereços e às opções de conexão que ele guarda e aos Products que atuam sobre ele. Os mecanismos por trás delas estão em [Como Connectors funciona](/pt-br/documentacao/plataforma/connectors/como-funciona/), cada campo está em [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/) e cada limite está em [Limites de Connectors](/pt-br/documentacao/plataforma/connectors/limites/).
+
+As duas primeiras práticas se aplicam a todo connector do tipo `http`: definir o header `Host` como um nome ao qual a sua origem responde e esperar que uma alteração se propague antes de avaliá-la. Em seguida vem uma seção para cada um deles: Load Balancer, Origin Shield e Live Ingest. Cada exemplo de connector mostra apenas a parte do connector que a sua prática altera, e o corpo completo está em [Defina o header Host como um nome ao qual a sua origem responde](#defina-o-header-host-como-um-nome-ao-qual-a-sua-origem-responde).
+
+---
+
+## Defina o header Host como um nome ao qual a sua origem responde
+
+Uma origem que hospeda vários sites lê o header `Host` para escolher qual deles responde. A opção de conexão `host` tem o padrão `${host}`, que envia o host que o cliente solicitou, e um valor literal é enviado como está em toda requisição. Mantenha `${host}` quando a origem serve cada site pelo seu nome público. Defina um nome literal quando a origem responde a um virtual host por um nome diferente daquele que o seu DNS aponta para a Azion.
+
+O custo de um valor literal é que todo hostname do workload chega à origem com esse único nome. Uma origem que roteia por nome e recebe um host que não serve pode não responder à requisição. Este corpo cria um connector do tipo `http` que envia `Host: origin.example.com` em toda requisição:
+
+```json
+{
+  "name": "my-connector",
+  "type": "http",
+  "attributes": {
+    "addresses": [{ "address": "origin.example.com" }],
+    "connection_options": {
+      "transport_policy": "force_https",
+      "host": "origin.example.com"
+    }
+  }
+}
+```
+
+A API responde `202` com `"state": "pending"`, e o objeto retorna na leitura com `"host": "origin.example.com"`. Para verificar, depois que a alteração se propagar, execute `curl -s -D - https://<workload-domain>/<path>` várias vezes e confirme que toda resposta vem do site que você espera. Para os passos, consulte [Defina o Host header e o path prefix de uma origem](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/defina-o-host-header-e-o-path-prefix/).
+
+---
+
+## Espere a propagação de uma alteração no connector antes de avaliá-la
+
+A API armazena uma alteração no connector na hora e responde `202` com `"state": "pending"`. O tráfego a reflete depois: a infraestrutura distribuída da Azion recebe a alteração ao longo de vários minutos, e cada data center a aplica no seu próprio momento, sem duração garantida. Uma alteração avaliada por uma única requisição pode parecer uma alteração que falhou, e revertê-la inicia uma segunda propagação.
+
+Planeje cada alteração para que as configurações antigas e as novas funcionem enquanto ela se espalha, por exemplo mantendo a origem anterior respondendo. Envie um `PATCH` que carregue apenas as chaves que você altera, como `{"attributes":{"connection_options":{"host":"origin.example.com"}}}`. Um `PATCH` mescla essas chaves no connector armazenado, enquanto um `PUT` sem `connection_options` redefine cada opção de conexão para o seu padrão, como descreve [Objeto connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#objeto-connector).
+
+Para verificar, repita a requisição pelo workload até que toda resposta reflita a alteração. Para saber como uma alteração se espalha, consulte [Propagação](/pt-br/documentacao/plataforma/connectors/como-funciona/#propagacao).
+
+---
+
+## Load Balancer
+
+[Load Balancer](/pt-br/documentacao/plataforma/connectors/#load-balancer) distribui as requisições de um connector entre vários endereços que guardam o mesmo conteúdo. As práticas abaixo mantêm um endereço de backup pronto e tiram um endereço da rotação antes de uma manutenção.
+
+### Mantenha pelo menos um endereço de backup
+
+Um endereço de backup recebe requisições apenas quando todos os endereços primários falham, então o connector continua respondendo durante uma interrupção de todos os seus servidores primários. Hospede o backup em um provedor ou serviço de nuvem diferente dos primários, porque interrupções em dois provedores raramente acontecem ao mesmo tempo. O custo é capacidade ociosa, já que um endereço de backup não recebe tráfego enquanto um primário responde. _IP Hash_ recusa endereços de backup com `28005`, então um connector que precisa de um usa _Round Robin_ ou _Least Connections_.
+
+Esta parte do connector ativa Load Balancer com _Round Robin_ e torna o segundo endereço um backup:
+
+```json
+{
+  "attributes": {
+    "addresses": [
+      { "address": "origin.example.com" },
+      {
+        "address": "backup.example.net",
+        "modules": { "load_balancer": { "server_role": "backup" } }
+      }
+    ],
+    "modules": {
+      "load_balancer": { "enabled": true, "config": { "method": "round_robin" } }
+    }
+  }
+}
+```
+
+Para verificar, um `GET` em `/v4/workspace/connectors/{connector_id}` retorna `"server_role": "backup"` no segundo endereço. Para saber como a função do servidor molda a escolha do endereço, consulte [Métodos de balanceamento](/pt-br/documentacao/plataforma/connectors/load-balancer/metodos-de-balanceamento/#funcao-do-servidor). Para um plano completo de servidores primários e de backup, consulte [Balanceie o tráfego entre múltiplas origens](/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/configure-multiplas-origens/).
+
+### Tire um endereço da rotação antes de uma manutenção
+
+Um endereço com `active` definido como `false` deixa de receber requisições e mantém as suas portas, a sua função e o seu peso, então ativá-lo de novo o restaura como estava. Excluir o endereço, em vez disso, perde essas configurações. O custo é tempo: cada data center aplica a alteração no seu próprio momento, e alguns continuam enviando requisições ao endereço por vários minutos. Comece a manutenção somente depois que nenhuma requisição chegar a esse servidor.
+
+Este corpo de `PATCH` lista todos os endereços do connector, com `active` definido como `false` naquele que sai:
+
+```json
+{
+  "attributes": {
+    "addresses": [
+      { "address": "origin.example.com" },
+      { "address": "backup.example.net", "active": false }
+    ]
+  }
+}
+```
+
+Para verificar, repita a requisição pelo workload até que nenhuma resposta venha desse servidor, por exemplo lendo o header de resposta `server`. Para saber como endereços inativos saem da rotação, consulte [Métodos de balanceamento](/pt-br/documentacao/plataforma/connectors/load-balancer/metodos-de-balanceamento/#enderecos-ativos).
+
+---
+
+## Origin Shield
+
+[Origin Shield](/pt-br/documentacao/plataforma/connectors/#origin-shield) protege a origem de um connector com uma allowlist dos endereços da Azion, Origin IP ACL, e com requisições assinadas, HMAC. As práticas abaixo mantêm atualizada a allowlist na sua origem e mantêm as credenciais HMAC restritas.
+
+### Atualize a allowlist da sua origem em até 7 dias após cada mudança na lista
+
+A allowlist na sua origem é uma cópia da lista `Azion Origin Shield`, e automatizar a atualização dela é responsabilidade sua. A Azion envia um email a você cada vez que a lista muda, e os servidores por trás dos prefixos adicionados entram em produção 7 dias depois que a Azion publica a lista. Uma cópia que não tem um prefixo recusa as conexões que a Azion abre a partir dele. A lista carrega prefixos IPv6 ao lado dos IPv4, então revise cada regra de firewall e cada automação que a lê para garantir que ela lide com a lista maior.
+
+O custo é um job que você executa e mantém do seu lado. Execute-o em um intervalo menor que 7 dias, para que ele pegue cada prefixo adicionado antes que os servidores dele entrem em produção. Para verificar, compare os prefixos que o firewall da sua origem permite com as entradas mais recentes da lista, IPv6 incluído. Para a leitura que esse job executa, consulte [Mantenha a allowlist atualizada](/pt-br/documentacao/suporte/obter-ranges-ip-azion/#mantenha-a-allowlist-atualizada). Para saber como a lista é atualizada, consulte [Origin IP ACL e HMAC](/pt-br/documentacao/plataforma/connectors/origin-shield/origin-ip-acl-e-hmac/#atualizacoes-da-lista).
+
+### Limite as credenciais HMAC ao bucket que o connector lê
+
+As credenciais HMAC armazenadas em um connector assinam cada requisição a cada endereço desse connector. Uma credencial limitada a um bucket, apenas com capacidades de leitura, expõe somente esse bucket se vazar. Uma credencial com `readFiles` e `listFiles` em um bucket basta para que um connector sirva os objetos privados desse bucket. O custo é uma credencial a criar para cada bucket que um connector lê.
+
+Este corpo, enviado em um `POST` para `/v4/workspace/storage/credentials` de [Object Storage](/pt-br/documentacao/plataforma/object-storage/), cria uma credencial que lê um bucket:
+
+```json
+{
+  "name": "my-connector-credential",
+  "capabilities": ["listFiles", "readFiles"],
+  "buckets": ["<bucket>"],
+  "expiration_date": "<expiration-date>"
+}
+```
+
+A API responde `201` com a access key e a secret key que vão nas configurações HMAC do connector. Guarde as duas onde você possa informá-las de novo. Desativar HMAC remove as credenciais armazenadas, e o bloco `hmac` retorna na leitura com `"config": null`. Para verificar, solicite um objeto privado pelo workload. Um `200` de `server: azion webserver` significa que o endpoint aceitou a assinatura, e um `401` com `UnauthorizedAccess` significa que a requisição chegou sem assinatura. Para os passos, consulte [Assine requisições de origem com HMAC](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/assine-requisicoes-de-origem-com-hmac/).
+
+---
+
+## Live Ingest
+
+[Live Ingest](/pt-br/documentacao/plataforma/connectors/#live-ingest) recebe uma transmissão ao vivo do seu encoder em um connector do tipo `live_ingest`, e uma aplicação a entrega aos espectadores como HLS. As práticas abaixo tratam de ingestão redundante, configurações do encoder, fallback do player, tempos de cache de HLS, alertas, um teste de carga antes do evento e um plano de contingência.
+
+### Envie a transmissão para um endpoint primário e um de backup em regiões diferentes
+
+Uma transmissão com um único endpoint de ingestão para quando esse endpoint se degrada ou falha. Com um endpoint primário e um de backup, o backup assume a transmissão se o primário falhar. Coloque os dois em regiões diferentes, para que um problema localizado, como uma falha de energia, um problema de rede ou um desastre natural, não alcance os dois. Escolha para o primário a região mais próxima da sua fonte de conteúdo, para menor latência, e para o backup uma região alternativa com conectividade equivalente. Para saber como a região de um connector molda a ingestão, consulte [Região](/pt-br/documentacao/plataforma/connectors/live-ingest/ingestao-e-entrega/#regiao).
+
+O custo é um segundo endpoint para configurar no encoder e para acompanhar durante o evento. As regiões que um connector do tipo `live_ingest` aceita estão em [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#live-ingest). Para verificar, antes do evento, envie uma transmissão de teste a cada endpoint e confirme que cada um a aceita.
+
+### Configure o encoder para a entrega em HLS
+
+Live Ingest recebe a transmissão por RTMP com autenticação por usuário e senha, então o encoder precisa suportar os dois. Os codecs decidem quais players conseguem reproduzir a transmissão, e o intervalo de keyframes se adequa à saída HLS que os espectadores recebem. O bitrate equilibra a qualidade e os espectadores cujas conexões conseguem sustentá-lo, então defina-o para a sua audiência.
+
+Estas são as configurações do encoder para uma transmissão que Live Ingest entrega:
+
+| Configuração | Valor |
+| --- | --- |
+| Protocolo | RTMP, com autenticação por usuário e senha |
+| URL de ingestão e credenciais | As que a Azion fornece para os endpoints primário e de backup |
+| Codec de vídeo | H.264, para ampla compatibilidade com players |
+| Codec de áudio | AAC, para reprodução ampla |
+| Intervalo de keyframes | 2 segundos |
+| Bitrate | Adequado à sua audiência e à qualidade que você deseja |
+
+A Azion pode exigir um encoder suportado ou aprovado, como descreve [Ingestão](/pt-br/documentacao/plataforma/connectors/live-ingest/ingestao-e-entrega/#ingestao), então confirme com o [suporte da Azion](/pt-br/documentacao/suporte/) que o seu se qualifica antes do evento. Para verificar, compare as configurações de saída do encoder com esta tabela antes de cada transmissão.
+
+### Dê ao player um fallback para erros de carregamento
+
+O player é o último elo da cadeia de entrega, e um espectador vê cada falha que ele não trata. Configure-o para detectar erros no carregamento da playlist ou de um segmento e para tentar de novo com backoff exponencial. Onde você publica mais de uma URL de playlist, deixe que ele alterne entre elas, e mostre ao espectador uma mensagem clara sobre a conexão. O custo é código de player que você mesmo escreve e testa.
+
+hls.js é uma biblioteca JavaScript que implementa um cliente HLS, com fallback para transmissões ao vivo, recuperação de erros e configurações de buffer e latência. Esta configuração carrega a playlist ao vivo e se recupera de erros fatais de rede e de mídia:
+
+```javascript
+import Hls from 'hls.js';
+
+const video = document.getElementById('video');
+const hls = new Hls({
+  liveDurationInfinity: true,
+  liveBackBufferLength: 0,
+  maxBufferLength: 30,
+  maxMaxBufferLength: 60
+});
+
+hls.loadSource('https://<your-domain>/<stream>.m3u8');
+hls.attachMedia(video);
+
+hls.on(Hls.Events.ERROR, function (event, data) {
+  if (data.fatal) {
+    switch (data.type) {
+      case Hls.ErrorTypes.NETWORK_ERROR:
+        console.log('Network error, trying to recover');
+        hls.startLoad();
+        break;
+      case Hls.ErrorTypes.MEDIA_ERROR:
+        console.log('Media error, trying to recover');
+        hls.recoverMediaError();
+        break;
+      default:
+        console.log('Fatal error, cannot recover');
+        hls.destroy();
+        break;
+    }
+  }
+});
+```
+
+Para verificar, interrompa a rede do navegador enquanto a transmissão é reproduzida e confirme que o player se recupera quando a rede volta.
+
+### Mantenha playlists em cache por segundos e segmentos por mais tempo
+
+Uma playlist HLS é reescrita à medida que a transmissão avança, então um tempo de cache longo serve aos espectadores uma lista de segmentos desatualizada. Um segmento é escrito uma vez e nunca muda, então pode ficar em cache por mais tempo. Quando você seleciona uma fonte Live Ingest em uma regra da Request Phase, a Azion adiciona o behavior _Enforce HLS cache_ a essa regra. O behavior ignora as regras de cache da aplicação, então as suas próprias configurações de cache não se aplicam a essas requisições.
+
+_Enforce HLS cache_ mantém playlists, `.m3u8`, em cache por 5 segundos e segmentos, `.ts`, por 60 segundos. Para uma transmissão HLS de outra origem, dê à playlist e aos segmentos as suas próprias configurações de cache, como descreve [Implemente cache HLS para streaming ao vivo](/pt-br/documentacao/guias/midia-e-streaming/streaming/implementar-cache-hls/). Um tempo de cache de playlist abaixo de 60 segundos exige Application Accelerator na aplicação. Para verificar, confirme que a regra da Request Phase que nomeia o connector de Live Ingest carrega _Enforce HLS cache_. Para o behavior, consulte [Rules Engine para Applications](/pt-br/documentacao/plataforma/applications/rules-engine/#enforce-hls-cache).
+
+### Crie alertas para os sinais de que uma transmissão está falhando
+
+Uma transmissão que falha durante o evento custa a sua audiência, e um alerta costuma ser o primeiro sinal disso. Defina alertas para uma queda no número de usuários conectados, que pode significar que a transmissão falhou, e para latência acima do nível que você aceita. Crie alertas também para falhas de conexão com os endpoints de ingestão e para um sinal degradado. O custo são limiares que você ajusta à sua própria audiência, para que um alerta dispare em uma falha e não em uma variação normal.
+
+Os usuários conectados das suas transmissões ao vivo estão no dataset `connectedUsersMetrics` da GraphQL API de [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/). Para verificar, confirme durante o teste de carga que cada alerta dispara quando o seu sinal cruza o limiar. Para saber como a transmissão chega aos espectadores, consulte [Entrega](/pt-br/documentacao/plataforma/connectors/live-ingest/ingestao-e-entrega/#entrega).
+
+### Faça um teste de carga da configuração antes de um evento de alta demanda
+
+Uma transmissão com uma grande audiência encontra o seu pico de uma vez, sem tempo para corrigir uma configuração que falha sob carga. Teste a configuração antes do evento: configure a aplicação e os endpoints de ingestão, inicie uma transmissão de teste e simule o número esperado de espectadores simultâneos com uma ferramenta de teste de carga. Acompanhe as métricas enquanto o teste roda e ajuste a configuração onde elas mostrarem um problema.
+
+O custo é o próprio teste. Uma transmissão de teste é ingerida como uma real, e Live Ingest é cobrado por Data Ingestion, como descreve [Limites de Connectors](/pt-br/documentacao/plataforma/connectors/limites/#live-ingest). Para verificar, repita o teste depois de cada ajuste até que as métricas fiquem estáveis com a audiência esperada.
+
+### Mantenha um plano de contingência para a transmissão
+
+Endpoints redundantes e um player resiliente cobrem a maioria das falhas, e um plano escrito cobre o restante. Documente o procedimento manual de failover, os contatos do [suporte da Azion](/pt-br/documentacao/suporte/) e como você informa a audiência quando ocorre um problema. Nomeie as alternativas para a transmissão, como redes sociais ou uma plataforma de backup. O custo é um plano que você mantém atualizado a cada alteração na configuração. Para verificar, percorra o plano com a equipe que conduz a transmissão antes de cada evento.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Configurações de connector" href="/pt-br/documentacao/plataforma/connectors/configuracoes/">Cada campo que estas práticas alteram, com o seu tipo, o seu padrão e o erro que o protege.</DocItem>
+  <DocItem title="Solucionar problemas de Connectors" href="/pt-br/documentacao/plataforma/connectors/solucao-de-problemas/">Sintomas ao longo do caminho da regra até a origem, para quando uma prática foi ignorada.</DocItem>
+  <DocItem title="Libere os IPs da Azion na sua origem" href="/pt-br/documentacao/suporte/obter-ranges-ip-azion/">Os passos que leem a lista Azion Origin Shield e a aplicam no firewall da sua origem.</DocItem>
+  <DocItem title="Transmitir eventos ao vivo para grandes audiências" href="/pt-br/documentacao/casos-de-uso/entregar-midia-e-streaming/transmitir-eventos-ao-vivo-para-grandes-audiencias/">Como Live Ingest, uma aplicação e o cache se combinam em um design de entrega HLS ao vivo.</DocItem>
+</ItemList>
+</FrameBox>

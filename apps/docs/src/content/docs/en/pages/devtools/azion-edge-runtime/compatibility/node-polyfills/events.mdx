@@ -1,0 +1,366 @@
+---
+title: 'node:events'
+description: >-
+  The node:events module in Azion Runtime: the EventEmitter class, examples of
+  listeners, async handlers, and subclasses, and the supported APIs.
+permalink: /documentation/devtools/runtime/node/events/
+meta_tags: >-
+  node:events, EventEmitter, Azion Runtime, Node.js compatibility, Node.js
+  polyfills, event listeners, emit, once
+namespace: documentation_products_azion_runtime_node_events
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+The `node:events` module provides `EventEmitter`, the Node.js class for event-driven code. An event emitter is an object that emits named events, and listeners registered on it run each time it emits one of those names. In Azion Runtime, functions use it to decouple logic: one part of the code emits an event, and dedicated listeners react to it.
+
+---
+
+## Examples
+
+Each example is a complete function that imports `EventEmitter` from `node:events`. The response below each example is the one a deployed function returns.
+
+### Basic event emission
+
+This function registers a listener for one event, then emits that event with three arguments:
+
+```javascript
+/**
+ * An example of using the Node.js `events` module in Azion Functions.
+ * Support:
+ * - Partial support
+ * - Extended by library `events`
+ * @example
+ * // Build and run with the Azion CLI:
+ * azion build
+ * azion dev
+ */
+import { EventEmitter } from "node:events";
+
+/**
+ * Emit an event and listen to it.
+ * @param {*} event
+ * @returns {Response} Response
+ */
+const main = async (event) => {
+  const emitter = new EventEmitter();
+
+  emitter.on("hello-event", (...args) => {
+    console.log("an event occurred!", ...args);
+  });
+
+  emitter.emit("hello-event", 1, 2, 3);
+  return new Response("Event emitted", { status: 200 });
+};
+
+export default main;
+```
+
+The listener logs `an event occurred! 1 2 3`, and the function responds with:
+
+```text
+Event emitted
+```
+
+### Request lifecycle events
+
+This function emits one event per processing stage of the request and records what each listener saw:
+
+```javascript
+import { EventEmitter } from "node:events";
+
+const main = async (event) => {
+  const requestEmitter = new EventEmitter();
+  const results = [];
+
+  // Get request info with optional chaining for safety
+  const requestUrl = event.request?.url || "https://default.example.com";
+  const requestHeaders = event.request?.headers || {};
+
+  // Listen for request start
+  requestEmitter.on("start", (url) => {
+    console.log(`Processing request: ${url}`);
+    results.push(`Started: ${url}`);
+  });
+
+  // Listen for validation events
+  requestEmitter.on("validate", (data) => {
+    if (data.headers) {
+      console.log("Headers validated");
+      results.push("Headers validated");
+    }
+  });
+
+  // Listen for completion
+  requestEmitter.on("complete", (status) => {
+    console.log(`Request completed with status: ${status}`);
+    results.push(`Completed: ${status}`);
+  });
+
+  // Listen for errors
+  requestEmitter.on("error", (err) => {
+    console.error(`Error: ${err.message}`);
+    results.push(`Error: ${err.message}`);
+  });
+
+  // Emit events in sequence
+  requestEmitter.emit("start", requestUrl);
+  requestEmitter.emit("validate", { headers: requestHeaders });
+  requestEmitter.emit("complete", 200);
+
+  return new Response(JSON.stringify({ events: results }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+For a request to `https://example.com/`, the function responds with the three stages in the order it emitted them:
+
+```json
+{"events":["Started: https://example.com/","Headers validated","Completed: 200"]}
+```
+
+### One-time listeners and error handling
+
+This function registers a listener that runs once, two listeners for the same event, and a listener for the `error` event:
+
+```javascript
+import { EventEmitter } from "node:events";
+
+const main = async (event) => {
+  const emitter = new EventEmitter();
+  const log = [];
+
+  // One-time listener - only executes once
+  emitter.once("init", () => {
+    console.log("Initialization complete");
+    log.push("Initialized");
+  });
+
+  // Multiple listeners for same event
+  emitter.on("data", (chunk) => {
+    console.log(`Processing chunk: ${chunk}`);
+    log.push(`Chunk: ${chunk}`);
+  });
+
+  emitter.on("data", (chunk) => {
+    console.log(`Logging chunk: ${chunk}`);
+    log.push(`Logged: ${chunk}`);
+  });
+
+  // Error handling - special 'error' event
+  emitter.on("error", (err) => {
+    console.error(`Error caught: ${err.message}`);
+    log.push(`Error: ${err.message}`);
+  });
+
+  // Emit events
+  emitter.emit("init");
+  emitter.emit("init"); // Does not trigger again - once() used
+  emitter.emit("data", "chunk-1");
+  emitter.emit("data", "chunk-2");
+  emitter.emit("error", new Error("Test error"));
+
+  return new Response(JSON.stringify({ log }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+The function responds with one `Initialized` entry, both listeners' entries for each chunk, and the error:
+
+```json
+{"log":["Initialized","Chunk: chunk-1","Logged: chunk-1","Chunk: chunk-2","Logged: chunk-2","Error: Test error"]}
+```
+
+### Async event handlers
+
+This function emits an event from each of two parallel `fetch` calls and waits for both calls with `Promise.all()`. `emit()` does not wait for a Promise that a listener returns, so the function awaits the fetches themselves:
+
+```javascript
+import { EventEmitter } from "node:events";
+import { setTimeout } from "node:timers/promises";
+
+const main = async (event) => {
+  const emitter = new EventEmitter();
+  const results = [];
+
+  // EventEmitter does NOT await Promises returned by listeners.
+  // The emit() method returns immediately, without waiting for async operations.
+  // For async operations, use Promise-based patterns
+  // instead of relying on EventEmitter alone.
+
+  // Listen for fetch completion events
+  emitter.on("fetched", (result) => {
+    results.push(result);
+    console.log(`Fetched: ${result.url}`);
+  });
+
+  // Error handler
+  emitter.on("error", (err) => {
+    console.error(`Fetch error: ${err.message}`);
+    results.push({ error: err.message });
+  });
+
+  // Define async fetch function that emits events
+  const fetchData = async (url) => {
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      const result = { url, status: response.status, data };
+      emitter.emit("fetched", result);
+      return result;
+    } catch (error) {
+      emitter.emit("error", error);
+      return { url, error: error.message };
+    }
+  };
+
+  // URLs to fetch
+  const urls = [
+    "https://jsonplaceholder.typicode.com/todos/1",
+    "https://jsonplaceholder.typicode.com/todos/2"
+  ];
+
+  // Execute fetches in parallel and wait for completion
+  const fetchResults = await Promise.all(urls.map(fetchData));
+
+  return new Response(JSON.stringify({ 
+    results,
+    fetchResults 
+  }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+The function responds with the results the listener collected and the results `Promise.all()` returned:
+
+```json
+{"results":[{"url":"https://jsonplaceholder.typicode.com/todos/1","status":200,"data":{"userId":1,"id":1,"title":"delectus aut autem","completed":false}},{"url":"https://jsonplaceholder.typicode.com/todos/2","status":200,"data":{"userId":1,"id":2,"title":"quis ut nam facilis et officia qui","completed":false}}],"fetchResults":[{"url":"https://jsonplaceholder.typicode.com/todos/1","status":200,"data":{"userId":1,"id":1,"title":"delectus aut autem","completed":false}},{"url":"https://jsonplaceholder.typicode.com/todos/2","status":200,"data":{"userId":1,"id":2,"title":"quis ut nam facilis et officia qui","completed":false}}]}
+```
+
+### Custom EventEmitter class
+
+This function extends `EventEmitter` into a class for one domain, processes two requests with it, and counts the listeners of one event:
+
+```javascript
+import { EventEmitter } from "node:events";
+
+// Custom class extending EventEmitter
+class RequestHandler extends EventEmitter {
+  constructor() {
+    super();
+    this.requestCount = 0;
+  }
+
+  processRequest(request) {
+    this.requestCount++;
+    this.emit("request", { id: this.requestCount, url: request.url });
+
+    try {
+      // Simulate processing
+      const result = { processed: true, id: this.requestCount };
+      this.emit("success", result);
+      return result;
+    } catch (error) {
+      this.emit("error", error);
+      throw error;
+    }
+  }
+}
+
+const main = async (event) => {
+  const handler = new RequestHandler();
+  const logs = [];
+
+  // Attach listeners
+  handler.on("request", (data) => {
+    logs.push(`Request #${data.id}: ${data.url}`);
+  });
+
+  handler.on("success", (result) => {
+    logs.push(`Success: ${JSON.stringify(result)}`);
+  });
+
+  handler.on("error", (err) => {
+    logs.push(`Error: ${err.message}`);
+  });
+
+  // Process requests
+  handler.processRequest(event.request);
+  handler.processRequest({ url: "https://example.com/test" });
+
+  // Get listener counts
+  const listenerCount = handler.listenerCount("request");
+  logs.push(`Request listeners: ${listenerCount}`);
+
+  return new Response(JSON.stringify({ logs, totalRequests: handler.requestCount }), {
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+export default main;
+```
+
+For a request to `https://example.com/`, the function responds with the log of both requests and the request count:
+
+```json
+{"logs":["Request #1: https://example.com/","Success: {\"processed\":true,\"id\":1}","Request #2: https://example.com/test","Success: {\"processed\":true,\"id\":2}","Request listeners: 1"],"totalRequests":2}
+```
+
+---
+
+## Supported APIs
+
+The table lists the status of each `node:events` API in Azion Runtime:
+
+| API | Status |
+|-----|--------|
+| `new EventEmitter()` | 🟢 Supported |
+| `emitter.on()` | 🟢 Supported |
+| `emitter.once()` | 🟢 Supported |
+| `emitter.emit()` | 🟢 Supported |
+| `emitter.off()` | 🟢 Supported |
+| `emitter.removeListener()` | 🟢 Supported |
+| `emitter.removeAllListeners()` | 🟢 Supported |
+| `emitter.listenerCount()` | 🟢 Supported |
+| `emitter.listeners()` | 🟢 Supported |
+| `emitter.eventNames()` | 🟢 Supported |
+| `emitter.prependListener()` | 🟢 Supported |
+| `emitter.prependOnceListener()` | 🟢 Supported |
+| `emitter.setMaxListeners()` | 🟢 Supported |
+| `emitter.getMaxListeners()` | 🟢 Supported |
+| `EventEmitter.listenerCount()` | 🟢 Supported |
+| `EventEmitter.defaultMaxListeners` | 🟢 Supported |
+| `events.once()` | 🟢 Supported |
+| `captureRejections` | 🟡 Partially supported |
+
+APIs marked 🟡 Partially supported have limited functionality compared to the full Node.js implementation. The `captureRejections` option is one of them, so handle Promise rejections explicitly in async listeners instead of relying on automatic capture.
+
+In Azion Runtime, the module-level `events.once()` function returns a Promise that resolves with an array of the arguments the event carried. An `error` event emitted with no `error` listener throws the emitted error. When an event has more listeners than the limit set with `emitter.setMaxListeners()`, the runtime logs this warning:
+
+```text
+Error: Possible EventEmitter memory leak detected. 2 x listeners added to [object Object]. MaxListeners is 1. Use emitter.setMaxListeners() to increase limit
+```
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Node.js APIs" href="/en/documentation/devtools/runtime/node/">The status of every Node.js module in Azion Runtime, `events` included.</DocItem>
+  <DocItem title="Use Node.js APIs through polyfills" href="/en/documentation/guides/application-development/functions-and-runtime/use-polyfills/">How the build turns `node:` imports into code that runs in Azion Runtime.</DocItem>
+  <DocItem title="EventTarget" href="/en/documentation/devtools/runtime/api-reference/event-target/">The Web API alternative for dispatching and listening to events.</DocItem>
+  <DocItem title="Node.js events documentation" href="https://nodejs.org/api/events.html">The full Node.js reference for every `node:events` API in the table.</DocItem>
+</ItemList>
+</FrameBox>

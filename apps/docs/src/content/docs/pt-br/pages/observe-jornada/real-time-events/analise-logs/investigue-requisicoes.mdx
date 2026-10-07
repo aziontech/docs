@@ -1,0 +1,208 @@
+---
+title: Investigar uma requisição com a API GraphQL
+description: Consulte o dataset workloadEvents para descobrir de quais países, hosts e códigos de status veio um padrão suspeito de requisições, e confirme a mudança depois de agir.
+meta_tags: 'real-time events, graphql api, workloadevents, investigação, consulta, filtro, geoloc, status'
+namespace: docs_investigate_requests
+permalink: /documentacao/guias/plataforma/observabilidade/investigar-requisicoes-api-graphql/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Você pode investigar um padrão suspeito de requisições com a API GraphQL do [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/). Toda consulta desta página lê o dataset `workloadEvents`, que carrega um registro de evento por requisição que uma [aplicação](/pt-br/documentacao/plataforma/applications/) ou um [firewall](/pt-br/documentacao/plataforma/firewall/) recebeu.
+
+A investigação acontece em três etapas. Primeiro você conta os registros para ver o formato do tráfego. Depois você reduz a um código de status e lê o cliente por trás dele. Por último você executa a mesma consulta sobre uma janela posterior, para verificar o que mudou depois de você agir.
+
+As consultas abaixo carregam um placeholder para o país e para os hosts, além de timestamps de exemplo. Substitua todos eles por valores da sua própria conta.
+
+---
+
+## Pré-requisitos
+
+- Uma conta Azion. Para criar uma, consulte [Como criar uma conta na Azion](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- Um personal token. Para criar um, consulte [Personal Tokens](/pt-br/documentacao/fundamentos/personal-tokens/).
+- Uma aplicação ou um firewall que já atende tráfego, para que o dataset carregue registros para consultar.
+
+---
+
+## Abrir o GraphiQL Playground
+
+A API GraphQL serve o GraphiQL Playground no navegador, no mesmo endpoint para onde uma consulta é enviada. Entre no Azion Console em `https://console.azion.com`, depois abra `https://api.azion.com/v4/events/graphql`. Cada consulta abaixo é executada ali, com o filtro e o intervalo de tempo que você quer usar.
+
+Para enviar as mesmas consultas de um terminal, consulte [Primeiros passos da API GraphQL](/pt-br/documentacao/devtools/graphql/primeiros-passos/).
+
+---
+
+## Agregar por país e host
+
+A primeira consulta conta os registros de evento em vez de retorná-los. `aggregate` com `groupBy` produz uma linha por combinação de host, país, request URI e status, e `orderBy: [count_DESC]` coloca a maior contagem primeiro. `geolocCountryNameNotIn` deixa de fora o país de onde a maior parte do seu tráfego já vem, portanto as linhas que restam são as que valem a leitura.
+
+Para contar as requisições que cada país e host enviaram:
+
+```graphql
+query requestsInvestigationCountries {
+  workloadEvents(
+    limit: 100,
+    filter: {
+      tsRange: {begin: "2024-03-20T10:10:10", end: "2024-03-27T10:10:10"}
+      geolocCountryNameNotIn: ["<expected-country>"]
+      hostIn: ["<your-host>", "<another-host>"]
+    }
+    aggregate: {count: geolocCountryName}
+    groupBy: [host, geolocCountryName, requestUri, status]
+    orderBy: [count_DESC]
+  )
+  {
+    geolocCountryName
+    host
+    requestUri
+    status
+    count
+  }
+}
+```
+
+`tsRange` delimita o período que a consulta lê. A janela acima abrange 7 dias, que é todo o período de retenção de um registro de evento, portanto um intervalo maior não retorna nada para a parte que fica fora dele. Para esse limite e todos os outros que uma consulta carrega, consulte [Limites](/pt-br/documentacao/plataforma/real-time-events/limites/).
+
+A resposta carrega uma linha por grupo, cada uma com seu `count`:
+
+```json
+{
+  "data": {
+    "workloadEvents": [
+      {
+        "geolocCountryName": "Germany",
+        "host": "myhost.com",
+        "requestUri": "/directory/file.html",
+        "status": 200,
+        "count": 22041
+      },
+      {
+        "geolocCountryName": "United States",
+        "host": "host.eu",
+        "requestUri": "/directory/file.html",
+        "status": 200,
+        "count": 9596
+      },
+      {
+        "geolocCountryName": "Germany",
+        "host": "anotherhost.org",
+        "requestUri": "/directory/file.html",
+        "status": 200,
+        "count": 29582
+      },
+      {
+        "geolocCountryName": "United States",
+        "host": "host.org",
+        "requestUri": "/directory/file.html",
+        "status": 200,
+        "count": 9578
+      },
+      {
+        "geolocCountryName": "United States",
+        "host": "host.net",
+        "requestUri": "/directory/file.html",
+        "status": 403,
+        "count": 9564
+      }
+    ]
+  }
+}
+```
+
+Leia as linhas de cima para baixo. Compare a contagem do primeiro colocado com a do segundo, porque a diferença entre as duas diz mais do que qualquer um dos números sozinho. Um país que normalmente não alcança seus hosts, com uma contagem muito acima das demais, é o padrão a seguir. Um volume desse tamanho chegando dentro de um período curto, como um único minuto, é um indicador comum de que a aplicação está sob ataque.
+
+---
+
+## Reduzir a um código de status
+
+Com o formato do tráfego claro, filtre pelo status que as requisições receberam. `statusIn` aceita uma lista de códigos de status, portanto um filtro de requisições recusadas se escreve `statusIn: [403]`. Agrupar por `httpUserAgent` junto do país nomeia o software cliente que as enviou.
+
+Para contar as requisições recusadas por país e user agent:
+
+```graphql
+query requestsInvestigationUserAgent {
+  workloadEvents(
+    limit: 100,
+    filter: {
+      tsRange: {begin: "2024-03-20T10:10:10", end: "2024-03-27T10:10:10"}
+      statusIn: [403]
+    }
+    aggregate: {count: geolocCountryName}
+    groupBy: [geolocCountryName, status, httpUserAgent]
+    orderBy: [count_DESC]
+  )
+  {
+    geolocCountryName
+    status
+    httpUserAgent
+    count
+  }
+}
+```
+
+A resposta nomeia o user agent por trás de cada grupo de requisições recusadas:
+
+```json
+{
+  "data": {
+    "workloadEvents": [
+      {
+        "geolocCountryName": "Germany",
+        "status": 403,
+        "httpUserAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36",
+        "count": 70587
+      },
+      {
+        "geolocCountryName": "United States",
+        "status": 403,
+        "httpUserAgent": "Java/11.0.19",
+        "count": 35736
+      },
+      {
+        "geolocCountryName": "Germany",
+        "status": 403,
+        "httpUserAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
+        "count": 19322
+      },
+      {
+        "geolocCountryName": "Germany",
+        "status": 403,
+        "httpUserAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/24.0 Chrome/117.0.0.0 Mobile Safari/537.36",
+        "count": 8638
+      },
+      {
+        "geolocCountryName": "United States",
+        "status": 403,
+        "httpUserAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.157 Safari/537.36",
+        "count": 2878
+      }
+    ]
+  }
+}
+```
+
+Um valor de `httpUserAgent` que nenhum dos seus próprios clientes envia reduz o padrão mais do que o país reduz. O país de onde uma requisição vem é barato de mudar, e o software cliente muitas vezes não é mudado, portanto o user agent permanece como o melhor identificador.
+
+Mude o status no filtro para corresponder ao comportamento que você aplica. Uma regra que carrega o comportamento **Set Rate Limit** responde `429`, portanto `statusIn: [429]` encontra as requisições que ela conteve. Selecionar o campo `stacktrace` junto dos outros nomeia a regra que agiu sobre cada requisição. Agir sobre o que a consulta encontrou é uma tarefa do [Firewall](/pt-br/documentacao/plataforma/firewall/). Para recusar um conjunto de endereços ou países, consulte [Crie uma blocklist](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/blocklists-enderecos-ip-edge/) e [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/). Para agir sobre qualquer outra propriedade da requisição, consulte [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/). Onde uma regra recusa um tráfego que não deveria recusar, consulte [Exceções](/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/).
+
+---
+
+## Confirmar a mudança em uma janela posterior
+
+Uma regra leva tempo para propagar, portanto os registros que mostram que ela funciona começam depois que ela é aplicada. Execute a mesma consulta de novo, com o `tsRange` movido para uma janela que abre quando a propagação termina.
+
+O tráfego que a investigação nomeou passa a carregar o status que a regra aplica, como `403`, em vez do status que carregava antes. As contagens que cresciam sob um status passam para o outro, o que confirma que a regra alcançou as requisições que a consulta encontrou.
+
+Para consultas que respondem a outras perguntas de monitoramento sobre os mesmos datasets, consulte o repositório [azion-queries](https://github.com/aziontech/azion-queries).
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Consultar eventos de requisição HTTP" href="/pt-br/documentacao/guias/plataforma/observabilidade/consultar-workload-events/" label="Construa uma consulta sobre o mesmo dataset a partir dos campos dele, em vez deste exemplo." />
+  <DocCard title="Campos do Real-Time Events" href="/pt-br/documentacao/devtools/graphql/campos-gql-real-time-events/" label="Cada campo que workloadEvents carrega, e os campos de todos os outros datasets que a API serve." />
+  <DocCard title="Como Real-Time Events funciona" href="/pt-br/documentacao/plataforma/real-time-events/como-funciona/" label="O que uma consulta lê antes de responder, e por que um filtro importa mais do que um período mais curto." />
+  <DocCard title="Filtrar eventos" href="/pt-br/documentacao/guias/plataforma/observabilidade/adicionar-filtros-events/" label="Reduza os mesmos registros de evento pelo Azion Console, em vez de por uma consulta." />
+</DocCardGroup>

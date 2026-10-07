@@ -1,0 +1,242 @@
+---
+title: Monitor and calibrate Bot Manager
+description: >-
+  Run a Bot Manager instance in observation mode, read the scores in its report
+  log, and set a threshold and rules from your own traffic.
+meta_tags: 'bot manager, calibration, threshold, report log, observation mode, matched rules, dynamic rules'
+namespace: docs_guides_secure_monitor_calibrate_bot_manager
+permalink: /documentation/guides/application-security/bots-and-network/monitor-and-calibrate-bot-manager/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+
+You calibrate a [Bot Manager](/en/documentation/platform/firewall/#bot-manager) instance by raising its logging, reading the report log it writes, and setting the threshold and the rules from what that log shows.
+
+The same steps apply to Bot Manager and to [Bot Manager Lite](/en/documentation/platform/firewall/bot-manager/bot-manager-lite/). The arguments each edition carries differ, and the procedure does not. [Firewall best practices](/en/documentation/platform/firewall/best-practices/#bot-manager) covers what each choice costs and how long to hold it; this page covers the steps that produce the choice.
+
+Change one thing at a time. An argument change reaches the request path in about two minutes, so a reading taken sooner describes the configuration that preceded it.
+
+---
+
+## Prerequisites
+
+- A Bot Manager function instance on a firewall, run by a [Rules Engine for Firewall](/en/documentation/platform/firewall/rules-engine/) rule. For more information, refer to [Bot Manager quickstart](/en/documentation/platform/firewall/bot-manager/quickstart/).
+- Access to Azion Console. To sign in, refer to [How to access Azion Console](/en/documentation/guides/platform/account-and-billing/how-to-access-azion-console/).
+- A personal token, for the query that reads the report log. For more information, refer to [Personal Tokens](/en/documentation/fundamentals/personal-tokens/).
+
+---
+
+## Turn the logging up
+
+An instance writes a report line for the requests `internal_logs` selects, and the argument ships at `0`. Raise it to `2` so that every request produces a line, including one that scores `0`, and set `action` to `allow` so that a request reaching the threshold is scored and still served.
+
+```json
+{
+  "threshold": 30,
+  "action": "allow",
+  "internal_logs": 2,
+  "log_tag": "bot-calibration",
+  "log_headers": [
+    "accept",
+    "accept-encoding",
+    "accept-language",
+    "content-type",
+    "host",
+    "referer",
+    "user-agent",
+    "x-forwarded-for",
+    "x-request-id"
+  ]
+}
+```
+
+| Argument | What it does in the observation window |
+| --- | --- |
+| `action` | At `allow`, a request at or above the threshold continues to the application |
+| `internal_logs` | At `2`, the function writes a line for every request. The value is a number, never a string |
+| `log_tag` | The tag the line prefix carries, which is what separates one instance's lines from another's |
+| `log_headers` | The request headers the function writes into the line. The nine above are the shipped default |
+
+:::caution
+Nothing validates the arguments object. A misspelled key such as `thresold` is stored and read back exactly as typed, the function runs on its default, and no interface returns an error.
+:::
+
+To replace the arguments of an existing instance in Azion Console:
+
+<DocSteps>
+  <DocStep title="Open the firewall that runs the instance">
+
+  Access [Azion Console](https://console.azion.com/) > **Firewalls**, then select that firewall.
+
+  </DocStep>
+  <DocStep title="Select the Functions Instances tab" />
+  <DocStep title="Open the instance">
+
+  Select the Bot Manager instance you want to calibrate.
+
+  </DocStep>
+  <DocStep title="Replace the arguments">
+
+  In the **Arguments** section, enter the object. Bot Manager Lite carries no argument schema, so the section holds a JSON editor and builds no form from it.
+
+  </DocStep>
+  <DocStep title="Save the instance" />
+</DocSteps>
+
+The instance scores every request the rule sends it and refuses none of them. Wait about two minutes before reading anything into a response, and leave the window open long enough to cover peak hours, weekly crawlers, and overnight jobs. For how long that is and what it costs, refer to [Firewall best practices](/en/documentation/platform/firewall/best-practices/#bot-manager).
+
+---
+
+## Read the report log in Real-Time Events
+
+[Real-Time Events](/en/documentation/platform/real-time-events/) serves each report line as a record of the `functionConsoleEvents` dataset. In Azion Console those records render in a **Time** column and a **Log Body** column, and the interface carries no Bot Manager field of its own, so the JSON object arrives whole rather than split into columns you can sort. Narrow the period to the window you ran, then read the lines whose prefix carries your `log_tag`.
+
+To read the same records as a query, send the following to `https://api.azion.com/v4/events/graphql` with an `Authorization: Token [TOKEN VALUE]` header and a `tsRange` covering the window:
+
+```graphql
+{
+  functionConsoleEvents(
+    limit: 200
+    filter: { tsRange: { begin: "2026-09-21T11:30:00", end: "2026-09-21T13:00:00" } }
+    orderBy: [ts_ASC]
+  ) {
+    ts
+    line
+    level
+    lineSource
+    functionId
+    configurationId
+  }
+}
+```
+
+The query answers `200` and returns one record per line the function wrote. `line` carries the whole report line, `functionId` is the id of the installed function, and `configurationId` is the id of the workload the request arrived on, not the id of the firewall the instance runs on.
+
+A line opens with the prefix `[Bot-Protection][<log_tag>] Report:` and continues as one JSON object:
+
+```text
+[Bot-Protection][bot-calibration] Report:  {"request_id":"f377c02e9b8c032ee3d426dc187d24b5","remote_addr":"203.0.113.42","fingerprint":"ge20cn020000_236f06e2e1da_aea9e0ce93d5_5311f4c13046","host":"<your-workload-domain>","http_user_agent":"","request_uri":"/","geoip_country":"BR","geoip_region":"PE","asn":"264046","score":28,"bot_category":"Bad Bot Signatures, Malicious Intent detected","classified":"legitimate","action":"allow","matched_rules":[1,10,18,19,20]}
+```
+
+Four values carry the calibration. `score` is the total the function calculated, `matched_rules` names the rules that produced it, `action` is what the function applied, and `classified` is the verdict it reached. In the line above the score is `28` under a threshold of `30`, so `action` reads `allow` and `classified` reads `legitimate`. Under a threshold that `28` reaches, the same request reads `bad bot` and meets the configured action instead.
+
+`bot_category` is a comma-joined list of the categories of the rules that matched, so a line classified `legitimate` can still name bad-bot categories. For every field a line carries and for the four values `classified` takes, refer to [Logs](/en/documentation/platform/firewall/bot-manager/logs/#fields).
+
+The score is on the line and nowhere else. The two Real-Time Metrics GraphQL datasets count requests by classification, action, mode, host, geography, and the URLs bot traffic reached, and neither carries a score, so a score distribution is read from the report log rather than from a query. Those datasets answer the aggregate questions instead: refer to [Query Bot Manager data with GraphQL](/en/documentation/guides/platform/observability/query-bot-manager-data-with-graphql/) for the classification counts, to [Query the top URLs bots reach with GraphQL](/en/documentation/guides/platform/observability/query-bot-manager-breakdown-data-with-graphql/) for the URLs, and to [Real-Time Metrics](/en/documentation/platform/real-time-metrics/secure-dashboards/#bot-manager) for the same data as charts.
+
+---
+
+## Set the threshold from the scores you read
+
+`threshold` is the score at which `action` fires. The value comes from the distribution in your own report log: the clients you recognize cluster at the low end, automated clients cluster higher, and the threshold goes in the gap between the two.
+
+To calibrate it:
+
+<DocSteps>
+  <DocStep title="Collect the scores of the window">
+
+  Read `score` on the lines the window produced, and separate the requests you recognize from the ones you do not.
+
+  </DocStep>
+  <DocStep title="Pick a value in the gap">
+
+  Set it above the scores of the traffic you recognize, and at or below the scores of the traffic you do not.
+
+  </DocStep>
+  <DocStep title="Apply the threshold and the action">
+
+  Replace the instance arguments with the new `threshold` and the `action` a request at or above it meets.
+
+  </DocStep>
+  <DocStep title="Wait about two minutes">
+
+  Azion measured close to two minutes between a change to an instance and the first request answered differently.
+
+  </DocStep>
+  <DocStep title="Read the lines nearest the threshold">
+
+  Read the lines classified `legitimate` whose score sits just below it. Those requests are one matched rule away from the action.
+
+  </DocStep>
+</DocSteps>
+
+The instance applies the action to the traffic above the threshold, and the lines below it name the requests that came closest. Repeat the loop: lower the threshold while automated traffic still passes, and raise it when requests you recognize are refused.
+
+:::caution
+`classified` is computed against the threshold in force, not against the score alone. Raising a threshold relabels traffic as well as stopping the action, so record the threshold beside any classification count you compare across two periods. `score` and `matched_rules` describe the request and do not move.
+:::
+
+---
+
+## Take a rule out of the scoring
+
+A score is the sum of the increments of the rules the request matched, and the line names both: `matched_rules` carries the IDs and `score` carries the total. A rule firing on traffic you recognize is found by reading those IDs. No ID belongs in the arguments object before it appears in your own lines.
+
+To stop a rule from raising a score:
+
+<DocSteps>
+  <DocStep title="Find the lines you did not expect">
+
+  Read the lines classified `legitimate` whose score sits at or near the threshold, and the lines carrying requests you recognize.
+
+  </DocStep>
+  <DocStep title="Read the rule IDs off those lines">
+
+  `matched_rules` carries the IDs of the rules each request matched. Compare several lines, so that one request does not settle it.
+
+  </DocStep>
+  <DocStep title="Add the IDs to the instance arguments">
+
+  `disabled_rules` takes them on Bot Manager Lite, and `disabled_static_rules` takes them on Bot Manager. Both are arrays.
+
+  </DocStep>
+  <DocStep title="Wait about two minutes, then read the lines again">
+
+  A rule disabled this way keeps running and adds nothing to the score.
+
+  </DocStep>
+</DocSteps>
+
+The requests that matched the rule score lower by its increment, and each match lands in the `disabled_matched_rules` field instead. A rule taken out of the scoring is out of it for every request the instance scores, so the narrower instruments are worth reading first: refer to [Firewall best practices](/en/documentation/platform/firewall/best-practices/#bot-manager). For both arguments and the types they take, refer to [Arguments](/en/documentation/platform/firewall/bot-manager/arguments/#fields).
+
+---
+
+## Raise the dynamic rules tolerance
+
+Bot Manager documents a dynamic rules method that scores a request against the application's own traffic baseline. `dynamic_rules_tolerance` sets how strict that comparison is, and the documented values are `soft`, `medium`, and `hard`, with `soft` as the documented default.
+
+Move one step at a time. A tolerance change re-scores every request the instance sees, so each step needs an observation window of its own before the next one. Two steps taken together produce their false positives together, with nothing in the lines to say which step produced them.
+
+```json
+{
+  "threshold": 18,
+  "action": "deny",
+  "dynamic_rules_tolerance": "medium",
+  "dynamic_rules_logs_enabled": true,
+  "log_tag": "tolerance-medium"
+}
+```
+
+`dynamic_rules_logs_enabled` writes the debugging logs of the method. Turn it on for the window and off again when the window closes, because of the volume it adds to the log. For the four arguments the method takes, refer to [Arguments](/en/documentation/platform/firewall/bot-manager/arguments/#dynamic-rules).
+
+---
+
+## Keep a copy of the report log
+
+The platform ages the aggregated data out. `botManagerMetrics` is retained for 2 years and `botManagerBreakdownMetrics` for 60 days, so a question about the URLs bot traffic reached three months ago has no answer there. A copy in a destination of your own lasts as long as you keep it, and it sits beside the records of the application those requests reached.
+
+[Data Stream](/en/documentation/platform/data-stream/) forwards the report line from the Functions data source to an endpoint you configure, as the function writes it. Lower `internal_logs` once the observation window closes: at `2` every request produces a line, and that is the volume the stream carries. For the endpoints a stream writes to, refer to [Endpoints](/en/documentation/platform/data-stream/endpoints/).
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Firewall best practices" href="/en/documentation/platform/firewall/best-practices/#bot-manager" label="What each of these choices costs, and the order in which the decisions arise." />
+  <DocCard title="Logs" href="/en/documentation/platform/firewall/bot-manager/logs/" label="Every field a report line carries, the verdicts classified takes, and where each log surfaces." />
+  <DocCard title="Troubleshoot Firewall" href="/en/documentation/platform/firewall/troubleshooting/#bot-manager" label="What to do when no line names a request, or a client is answered in a way you did not expect." />
+  <DocCard title="Arguments" href="/en/documentation/platform/firewall/bot-manager/arguments/" label="Every argument an instance accepts, with its type, its default, and the values it takes." />
+</DocCardGroup>

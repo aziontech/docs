@@ -1,0 +1,387 @@
+---
+title: Queries
+description: >-
+  Look up how to query raw, aggregated, financial, and usage data with the
+  GraphQL API, the aggregate functions, and a response for each query shape.
+meta_tags: 'graphql api, graphql query, raw data, aggregated data, financial data, usage data, aggregate functions, workloadEvents, workloadMetrics, accountingDetail, workloadConsumptionMetrics'
+namespace: documentation_graphql_queries
+permalink: /documentation/devtools/graphql/queries/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+A GraphQL API query names one dataset, the arguments that filter, group, and sort it, and the fields to return. The API answers with a JSON object whose `data` key holds one array per dataset, with one object per row and only the fields the query selected. The query shape, and the endpoint it goes to, depend on the data you read: raw, aggregated, financial, or usage.
+
+---
+
+## Query shapes
+
+Each shape reads its data from one endpoint. Send the query in a `POST` request to that endpoint, with the header `Authorization: Token [TOKEN VALUE]`:
+
+| Shape | Data | Endpoint | Example dataset | Time filter |
+| --- | --- | --- | --- | --- |
+| Raw | One record per request, with no processing | `https://api.azion.com/v4/events/graphql` | `workloadEvents` | `tsRange`, or `tsGt` and `tsLt`; required |
+| Aggregated | Requests grouped into time buckets | `https://api.azion.com/v4/metrics/graphql` | `workloadMetrics` | `tsRange`, or `tsGt` and `tsLt`; required |
+| Financial, accounted | Accounted amounts per period | `https://api.azion.com/v4/accounting/graphql` | `accountingDetail` | `periodFrom` and `periodTo`; optional |
+| Financial, billed | Billed amounts per period | `https://api.azion.com/v4/billing/graphql` | `billDetail` | `periodFromRange` |
+| Usage | Accounted usage per workload and product | `https://api.azion.com/v4/consumption/graphql` | `workloadConsumptionMetrics` | `tsRange` |
+
+A time filter goes in the `filter` argument. Without a required one, the API returns `400` with `To execute queries it is mandatory to provide the desired time interval.` The datasets of each endpoint, and the arguments every query accepts, are on [Datasets and query arguments](/en/documentation/devtools/graphql/features/).
+
+---
+
+## Raw data
+
+Raw data is the record of each request as Azion logged it, with no processing. Use it to investigate individual requests. Raw datasets, such as `workloadEvents`, are served by the events endpoint, `https://api.azion.com/v4/events/graphql`.
+
+This query returns the time, client address, URI, and stack trace of the requests in a one-hour window, oldest first:
+
+```graphql
+query HttpQuery {
+  workloadEvents(
+    limit: 3,
+    filter: {
+      tsRange: {begin:"2026-10-03T13:00:00", end:"2026-10-03T14:00:00"}
+    }
+    orderBy: [ts_ASC]
+  )
+  {
+    ts
+    remoteAddress
+    requestUri
+    stacktrace
+  }
+}
+```
+
+The response holds one object per request in the window:
+
+```json
+{
+  "data": {
+    "workloadEvents": [
+      {
+        "ts": "2026-10-03T13:16:33Z",
+        "remoteAddress": "192.0.2.10",
+        "requestUri": "/",
+        "stacktrace": "{}"
+      },
+      {
+        "ts": "2026-10-03T13:34:44Z",
+        "remoteAddress": "198.51.100.20",
+        "requestUri": "/",
+        "stacktrace": "{}"
+      }
+    ]
+  }
+}
+```
+
+A raw query carries two things:
+
+- A time window, in `tsRange` or in `tsGt` and `tsLt`.
+- The fields to return. The response carries no field the query did not select.
+
+### Excluded matches
+
+The `not` filter excludes the records that match the filter inside it. With `Like`, which is case-sensitive, or `Ilike`, which is not, `not` excludes every URI that matches a pattern. A raw dataset also accepts `aggregate` and `groupBy`. This query counts the requests per host whose URI does not contain `/_astro/`, highest count first:
+
+```graphql
+query {
+  workloadEvents(
+    limit: 3
+    filter: {
+      tsRange: {begin: "2026-09-26T14:00:00", end: "2026-10-03T14:00:00"}
+      not: { requestUriLike: "%/_astro/%" }
+    }
+    aggregate: { count: rows }
+    groupBy: [host]
+    orderBy: [count_DESC]
+  ) {
+    host
+    count
+  }
+}
+```
+
+The response holds one row per host:
+
+```json
+{
+  "data": {
+    "workloadEvents": [
+      {
+        "host": "www.example.com",
+        "count": 4232
+      },
+      {
+        "host": "blog.example.com",
+        "count": 694
+      },
+      {
+        "host": "app.example.com",
+        "count": 290
+      }
+    ]
+  }
+}
+```
+
+Every filter operator, with the field types each one applies to, is on [Datasets and query arguments](/en/documentation/devtools/graphql/features/).
+
+---
+
+## Aggregated data
+
+Aggregated data is request data that the metrics endpoint, `https://api.azion.com/v4/metrics/graphql`, stores grouped into time buckets. Use it to read totals and trends over long periods. The bucket size, a minute, an hour, or a day, follows the length of the window, as [How it works](/en/documentation/devtools/graphql/overview/) describes.
+
+This query sums the requests of a 48-hour window per time bucket, latest first:
+
+```graphql
+query {
+  workloadMetrics(limit: 3, filter: { tsRange: {begin: "2026-10-01T14:00:00", end: "2026-10-03T14:00:00"} }, aggregate: { sum: requests }, groupBy: [ts], orderBy: [ts_DESC]) {
+    ts
+    sum
+  }
+}
+```
+
+The response holds one row per bucket, and the result of the function comes back in a field named after it, `sum`:
+
+```json
+{
+  "data": {
+    "workloadMetrics": [
+      {
+        "ts": "2026-10-03T13:34:00Z",
+        "sum": 1
+      },
+      {
+        "ts": "2026-10-03T13:16:00Z",
+        "sum": 1
+      },
+      {
+        "ts": "2026-10-03T12:53:00Z",
+        "sum": 1
+      }
+    ]
+  }
+}
+```
+
+An aggregated query follows these rules:
+
+- A time window is required, in `tsRange` or in `tsGt` and `tsLt`.
+- `aggregate` names a function and the field it reads, such as `sum: requests`.
+- `groupBy` is optional. With it, the response holds one row per combination of the listed fields. Without it, the response holds one row with the total.
+- A measure field, such as `requests`, is selected only through `aggregate`. Selected directly, it returns `400` with `The query includes fields that require grouping. Please ensure all non-aggregated fields are included in groupBy argument.`
+- `orderBy` sorts on the function output with a direction suffix, such as `sum_DESC` or `count_DESC`.
+- An alias renames an output field. With `total: sum` in the selection, the response carries `total` instead of `sum`.
+
+The datasets `httpMetrics` and `httpBreakdownMetrics` are deprecated; use `workloadMetrics` and `workloadBreakdownMetrics`. For more examples, refer to [Query aggregated data](/en/documentation/guides/platform/observability/graphql-aggregated-data/).
+
+### Aggregate functions
+
+The `aggregate` argument takes the functions below, each at most once per query and each on one field. Every dataset accepts the first five, and one query can combine them:
+
+| Function | Returns | Datasets |
+| --- | --- | --- |
+| `count` | The number of records. Takes `rows` or a field. | Every dataset |
+| `sum` | The sum of the field values. | Every dataset |
+| `avg` | The arithmetic mean of the field values. | Every dataset |
+| `max` | The largest field value. | Every dataset |
+| `min` | The smallest field value. | Every dataset |
+| `rate` | A rate of the field. On `imagesProcessedMetrics`, the images processed per second. | `imagesProcessedMetrics` and `workloadConsumptionMetrics` only |
+
+A function accepts only the fields the dataset lists for aggregation in its schema. A computed field such as `missedData` returns `400`, and so does `rate` on any other dataset. This query runs five functions on `workloadMetrics`, one row per host, highest count first:
+
+```graphql
+query {
+  workloadMetrics(
+    limit: 3
+    filter: { tsRange: {begin: "2026-09-26T14:00:00", end: "2026-10-03T14:00:00"} }
+    aggregate: { count: rows, sum: bytesSent, avg: requestTime, max: requestLength, min: requestTime }
+    groupBy: [host]
+    orderBy: [count_DESC]
+  ) {
+    host
+    count
+    sum
+    avg
+    max
+    min
+  }
+}
+```
+
+Each row carries one field per function:
+
+```json
+{
+  "data": {
+    "workloadMetrics": [
+      {
+        "host": "www.example.com",
+        "count": 716,
+        "sum": 77555630,
+        "avg": 2.9589664804469273,
+        "max": 59147,
+        "min": 0.0
+      },
+      {
+        "host": "shop.example.com",
+        "count": 64,
+        "sum": 47900834,
+        "avg": 2.45803125,
+        "max": 3703,
+        "min": 0.131
+      },
+      {
+        "host": "api.example.com",
+        "count": 36,
+        "sum": 19165846,
+        "avg": 3.0108055555555553,
+        "max": 16037,
+        "min": 0.073
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Financial data
+
+Financial data holds two kinds of amounts. Accounted data comes from `accountingDetail`, on the accounting endpoint, `https://api.azion.com/v4/accounting/graphql`. Billed data comes from `billDetail`, on the billing endpoint, `https://api.azion.com/v4/billing/graphql`, which takes a period in `periodFromRange`. An `accountingDetail` query needs no time window: without a filter, it returns rows. To read one period, filter by `periodFrom` and `periodTo`.
+
+This query returns the accounted amounts of September 2026, per product, metric, and region:
+
+```graphql
+query {
+  accountingDetail(limit: 5, filter: { periodFrom: "2026-09-01", periodTo: "2026-09-30" }) {
+    clientId
+    periodFrom
+    periodTo
+    productSlug
+    metricSlug
+    regionName
+    accounted
+  }
+}
+```
+
+The response holds five rows, cut here after the third:
+
+```json
+{
+  "data": {
+    "accountingDetail": [
+      {
+        "clientId": "1234u",
+        "periodFrom": "2026-09-01",
+        "periodTo": "2026-09-30",
+        "productSlug": "application",
+        "metricSlug": "data_transferred",
+        "regionName": "All Other Regions",
+        "accounted": 0.007995243
+      },
+      {
+        "clientId": "1234u",
+        "periodFrom": "2026-09-01",
+        "periodTo": "2026-09-30",
+        "productSlug": "application",
+        "metricSlug": "data_transferred",
+        "regionName": "Latam",
+        "accounted": 0.0
+      },
+      {
+        "clientId": "1234u",
+        "periodFrom": "2026-09-01",
+        "periodTo": "2026-09-30",
+        "productSlug": "application",
+        "metricSlug": "data_transferred",
+        "regionName": "Canada",
+        "accounted": 0.0
+      },
+      …
+    ]
+  }
+}
+```
+
+The fields of each dataset are on [Accounting fields](/en/documentation/devtools/graphql/gql-accounting-fields/) and [Billing fields](/en/documentation/devtools/graphql/gql-billing-fields/).
+
+---
+
+## Usage data
+
+Usage data is the usage Azion accounted for each workload and product, in the `accounted` field of `workloadConsumptionMetrics`. The dataset is served by the consumption endpoint, `https://api.azion.com/v4/consumption/graphql`, and a query sets its time window in `tsRange`.
+
+This query sums the accounted usage of a seven-day window per product and metric, highest first:
+
+```graphql
+query {
+  workloadConsumptionMetrics(
+    limit: 5
+    filter: { tsRange: {begin: "2026-09-26T14:00:00", end: "2026-10-03T14:00:00"} }
+    aggregate: { sum: accounted }
+    groupBy: [productId, metricName]
+    orderBy: [sum_DESC]
+  ) {
+    productId
+    metricName
+    sum
+  }
+}
+```
+
+The response is cut after the third row:
+
+```json
+{
+  "data": {
+    "workloadConsumptionMetrics": [
+      {
+        "productId": 1441740010,
+        "metricName": "data_transferred_total",
+        "sum": 442444116.0
+      },
+      {
+        "productId": 1498670028,
+        "metricName": "data_streamed",
+        "sum": 17476.0
+      },
+      {
+        "productId": 1441740010,
+        "metricName": "requests",
+        "sum": 5981.0
+      },
+      …
+    ]
+  }
+}
+```
+
+To narrow the result to one product and metric, add `productId` and `metricName` to the filter. To read the usage of [Image Processor](/en/documentation/platform/applications/image-processor/settings/), refer to [Query usage data from Image Processor](/en/documentation/guides/platform/observability/query-image-processor-usage-data-with-graphql/). The fields of the dataset are on [Consumption fields](/en/documentation/devtools/graphql/gql-consumption-fields/).
+
+---
+
+## Example repository
+
+Azion keeps a repository of GraphQL API query examples at [aziontech/azion-queries](https://github.com/aziontech/azion-queries). It groups the examples by [Data Stream](/en/documentation/platform/data-stream/), [Applications](/en/documentation/platform/applications/), Top X queries, and [Functions](/en/documentation/platform/functions/). You can submit changes to the repository.
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Datasets and query arguments" href="/en/documentation/devtools/graphql/features/">The datasets of each endpoint and the filter, sort, and pagination arguments a query accepts.</DocItem>
+  <DocItem title="GraphQL API limits" href="/en/documentation/devtools/graphql/limits/">The row, field, and time-window bounds a query runs within.</DocItem>
+  <DocItem title="Error responses" href="/en/documentation/devtools/graphql/error-responses/">The status codes and messages a refused query returns, and what causes each one.</DocItem>
+  <DocItem title="Find the top values with GraphQL" href="/en/documentation/guides/platform/observability/graphql-top-x-query/">Rank the most frequent values of a field, such as the top 10 hosts or status codes.</DocItem>
+</ItemList>
+</FrameBox>

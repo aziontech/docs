@@ -1,0 +1,564 @@
+---
+title: Crie uma API RESTful de tarefas com Functions e SQL Database
+description: >-
+  Crie um banco de dados em SQL Database, escreva rotas CRUD com Hono e faça o
+  deploy de uma API de tarefas que roda como uma função.
+meta_tags: 'functions, sql database, restful api, crud operations, task management, hono'
+namespace: docs_guides_restful_tasks_api
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/api-restful-edge-functions-edge-sql/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+
+Neste tutorial, você vai construir uma API RESTful de tarefas que roda como uma função e mantém seus registros em [SQL Database](/pt-br/documentacao/plataforma/sql-database/). Você vai criar o banco de dados e sua tabela, escrever a camada de dados e as rotas [Hono](https://hono.dev/docs/), fazer o deploy do projeto com Azion CLI e chamar cada endpoint.
+
+O projeto finalizado é o [exemplo restful-tasks](https://github.com/egermano/edge-functions-examples/tree/main/packages/restful-tasks) no GitHub.
+
+---
+
+## Pré-requisitos
+
+- Uma conta Azion. Para criar uma, consulte [Como criar uma conta na Azion](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- Azion CLI instalada. Consulte [Azion CLI](/pt-br/documentacao/devtools/cli/).
+- Um personal token para as requisições de API. Para criar um, consulte [Como criar um personal token](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- Node.js versão 18 ou superior.
+
+---
+
+## 1. Crie o banco de dados
+
+A camada de dados acessa o banco de dados pelo nome e usa `tasks` como valor padrão quando nenhum nome está configurado. Nomeie o banco de dados como `tasks` para que esse valor padrão funcione.
+
+Envie uma requisição `POST` para o endpoint de bancos de dados, substituindo `[TOKEN VALUE]` pelo seu personal token:
+
+```bash
+curl --location 'https://api.azion.com/v4/workspace/sql/databases' \
+--header 'Authorization: Token [TOKEN VALUE]' \
+--header 'Content-Type: application/json' \
+--data '{
+   "name": "tasks"
+}'
+```
+
+A resposta traz o identificador do banco de dados e seu status:
+
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": 118,
+    "name": "tasks",
+    "client_id": "6832h",
+    "status": "creating",
+    "created_at": "2024-04-18T11:22:59.468536Z",
+    "updated_at": "2024-04-18T11:22:59.468586Z",
+    "deleted_at": null
+  }
+}
+```
+
+Guarde o `id`. Todas as requisições seguintes acessam o banco de dados por esse valor.
+
+:::note[nota]
+A criação não é instantânea. Envie requisições `GET` para o mesmo endpoint até que `status` mostre `created`. Para o conjunto completo de operações de banco de dados, consulte [Como gerenciar um banco de dados SQL Database](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gerenciar-bancos-dados-edge-sql/).
+:::
+
+---
+
+## 2. Crie a tabela tasks
+
+A API armazena uma linha por tarefa, com um título, um indicador de conclusão e dois timestamps.
+
+As duas requisições enviam um `POST` para o endpoint de query. Substitua `<your-database-id>` pelo `id` do seu banco de dados:
+
+<DocSteps>
+  <DocStep title="Crie a tabela">
+
+  ```bash
+  curl --location 'https://api.azion.com/v4/workspace/sql/databases/<your-database-id>/query' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+      "statements": [
+          "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);"
+      ]
+  }'
+  ```
+
+  A resposta informa um objeto de resultado por statement:
+
+  ```json
+  {
+    "state": "executed",
+    "data": [
+      {
+        "results": {
+          "columns": [],
+          "rows": []
+        }
+      }
+    ]
+  }
+  ```
+
+  </DocStep>
+  <DocStep title="Insira três linhas">
+
+  Os endpoints precisam de linhas para retornar:
+
+  ```bash
+  curl --location 'https://api.azion.com/v4/workspace/sql/databases/<your-database-id>/query' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+      "statements": [
+          "INSERT INTO tasks (title, completed) VALUES ('\''Complete API documentation'\'', FALSE);",
+          "INSERT INTO tasks (title, completed) VALUES ('\''Test function deployment'\'', FALSE);",
+          "INSERT INTO tasks (title, completed) VALUES ('\''Review security configurations'\'', TRUE);"
+      ]
+  }'
+  ```
+
+  Três statements retornam três objetos de resultado:
+
+  ```json
+  {
+    "state": "executed",
+    "data": [
+      {
+        "results": {
+          "columns": [],
+          "rows": []
+        }
+      },
+      {
+        "results": {
+          "columns": [],
+          "rows": []
+        }
+      },
+      {
+        "results": {
+          "columns": [],
+          "rows": []
+        }
+      }
+    ]
+  }
+  ```
+
+  </DocStep>
+</DocSteps>
+
+O banco de dados contém a tabela `tasks` e três linhas.
+
+---
+
+## 3. Crie o projeto
+
+Azion CLI monta o projeto a partir de um template Hono.
+
+<DocSteps>
+  <DocStep title="Autentique a CLI">
+
+  Execute o comando de login e siga os prompts:
+
+  ```bash
+  azion login
+  ```
+
+  A CLI armazena as credenciais localmente e autoriza todos os comandos seguintes na sua conta.
+
+  </DocStep>
+  <DocStep title="Inicie o projeto">
+
+  Execute o comando init:
+
+  ```bash
+  azion init
+  ```
+
+  </DocStep>
+  <DocStep title="Nomeie o projeto">
+
+  Aceite o nome sugerido ou digite o seu:
+
+  ```sh
+  ? Your application's name:  (black-thor)
+  ```
+
+  </DocStep>
+  <DocStep title="Selecione o preset Hono">
+
+  ```sh
+  ? Choose a preset:  [Use arrows to move, type to filter]
+    Angular
+    Astro
+    Docusaurus
+    Eleventy
+    Emscripten
+    Gatsby
+    Hexo
+  > Hono
+    Hugo
+    Javascript
+    ...
+  ```
+
+  </DocStep>
+  <DocStep title="Selecione o template Hono Boilerplate" />
+  <DocStep title="Responda N ao servidor de desenvolvimento local">
+
+  ```sh
+  ? Do you want to start a local development server? (y/N)
+  ```
+
+  </DocStep>
+  <DocStep title="Responda N ao prompt de deploy">
+
+  ```sh
+  ? Do you want to deploy your project? (y/N)
+  ```
+
+  </DocStep>
+  <DocStep title="Acesse o diretório do projeto">
+
+  ```bash
+  cd <your-project-name>
+  ```
+
+  </DocStep>
+</DocSteps>
+
+A CLI cria o diretório do projeto com o código do template. Os comandos `build`, `dev` e `deploy` rodam de dentro dele.
+
+---
+
+## 4. Escreva a camada de dados
+
+A camada de dados chama `useQuery` e `useExecute` da biblioteca `azion/sql`. As duas recebem o nome do banco de dados como primeiro argumento e um array de statements SQL como segundo. Para a superfície completa da biblioteca, consulte [Biblioteca SQL da Azion](/pt-br/documentacao/devtools/azion-lib/sql/).
+
+Substitua o conteúdo de `src/db.ts`:
+
+```typescript
+import { useExecute, useQuery } from "azion/sql";
+
+const DATABASE_NAME = Azion.env.get("DATABASE_NAME") || "tasks";
+
+export interface Task {
+  id: number;
+  title: string;
+  completed: boolean;
+}
+
+export const getTasks = async (): Promise<Task[]> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    "SELECT * FROM tasks",
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    data?.results?.[0]?.rows?.map(
+      (row) =>
+        ({
+          id: row[0],
+          title: row[1],
+          completed: row[2] === 1,
+        } as Task)
+    ) || []
+  );
+};
+
+export const getTask = async (id: number): Promise<Task | null> => {
+  const { data, error } = await useQuery(DATABASE_NAME, [
+    `SELECT * FROM tasks WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return (
+    (data?.results?.[0]?.rows?.[0] &&
+      ({
+        id: data?.results?.[0]?.rows?.[0][0],
+        title: data?.results?.[0]?.rows?.[0][1],
+        completed: data?.results?.[0]?.rows?.[0][2] === 1,
+      } as Task)) ||
+    null
+  );
+};
+
+export const createTask = async (task: Omit<Task, "id">): Promise<Task> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `INSERT INTO tasks (title, completed) VALUES ('${task.title}', ${task.completed}) RETURNING id`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  const newId = data?.results?.[0]?.rows?.[0]?.[0] || "";
+  return { ...task, id: Number(newId) };
+};
+
+export const updateTask = async (
+  id: number,
+  task: Partial<Omit<Task, "id">>
+): Promise<Task | null> => {
+  const existingTask = await getTask(id);
+  if (!existingTask) {
+    return null;
+  }
+
+  const updatedTitle =
+    task.title !== undefined ? task.title : existingTask.title;
+  const updatedCompleted =
+    task.completed !== undefined ? task.completed : existingTask.completed;
+
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `UPDATE tasks SET title = '${updatedTitle}', completed = ${updatedCompleted} WHERE id = ${id}`,
+  ]);
+  if (error) {
+    throw error;
+  }
+  return { ...existingTask, title: updatedTitle, completed: updatedCompleted };
+};
+
+export const deleteTask = async (id: number): Promise<boolean> => {
+  const { data, error } = await useExecute(DATABASE_NAME, [
+    `DELETE FROM tasks WHERE id = ${id}`,
+  ]);
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.state === "executed" || data?.state === "pending";
+};
+```
+
+O arquivo exporta uma função por operação: `getTasks`, `getTask`, `createTask`, `updateTask` e `deleteTask`. `DATABASE_NAME` usa `tasks` como valor padrão. Para ler um banco de dados com outro nome, defina `DATABASE_NAME` no arquivo `.env` do projeto.
+
+:::caution[Atenção]
+Cada statement é montado por interpolação de string, e `title` chega no corpo da requisição. Um título que carrega uma aspa altera o statement que o banco de dados executa. Valide todo valor vindo da requisição antes que ele chegue a um statement.
+:::
+
+---
+
+## 5. Escreva as rotas da API
+
+Hono vincula cada método HTTP e caminho a um handler. Cada handler envolve sua chamada de dados em um bloco `try` e retorna `500` com um erro JSON quando a chamada falha.
+
+Substitua o conteúdo de `src/app.ts`:
+
+```typescript
+import { Hono } from 'hono';
+import {
+  createTask,
+  deleteTask,
+  getTask,
+  getTasks,
+  updateTask,
+} from './db';
+
+const app = new Hono();
+
+app.get('/tasks', async (c) => {
+  try {
+    const tasks = await getTasks();
+    return c.json(tasks);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch tasks' }, 500);
+  }
+});
+
+app.get('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const task = await getTask(Number(id));
+    if (!task) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    return c.json(task);
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch task' }, 500);
+  }
+});
+
+app.post('/tasks', async (c) => {
+  try {
+    const { title, completed } = await c.req.json();
+    const newTask = await createTask({ title, completed: completed || false });
+    return c.json(newTask, 201);
+  } catch (error) {
+    console.log(error);
+    return c.json({ error: 'Failed to create task' }, 500);
+  }
+});
+
+app.put('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const { title, completed } = await c.req.json();
+    const updatedTask = await updateTask(Number(id), { title, completed });
+    if (!updatedTask) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    return c.json(updatedTask);
+  } catch (error) {
+    return c.json({ error: 'Failed to update task' }, 500);
+  }
+});
+
+app.delete('/tasks/:id', async (c) => {
+  try {
+    const { id } = c.req.param();
+    const success = await deleteTask(Number(id));
+    if (!success) {
+      return c.json({ error: 'Task not found' }, 404);
+    }
+    return c.json({ message: 'Task deleted' });
+  } catch (error) {
+    return c.json({ error: 'Failed to delete task' }, 500);
+  }
+});
+
+export default app;
+```
+
+O arquivo cobre cinco rotas:
+
+| Método e caminho | Resultado |
+| --- | --- |
+| `GET /tasks` | Retorna todas as tarefas como um array JSON. |
+| `GET /tasks/:id` | Retorna uma tarefa ou `404` com `{ "error": "Task not found" }`. |
+| `POST /tasks` | Cria uma tarefa a partir de `title` e `completed` e a retorna com `201`. |
+| `PUT /tasks/:id` | Atualiza `title` e `completed` e retorna a tarefa armazenada. |
+| `DELETE /tasks/:id` | Remove a tarefa e retorna `{ "message": "Task deleted" }`. |
+
+---
+
+## 6. Exporte o handler da função
+
+Azion executa o handler ES Modules: um objeto com um método `fetch`, exportado como default do arquivo de entrada. Hono fornece esse método na instância do app. Para o padrão e a alternativa legada que ele substitui, consulte [Migre padrões de handler em Functions](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/migrar-padroes-de-handler/).
+
+Substitua o conteúdo de `src/index.ts`:
+
+```typescript
+import app from './app';
+
+export default app;
+```
+
+O arquivo de entrada exporta o app, então cada requisição chega ao roteador Hono, que a compara com as cinco rotas.
+
+---
+
+## 7. Faça o deploy do projeto
+
+Execute o comando de deploy a partir do diretório do projeto:
+
+```bash
+azion deploy
+```
+
+Azion abre Azion Console no navegador, onde os logs do deployment rodam até o build terminar. Se o navegador não abrir, siga o link que a CLI imprime.
+
+Azion constrói o projeto e faz o deploy na Azion Web Platform. O deployment retorna um domínio de workload no formato `https://xxxxxxx.map.azionedge.net`. A propagação leva alguns minutos, então espere antes de enviar a primeira requisição.
+
+---
+
+## 8. Verifique os endpoints
+
+Substitua `<your-azion-domain>` pelo domínio de workload do deployment.
+
+<DocSteps>
+  <DocStep title="Solicite a lista de tarefas">
+
+  ```bash
+  curl https://<your-azion-domain>/tasks
+  ```
+
+  A resposta traz as três linhas inseridas na tabela:
+
+  ```json
+  [
+    { "id": 1, "title": "Complete API documentation", "completed": false },
+    { "id": 2, "title": "Test function deployment", "completed": false },
+    { "id": 3, "title": "Review security configurations", "completed": true }
+  ]
+  ```
+
+  </DocStep>
+  <DocStep title="Solicite uma tarefa">
+
+  ```bash
+  curl https://<your-azion-domain>/tasks/1
+  ```
+
+  A resposta traz um único objeto:
+
+  ```json
+  { "id": 1, "title": "Complete API documentation", "completed": false }
+  ```
+
+  </DocStep>
+  <DocStep title="Crie uma tarefa">
+
+  ```bash
+  curl -X POST https://<your-azion-domain>/tasks \
+    -H "Content-Type: application/json" \
+    -d '{"title": "Write the deployment checklist", "completed": false}'
+  ```
+
+  A resposta retorna `201` com a tarefa armazenada e o identificador que o banco de dados atribuiu:
+
+  ```json
+  { "title": "Write the deployment checklist", "completed": false, "id": 4 }
+  ```
+
+  </DocStep>
+  <DocStep title="Atualize a tarefa">
+
+  ```bash
+  curl -X PUT https://<your-azion-domain>/tasks/4 \
+    -H "Content-Type: application/json" \
+    -d '{"title": "Write the deployment checklist", "completed": true}'
+  ```
+
+  A resposta traz a tarefa com os novos valores:
+
+  ```json
+  { "id": 4, "title": "Write the deployment checklist", "completed": true }
+  ```
+
+  </DocStep>
+  <DocStep title="Exclua a tarefa">
+
+  ```bash
+  curl -X DELETE https://<your-azion-domain>/tasks/4
+  ```
+
+  A resposta confirma a remoção:
+
+  ```json
+  { "message": "Task deleted" }
+  ```
+
+  </DocStep>
+</DocSteps>
+
+A API cria, lê, atualiza e exclui tarefas pela função em execução. Cada escrita chega ao banco de dados.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="SQL Database" href="/pt-br/documentacao/plataforma/sql-database/" label="O banco de dados compatível com ACID por trás da API, sua arquitetura e seus limites." />
+  <DocCard title="Functions" href="/pt-br/documentacao/plataforma/functions/" label="O que é uma função, como ela é invocada e o que ela alcança durante a execução." />
+  <DocCard title="Migre padrões de handler em Functions" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/migrar-padroes-de-handler/" label="O handler ES Modules, o handler Service Worker e os padrões que Azion rejeita." />
+  <DocCard title="Biblioteca SQL da Azion" href="/pt-br/documentacao/devtools/azion-lib/sql/" label="Todos os métodos de azion/sql, com seus parâmetros e tipos de retorno." />
+  <DocCard title="Desenvolvimento local" href="/pt-br/documentacao/devtools/cli/dev-comando/" label="Rode o projeto na sua própria máquina com o comando azion dev." />
+  <DocCard title="Solução de problemas de execução e logs de funções" href="/pt-br/documentacao/plataforma/functions/solucao-de-problemas/" label="Encontre a causa quando a função não roda, para antes do tempo ou não escreve logs." />
+</DocCardGroup>

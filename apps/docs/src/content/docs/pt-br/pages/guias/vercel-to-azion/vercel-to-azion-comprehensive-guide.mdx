@@ -1,0 +1,1199 @@
+---
+title: Migre da Vercel para a Azion
+description: >-
+  Mova um projeto da Vercel para a Azion: implante-o, recrie funções, regras e
+  cache, mova arquivos e dados de configuração e troque o domínio.
+meta_tags: 'vercel, migration, applications, functions, rules engine, cache, image processor, object storage, kv store, firewall, workloads, domains, dns, real-time metrics, azion cli, api'
+namespace: docs_guides_vercel_to_azion
+permalink: /documentacao/guias/plataforma/migracao/vercel-guia-migracao/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+Um projeto na Vercel distribui o comportamento dele entre configurações de build, arquivos de roteamento, funções de servidor, arquivos armazenados, dados de configuração, regras de segurança e um domínio de produção. Movê-lo significa recriar cada um desses itens na Azion e confirmar que o projeto responde corretamente antes que o domínio mude.
+
+Na Azion, uma [aplicação](/pt-br/documentacao/plataforma/applications/) e as regras dela assumem a entrega e o roteamento. [Functions](/pt-br/documentacao/plataforma/functions/) executa o código de servidor. [Object Storage](/pt-br/documentacao/plataforma/object-storage/) guarda os arquivos, e [KV Store](/pt-br/documentacao/plataforma/kv-store/) guarda os dados de configuração. [Firewall](/pt-br/documentacao/plataforma/firewall/) filtra o tráfego, um [workload](/pt-br/documentacao/plataforma/workloads/) serve o domínio, e [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/) e [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/) mostram o que acontece com cada requisição. Rotas, redirects, headers, variáveis, funções, arquivos e políticas de segurança migram com mudanças pontuais.
+
+Cada etapa deste guia move uma camada, na ordem em que uma migração acontece: inventário, deployment, código e regras, dados, segurança, monitoramento e o domínio. Quando um downtime próximo de zero não é um requisito, migre em fases com janelas de manutenção. As gravações param durante cada etapa, então os dados não precisam de sincronização paralela.
+
+---
+
+Os pré-requisitos e os procedimentos desta página mudam conforme a interface que você seleciona:
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.cli">CLI</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+</Tabs>
+
+## Pré-requisitos
+
+- Uma conta da Azion. Para mais informações, consulte [Criar uma conta](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- O projeto da Vercel, com acesso ao repositório, às configurações e às variáveis de ambiente dele.
+- Acesso aos registros DNS do domínio de produção.
+- `curl`, para enviar requisições ao projeto quando a Azion passar a servi-lo.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+- Acesso ao Azion Console. Para entrar, consulte [Como acessar o Azion Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/como-acessar-o-azion-console/).
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+- [Azion CLI](/pt-br/documentacao/devtools/cli/) instalada e autorizada com a sua conta. Os comandos desta página correspondem à Azion CLI 4.23.0.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+- Um personal token, enviado no header `Authorization` como `Token [TOKEN VALUE]`. Para criar um, consulte [Como criar um personal token](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+
+</Fragment>
+
+</Tabs>
+
+---
+
+## Faça o inventário do projeto da Vercel
+
+Mova um projeto primeiro. Escolha um que seja relevante o bastante para testar o caminho inteiro e pequeno o bastante para ser movido rapidamente. Um bom primeiro projeto tem um domínio parecido com o de produção, algumas rotas, redirects e headers, uma função, uma dependência do Blob, uma dependência do Edge Config e um fluxo de analytics. Use-o para documentar o processo e depois mova os próximos projetos na mesma ordem.
+
+Antes de criar qualquer coisa na Azion, liste o que o projeto usa:
+
+- Projetos, equipes, deployments de produção e preview deployments.
+- Comandos de build, diretórios de saída, presets de framework e comandos de instalação.
+- `vercel.json`, a configuração do framework, o middleware e as definições de rota.
+- Variáveis de ambiente de produção, preview e desenvolvimento.
+- Rotas de API, server actions, funções e workloads de Fluid Compute.
+- Redirects, rewrites, headers, comportamento de cache e configurações de otimização de imagens.
+- Domínios, registros DNS, nameservers e o status de cada certificado.
+- Blob stores, Edge Config stores, feature flags e experimentos.
+- Regras de firewall, controles de WAF, proteções contra bots, controles de acesso a deployments e dependências de SSO.
+- Dashboards de observabilidade, analytics, alertas, fluxos de logs e integrações do Marketplace.
+
+Cada item da lista corresponde a uma etapa deste guia. A tabela em Mapeie cada funcionalidade da Vercel para a Azion nomeia o destino de cada um.
+
+---
+
+## Mapeie cada funcionalidade da Vercel para a Azion
+
+Cada funcionalidade da Vercel do inventário tem um destino na Azion. Encontre a funcionalidade na primeira coluna e mova-a com a etapa que nomeia o destino dela.
+
+| Funcionalidade da Vercel | O que cobre | Destino na Azion |
+| --- | --- | --- |
+| Projects | As configurações de build, deployment, ambiente, domínio e runtime de um projeto | Applications, com um workload que serve a aplicação |
+| Production Deployments | Builds promovidos aos domínios que os clientes usam | Applications e Azion CLI |
+| CI/CD and Preview Deployments | Builds a partir do Git, com um ambiente de preview para cada mudança | Applications, Azion CLI e [Preview deployment](/pt-br/documentacao/plataforma/functions/preview-deployment/) |
+| Content Delivery Network | Cache, roteamento, compressão, TLS, redirects e rewrites | Applications, [Cache](/pt-br/documentacao/plataforma/applications/#cache) e [Rules Engine para Applications](/pt-br/documentacao/plataforma/applications/rules-engine/) |
+| Redirects and rewrites | Roteamento por caminho e por host a partir das configurações do projeto, da configuração do framework ou do `vercel.json` | Rules Engine para Applications |
+| Headers | Headers de requisição ou de resposta customizados para rotas | Rules Engine para Applications |
+| Image Optimization | Transformação e entrega de imagens sob demanda | [Image Processor](/pt-br/documentacao/plataforma/applications/#image-processor) |
+| Microfrontends | Projetos de frontend implantados de forma independente, atrás de uma única camada de roteamento | Applications e Rules Engine para Applications |
+| Vercel Functions | Funções do lado do servidor para APIs, páginas dinâmicas e integrações de backend | Functions |
+| Fluid Compute | Um modelo de compute do lado do servidor para workloads dinâmicos concorrentes | Functions |
+| Environment Variables | Valores dos ambientes de produção, preview e desenvolvimento | [Variáveis de ambiente](/pt-br/documentacao/plataforma/functions/environment-variables/) e [Instâncias de função](/pt-br/documentacao/plataforma/applications/functions-instances/) |
+| AI Cloud | Criação e execução de aplicações de IA | [AI Inference](/pt-br/documentacao/plataforma/ai-inference/), Functions e Applications |
+| AI SDK | Um toolkit TypeScript para aplicações de IA, agentes, interfaces de streaming e chamadas de ferramentas | AI Inference, [Azion AI Client](/pt-br/documentacao/devtools/azion-lib/ai-client/) e [Azion Lib](/pt-br/documentacao/devtools/azion-lib/) |
+| AI Gateway | Um endpoint para acesso a modelos, roteamento, fallbacks, novas tentativas, monitoramento de uso e observabilidade | AI Inference, Functions e Real-Time Events |
+| Vercel Blob | Armazenamento de objetos para arquivos, uploads, imagens, documentos e vídeos | Object Storage |
+| Edge Config | Um armazenamento replicado para feature flags, experimentos, redirects e configuração | KV Store |
+| Platform Security | Mitigação de DDoS, TLS, firewall da plataforma, controles de acesso e monitoramento de segurança | Firewall, [DDoS Protection](/pt-br/documentacao/plataforma/workloads/#ddos-protection) e [Network Shield](/pt-br/documentacao/plataforma/firewall/#network-shield) |
+| Vercel Firewall | Regras de tráfego, bloqueios de IP, rate limits, redirects, desafios, Attack Mode e exceções | Firewall, [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/) e [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/) |
+| Web Application Firewall | Proteção gerenciada e customizada contra ataques na camada de aplicação | [Web Application Firewall (WAF)](/pt-br/documentacao/plataforma/firewall/#waf) |
+| Bot Management | Controles de detecção, mitigação, desafio, permissão e bloqueio para tráfego automatizado | [Bot Manager](/pt-br/documentacao/plataforma/firewall/#bot-manager) e [Bot Manager Lite](/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/) |
+| BotID | Verificação de bots para ações sensíveis, invisível para o usuário | Bot Manager |
+| Advanced Deployment Protection | Controle de acesso a URLs de deployment por autenticação, IPs confiáveis, senhas ou bypasses | Firewall, Rules Engine para Firewall e Network Lists |
+| SAML Single Sign-On | Login dos colaboradores por um provedor de identidade SAML | [Single Sign-On](/pt-br/documentacao/fundamentos/single-sign-on/) |
+| Domains and DNS | Domínios customizados, registros DNS, nameservers e automação de certificados | Workloads, [Edge DNS](/pt-br/documentacao/plataforma/edge-dns/) e [Certificate Manager](/pt-br/documentacao/plataforma/workloads/#certificate-manager) |
+| Observability | Monitoramento de tráfego, builds, funções, chamadas a APIs externas, performance, erros e uso | Real-Time Metrics, Real-Time Events e [Data Stream](/pt-br/documentacao/plataforma/data-stream/) |
+| Speed Insights | Monitoramento de performance de usuários reais com base nas Core Web Vitals | [Edge Pulse](/pt-br/documentacao/plataforma/edge-pulse/) e Real-Time Metrics |
+| Web Analytics | Visualizações de página, visitantes, referrers, dados demográficos, eventos customizados e uso de funcionalidades | Edge Pulse e Real-Time Metrics |
+| Observability Plus | Retenção maior, métricas, dados de requisições, consultas, notebooks, monitoramento e alertas | Real-Time Metrics, Real-Time Events e Data Stream |
+| Web Analytics Plus | Janelas de relatório mais longas e mais dados de atribuição | Edge Pulse e Real-Time Metrics |
+| Vercel Marketplace | Integrações de bancos de dados, armazenamento, autenticação, IA, observabilidade, CMS, commerce, mensageria e segurança | [Marketplace](/pt-br/documentacao/plataforma/marketplace/) |
+| Vercel CLI | Projetos, deployments, logs, domínios e variáveis de ambiente a partir de um terminal | Azion CLI |
+
+---
+
+## Implante o projeto na Azion
+
+Na Azion, um projeto da Vercel se torna uma aplicação, e um workload serve essa aplicação em um domínio. A Vercel guarda a configuração de build no `vercel.json`, na configuração do framework e nas configurações do projeto. A Azion a guarda no [`azion.config.js`](/pt-br/documentacao/devtools/cli/azion-config-js/) e nas configurações da aplicação.
+
+Azion Console [importa um projeto de um repositório do GitHub](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/importar-um-projeto-existente-do-github/) pelo Azion GitHub App, que você autoriza para esse repositório. Azion CLI [implanta um projeto](/pt-br/documentacao/devtools/cli/deploy/) a partir da sua máquina. Os dois detectam o framework e definem as configurações de build, e o `azion.config.js` substitui o preset que a Azion detecta. Para os comandos que instalam a CLI, fazem login, executam o projeto localmente, implantam, leem logs e fazem rollback, consulte [Azion CLI](/pt-br/documentacao/devtools/cli/).
+
+Mantenha o primeiro deployment pequeno. Comprove que um projeto representativo faz o build e é executado na Azion antes de mover funções, domínios, Blob stores, valores do Edge Config, políticas de firewall, dashboards ou integrações de IA. Para montar a mesma cadeia um recurso por vez, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+
+O deployment responde em um domínio de workload que a Azion atribui sob `map.azionedge.net`. Antes de mover qualquer domínio de produção, envie uma requisição ao caminho raiz, com esse domínio no lugar de `<your-workload-domain>`:
+
+```bash
+curl -i https://<your-workload-domain>/
+```
+
+A resposta traz o status, os headers e o corpo que o projeto retorna para `/`. Envie a mesma requisição a cada rota crítica, como um caminho de health check da API:
+
+```bash
+curl -i https://<your-workload-domain>/api/health
+```
+
+Um domínio de workload novo pode levar cerca de 11 minutos para servir o primeiro deployment. Até lá, repita a requisição.
+
+Se o build falhar na Azion, compare o preset de framework, o comando de instalação e o diretório de saída com o projeto da Vercel. Verifique o `azion.config.js`, os scripts do pacote e a saída do build.
+
+---
+
+## Mova as variáveis de ambiente
+
+Variáveis de ambiente guardam chaves de API, credenciais de banco de dados, segredos de autenticação, endpoints de terceiros, tokens de provedores de IA, feature flags e configurações por ambiente. Uma variável que não chega à Azion quebra o projeto em tempo de execução, mesmo quando o deployment é bem-sucedido.
+
+Reúna cada variável destes lugares antes de alterar qualquer código:
+
+- As configurações de ambiente do projeto da Vercel.
+- Variáveis gerenciadas pela Vercel CLI.
+- Arquivos `.env` do framework usados no desenvolvimento local.
+- Chaves de provedores de IA e configurações de gateways de modelos.
+- Tokens do Blob e credenciais de armazenamento.
+- IDs, tokens e chaves do Edge Config.
+- Configurações de ambiente de CI/CD.
+- Configuração de runtime no código-fonte.
+
+[Recrie cada variável na Azion](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/trabalhar-com-variaveis/). Para as interfaces que criam, listam e alteram uma variável, consulte [Variáveis de ambiente](/pt-br/documentacao/plataforma/functions/environment-variables/).
+
+Depois, altere o código que lê as variáveis. Uma função na Azion lê uma variável com `Azion.env.get()`:
+
+```javascript
+// Antes: Vercel / Node.js
+const apiKey = process.env.API_KEY;
+const aiApiKey = process.env.AI_API_KEY;
+
+// Depois: Azion Functions
+const apiKey = Azion.env.get('API_KEY');
+const aiApiKey = Azion.env.get('AI_API_KEY');
+```
+
+Os dados de configuração que a Vercel guarda no Edge Config ficam no KV Store, como mostra a seção Mova os dados do Edge Config para KV Store.
+
+:::caution[Atenção]
+Mantenha os segredos em sistemas aprovados e limite o acesso aos processos que precisam deles. Nunca copie um segredo para anotações locais, tickets, mensagens de chat ou documentos temporários.
+:::
+
+Se uma função informar que uma variável não foi encontrada, confirme que a variável existe na Azion e que o código a lê com `Azion.env.get()`.
+
+---
+
+## Mova rotas de API e funções de servidor
+
+Vercel Functions e Fluid Compute costumam carregar a lógica mais crítica de um projeto: rotas de API, server actions, webhooks, autenticação, personalização, orquestração de IA e chamadas a serviços de backend. Na Azion, Functions executa esse código. Uma função guarda o código, uma instância de função o executa em uma aplicação, e uma regra decide quais requisições chegam a ela. O código que lia Vercel Blob ou Edge Config passa a ler Object Storage ou KV Store.
+
+Um handler da Vercel recebe `req` e `res`. Uma função na Azion exporta um handler `fetch` que recebe um `Request` padrão e retorna um `Response`:
+
+```javascript
+// Antes: estilo de rota de API da Vercel
+export default async function handler(req, res) {
+  const body = req.body;
+
+  res.status(200).json({
+    message: 'Hello',
+    data: body
+  });
+}
+
+// Depois: Azion Functions
+export default {
+  async fetch(request) {
+    const body = await request.json();
+
+    return new Response(JSON.stringify({ message: 'Hello', data: body }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};
+```
+
+A Vercel roteia uma requisição para uma função pelo caminho do arquivo dela, como `app/api/users/[id]/route.ts` ou `pages/api/users/[id].ts`. Na Azion, uma regra faz esse roteamento. Esta regra envia requisições `GET` para `/api/users/<id>` a uma instância de função:
+
+```json
+{
+  "name": "GET /api/users/:id",
+  "active": true,
+  "criteria": [
+    [
+      { "variable": "${uri}", "conditional": "if", "operator": "matches", "argument": "^/api/users/([^/]+)$" },
+      { "variable": "${request_method}", "conditional": "and", "operator": "is_equal", "argument": "GET" }
+    ]
+  ],
+  "behaviors": [
+    { "type": "run_function", "attributes": { "value": <function-instance-id> } }
+  ]
+}
+```
+
+O behavior `run_function` recebe o ID da instância de função, não o da função. Ele requer [Application Accelerator](/pt-br/documentacao/plataforma/applications/application-accelerator/configuracoes/) e Functions na aplicação. Para mais informações, consulte [Run Function](/pt-br/documentacao/plataforma/applications/rules-engine/#run-function).
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.cli">
+
+Para implantar a função e rotear requisições para ela pela Azion CLI, comece pelo arquivo que contém o código da função, como `index.js`. Crie a função:
+
+```bash
+azion create function --name get-user --code ./index.js --active true
+```
+
+```text
+Created function with ID <function-id>
+```
+
+Ative Application Accelerator na aplicação, com o ID dela no lugar de `<application-id>`:
+
+```bash
+azion update application --application-id <application-id> --application-accelerator true
+```
+
+```text
+Updated Application with ID <application-id>
+```
+
+Uma aplicação nova começa com Functions ativado. Se `azion describe application --application-id <application-id>` mostrar `functions` desativado, execute a mesma atualização com `--functions true`.
+
+Crie a instância de função na aplicação:
+
+```bash
+azion create function-instance --application-id <application-id> --function-id <function-id> --name "get-user instance"
+```
+
+```text
+Created Function Instance with ID <function-instance-id>
+```
+
+Salve a regra como `rule.json`, com o ID da instância no lugar de `<function-instance-id>`. Um arquivo impede que o shell expanda `${uri}`. Depois, crie a regra na fase de requisição:
+
+```bash
+azion create rules-engine --application-id <application-id> --phase request --file rule.json
+```
+
+```text
+Created Rules Engine with ID <rule-id>
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para implantar a função e rotear requisições para ela pela API, crie a função primeiro. Envie o código dela como uma string JSON em `code`:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/functions \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "get-user",
+  "code": "<function-code>"
+}'
+```
+
+A API responde `202` com `state` igual a `pending`. A resposta traz o `id` da função, com `runtime` igual a `azion_js` e `execution_environment` igual a `application`.
+
+Ative Application Accelerator na aplicação, com o ID dela no lugar de `<application-id>`:
+
+```bash
+curl --request PATCH \
+  --url https://api.azion.com/v4/workspace/applications/<application-id> \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "modules": {
+    "application_accelerator": {
+      "enabled": true
+    }
+  }
+}'
+```
+
+A API responde `202` com `state` igual a `pending`. Uma aplicação nova começa com Functions ativado. Se ele estiver desativado, envie o mesmo corpo com `functions` no lugar de `application_accelerator`.
+
+Crie a instância de função na aplicação, com o ID da função em `function`:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/functions \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "get-user instance",
+  "function": <function-id>,
+  "args": {},
+  "active": true
+}'
+```
+
+A API responde `202`. A resposta traz o `id` da instância e repete o ID da função em `function`.
+
+Salve a regra como `rule.json`, com o ID da instância no lugar de `<function-instance-id>`. Um arquivo impede que o shell expanda `${uri}`. Depois, envie-a às regras da fase de requisição da aplicação:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data @rule.json
+```
+
+A API responde `202` com `state` igual a `pending`, e a resposta traz o `id` da regra e a `order` dela.
+
+</Fragment>
+
+</Tabs>
+
+As requisições que correspondem à regra executam a função. Se uma rota de API falhar, verifique se o handler usa `fetch(request)` e [Web APIs](/pt-br/documentacao/devtools/runtime/api-reference/javascript/) padrão, sem parsing de requisição que pressuponha o runtime da Vercel.
+
+---
+
+## Mova as rotas de IA
+
+As rotas de IA na Vercel combinam código de aplicação, chamadas a modelos, respostas em streaming, chamadas de ferramentas, roteamento entre provedores, rastreamento de uso e observabilidade. Na Azion, uma função chama o modelo, por AI Inference ou por um provedor externo. As credenciais dos provedores viram variáveis de ambiente, e Real-Time Events, Real-Time Metrics e Data Stream assumem a observabilidade.
+
+| Aspecto | Na Vercel | Na Azion |
+| --- | --- | --- |
+| Acesso a modelos | AI Gateway e integrações com provedores | [Modelos do AI Inference](/pt-br/documentacao/plataforma/ai-inference/modelos/) ou um provedor externo chamado por uma função |
+| SDK | AI SDK | Azion AI Client e APIs JavaScript padrão |
+| Streaming | Respostas em streaming do framework e do SDK | Functions com Web APIs e respostas em streaming |
+| Observabilidade | AI Gateway e Observability | Real-Time Events, Real-Time Metrics e Data Stream |
+| Roteamento e fallbacks | AI Gateway | Functions com lógica de roteamento entre provedores |
+
+Esta função encaminha o corpo da requisição a um provedor de modelos e retorna a resposta do provedor. Ela lê a chave do provedor de uma variável de ambiente:
+
+```javascript
+export default {
+  async fetch(request) {
+    const prompt = await request.text();
+
+    const response = await fetch('https://ai-provider.example.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + Azion.env.get('AI_API_KEY')
+      },
+      body: JSON.stringify({ prompt })
+    });
+
+    return response;
+  }
+};
+```
+
+Para mover uma rota de IA:
+
+1. Liste os modelos, os provedores, as rotas e o comportamento de fallback.
+2. Mova as credenciais dos provedores para variáveis de ambiente.
+3. Decida, por rota, se a inferência roda no AI Inference ou em um provedor externo.
+4. Recrie cada rota de IA como uma função.
+5. Roteie um caminho para cada função com uma regra.
+6. Reconstrua a observabilidade com Real-Time Events, Real-Time Metrics e Data Stream.
+7. Verifique as respostas em streaming, os timeouts e o tratamento de erros.
+
+A função é implantada e roteada como qualquer outra função. Para os comandos, consulte Mova rotas de API e funções de servidor nesta página.
+
+---
+
+## Recrie redirects, rewrites e headers
+
+O roteamento na Vercel vem das rotas do framework, do middleware, do `vercel.json`, das configurações do projeto e do comportamento da CDN. Na Azion, Rules Engine para Applications guarda redirects, rewrites, headers, seleção de connector, comportamento de cache e alterações em requisições e respostas. Cada regra combina critérios com behaviors e é executada na fase de requisição ou na fase de resposta.
+
+Esta entrada do `vercel.json` envia todo caminho sob `/old-blog/` para o mesmo caminho sob `/blog/`, de forma permanente:
+
+```json
+{
+  "redirects": [
+    {
+      "source": "/old-blog/:path*",
+      "destination": "/blog/:path*",
+      "permanent": true
+    }
+  ]
+}
+```
+
+Na Azion, a regra corresponde ao caminho antigo com uma expressão regular e captura o restante dele. O behavior `capture_match_groups` guarda a captura como `%{capture[1]}`, e `redirect_to_301` envia o usuário para o novo caminho:
+
+```json
+{
+  "name": "old-blog-redirect",
+  "active": true,
+  "criteria": [
+    [
+      { "variable": "${uri}", "conditional": "if", "operator": "matches", "argument": "^/old-blog/(.*)$" }
+    ]
+  ],
+  "behaviors": [
+    {
+      "type": "capture_match_groups",
+      "attributes": { "captured_array": "capture", "subject": "${uri}", "regex": "^/old-blog/(.*)$" }
+    },
+    { "type": "redirect_to_301", "attributes": { "value": "/blog/%{capture[1]}" } }
+  ]
+}
+```
+
+`capture_match_groups` requer Application Accelerator na aplicação. Para cada argumento dos dois behaviors, consulte [Capture Match Groups](/pt-br/documentacao/plataforma/applications/rules-engine/#capture-match-groups) e [Redirect To](/pt-br/documentacao/plataforma/applications/rules-engine/#redirect-to).
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.cli">
+
+Para criar a regra pela Azion CLI, salve-a como `rule.json` e crie-a na fase de requisição da aplicação:
+
+```bash
+azion create rules-engine --application-id <application-id> --phase request --file rule.json
+```
+
+```text
+Created Rules Engine with ID <rule-id>
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para criar a regra pela API, salve-a como `rule.json` e envie-a às regras da fase de requisição da aplicação:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data @rule.json
+```
+
+A API responde `202` com `state` igual a `pending`, e a resposta traz o `id` da regra e a `order` dela.
+
+</Fragment>
+
+</Tabs>
+
+Headers de resposta ficam em uma regra da fase de resposta. No arquivo de configuração da Azion do projeto, esta regra adiciona dois headers de segurança a toda resposta:
+
+```typescript
+import type { AzionConfig } from 'azion/config';
+
+const config: AzionConfig = {
+  applications: [{
+    name: 'my-app',
+    rules: {
+      response: [{
+        name: 'Security Headers',
+        active: true,
+        criteria: [{
+          variable: 'uri',
+          conditional: 'if',
+          operator: 'starts_with',
+          argument: '/'
+        }],
+        behavior: {
+          addResponseHeader: [
+            'X-Frame-Options: SAMEORIGIN',
+            'X-Content-Type-Options: nosniff'
+          ]
+        }
+      }]
+    }
+  }]
+};
+
+export default config;
+```
+
+Recrie o restante do roteamento da mesma forma:
+
+- Converta cada padrão de rota da Vercel em critérios e expressões regulares do Rules Engine.
+- Mova os redirects simples para regras.
+- Mova os headers de resposta simples para regras da fase de resposta.
+- Use Functions para rewrites dinâmicos, autenticação, URLs assinadas e consultas externas.
+- Verifique as barras finais, os prefixos de idioma e os caminhos canônicos.
+- Compare os headers de cache e os redirects de que o ranking de busca depende antes da virada.
+
+Se um redirect ou um rewrite se comportar de forma diferente da Vercel, teste os grupos de captura e verifique os critérios em que cada padrão da Vercel se transformou.
+
+---
+
+## Recrie o comportamento de cache
+
+Um projeto da Vercel pode combinar cache de CDN, configurações de cache do framework, renderização dinâmica, geração estática e comportamento por rota. Na Azion, um [cache setting](/pt-br/documentacao/plataforma/applications/cache/cache-settings/) define por quanto tempo um objeto fica em cache, e uma regra o aplica aos caminhos que você escolhe. Um cache setting pertence a uma aplicação, então toda chamada que cria ou altera um cache setting nomeia a aplicação.
+
+| Aspecto | Na Vercel | Na Azion |
+| --- | --- | --- |
+| Configuração de cache | Comportamento de cache do framework, configurações da CDN e headers | Cache settings, aplicados por regras |
+| Cache key | Comportamento da plataforma e do framework | As variações de [Variação de cache](/pt-br/documentacao/plataforma/applications/application-accelerator/variacao-de-cache/), que precisam de Application Accelerator |
+| Purge | Redeploys e invalidação de cache | [Real-Time Purge](/pt-br/documentacao/plataforma/applications/cache/real-time-purge/), por URL, cache key ou wildcard |
+| Conteúdo desatualizado | Controles do framework e da CDN | O switch **Stale cache** de um cache setting |
+| Menos requisições à origem | A CDN gerenciada | [Tiered Cache](/pt-br/documentacao/plataforma/applications/cache/tiered-cache/) e [Origin Shield](/pt-br/documentacao/plataforma/connectors/#origin-shield) |
+
+Sem Application Accelerator na aplicação, um **Max Age** menor que 60 segundos é recusado com `21021`. Para cada campo de um cache setting, consulte [Cache settings](/pt-br/documentacao/plataforma/applications/cache/cache-settings/).
+
+### Crie o cache setting
+
+O cache setting desta seção mantém os objetos no navegador por 300 segundos e no cache da Azion por 3.600 segundos, com Tiered Cache ativado.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Para criar o cache setting no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a aplicação">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Applications** e selecione a aplicação.
+
+  </DocStep>
+  <DocStep title="Selecione a aba Cache Settings" />
+  <DocStep title="Selecione + Cache" />
+  <DocStep title="Nomeie o cache setting">
+
+  Em **General**, insira `dynamic-cache` em **Name**.
+
+  </DocStep>
+  <DocStep title="Substitua o cache do navegador">
+
+  Em **Browser Cache**, selecione _Override cache settings_.
+
+  </DocStep>
+  <DocStep title="Defina o Max Age do navegador">
+
+  Em **Browser Cache**, insira `300` em **Max Age**.
+
+  </DocStep>
+  <DocStep title="Substitua o comportamento de cache">
+
+  Em **Cache**, defina **Cache Behavior** como _Override cache behavior_.
+
+  </DocStep>
+  <DocStep title="Defina o Max Age do cache">
+
+  Em **Cache**, insira `3600` em **Max Age**.
+
+  </DocStep>
+  <DocStep title="Ative Tiered Cache" />
+  <DocStep title="Salve o cache setting" />
+</DocSteps>
+
+Azion Console mostra `Cache Settings successfully created`, e o cache setting aparece na aba **Cache Settings**.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para criar o cache setting pela Azion CLI, salve este corpo como `cache-setting.json`:
+
+```json
+{
+  "name": "dynamic-cache",
+  "browser_cache": {
+    "behavior": "override",
+    "max_age": 300
+  },
+  "modules": {
+    "cache": {
+      "behavior": "override",
+      "max_age": 3600,
+      "tiered_cache": {
+        "enabled": true,
+        "topology": "nearest-region"
+      }
+    }
+  }
+}
+```
+
+Tiered Cache precisa de `behavior` igual a `override`. Crie o cache setting na aplicação:
+
+```bash
+azion create cache-setting --application-id <application-id> --file cache-setting.json
+```
+
+```text
+Created Cache Settings configuration with ID <cache-setting-id>
+```
+
+Registre o ID: a regra em Aplique o cache setting a um caminho o passa como `<cache-setting-id>`.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para criar o cache setting pela API, salve este corpo como `cache-setting.json`:
+
+```json
+{
+  "name": "dynamic-cache",
+  "browser_cache": {
+    "behavior": "override",
+    "max_age": 300
+  },
+  "modules": {
+    "cache": {
+      "behavior": "override",
+      "max_age": 3600,
+      "tiered_cache": {
+        "enabled": true,
+        "topology": "nearest-region"
+      }
+    }
+  }
+}
+```
+
+Tiered Cache precisa de `behavior` igual a `override`. Envie o corpo aos cache settings da aplicação:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/cache_settings \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data @cache-setting.json
+```
+
+A API responde `201` com `state` igual a `executed`. A resposta preenche com os valores padrão as configurações que o corpo omitiu, como `stale_cache`, e `large_file_cache` com um `offset` de `1024`. Registre o `id`: a regra em Aplique o cache setting a um caminho o passa como `<cache-setting-id>`.
+
+</Fragment>
+
+</Tabs>
+
+### Aplique o cache setting a um caminho
+
+Um cache setting só tem efeito por meio de uma regra com o behavior Set Cache Policy. A regra desta seção aplica `dynamic-cache` a todo caminho que começa com `/products/`.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Para criar a regra no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a aplicação">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Applications** e selecione a aplicação.
+
+  </DocStep>
+  <DocStep title="Selecione a aba Rules Engine" />
+  <DocStep title="Selecione + Rule" />
+  <DocStep title="Nomeie a regra">
+
+  Em **General**, insira `apply-dynamic-cache` em **Name**.
+
+  </DocStep>
+  <DocStep title="Selecione a fase de requisição">
+
+  Em **Phase**, selecione _Request Phase_. A fase de uma regra não pode mudar depois que a regra é criada.
+
+  </DocStep>
+  <DocStep title="Defina o critério">
+
+  Em **Criteria**, selecione `${uri}` como a variável e o operador starts-with. Insira `/products/` como o argumento.
+
+  </DocStep>
+  <DocStep title="Adicione o behavior Set Cache Policy">
+
+  Em **Behaviors**, selecione **Set Cache Policy** e depois selecione `dynamic-cache` na segunda lista.
+
+  </DocStep>
+  <DocStep title="Salve a regra" />
+</DocSteps>
+
+A regra aparece na aba **Rules Engine**, sob o título **Request**.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para criar a regra pela Azion CLI, salve este corpo como `rule.json`, com o ID do cache setting no lugar de `<cache-setting-id>`:
+
+```json
+{
+  "name": "apply-dynamic-cache",
+  "active": true,
+  "criteria": [[{ "variable": "${uri}", "operator": "starts_with", "conditional": "if", "argument": "/products/" }]],
+  "behaviors": [{ "type": "set_cache_policy", "attributes": { "value": <cache-setting-id> } }]
+}
+```
+
+Crie a regra na fase de requisição da aplicação:
+
+```bash
+azion create rules-engine --application-id <application-id> --phase request --file rule.json
+```
+
+```text
+Created Rules Engine with ID <rule-id>
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para criar a regra pela API, salve este corpo como `rule.json`, com o ID do cache setting no lugar de `<cache-setting-id>`:
+
+```json
+{
+  "name": "apply-dynamic-cache",
+  "active": true,
+  "criteria": [[{ "variable": "${uri}", "operator": "starts_with", "conditional": "if", "argument": "/products/" }]],
+  "behaviors": [{ "type": "set_cache_policy", "attributes": { "value": <cache-setting-id> } }]
+}
+```
+
+Envie-o às regras da fase de requisição da aplicação:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data @rule.json
+```
+
+A API responde `202` com `state` igual a `pending`, e a resposta traz o `id` da regra e a `order` dela.
+
+</Fragment>
+
+</Tabs>
+
+Um cache setting que uma regra aplica não pode ser excluído. Exclua ou altere a regra primeiro.
+
+### Purgue o conteúdo em cache
+
+Na Vercel, um redeploy invalida o cache. Na Azion, Real-Time Purge remove objetos antes que o TTL deles termine, por URL, por cache key ou por uma expressão wildcard. Um purge por wildcard aceita uma expressão por requisição. Um purge por URL de um domínio fora da sua conta é recusado com `400` e o código `30003`.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.cli">
+
+Para purgar todo objeto sob `/products/` pela Azion CLI, com o seu domínio no lugar de `<your-domain>`:
+
+```bash
+azion purge --wildcard "https://<your-domain>/products/*"
+```
+
+O comando informa que o purge foi executado.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para purgar todo objeto sob `/products/` pela API, envie uma requisição `POST` ao endpoint de purge por wildcard, com o seu domínio no lugar de `<your-domain>`:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/purge/wildcard \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "items": ["https://<your-domain>/products/*"],
+  "layer": "cache"
+}'
+```
+
+A API responde `201`, e a resposta traz `"layer": "cache"`.
+
+</Fragment>
+
+</Tabs>
+
+Se o comportamento de cache mudar depois da migração, os TTLs, a cache key ou as regras não foram transferidos. Revise os cache settings, as variações de cache e as regras em comparação com o projeto da Vercel.
+
+---
+
+## Sirva imagens otimizadas
+
+A Vercel transforma imagens por URLs que o framework gera. Na Azion, Image Processor transforma uma imagem quando uma requisição traz o parâmetro de query string `ims`, e ele redimensiona, recorta, ajusta e converte formatos. A imagem de origem vem de uma origem HTTP ou do Object Storage, e a aplicação entrega a imagem derivada.
+
+A primeira linha deste par é uma URL de imagem gerada pelo framework. O padrão varia conforme o framework. A segunda linha pede ao Image Processor a mesma imagem, com 1.200 pixels de largura:
+
+```text
+/_next/image?url=%2Fhero.jpg&w=1200&q=75
+/hero.jpg?ims=1200x
+```
+
+Um redimensionamento aceita estas formas em `ims`:
+
+| Sintaxe | O que faz | Exemplo |
+| --- | --- | --- |
+| `?ims=WxH` | Redimensiona para uma largura e uma altura | `?ims=400x300` |
+| `?ims=Wx` | Redimensiona para uma largura e calcula a altura | `?ims=400x` |
+| `?ims=xH` | Redimensiona para uma altura e calcula a largura | `?ims=x300` |
+
+Para recorte, fit, fill, qualidade e conversão de formato, consulte [Parâmetros de URL do Image Processor](/pt-br/documentacao/plataforma/applications/image-processor/parametros-de-url/). Image Processor escolhe o formato de saída pelo header `Accept` do cliente e serve WebP a um navegador que o aceita.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Para ativar Image Processor no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a aplicação">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Applications** e selecione a aplicação.
+
+  </DocStep>
+  <DocStep title="Selecione a aba Main Settings" />
+  <DocStep title="Ative Image Processor">
+
+  Em **Modules**, ative **Image Processor**.
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+Image Processor está ativado, e as regras da aplicação podem usar o behavior **Optimize Images**.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para ativar Image Processor pela Azion CLI:
+
+```bash
+azion update application --application-id <application-id> --image-processor true
+```
+
+```text
+Updated Application with ID <application-id>
+```
+
+Image Processor está ativado, e as regras da aplicação podem usar o behavior `optimize_images`.
+
+</Fragment>
+
+</Tabs>
+
+Image Processor transforma apenas as requisições que correspondem a uma regra com **Optimize Images**. Cada transformação também precisa de uma entrada de cache própria, então `ims` entra na cache key do cache setting que serve as imagens. Para adicionar a regra e a cache key, consulte [Primeiros passos com Image Processor](/pt-br/documentacao/plataforma/applications/image-processor/primeiros-passos/). Para a mesma configuração em uma aplicação que já serve tráfego, consulte [Configure Image Processor em uma aplicação](/pt-br/documentacao/guias/performance-e-confiabilidade/otimizacao-de-entrega/processar-imagens/).
+
+Solicite algumas URLs de imagem representativas antes da virada. Se as imagens voltarem sem transformação, verifique se Image Processor está ativado e se toda URL de imagem traz `ims`.
+
+---
+
+## Mova os arquivos do Blob para Object Storage
+
+Vercel Blob guarda arquivos como imagens, documentos, vídeos e uploads de usuários. Object Storage guarda esses arquivos como objetos em buckets e é compatível com S3: ferramentas S3, a API, a CLI e a Runtime API chegam a ele. O gerenciamento de objetos passa pelo endpoint S3 `s3.us-east-005.azionstorage.net`. Na Azion, um arquivo privado que a Vercel protege com um token ou um padrão de URL depende das permissões de bucket e de objeto e da lógica da aplicação.
+
+O código que grava com o Blob SDK passa a usar um cliente compatível com S3:
+
+```javascript
+// Antes: padrão do Vercel Blob
+import { put } from '@vercel/blob';
+
+const blob = await put('avatar.png', file, {
+  access: 'public'
+});
+
+// Depois: cliente do Object Storage compatível com S3
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+const client = new S3Client({
+  region: 'us-east-005',
+  endpoint: 'https://s3.us-east-005.azionstorage.net',
+  credentials: {
+    accessKeyId: Azion.env.get('AZION_ACCESS_KEY'),
+    secretAccessKey: Azion.env.get('AZION_SECRET_KEY')
+  }
+});
+
+await client.send(new PutObjectCommand({
+  Bucket: 'my-bucket',
+  Key: 'avatar.png',
+  Body: file
+}));
+```
+
+[Ferramentas compatíveis com S3](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/protocolo-s3-para-object-storage/), como `s3cmd`, `rclone` ou a AWS CLI, copiam objetos em massa. Para as operações S3 que Object Storage aceita e a forma `s3cmd` de cada uma, consulte [Compatibilidade com S3](/pt-br/documentacao/plataforma/object-storage/compatibilidade-s3/).
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.cli">
+
+Para [criar um bucket](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/) e [fazer upload de um arquivo](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/upload-e-download-de-objetos-do-bucket/) pela Azion CLI, crie o bucket primeiro. `read_only` permite que os workloads leiam os objetos dele:
+
+```bash
+azion create storage bucket --name <your-bucket-name> --workloads-access read_only
+```
+
+```text
+Bucket created successfully
+```
+
+Faça upload de um arquivo, com a chave dele no bucket:
+
+```bash
+azion create storage object --bucket-name <your-bucket-name> --object-key images/logo.png --source ./logo.png
+```
+
+```text
+Object created successfully
+```
+
+Passe um caminho relativo em `--source`. Com um caminho absoluto, a CLI adiciona o diretório de trabalho no início do caminho e não consegue abrir o arquivo.
+
+Liste os objetos do bucket:
+
+```bash
+azion list storage object --bucket-name <your-bucket-name> --details
+```
+
+O comando imprime uma tabela com as colunas `KEY`, `LAST MODIFIED` e `SIZE`, e o objeto enviado está nela.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para [criar um bucket](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/) e [fazer upload de um arquivo](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/upload-e-download-de-objetos-do-bucket/) pela API, crie o bucket primeiro. `read_only` permite que os workloads leiam os objetos dele:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/storage/buckets \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "<your-bucket-name>", "workloads_access": "read_only"}'
+```
+
+A API responde `201` com `state` igual a `executed`. Faça upload de um arquivo, com a chave dele no caminho e o tipo de mídia dele no header `Content-Type`:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/storage/buckets/<your-bucket-name>/objects/images/logo.png \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: image/png' \
+  --data-binary @logo.png
+```
+
+A API responde `201`, e `data.object_key` contém `images/logo.png`. Liste os objetos do bucket:
+
+```bash
+curl --request GET \
+  --url https://api.azion.com/v4/workspace/storage/buckets/<your-bucket-name>/objects \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]'
+```
+
+A API responde `200`. Cada entrada em `results` traz a `key`, o `last_modified`, o `size` e o `is_folder` do objeto.
+
+</Fragment>
+
+</Tabs>
+
+Sirva os objetos aos usuários pela aplicação e por um [connector](/pt-br/documentacao/plataforma/connectors/), para que as requisições passem pelo cache, pelas regras de segurança e pelo seu domínio de produção. Para os passos, consulte [Use um bucket como origem de uma aplicação](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/).
+
+Se faltarem arquivos depois da migração, a exportação ou a importação ficou incompleta. Exporte os arquivos de novo e depois verifique as chaves dos objetos e as permissões do bucket.
+
+---
+
+## Mova os dados do Edge Config para KV Store
+
+Edge Config costuma guardar feature flags, experimentos, redirects, configuração e dados que o projeto lê com frequência. KV Store guarda pares chave-valor em [namespaces](/pt-br/documentacao/plataforma/kv-store/namespaces/), e as funções os leem por meio de [`Azion.KV`](/pt-br/documentacao/devtools/runtime/api-reference/kv-store/). Ele cobre os mesmos usos, além de estado leve.
+
+O código que lê Edge Config passa a [abrir um namespace do KV Store](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gerenciar-com-funcoes/):
+
+```javascript
+// Antes: Vercel Edge Config
+import { get } from '@vercel/edge-config';
+
+const checkoutEnabled = await get('feature:checkout');
+
+// Depois: Azion KV Store
+const kv = await Azion.KV.open('my-namespace');
+
+const checkoutEnabled = await kv.get('feature:checkout');
+```
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.api">
+
+Para criar o namespace pela API, envie uma requisição `POST` ao endpoint de namespaces:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/kv/namespaces \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "vercel-migration-kv"}'
+```
+
+A API responde `201` com o `name`, o `created_at` e o `last_modified` do namespace, sem envelope `state`. Um namespace não pode ser excluído depois de criado, então escolha o nome dele antes de criá-lo.
+
+</Fragment>
+
+<Fragment slot="panel.console">
+
+Azion Console não tem uma tela de KV Store. Crie o namespace pela API, na interface API desta página. Um namespace não pode ser excluído depois de criado, então escolha o nome dele antes de criá-lo.
+
+</Fragment>
+
+</Tabs>
+
+Depois, mova os dados:
+
+1. Exporte as chaves, os valores, os metadados e os valores por ambiente do Edge Config.
+2. Mantenha os prefixos de chave e as convenções de nomes onde for possível.
+3. Documente o que o código faz quando uma chave não existe.
+4. Verifique a codificação dos valores e a serialização JSON.
+5. Teste os caminhos de leitura antes que o tráfego de produção migre.
+6. Reconstrua os fluxos de flags e de experimentos que dependem das ferramentas da Vercel.
+
+Se faltarem dados do Edge Config depois da migração, recrie as chaves, verifique os nomes dos namespaces e teste os valores padrão.
+
+---
+
+## Proteja a aplicação
+
+Vercel Firewall, WAF, Bot Management, BotID, Platform Security e Advanced Deployment Protection migram para Firewall e para os Produtos habilitados nele. O workload implanta o firewall junto com a aplicação, e o firewall filtra o tráfego malicioso. No Azion Console, as **Deployment Settings** do workload selecionam o **Firewall** dele.
+
+| Aspecto | Na Vercel | Na Azion |
+| --- | --- | --- |
+| WAF gerenciado | Proteções de WAF | [Rule sets do WAF](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/) |
+| Regras de tráfego customizadas | Regras de firewall | Rules Engine para Firewall |
+| Controles de IP e IPs confiáveis | Bloqueios de IP e allowlists | Network Lists |
+| Rate limiting | Controles de taxa do firewall | Rules Engine para Firewall e Functions |
+| Ações | Block, challenge, redirect e allow | Allow, deny, drop, redirect, HTML customizado e hold connection |
+| Proteção de infraestrutura | Platform Security | DDoS Protection, Network Shield e Firewall |
+| Controles de bots | Bot Management e BotID | Bot Manager, Bot Manager Lite e lógica de função onde for necessário |
+| Bloqueios por senha ou por autenticação | Advanced Deployment Protection | Functions e regras de firewall |
+
+Para mover a proteção:
+
+1. Crie um firewall ou selecione um existente.
+2. Ative os rule sets do WAF onde o projeto precisar deles. Para os passos, consulte [Primeiros passos com WAF](/pt-br/documentacao/plataforma/firewall/waf/primeiros-passos/).
+3. Recrie as regras customizadas no Rules Engine para Firewall. Para os passos, consulte [Crie uma regra de firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/trabalhar-com-rules-engine/).
+4. Crie network lists para allowlists e denylists de IP.
+5. Ative a proteção contra bots onde o projeto precisar dela. Para os passos, consulte [Primeiros passos com Bot Manager](/pt-br/documentacao/plataforma/firewall/bot-manager/primeiros-passos/).
+6. Associe o firewall ao workload, nas **Deployment Settings** dele.
+
+Uma regra de deployment protection na Vercel vira uma regra de firewall que nega requisições de fora de uma rede aprovada. Por exemplo, uma regra pode negar requisições para `/admin`, ou para caminhos que começam com `/preview/`, a menos que o endereço do cliente esteja em uma network list que contenha `10.0.0.0/8`. Para as variáveis e os operadores que uma regra assim aceita, consulte [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/).
+
+Execute as mudanças de WAF em um modo de monitoramento antes que elas bloqueiem requisições. Compare os falsos positivos, as regras que mais disparam, os requisitos de bypass e as exceções de que a aplicação precisa e, depois, aplique o bloqueio. Se uma regra de firewall bloquear usuários válidos, volte ao monitoramento, compare os eventos e ajuste os critérios.
+
+---
+
+## Mova o acesso à conta
+
+Quando a equipe da Vercel entra por SAML SSO, registre as configurações do provedor de identidade, os membros dos grupos, o acesso dos usuários e os runbooks operacionais antes da migração. A Azion oferece suporte a Single Sign-On para o acesso central à conta.
+
+Para mover o acesso à conta:
+
+1. Liste os provedores de identidade e os metadados SAML deles.
+2. Mapeie os papéis da equipe da Vercel para as permissões de conta e as [permissões de equipe](/pt-br/documentacao/fundamentos/teams-permissions/) da Azion.
+3. Configure o SSO na Azion antes que a maioria dos usuários migre.
+4. Confirme que um administrador de emergência (break-glass) ainda consegue entrar.
+5. Revise a [autenticação multifator](/pt-br/documentacao/fundamentos/multi-factor-authentication/), o timeout de sessão e as políticas de acesso.
+
+---
+
+## Reconstrua o monitoramento
+
+Vercel Observability, Speed Insights e Web Analytics migram para os Produtos de observabilidade da Azion, para que a visibilidade de produção, a solução de problemas e os relatórios de compliance continuem depois da virada. A retenção depende do Produto e, para dados exportados, do destino.
+
+Real-Time Metrics mostra dashboards do tráfego da aplicação e responde a consultas por uma API GraphQL. Ele acompanha estas métricas:
+
+- **Requisições**: total de requisições, requisições por código de status e requisições por método HTTP.
+- **Performance**: tempo de resposta, tempo do header upstream e tempo de resposta da origem.
+- **Largura de banda**: dados transferidos e dados economizados pelo cache.
+- **Cache**: taxa de hit, taxa de miss e objetos expirados.
+- **Erros**: erros `4xx`, erros `5xx` e erros da origem.
+
+Real-Time Events guarda [os logs detalhados de cada requisição](/pt-br/documentacao/guias/plataforma/observabilidade/entender-logs/), para investigação. Os datasets dele cobrem requisições, funções, WAF, DNS e processamento de imagens, entre outros. Você os consulta no Azion Console, filtrados por intervalo de tempo, ou [pela API GraphQL](/pt-br/documentacao/guias/plataforma/observabilidade/investigar-requisicoes-api-graphql/).
+
+Edge Pulse mede a performance de usuários reais, como Speed Insights faz na Vercel. Data Stream [envia logs para ferramentas externas](/pt-br/documentacao/plataforma/data-stream/primeiros-passos/) para trabalhos de segurança, analytics, armazenamento e compliance. [Um stream](/pt-br/documentacao/plataforma/data-stream/primeiros-passos/) lê uma fonte, como Applications ou WAF, formata cada registro com um template e o entrega a um destino com as credenciais desse destino. Data Stream entrega para estes destinos:
+
+- **Armazenamento em nuvem**: Amazon S3, Azure Blob Storage e Azion Object Storage.
+- **Monitoramento**: Datadog, Splunk, Elasticsearch e Azure Monitor.
+- **Streaming**: AWS Kinesis Data Firehose e Apache Kafka.
+- **Analytics**: Google BigQuery.
+- **Segurança**: IBM QRadar.
+- **Customizado**: um webhook HTTP ou um `POST` HTTP ou HTTPS padrão.
+
+As integrações do Vercel Marketplace migram para Azion Marketplace ou para um destino do Data Stream.
+
+Para mover o monitoramento:
+
+1. Liste as Core Web Vitals, os relatórios por página e os dashboards de analytics que você usa.
+2. Decida quais dashboards migram para Edge Pulse, para Real-Time Metrics ou para uma ferramenta de BI externa.
+3. Recrie o rastreamento de eventos customizados onde o projeto precisar dele.
+4. Verifique os requisitos de privacidade e de consentimento.
+5. Depois da virada, compare as métricas de experiência do usuário com a linha de base da Vercel.
+
+Se o analytics mostrar uma lacuna depois da virada, uma dependência de analytics da Vercel não foi substituída. Configure Edge Pulse, Real-Time Metrics, Real-Time Events e Data Stream antes que o tráfego de produção migre.
+
+---
+
+## Aponte o domínio para a Azion
+
+O domínio migra por último, como uma virada planejada, porque afeta usuários, ranking de busca, confiança na marca e disponibilidade. O workload, os registros DNS e o certificado podem estar prontos antes que o tráfego de produção mude.
+
+Há duas formas de apontar um domínio para a Azion:
+
+| Estratégia | Use para | Controle de DNS |
+| --- | --- | --- |
+| CNAME | Um subdomínio que você quer mover rapidamente | O seu provedor de DNS continua |
+| Nameserver | Controle total do DNS e domínios apex | O DNS migra para Edge DNS |
+
+Para mover o domínio:
+
+1. Crie o certificado primeiro, para que o domínio responda por HTTPS assim que resolver para a Azion. A Azion emite certificados Let's Encrypt gratuitos e os renova automaticamente.
+2. [Adicione o domínio ao workload](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/criar-dominio-personalizado-azion/) que serve a aplicação. Para mais informações, consulte [Domains](/pt-br/documentacao/plataforma/workloads/domains/).
+3. Aponte o domínio para a Azion com uma das duas estratégias.
+
+Na estratégia CNAME, aponte o subdomínio para o domínio do workload. O seu provedor de DNS mantém o restante da zona:
+
+```text
+www CNAME <your-workload-domain>
+```
+
+Na estratégia de nameserver, defina os nameservers do domínio como os do Edge DNS. A Azion passa então a responder pela zona inteira, o que um domínio apex exige:
+
+```text
+ns1.aziondns.net
+ns2.aziondns.com
+ns3.aziondns.org
+```
+
+:::caution[Atenção]
+Antes que o tráfego de produção mude, confirme que o certificado está ativo, que o domínio pertence ao workload certo e que os registros DNS estão prontos. Teste as rotas críticas e os redirects e configure o monitoramento de que você precisa depois da virada.
+:::
+
+Assim que o registro resolver, envie uma requisição ao domínio, com ele no lugar de `<your-domain>`:
+
+```bash
+curl -i https://<your-domain>/
+```
+
+A resposta vem da aplicação, com o status e os headers que ela retorna para `/`. Se o certificado não estiver ativo, verifique o status do certificado e a associação dele com o workload antes de alterar o DNS.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Primeiros passos com Applications" href="/pt-br/documentacao/plataforma/applications/primeiros-passos/" label="Crie um connector, uma aplicação, uma regra e um workload, um de cada vez, e solicite o resultado." />
+  <DocCard title="Rules Engine para Applications" href="/pt-br/documentacao/plataforma/applications/rules-engine/" label="Cada critério, operador e behavior que uma regra aceita, para os redirects, headers e rotas que você move." />
+  <DocCard title="Variáveis de ambiente" href="/pt-br/documentacao/plataforma/functions/environment-variables/" label="Crie as variáveis de que o projeto precisa e leia-as no código da função." />
+  <DocCard title="Primeiros passos com Image Processor" href="/pt-br/documentacao/plataforma/applications/image-processor/primeiros-passos/" label="Adicione a regra e a cache key que fazem Image Processor transformar e armazenar em cache cada imagem." />
+  <DocCard title="Real-Time Metrics" href="/pt-br/documentacao/plataforma/real-time-metrics/" label="Acompanhe as métricas de tráfego, cache e erros da aplicação depois da virada." />
+  <DocCard title="Suporte" href="/pt-br/documentacao/suporte/" label="Acione o time de Suporte da Azion quando uma etapa da migração não se comportar como este guia descreve." />
+</DocCardGroup>

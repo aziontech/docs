@@ -1,0 +1,98 @@
+---
+title: Score e modos
+description: >-
+  Veja como WAF pontua requisições por família de ameaças, o que Logging e
+  Blocking fazem com uma correspondência e como exceções e tuning restringem um
+  rule set.
+meta_tags: 'waf, scoring, sensitivity, threshold, threat family, logging, blocking, request body, exceptions, allowed rules, tuning, real-time events'
+namespace: documentation_products_waf_how_it_works
+permalink: /documentacao/plataforma/firewall/waf/score-e-modos/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Um web application firewall decide com base em evidências acumuladas, não em um único padrão suspeito. Cada padrão de ataque a que uma requisição corresponde soma a um score, e um modo decide o que acontece quando um score alcança o seu limite. Para saber onde WAF age no caminho de uma requisição em um firewall, consulte [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/#waf).
+
+As seções cobrem score e sensibilidade, modos, parsing do corpo da requisição, exceções, tuning e onde uma correspondência é reportada.
+
+---
+
+## Score e sensibilidade
+
+WAF não decide com base em uma única correspondência de regra. Cada regra interna que corresponde a uma requisição soma ao score da família de ameaças a que essa regra pertence, então um sinal fraco pontua baixo e vários pontuam alto. Uma requisição é bloqueada quando o score de uma família alcança o limite dessa família.
+
+Os scores são mantidos por família, e cada um é comparado com o seu próprio limite. Por exemplo, a query string `1' OR '1'='1` correspondeu a duas regras internas no mesmo argumento e pontuou `18` para SQL injection e `32` para cross-site scripting.
+
+Você nunca escreve um limite como número. Você escolhe um nível de sensibilidade para cada família, e o nível fixa o score em que essa família bloqueia. Toda família começa em `medium`, e a escala corre no sentido contrário ao da palavra: uma sensibilidade mais alta é um limite mais baixo. Em `highest`, um score de 4 bloqueia, então menos evidência recusa mais requisições, enquanto em `lowest` uma requisição precisa de um score de 40. Para os cinco níveis e os scores deles, consulte [Rule sets do WAF](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/#niveis-de-sensibilidade).
+
+A sensibilidade corta para os dois lados. Aumentá-la pega ataques que carregam menos evidência. Também bloqueia requisições legítimas que carregam um pouco da mesma evidência, como um apóstrofo em um termo de busca. Diminuí-la mantém esse tráfego em movimento e deixa passar qualquer ataque cujo score não alcance o limite. O nível é definido por família, então você pode aumentar as famílias com as quais a sua aplicação não tem razão para se parecer e deixar as outras.
+
+---
+
+## Modos
+
+O modo pertence ao comportamento _Set WAF_ da regra, não ao rule set. Em _Logging_, uma requisição que alcança um limite é pontuada e registrada, e a aplicação a recebe como se nada tivesse correspondido. Em _Blocking_, essa requisição é recusada antes de alcançar a aplicação. A API recebe o modo como `logging` ou `blocking`, e ele é obrigatório: um comportamento _Set WAF_ sem modo é recusado com `10059`.
+
+Uma requisição bloqueada recebe `400` e a página de erro padrão da Azion, com o título **Bad Request**. Nada na resposta nomeia WAF, a regra ou o score: nenhum header os carrega, e a página não tem mensagem própria. A linha Status Code da página mostra `0`, o status de uma origem que a requisição nunca alcançou.
+
+Cada modo troca um risco por outro. _Logging_ registra tudo o que teria sido bloqueado sem recusar uma requisição legítima, e não protege nada enquanto roda. _Blocking_ protege, e todo falso positivo vira um `400` que um usuário vê, sem nada nele que explique por quê.
+
+Uma regra interna não é totalmente contida pelo modo. A regra 13, formato de POST inválido, bloqueia algumas requisições mesmo quando o rule set roda em _Logging_. Para o que cada regra interna corresponde, consulte [Rule sets do WAF](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/#regras-internas).
+
+Outras superfícies da Azion chamam o modo _Logging_ de learning. [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/) o reporta no campo `wafLearning`, o payload do [Data Stream](/pt-br/documentacao/plataforma/data-stream/) carrega `waf_learning`, e o `azion.config.js` o define como `wafMode`. A própria API recusa `learning` como modo, com `10039`.
+
+---
+
+## Parsing do corpo da requisição
+
+WAF lê o corpo de uma requisição apenas nos formatos que consegue desmontar. Em um `POST`, ele faz o parsing do corpo quando o `Content-Type` é `application/x-www-form-urlencoded`, `multipart/form-data`, `application/json`, `application/vnd.api+json` ou `application/csp-report`. O parsing permite que uma regra enderece um campo do corpo, e permite que uma exceção nomeie um campo a ser deixado de fora.
+
+Um corpo em qualquer outro formato não passa sem exame. Um `Content-Type` desconhecido ou ausente em um `POST` é, por si só, um achado para as regras de conformidade de protocolo. Um rule set pode, portanto, recusar essa requisição com o mesmo `400`, mesmo quando o corpo dela é benigno. A regra interna `11` faz essa recusa, registrada como `wafMatch` `0:11:BODY:-` com `wafAttackFamily` `$OTHERS`. A regra `15` recusa um corpo `application/json` que não pode ser interpretado, como `AAAA`, então o cliente recebe um `400` do firewall, e não um erro de interpretação da aplicação.
+
+O parsing também para em um tamanho. Um corpo maior que 131.072 bytes, que são 128 KiB, é recusado em vez de passar sem inspeção. Para esse limite, consulte [Limites de Firewall](/pt-br/documentacao/plataforma/firewall/limites/#waf).
+
+Ler apenas esses formatos mantém a inspeção precisa sobre o que as aplicações enviam. Isso custa a cobertura do resto. Um formato de que WAF não faz parsing nunca é vasculhado campo a campo, e a regra que o pega lê o `Content-Type`, não o conteúdo.
+
+---
+
+## Exceções
+
+Algumas aplicações enviam legitimamente o que uma regra interna foi escrita para pegar. Uma caixa de busca aceita um apóstrofo, um campo carrega um caractere pipe ou uma API envia um fragmento de markup. Cada um alcança um limite sem que haja nada errado. Uma exceção tira um desses casos do score sem baixar a sensibilidade para todas as outras requisições.
+
+Uma exceção nomeia uma parte da requisição e a regra interna da qual isentá-la. A parte é uma condição sobre uma match zone, como o valor de uma query string ou um nome específico de header. O operador, `contains` ou `regex`, define como o valor é comparado, e o rule ID tem `0` como padrão, que significa todas as regras. Azion Console chama uma exceção de allowed rule e a mantém na aba **Allowed Rules** do rule set.
+
+Uma exceção é um buraco no rule set, do tamanho que você der a ela. Restrita a uma regra, um caminho e um campo nomeado, ela remove um falso positivo. Com o rule ID padrão e uma match zone genérica, nenhuma família pontua nada nessa zona, para toda requisição que o rule set vê. `unwanted_access` deixa então de pontuar tentativas de alcançar páginas vulneráveis ou administrativas e o uso de bots e ferramentas de varredura de segurança. `identified_attack` deixa de pontuar ataques conhecidos contra aplicações e servidores.
+
+Escreva a exceção para o falso positivo que você tem, e remova-a quando a aplicação parar de enviar essa requisição. Para cada campo e cada match zone que uma exceção carrega, consulte [Exceções do WAF](/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/#campos).
+
+---
+
+## Tuning
+
+_Logging_ e as exceções funcionam como um único loop, e a aba **Tuning** do rule set fica no meio dele. O rule set roda primeiro em _Logging_, então toda requisição que ele bloquearia é registrada e nenhuma é recusada. **Tuning** lista esses registros, agrupados pela regra interna que correspondeu, em uma janela de até os últimos 3 dias. Uma consulta precisa de um domínio e é filtrada por intervalo de tempo, network list, endereço IP e país, e os detalhes de uma regra filtram ainda por caminho.
+
+Cada registro é uma evidência ou um falso positivo. Um ataque real mostra o rule set fazendo o seu trabalho. Uma requisição legítima é um falso positivo. **Tuning** transforma registros selecionados em allowed rules em lote, então a exceção vem da requisição que a produziu, não de um palpite. Quando os registros param de trazer falsos positivos, a regra passa para _Blocking_.
+
+O loop custa tempo duas vezes. A janela guarda 3 dias, então uma evidência que ninguém lê a tempo se perde, e um padrão que aparece uma vez por mês nunca aparece nela. A conversão em lote é rápida porque não restringe nada. Ela cria uma regra separada para cada ataque possível em cada URI que recebe, o que é mais amplo do que uma exceção escrita à mão. Para o procedimento, consulte [Ajuste um WAF rule set](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/tune-waf/) e, para a tela, consulte [Exceções do WAF](/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/#tuning).
+
+---
+
+## Onde uma correspondência é reportada
+
+Uma correspondência do WAF não deixa nada na resposta, então toda pergunta sobre ela é respondida a partir de uma superfície de reporte. [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-secure/#waf) responde quantas, em requisições processadas e requisições bloqueadas ao longo do tempo. Real-Time Events responde qual requisição, uma linha por vez, com as regras internas que corresponderam e o score que cada família alcançou. Data Stream responde onde mais, enviando esses eventos para um sistema fora da Azion, e a GraphQL API consulta os mesmos dados.
+
+Uma requisição bloqueada é encontrada a partir da requisição, não da resposta. Ela é um `400` cujo upstream status é `0`, e o header `x-azion-request-id` dela encontra a sua linha. Essa consulta é o preço de manter a decisão fora da resposta. Um usuário bloqueado só consegue reportar uma página **Bad Request**, e a regra e o score são consultados depois. Para a query, consulte [Encontre o score de uma requisição bloqueada](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf/).
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Rule sets do WAF" href="/pt-br/documentacao/plataforma/firewall/waf/rule-sets/">As famílias de ameaças, os níveis de sensibilidade e as regras internas por trás do score do WAF.</DocItem>
+  <DocItem title="Exceções do WAF" href="/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/">Os campos e as match zones de uma exceção, e a tela Tuning que transforma registros em exceções.</DocItem>
+  <DocItem title="Ajuste um WAF rule set" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/tune-waf/">O procedimento que lê as correspondências de um rule set em Logging e transforma os falsos positivos em exceções.</DocItem>
+  <DocItem title="Encontre o score de uma requisição bloqueada" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf/">A query que encontra as regras internas e os scores das famílias por trás de uma requisição recusada.</DocItem>
+</ItemList>
+</FrameBox>

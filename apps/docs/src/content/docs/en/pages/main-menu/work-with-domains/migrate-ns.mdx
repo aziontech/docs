@@ -1,0 +1,500 @@
+---
+title: Migrate nameservers to Azion
+description: Move the DNS of a domain to Edge DNS, test the zone, delegate the domain to Azion's nameservers, and point its hostnames at a workload.
+meta_tags: 'Edge DNS, migrate nameservers, dns migration, registrar, delegation, workloads'
+namespace: docs_guides_migrate_nameserver
+permalink: /documentation/guides/platform/migration/migrate-ns-to-azion/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+You can migrate the nameservers of a domain to [Edge DNS](/en/documentation/platform/edge-dns/) from Azion Console, the Azion CLI, or the Azion API. Afterward, Azion's nameservers answer every DNS query for the domain, and you manage its records at Azion instead of at your current provider.
+
+The order of the work matters. Resolvers ask Azion only after your registrar delegates the domain, and they get `NXDOMAIN` for every name the zone does not hold. So you rebuild and test the zone first, and change the registrar last. Edge DNS hosts the zone, and a [workload](/en/documentation/platform/workloads/) serves your application on the hostnames whose records point at it.
+
+To point one hostname at a workload while your current provider keeps the DNS of the domain, refer to [Point a domain to a workload](/en/documentation/guides/platform/migration/point-domain-to-azion/) instead.
+
+---
+
+Select your interface once. The prerequisites and the stages below show only that path.
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.cli">CLI</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+</Tabs>
+
+## Prerequisites
+
+- A domain you control, access to its registrar, and the list of records your current DNS provider serves for it.
+- The **Edit Edge DNS** permission, which requires **View Edge DNS**. Refer to [Teams permissions](/en/documentation/fundamentals/teams-permissions/).
+- A workload that serves your application. To create one, refer to the [Workloads quickstart](/en/documentation/platform/workloads/quickstart/).
+- `dig` on your machine, for stages 3 and 6. To install it, refer to [Query a zone with dig](/en/documentation/guides/application-security/dns/run-the-dig-command/).
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+- Access to Azion Console. To sign in, refer to [Access Azion Console](/en/documentation/guides/platform/account-and-billing/how-to-access-azion-console/).
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+- The [Azion CLI](/en/documentation/devtools/cli/) installed and authorized.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+- A [personal token](/en/documentation/guides/platform/account-and-billing/personal-tokens/) and `curl`.
+- For every endpoint and field, refer to the [Azion API reference](https://api.azion.com/).
+
+</Fragment>
+
+</Tabs>
+
+---
+
+## 1. Create the zone of the domain
+
+Edge DNS keeps the records of one domain in a zone. Use your domain in place of `example.com` throughout this guide.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+To create the zone in Azion Console:
+
+<DocSteps>
+  <DocStep title="Open the Edge DNS page">
+
+  Access [Azion Console](https://console.azion.com/) > **Edge DNS**.
+
+  </DocStep>
+  <DocStep title="Select + Zone" />
+  <DocStep title="Name the zone">
+
+  In the **General** section, enter a **Name** that identifies the zone in lists, such as `example-zone`.
+
+  </DocStep>
+  <DocStep title="Enter the domain">
+
+  In the **Domain Name** section, enter the root domain you migrate in **Domain Name**, such as `example.com`.
+
+  </DocStep>
+  <DocStep title="Keep Active turned on">
+
+  In the **Status** section, leave **Active** on.
+
+  </DocStep>
+  <DocStep title="Select Create" />
+</DocSteps>
+
+The Console shows `Your DNS zone has been created. To complete the setup, ensure the Azion nameservers are configured in your domain provider.` and opens the **Records** tab of the zone. Stage 4 covers the nameservers.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+To create the zone with the Azion CLI, run:
+
+```bash
+azion create dns-zone --name example-zone --domain example.com --active=true
+```
+
+The CLI returns the ID of the zone:
+
+```text
+Created DNS zone with ID 1235
+```
+
+Keep the ID. Stage 4 uses it as `<zone-id>`.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+To create the zone with the Azion API, send a `POST` request with the name and the domain. Replace `[TOKEN VALUE]` with your personal token:
+
+```bash
+curl -X POST https://api.azion.com/v4/workspace/dns/zones \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"example-zone","domain":"example.com","active":true}'
+```
+
+The API answers `201` with the zone:
+
+```json
+{
+  "state": "executed",
+  "data": {
+    "id": 1234,
+    "name": "example-zone",
+    "domain": "example.com",
+    "active": true,
+    "nameservers": ["ns1.aziondns.net", "ns2.aziondns.com", "ns3.aziondns.org"],
+    "product_version": "2.0"
+  }
+}
+```
+
+Keep the `id`. Stage 5 uses it as `<zone-id>`, and stage 4 uses the `nameservers` array.
+
+</Fragment>
+
+</Tabs>
+
+The domain of a zone cannot change, and only one zone in Azion can host a domain. For every zone setting, refer to [Create, edit, or delete a zone](/en/documentation/guides/application-security/dns/edge-dns-configure-main-settings/).
+
+---
+
+## 2. Copy the records of the domain
+
+The zone answers only for the records you add to it. Export or list the records at your current DNS provider, then recreate them in Edge DNS before the registrar changes.
+
+To copy the records:
+
+1. Leave out the NS and SOA records of the root domain. Edge DNS answers both for the zone itself, and the API refuses an NS record at `@` with `19021`.
+2. Add every other record to the zone with the same name, type, and value. For the steps in each interface, refer to [Add, edit, or delete a record](/en/documentation/guides/application-security/dns/add-records/).
+3. Enter each name relative to the zone: `www` for `www.example.com`, and `@` for `example.com` itself. Edge DNS adds the domain, so a name typed with the domain is served with the domain twice.
+
+The zone now holds every name your domain answers for. For the value format of each record type, refer to [Record types](/en/documentation/platform/edge-dns/record-types/).
+
+A CNAME record is refused at `@` with `19005`. If your current provider points the root domain at another hostname, use an ANAME record, as [Point an apex domain with ANAME](/en/documentation/guides/application-security/dns/access-root-domain/) shows.
+
+---
+
+## 3. Test the zone at Azion's nameservers
+
+Query Azion's nameserver directly before you touch the registrar. The query skips your resolver's cache, so it shows what Edge DNS answers for the zone today.
+
+:::caution
+Query a name only after you add its record. A name queried before its record exists is answered `NXDOMAIN` for up to one hour, the SOA minimum.
+:::
+
+To test a record, query `ns1.aziondns.net` for one of the names you added:
+
+```bash
+dig +short @ns1.aziondns.net www.example.com A
+```
+
+The nameserver returns the value of the record:
+
+```text
+192.0.2.1
+```
+
+Run the same query for each name and type you copied, and compare each answer with your current provider. Without `+short`, the output header shows `status: NOERROR` and the `aa` flag, which marks an authoritative answer.
+
+The first record of a zone can take a few minutes to be answered. If a query prints nothing, refer to [A new record returns NXDOMAIN](/en/documentation/platform/edge-dns/troubleshooting/#a-new-record-returns-nxdomain).
+
+To see the nameservers the zone declares for itself, query its NS set:
+
+```bash
+dig +short @ns1.aziondns.net example.com NS
+```
+
+The zone lists the three Edge DNS nameservers:
+
+```text
+ns3.aziondns.org.
+ns2.aziondns.com.
+ns1.aziondns.net.
+```
+
+The zone answers as your current provider does. The domain is ready to move.
+
+---
+
+## 4. Delegate the domain to Azion's nameservers
+
+Your registrar tells resolvers which nameservers answer for the domain. Replacing the current nameservers with Azion's moves every query for the domain to Edge DNS.
+
+Get the three nameservers from the interface you used in stage 1:
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+On the **Zones** page of **Edge DNS**, select **Copy Nameserver Values**. It copies the three names, joined by semicolons.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Run `azion describe dns-zone --zone-id <zone-id>`. The output lists the three names under `Nameservers:`.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Read the `nameservers` array of the zone, returned in stage 1.
+
+</Fragment>
+
+</Tabs>
+
+To delegate the domain at your registrar:
+
+1. Open the nameserver settings of the domain at your registrar.
+2. Replace the current nameservers with all three Edge DNS nameservers: `ns1.aziondns.net`, `ns2.aziondns.com`, and `ns3.aziondns.org`.
+3. Save the change.
+
+The registrar lists the three Edge DNS nameservers for the domain. Stage 6 checks when resolvers follow them.
+
+If your registrar holds a DS record for the domain from your current provider, validating resolvers can reject the answers of Edge DNS. To fix it, refer to [Validation fails after turning on DNSSEC](/en/documentation/platform/edge-dns/troubleshooting/#validation-fails-after-turning-on-dnssec).
+
+---
+
+## 5. Point the hostnames to the workload
+
+A workload serves your application on the hostnames you add to it. You add each hostname of your domain to the workload, then create a CNAME record in the zone that points the hostname at the Azion domain of the workload.
+
+Workloads replaces Domains. If your account still serves applications through Domains, follow the Domains steps in the Console panel or the API v3 steps in the API panel. For how a workload takes a hostname, refer to [Workloads settings](/en/documentation/platform/workloads/settings/) and [Point a domain to a workload](/en/documentation/guides/platform/migration/point-domain-to-azion/).
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+To point a hostname at a workload in Azion Console:
+
+<DocSteps>
+  <DocStep title="Open the Workloads page">
+
+  Access [Azion Console](https://console.azion.com/) > **Workloads**.
+
+  </DocStep>
+  <DocStep title="Open the workload">
+
+  Select the workload that serves your application.
+
+  </DocStep>
+  <DocStep title="Add your hostnames">
+
+  In the **Subdomain** and **Domain** fields, add the hostnames of your domain. If the workload already lists them, keep them at hand.
+
+  </DocStep>
+  <DocStep title="Open the Edge DNS page">
+
+  Access [Azion Console](https://console.azion.com/) > **Edge DNS**.
+
+  </DocStep>
+  <DocStep title="Open the records of the zone">
+
+  On the **Zones** page, select the zone, then select the **Records** tab.
+
+  </DocStep>
+  <DocStep title="Select + Record" />
+  <DocStep title="Enter the hostname">
+
+  In **Name**, enter the hostname relative to the zone, such as `www`. Enter `*` for every name the zone does not list. The Console adds the domain for you.
+
+  </DocStep>
+  <DocStep title="Select the CNAME type">
+
+  In **Record Type**, select *CNAME - Canonical name*.
+
+  </DocStep>
+  <DocStep title="Enter the Azion domain">
+
+  In **Value**, enter the Azion domain of the workload, such as `<your-workload>.map.azionedge.net`.
+
+  </DocStep>
+  <DocStep title="(Optional) Set the TTL and the policy">
+
+  Change **TTL (seconds)** and **Policy Type** if your record needs other values.
+
+  </DocStep>
+  <DocStep title="Select Save" />
+</DocSteps>
+
+The Console shows `Edge DNS Record has been created`. Repeat the record steps for each hostname the workload serves.
+
+If your account uses **Domains**, add the hostnames there instead of on a workload:
+
+<DocSteps>
+  <DocStep title="Open the Domains page">
+
+  Access [Azion Console](https://console.azion.com/) > **Domains**.
+
+  </DocStep>
+  <DocStep title="Open the domain">
+
+  Select the domain that serves your application.
+
+  </DocStep>
+  <DocStep title="Add your hostnames">
+
+  In the **CNAME** field, add the hostnames of your domain. If the domain already lists them, keep them at hand.
+
+  </DocStep>
+</DocSteps>
+
+Then create each CNAME record in Edge DNS with the steps above, and enter the Azion domain of the domain in **Value**.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+To point a hostname at a workload with API v4, first list your workloads:
+
+```bash
+curl -X GET https://api.azion.com/v4/workspace/workloads \
+  -H "Authorization: Token [TOKEN VALUE]"
+```
+
+The response lists each workload with its hostnames in `domains` and its Azion domain in `workload_domain`:
+
+```json
+{
+  "count": 3,
+  "results": [
+    {
+      "id": "<workload-id>",
+      "name": "My workload",
+      "active": true,
+      …
+      "domains": ["xxxxxxx.azion.app"],
+      "workload_domain_allow_access": false,
+      "workload_domain": "xxxxxxxx.map.azionedge.net",
+      "product_version": "1.0"
+    },
+    …
+  ]
+}
+```
+
+Keep the `id` of the workload and its `workload_domain`. If `domains` lists none of your hostnames, send them in a `PATCH` request. Replace `<workload-id>` with the `id`:
+
+```bash
+curl -X PATCH https://api.azion.com/v4/workspace/workloads/<workload-id> \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"domains":["example.com","*.example.com"]}'
+```
+
+The `domains` field takes the list of hostnames the workload serves.
+
+To create the CNAME record, send a `POST` request to the records of the zone. Replace `<zone-id>` with the `id` from stage 1:
+
+```bash
+curl -X POST https://api.azion.com/v4/workspace/dns/zones/<zone-id>/records \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"CNAME","name":"www","rdata":["<your-workload>.map.azionedge.net"],"ttl":20,"description":"www record"}'
+```
+
+The API answers `201` with the record. The `name` is relative to the zone, `rdata` holds the workload domain, and `ttl` sets the time to live in seconds. Repeat the request for each hostname the workload serves.
+
+If your account uses Domains with API v3, list your domains:
+
+```bash
+curl -X GET https://api.azionapi.net/domains \
+  -H "Accept: application/json; version=3" \
+  -H "Authorization: Token [TOKEN VALUE]"
+```
+
+The response lists each domain with its hostnames in `cnames` and its Azion domain in `domain_name`:
+
+```json
+{
+  …
+  "results": [
+    {
+      "id": <domain-id>,
+      "name": "example.com CA1 DC-example.com",
+      "cnames": [],
+      "cname_access_only": true,
+      "digital_certificate_id": <digital-certificate-id>,
+      "edge_application_id": <edge-application-id>,
+      "is_active": true,
+      "domain_name": "xxxxxxxxxx.map.azionedge.net"
+    }
+  ]
+}
+```
+
+Keep the `id` of the domain and its `domain_name`. If `cnames` lists none of your hostnames, send them in a `PATCH` request. Replace `<domain-id>` with the `id`:
+
+```bash
+curl -X PATCH https://api.azionapi.net/domains/<domain-id> \
+  -H "Accept: application/json; version=3" \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"cnames":["example.com","*.example.com"]}'
+```
+
+To create the CNAME record with API v3, send a `POST` request to the records of the zone. Replace `<zone-id>` with the `id` from stage 1:
+
+```bash
+curl -X POST https://api.azionapi.net/intelligent_dns/<zone-id>/records \
+  -H "Accept: application/json; version=3" \
+  -H "Authorization: Token [TOKEN VALUE]" \
+  -H "Content-Type: application/json" \
+  -d '{"record_type":"CNAME","entry":"www","answers_list":["xxxxxxxxxx.map.azionedge.net"],"description":"www record","ttl":20}'
+```
+
+In API v3, `record_type` is the type, `entry` is the name relative to the zone, and `answers_list` holds the values. The response returns the record:
+
+```json
+{
+  "results": {
+    "answers_list": ["xxxxxxxxxx.map.azionedge.net"],
+    "zone_id": <zone-id>,
+    "record_type": "CNAME",
+    "ttl": 20,
+    "policy": "simple",
+    "entry": "www",
+    "id": <record-id>,
+    "description": "www record"
+  }
+}
+```
+
+</Fragment>
+
+</Tabs>
+
+A record named `*` answers every name the zone does not list, so one record can send both `www` and `blog` to the workload. For the names a wildcard matches, refer to [Match subdomains with a wildcard record](/en/documentation/guides/application-security/dns/wildcard-record/).
+
+A record whose name nobody queried before it existed answers within seconds. A change to an existing record can take a few minutes to reach every nameserver. For the reason, refer to [How Edge DNS works](/en/documentation/platform/edge-dns/how-it-works/#caching-and-propagation).
+
+---
+
+## 6. Check the domain through a public resolver
+
+A public resolver reaches Azion only through the delegation your registrar publishes. Querying one shows whether the internet already follows the change from stage 4.
+
+To query a public resolver, run:
+
+```bash
+dig @8.8.8.8 www.example.com A
+```
+
+While the resolver does not follow the delegation yet, the header can read `NXDOMAIN` with no answer:
+
+```text
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 19090
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1
+…
+```
+
+The resolver may also return the records of your previous provider. Once it follows the delegation, it returns the same value that `ns1.aziondns.net` returned in stage 3. If it does not, refer to [Public resolvers return NXDOMAIN while Azion's nameservers answer](/en/documentation/platform/edge-dns/troubleshooting/#public-resolvers-return-nxdomain-while-azions-nameservers-answer).
+
+Edge DNS now answers for your domain. From here on, you add and change its records in Edge DNS, not at your previous provider.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Point an apex domain with ANAME" href="/en/documentation/guides/application-security/dns/access-root-domain/" label="Send the root domain itself to a workload." />
+  <DocCard title="Turn on DNSSEC for a zone" href="/en/documentation/guides/application-security/dns/activate-dnssec/" label="Sign the migrated zone and give the DS record to your registrar." />
+  <DocCard title="Troubleshoot Edge DNS" href="/en/documentation/platform/edge-dns/troubleshooting/" label="Fix a zone or record that does not answer as expected." />
+  <DocCard title="Install Massive Redirect" href="/en/documentation/guides/application-development/integrations/massive-redirect-integration/" label="Redirect many addresses at once when a domain migration changes them." />
+</DocCardGroup>

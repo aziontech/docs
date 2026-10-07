@@ -1,0 +1,328 @@
+---
+title: Implantar aplicações full-stack globalmente
+description: >-
+  Implante uma aplicação Next.js a partir do GitHub para que as páginas sejam
+  renderizadas em uma function que lê o SQL Database e os assets venham de um bucket.
+meta_tags: 'full-stack application, next.js, server-side rendering, route handlers, sql database, read replica, object storage, azion github app, functions'
+namespace: use_case_deploy_full_stack_applications_globally
+permalink: /documentacao/casos-de-uso/construir-e-executar-aplicacoes/implantar-aplicacoes-full-stack-globalmente/
+---
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Um time de engenharia de produto constrói uma aplicação web com interface de usuário, lógica de servidor e dados próprios, como um portal de clientes ou um dashboard, para usuários em várias regiões. A interface e a lógica de servidor são entregues juntas a partir de um único repositório Next.js, e os dados são relacionais. Esta página implanta esse repositório a partir do GitHub para que os assets do build sejam servidos de um bucket, as páginas sejam renderizadas a cada requisição por uma function que lê o SQL Database e as gravações passem pela Azion API. Cada push seguinte implanta a aplicação de novo. O resultado é medido pelo tempo de resposta das páginas e da API por região, pela taxa de erros sob carga e pelo tempo entre um commit e a produção.
+
+Este caso de uso não cobre APIs sem interface de usuário, que [Criar APIs REST e GraphQL](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-rest-e-graphql/) cobre, nem frontends cujo backend continua em uma origem existente, que [Implantar aplicações front-end](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/implantar-aplicacoes-front-end/) cobre.
+
+## Pré-requisitos
+
+- Um repositório do GitHub com um projeto Next.js na raiz, em uma versão que a Azion suporta. Para as versões e as funcionalidades, consulte [Versões do Next.js](/pt-br/documentacao/devtools/runtime/frameworks/nextjs-compatibility/).
+- A Azion CLI instalada, com o seu personal token salvo, para as variáveis de ambiente. Para configurá-la, consulte [Primeiros passos com a Azion CLI](/pt-br/documentacao/devtools/cli/primeiros-passos/).
+- SQL Database habilitado na sua conta e a permissão **Edit SQL Database**. O produto está em Preview, então solicite acesso pelo [Technical Support](/pt-br/documentacao/suporte/).
+- Um personal token para as gravações no banco de dados, separado do que a CLI usa, porque a aplicação o armazena. Para criar um, consulte [Personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- Os nomes que esta página usa: `portal-app` para o banco de dados, `projects` para a tabela dele e para a rota de API em `/api/projects`, `PORTAL_DB_ID` e `PORTAL_SQL_TOKEN` para as variáveis de ambiente e `app.example.com` para o domínio. O deploy dá à aplicação um domínio `xxxxxxxxxx.map.azionedge.net`; para servi-la no seu próprio domínio, consulte [Adicione um domínio a um workload](/pt-br/documentacao/guias/plataforma/migracao/configurar-dominio/). Substitua cada valor pelo seu em todos os passos.
+
+---
+
+## Produtos necessários
+
+| A aplicação precisa de | O que significa | Produto | Documentado em |
+| --- | --- | --- | --- |
+| Páginas renderizadas a cada requisição e rotas de API no mesmo projeto | O código de servidor do build Next.js, implantado como uma function que uma regra executa em todo caminho que não é um asset estático | Functions | [Desenvolva com Next.js](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/next/) |
+| Dados relacionais que as páginas leem e as rotas gravam | Leituras de uma read replica do banco de dados dentro da function, e gravações pela Azion API | SQL Database | [Grave linhas no SQL Database a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/) |
+| Assets do build servidos sem executar a function | O resultado estático do build, enviado a um bucket que regras entregam para `/_next/static/` e para tipos de arquivo estático | Object Storage | [Desenvolva com Next.js](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/next/) |
+| Um deploy a cada commit | O repositório importado pelo Azion GitHub App, que implanta cada push | Azion GitHub App (integração) | [Importe um projeto do GitHub](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/importar-um-projeto-existente-do-github/) |
+
+---
+
+## Arquitetura de referência
+
+Esta página constrói a *Aplicação full-stack renderizada no servidor sobre o SQL Database*: um framework de renderização no servidor cujo build se divide em assets estáticos no Object Storage e código de servidor em uma function que lê os armazenamentos da Azion.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Repo["Repositório do GitHub"] -->|"push"| GH["Azion GitHub App"]
+  GH -->|"assets estáticos"| Bucket["Object Storage"]
+  GH -->|"código de servidor"| Fn["Functions"]
+  User["Navegador"] -->|"Requisição HTTPS"| App["aplicação"]
+  App -->|"caminhos de assets estáticos"| Bucket
+  App -->|"caminhos de páginas e de API"| Fn
+  Fn -->|"lê"| Replica["read replica do SQL Database"]
+  Fn -->|"grava pela Azion API"| Main["instância principal do SQL Database"]
+  Fn -.->|"sessões, opcional"| KV["KV Store"]
+```
+
+Leia o diagrama como dois fluxos. O fluxo de publicação vai do repositório pelo Azion GitHub App, que coloca os assets estáticos do build no Object Storage e o código de servidor em uma function. O fluxo de requisição começa na aplicação, que envia os caminhos de assets estáticos para o bucket e todos os outros caminhos para a function. Toda visualização de página inclui, portanto, uma execução da function e uma leitura de dados, então o banco de dados fica dentro do fluxo de requisição e do fluxo de falha, enquanto os assets estáticos não dependem de nenhum dos dois.
+
+### Fluxo de dados
+
+1. Um push no repositório faz o Azion GitHub App construir o projeto. O build envia os assets estáticos para um bucket do Object Storage e implanta o código de servidor como uma function.
+2. A requisição de um navegador chega à aplicação. As regras dela entregam os caminhos sob `/_next/static/` e os tipos de arquivo estático a partir do bucket, sem executar a function.
+3. Uma regra executa a function em todos os outros caminhos. A function renderiza a página, ou responde à rota de API, a cada requisição.
+4. Para renderizar uma página, a function lê o banco de dados por uma read replica com `Database.open`, que recebe o nome do banco de dados e nenhum token. Uma resposta que é a mesma para todo visitante pode ser guardada com a Cache API do runtime e devolvida em requisições seguintes.
+5. Uma rota de API que grava envia o statement ao endpoint de query da Azion API, com o personal token que lê de uma variável de ambiente, e a instância principal aplica a gravação. Um statement que falha ainda responde `200`, com o erro dentro da entrada dele.
+6. Quando uma leitura ou uma gravação falha, a function responde o erro para aquela página ou rota, enquanto as requisições pelos assets do build continuam sendo respondidas pelo bucket.
+
+### Componentes
+
+- **Functions**: executam o código de servidor do build. Elas renderizam cada página sob demanda, respondem às rotas de API e são o único caminho até os dados.
+- **SQL Database**: guarda os dados relacionais. A instância principal recebe todas as gravações, e as read replicas respondem às leituras que uma function envia com `Database.open`, que é somente leitura.
+- **KV Store**: guarda sessões, uma opção de design. Ele tem consistência eventual, então uma sessão gravada em uma localidade pode levar até 60 segundos para ficar visível em todas as outras.
+- **Object Storage**: guarda os assets estáticos do build, em um bucket que a aplicação lê, para que eles sejam entregues sem uma execução de function.
+- **aplicação**: o Platform Resource cujas regras dividem cada requisição entre o bucket e a function, por caminho.
+- **Cache**: guarda as respostas que são as mesmas para todo visitante, para que uma requisição repetida pule a renderização. Uma function guarda uma resposta com a Cache API do runtime, e um `max-age` nela limita por quanto tempo as requisições seguintes a recebem.
+- **Azion GitHub App**: a integração que constrói o repositório a cada push e implanta os assets estáticos e a function, para que um commit chegue à produção sem nenhum passo manual.
+
+### Outros designs para este caso de uso
+
+- *Aplicação full-stack renderizada no servidor sobre um banco de dados externo*: para times cujos dados já estão em um banco de dados gerenciado como Neon, MongoDB Atlas, TiDB ou Turso, que as functions de renderização consultam pelo driver serverless ou pela API HTTP dele. Toda visualização de página fora do cache chega ao banco de dados externo, então a latência e a disponibilidade dele entram nos fluxos de requisição e de falha, e o cache e o agrupamento de consultas passam a ser decisões de design.
+- *Aplicação full-stack renderizada no cliente sobre o SQL Database*: para times que constroem uma single-page application, cuja interface compilada é servida como arquivos estáticos do Object Storage pelo Cache. O navegador renderiza a interface e chama rotas de API que functions respondem a partir do SQL Database, então os carregamentos de página leem só arquivos estáticos, e a interface e a API são implantadas e falham de forma independente.
+- *Aplicação full-stack renderizada no cliente sobre um banco de dados externo*: para single-page applications cujos dados ficam em um banco de dados gerenciado fora da Azion. Os carregamentos de página continuam estáticos, mas toda chamada de dados das functions de API chega ao banco de dados externo, que entra nos fluxos de requisição e de falha da API.
+
+---
+
+## Configure o banco de dados do portal
+
+O portal guarda os registros em um banco de dados chamado `portal-app`. O código de servidor o lê pelo nome e grava nele pelo identificador, então esta seção o cria pela API, cuja resposta de criação retorna esse identificador. O Azion Console também pode criar o banco de dados e executar statements na aba **Editor**, como [Crie e gerencie bancos de dados](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gerenciar-bancos-dados-edge-sql/) mostra.
+
+Para criar o banco de dados:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/sql/databases \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "portal-app"}'
+```
+
+A API responde `202`. Guarde `data.id`: é o identificador em que a rota de API grava.
+
+```json
+{"state":"pending","data":{"id":<database-id>,"name":"portal-app","status":"creating","active":true,...}}
+```
+
+O provisionamento leva cerca de 15 segundos. Envie `GET /v4/workspace/sql/databases/<database-id>` até que `status` mostre `created` e, depois, crie a tabela e uma linha para a primeira página renderizar:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/sql/databases/<database-id>/query \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"statements": [
+    "CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL);",
+    "INSERT INTO projects (name) VALUES ('\''Customer portal'\'');"
+  ]}'
+```
+
+A API responde `200` com `"state": "executed"` e uma entrada por statement. Um statement que falha também responde `200`, com `error` no lugar de `results` na entrada dele, então verifique cada entrada:
+
+```json
+{"state":"executed","data":[{"results":{"columns":[],"rows":[],"rows_read":0,"rows_written":0,...}},...]}
+```
+
+O banco de dados `portal-app` tem a tabela `projects` e uma linha.
+
+---
+
+## Configure as credenciais do banco de dados
+
+O código de servidor do portal lê por uma read replica, que recusa um statement que grava com ``attempt to write a readonly database``. Por isso, a rota de API dele grava pela Azion API e precisa do identificador do banco de dados e de um personal token. Armazene os dois como [Grave linhas no SQL Database a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/) descreve, com os nomes de chave do portal, para que nenhum deles entre no repositório:
+
+```bash
+azion create variables --key PORTAL_DB_ID --value <database-id> --secret false
+azion create variables --key PORTAL_SQL_TOKEN --value <personal-token> --secret true
+```
+
+Uma variável só chega à function depois do deploy seguinte, então crie as duas antes de importar o repositório.
+
+---
+
+## Configure o código de servidor
+
+O código de servidor do portal são dois arquivos do App Router do Next.js: uma página que lista os projetos e um route handler que cria um projeto. Os dois rodam na function que o build implanta. Os dois exportam `dynamic = 'force-dynamic'`, para que o Next.js os renderize a cada requisição em vez de uma única vez no momento do build, quando o banco de dados está fora de alcance.
+
+Adicione a página como `app/page.js`. Ela lê as linhas por uma read replica, com a classe `Database` do global `Azion.Sql`:
+
+```javascript
+export const dynamic = 'force-dynamic';
+
+async function readProjects() {
+  const { Database } = globalThis.Azion.Sql;
+  const connection = await Database.open('portal-app');
+  const rows = await connection.query('SELECT id, name FROM projects ORDER BY id');
+  const projects = [];
+  let row = await rows.next();
+  while (row) {
+    projects.push({ id: row.getValue(0), name: row.getValue(1) });
+    row = await rows.next();
+  }
+  return projects;
+}
+
+export default async function Page() {
+  const projects = await readProjects();
+  return (
+    <main>
+      <h1>Projects</h1>
+      <ul>
+        {projects.map((project) => (
+          <li key={project.id}>{project.name}</li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+```
+
+Adicione o route handler como `app/api/projects/route.js`. Ele envia o insert como [Grave linhas no SQL Database a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/) descreve, com `PORTAL_DB_ID` e `PORTAL_SQL_TOKEN`, e responde `500` quando a requisição ou o statement falha:
+
+```javascript
+export const dynamic = 'force-dynamic';
+
+function json(body, status) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+// The query endpoint takes SQL strings, so a text value is quoted and its quotes doubled.
+function sqlText(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+export async function POST(request) {
+  const { name } = await request.json();
+  if (typeof name !== 'string' || name.length === 0) {
+    return json({ error: 'name is required' }, 400);
+  }
+  const env = globalThis.Azion.env;
+  const response = await fetch(
+    `https://api.azion.com/v4/workspace/sql/databases/${env.get('PORTAL_DB_ID')}/query`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Token ${env.get('PORTAL_SQL_TOKEN')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        statements: [`INSERT INTO projects (name) VALUES (${sqlText(name)}) RETURNING id`],
+      }),
+    },
+  );
+  if (!response.ok) {
+    console.log(`Azion API answered ${response.status}`);
+    return json({ error: 'Internal error' }, 500);
+  }
+  const entry = (await response.json()).data[0];
+  if (entry.error) {
+    console.log(entry.error);
+    return json({ error: 'Internal error' }, 500);
+  }
+  return json({ id: entry.results.rows[0][0], name }, 201);
+}
+```
+
+Faça o commit dos dois arquivos na branch padrão do repositório. A página lista os projetos de `portal-app` a cada requisição, e `POST /api/projects` adiciona um projeto.
+
+---
+
+## Configure o deploy a partir do GitHub
+
+O portal é implantado pelo Azion GitHub App: a importação constrói o repositório uma vez, e cada push seguinte o implanta de novo. O preset _Next.js_ divide o build. Os assets estáticos vão para um bucket que os workloads só podem ler, e o resto roda como uma function. As regras entregam `/_next/static/` e os tipos de arquivo estático a partir do bucket e executam a function em todos os outros caminhos.
+
+Importe o repositório como [Importe um projeto do GitHub](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/importar-um-projeto-existente-do-github/) descreve, com estes valores:
+
+- **GitHub Connection**: o [Azion GitHub App](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/azion-github-app/), instalado com acesso ao repositório que guarda o portal.
+- **Application Name**: `portal-app`. O bucket e a function recebem o mesmo nome.
+- **Preset**: _Next.js_.
+- **Root Directory**: `/`, porque o projeto fica na raiz do repositório.
+- **Install Command**: `npm install`.
+
+A página de deploy mostra o build no painel **Deploy Log**. Um deploy bem-sucedido mostra **Successfully created!** e a URL do domínio da aplicação. O primeiro deploy pode levar vários minutos para responder em todas as localidades; os deploys seguintes levam cerca de dois minutos.
+
+---
+
+## Verifique a configuração
+
+Cada verificação requisita a aplicação no domínio dela. Uma localidade que ainda não tem a aplicação responde com uma página `404` com o texto `There's nothing here yet`; espere alguns minutos e tente de novo.
+
+- **A página é renderizada a partir do banco de dados.** Requisite a página inicial:
+
+  ```bash
+  curl -s https://app.example.com/
+  ```
+
+  O HTML traz a linha que a tabela guarda, na lista que a página renderiza:
+
+  ```text
+  <h1>Projects</h1><ul><li>Customer portal</li></ul>
+  ```
+
+- **Os assets do build vêm do bucket.** Copie uma URL sob `/_next/static/` do HTML da página e requisite-a:
+
+  ```bash
+  curl -sI https://app.example.com/_next/static/<path-from-the-page>
+  ```
+
+  A resposta traz `200`, sem que a requisição chegue à function.
+
+- **Uma rota grava no banco de dados.** Crie um projeto:
+
+  ```bash
+  curl -i -X POST https://app.example.com/api/projects \
+    -H "Content-Type: application/json" \
+    -d '{"name": "Billing dashboard"}'
+  ```
+
+  A resposta traz `201` e o ID que o banco de dados atribuiu:
+
+  ```json
+  {"id":2,"name":"Billing dashboard"}
+  ```
+
+  Um `500` significa que a gravação falhou. Leia a linha que a rota registrou no log, como [Solução de problemas de execução e logs de funções](/pt-br/documentacao/plataforma/functions/solucao-de-problemas/) mostra: `Azion API answered 401` aponta para o valor de `PORTAL_SQL_TOKEN`, e uma mensagem de erro do banco de dados aponta para o statement.
+
+- **A página mostra a gravação.** Requisite a página inicial de novo. A lista traz os dois projetos.
+
+- **Um push implanta.** Mude o texto do `<h1>`, faça o commit e o push na branch padrão. Requisite a página inicial depois que o deploy se propagar. O HTML traz o novo título.
+
+---
+
+## Medindo resultados
+
+| Métrica | Onde ler | Como fica quando funciona |
+| --- | --- | --- |
+| Tempo de resposta das páginas e da API por região | **Average Request Time** no dashboard **Requests** do Real-Time Metrics, filtrado por **Host** pelo domínio da aplicação e por **Country**. Consulte [Filtre um dashboard de Real-Time Metrics](/pt-br/documentacao/guias/plataforma/observabilidade/adicionar-filtros-metrics/) | Comparável entre os países de onde os seus usuários acessam e estável conforme o tráfego cresce |
+| Time to first byte nos navegadores dos seus usuários | O campo `ttfb` do dataset `pulseEvents`, agrupado por `locationhref`, depois que a tag do Edge Pulse está no layout do portal. Consulte [Primeiros passos com Edge Pulse](/pt-br/documentacao/plataforma/edge-pulse/primeiros-passos/) | Estável nas páginas que leem o banco de dados e sem subir depois de um deploy |
+| Taxa de erros sob carga | **HTTP Status Codes 5XX** no dashboard **Status Codes**, filtrado pelo domínio da aplicação. Consulte [Dashboards de Build](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-build/#status-codes) | Nenhuma série de `500` subindo com o volume de requisições; uma subida aponta para uma leitura ou gravação que falhou, que a function registra no log |
+| Tempo entre um commit e a produção | O tempo entre um push e a primeira requisição que retorna a mudança, como mostra a verificação de push em Verifique a configuração | Cada push responde com a mudança, em cerca de dois minutos para um deploy depois do primeiro |
+
+---
+
+## Boas práticas
+
+- **Renderize a cada requisição só o que lê o banco de dados.** Uma página exportada com `dynamic = 'force-dynamic'` executa a function e lê uma réplica a cada visualização. Deixe as páginas que não leem nada com os padrões do Next.js, para que o build as grave como resultado estático.
+- **Verifique cada statement, não o status HTTP.** O endpoint de query responde `200` quando um statement falha, com `error` na entrada dele. Uma rota que lê só o status reporta um insert que falhou como criado:
+
+  ```javascript
+  const entry = (await response.json()).data[0];
+  if (entry.error) throw new Error(entry.error);
+  ```
+
+- **Mantenha o token de gravação fora do repositório.** Cada push é construído a partir do repositório, então um token commitado nele chega a todos que o leem. Uma variável de ambiente da conta chega só à function, e uma variável secreta nunca é exibida pela CLI.
+- **Dê ao token de gravação uma expiração planejada.** Um personal token expira na data escolhida quando ele é criado, e todas as gravações falham a partir desse momento. Substitua-o antes disso e implante de novo, já que um novo valor de variável só chega à function em um deploy. Para as opções de expiração, consulte [Personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- **Mantenha as sessões fora de um armazenamento que precisa estar atualizado em todos os lugares ao mesmo tempo.** O KV Store, o lugar habitual para sessões neste design, tem consistência eventual: uma gravação pode levar até 60 segundos para ficar visível em todas as localidades. Para o que isso significa para uma sessão, consulte [Como o KV Store funciona](/pt-br/documentacao/plataforma/kv-store/como-funciona/).
+
+---
+
+## Guias deste caso de uso
+
+<DocCardGroup cols={2}>
+  <DocCard title="Grave linhas no SQL Database a partir de uma function" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/" label="Armazena as credenciais do banco de dados como variáveis de ambiente e envia as gravações que a rota de API faz." />
+  <DocCard title="Importe um projeto do GitHub" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/importar-um-projeto-existente-do-github/" label="Importa o repositório do portal com o preset Next.js, para que cada push implante os assets e a function." />
+</DocCardGroup>

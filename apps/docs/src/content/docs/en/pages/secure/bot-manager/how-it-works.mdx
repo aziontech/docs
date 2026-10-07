@@ -1,0 +1,109 @@
+---
+title: Bot scoring
+description: >-
+  See how Bot Manager builds a score, what the threshold decides, and how
+  fingerprints, session cookies, and modes shape that score.
+meta_tags: 'bot manager, bot manager lite, bot scoring, threshold, action, fingerprint, engine version, dynamic score, under evaluation, session cookies, api mode'
+namespace: documentation_products_bot_manager_how_it_works
+permalink: /documentation/platform/firewall/bot-manager/bot-scoring/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Bot management judges a request by a score rather than by one decisive test. Each check that finds something adds points, and a threshold you set decides which scores are acted on. For where Bot Manager acts in a firewall's request path, refer to [How Firewall works](/en/documentation/platform/firewall/how-it-works/#bot-manager).
+
+The sections cover scoring, from score to action, fingerprints and engine versions, the dynamic score, under evaluation, session cookies, and web and API modes.
+
+---
+
+## Scoring
+
+Bot Manager does not decide on one signal. Each rule a request matches adds a fixed number of points, and the score is the sum of those increments, so `0` means no rule matched. A static rule checks one attribute of a single request, such as a header or a piece of metadata, with no reference to what the same client did before. The rules fall into classes: bad bot signatures, scripted bots, malicious browser behavior, malicious intent, reputation intelligence, and cloud provider. Bot Manager does not inspect a request for application vulnerabilities: that is [WAF](/en/documentation/platform/firewall/how-it-works/#waf), and the two run on the same firewall.
+
+Every rule carries an ID, which names a match in the report log. [Bot Manager Lite](/en/documentation/platform/firewall/bot-manager/bot-manager-lite/) does not process a rule listed in its `disabled_rules` argument, so that rule adds nothing. Bot Manager keeps a rule listed in `disabled_static_rules` running and reports its matches in `disabled_matched_rules`, without adding to the score. For both arguments, refer to [Arguments](/en/documentation/platform/firewall/bot-manager/arguments/#disabled-rules).
+
+Every rule carries its own increment, so a request that trips several light checks reaches the same total as one that trips a single heavy check. That is what a score buys, and also what it costs: a client that resembles automation in several small ways scores like a bot that failed one decisive check.
+
+Two records name what the scoring found, and the request declares neither. `bot_category` joins the classes of the rules that matched. A request matching rules classed bad bot signatures and malicious intent is recorded as `Bad Bot Signatures, Malicious Intent detected`. `classified` is the verdict: legitimate traffic, a good bot, or a bad bot, with a fourth value for a request Bot Manager cannot place yet. For the values of both, refer to [Logs](/en/documentation/platform/firewall/bot-manager/logs/#classification).
+
+`classified` is a verdict about the score, not a property of the request: it compares the score with the threshold in force when the request arrived. One request scoring `28` from the same five rules was classified `legitimate` under a threshold of `30` and `bad bot` under a threshold of `1`. Raising a threshold therefore relabels traffic as well as stopping the action. A count of classifications is comparable across two periods only when the threshold was the same in both.
+
+The reputation check runs on both editions. Bot Manager checks the client address against Network Lists that Azion maintains, covering Tor exit nodes, reputation, proxies, malware, and fraud. An address found on one raises the score. Bot Manager Lite runs the same check as rule `14`, against the lists named in `reputation_network_lists`, and adds 6 points for each list the address is found in. Bot Manager also runs a dynamic score, which Bot Manager Lite does not.
+
+A score means something only against the threshold it is compared with. Bot Manager documents a threshold of `18` as the value to start from, and Bot Manager Lite ships `30`. Where to move it from there is a question about your own traffic rather than about the score. For more information, refer to [Firewall best practices](/en/documentation/platform/firewall/best-practices/).
+
+---
+
+## From score to action
+
+Bot Manager compares a request's score with the instance's `threshold` argument, and the threshold itself counts. A score equal to or higher than the threshold is acted on, and a lower score continues to the application. One instance holds one threshold and one action, so scoring two slices of traffic against two thresholds takes two instances, each named by its own rule.
+
+Seven actions answer a request in three ways. `allow`, `deny`, and `drop` decide it: `deny` answers `403` with Azion's default error page, and `drop` ends the request without a response. `random_delay` and `hold_connection` delay the answer, which raises the cost of an attack, because the attacker waits on one request instead of sending the next. `redirect` and `custom_html` replace the response with one of your own. For what each action does, and the second argument two of them need, refer to [Arguments](/en/documentation/platform/firewall/bot-manager/arguments/#action).
+
+A challenge behind the `redirect` action, such as an ALTCHA challenge, asks the client to prove it is a person. A request the score placed wrongly therefore keeps a way through. The redirected request arrives back at the firewall, so the challenge function has to run before Bot Manager in the firewall's Rules Engine. A Bot Manager score taken before the challenge function sees the request redirects it again. For more information, refer to [Protect a route with an ALTCHA challenge](/en/documentation/guides/application-development/functions-and-runtime/altcha/).
+
+A `threshold` of `0` does not block every request. Every score is `0` or higher, so the action fires on every request, and the outcome is whatever the action does. With `action` set to `deny` every request is refused, and with `action` set to `allow` nothing is blocked.
+
+---
+
+## Fingerprints and engine versions
+
+A fingerprint is the identifier Bot Manager derives for the client behind a request, one for each device it sees. It is built from what the request and the device's session carry, such as the IP address and the `User-Agent` header. The fingerprint makes a score about a client rather than about one request: when the same fingerprint returns, it brings what Bot Manager already knows about it.
+
+The engine version selects how the fingerprint is derived. Version `1` is the default, and the fallback whenever `engine_version` is absent or invalid. Its primary source is the client fingerprint that the JavaScript Tag or an SDK reports, and its secondary source is a JA4 server fingerprint. Version `2` keeps the same primary source and takes a JA4H fingerprint as its secondary. JA4H reads higher-level data such as HTTP headers, which reduces collisions, where two distinct users or devices share one fingerprint and are scored as one identity.
+
+The richer the source, the less the engine infers. The JavaScript Tag collects non-sensitive data from a browser only to calculate that browser's fingerprint, and the SDKs report device data from a mobile application. Neither is required. Without one, the fingerprint rests on what the request already carries, which makes a collision more likely. For more information, refer to [Install the JavaScript Tag](/en/documentation/guides/application-development/integrations/javascript-tag-js-tag/). For the fingerprint as a report line records it, refer to [Logs](/en/documentation/platform/firewall/bot-manager/logs/#fields).
+
+---
+
+## The dynamic score
+
+Bot Manager runs a second scoring method alongside the static rules, and Bot Manager Lite does not: a Bot Manager Lite score comes from static rules alone. The dynamic method compares the behavioral history of a device fingerprint with the overall traffic pattern of the host. A request that breaks no rule can still be anomalous when the fingerprint behind it behaves unlike the rest of that host's traffic.
+
+Two arguments control the method. `dynamic_rules_tolerance` sets how strict it is, and `disable_dynamic_rules` set to `true` turns it off. Its baseline is the host's own traffic, so the method follows that traffic as it changes, which lets it catch anomalies the static rules were not written for. For the values each argument takes, refer to [Arguments](/en/documentation/platform/firewall/bot-manager/arguments/#dynamic-rules).
+
+That adaptation costs time. Consolidating the data behind a fingerprint takes up to 15 minutes. Within that window, the method has nothing to say about a fingerprint it is seeing for the first time.
+
+---
+
+## Under evaluation
+
+A fingerprint that Bot Manager is seeing for the first time is not classified yet. Its score takes up to 15 minutes to consolidate, and recording it as legitimate or as a bot before then would put imprecise data into the host's score. Bot Manager records `under evaluation` for those requests instead, so a visitor arriving for the first time is not refused for being new.
+
+Two other conditions return a fingerprint to that state. A fingerprint not seen for 15 minutes or more returns to it. So does every fingerprint on a host whose overall traffic stopped for more than 15 minutes. Neither interferes with later detection. Both mean that the data behind a verdict went stale, not that the request is suspect.
+
+The state is an absence of evidence rather than a finding, so a high volume of it says how much traffic Bot Manager has not placed yet. For the verdict values and where each one is recorded, refer to [Logs](/en/documentation/platform/firewall/bot-manager/logs/#under-evaluation).
+
+---
+
+## Session cookies
+
+Bot Manager Lite asks a client to carry a session. At the shipped threshold of `30`, a browser-shaped request with no cookie passes to the application: one with a Chrome user agent, `Accept`, `Accept-Language`, `Accept-Encoding`, four `Sec-Fetch-*` headers, and `Upgrade-Insecure-Requests`. A request without a browser's headers, such as one sent by `curl` with or without its default user agent, receives a `204` with no body and two cookies instead.
+
+`az_botm` carries the `x-azion-request-id` of the response that set it. `az_asm` carries a signed copy of that value, an opaque 84-character HMAC signed with the key in the `session_signature_key` argument. On a later request, the function checks the two against each other. Three rules read the pair. Rules `15` and `16` score a `POST`, `PUT`, or `PATCH` that arrives without `az_botm` or without `az_asm`, and rule `17` scores a failed integrity check between them.
+
+Both cookies carry the same attributes: `Domain` set to the workload domain, `Path=/`, `Max-Age=86400`, which is 24 hours, `Secure`, `HttpOnly`, and `SameSite=Lax`. `HttpOnly` keeps the pair out of reach of page scripts, and `Secure` keeps it off plain HTTP.
+
+The session costs the cooperation of the client. A client that keeps no cookies never presents a pair, so every request it sends is a first request. A stale pair does not pass quietly either. A browser-shaped request that passes with no cookie is answered with a new `204` exchange once a pair that does not verify is attached, and three requests in a row that resent the pair from an earlier `204` each received `204` again. That suits a browser and fails a monitor, a health check, or an API consumer that keeps no cookies. Such a client receives a `204` with no body, indefinitely. For that symptom, refer to [Troubleshoot Firewall](/en/documentation/platform/firewall/troubleshooting/).
+
+---
+
+## Web and API modes
+
+Bot Manager runs in one of two modes, set by the `mode` argument. `web`, the default, is for cookie-compatible clients such as browsers, and `api` is for web services and API traffic that carries no cookies. The comparison is case-sensitive and lowercase, so any value other than `api` selects `web`, including `API`. Bot Manager documents the `mode` argument, and Bot Manager Lite ships no default for it.
+
+In `api` mode, Bot Manager sets no cookie and ignores every rule that reads the session pair. That makes the mode usable in front of an API, because a client that was never going to keep a cookie is not scored for failing to keep one. It also takes the session out of the evidence, so the remaining checks carry the decision alone, and the same traffic scores differently in the two modes. For the values the argument takes, refer to [Arguments](/en/documentation/platform/firewall/bot-manager/arguments/#mode).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Bot Manager Lite" href="/en/documentation/platform/firewall/bot-manager/bot-manager-lite/#rules">The static rules that edition scores against, each with its ID, the points it adds, and its class.</DocItem>
+  <DocItem title="Arguments" href="/en/documentation/platform/firewall/bot-manager/arguments/">Every argument an instance carries, with its type, its default, and the values it takes.</DocItem>
+  <DocItem title="Logs" href="/en/documentation/platform/firewall/bot-manager/logs/">The fields of a report line and the verdicts Bot Manager records about a scored request.</DocItem>
+  <DocItem title="Monitor and calibrate Bot Manager" href="/en/documentation/guides/application-security/bots-and-network/monitor-and-calibrate-bot-manager/">The procedure that sets a threshold and rules from the scores your own traffic produces.</DocItem>
+</ItemList>
+</FrameBox>

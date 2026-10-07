@@ -26,7 +26,10 @@
 
 ## What's in here
 
-Published content lives in `src/content/docs/`, split into `en` and `pt-br`. Pages are `.mdx`, so a page can pull in front-end components instead of being limited to prose. The site covers product reference, API reference, guides, use cases, and code samples.
+The repository is a pnpm workspace with two apps:
+
+- `apps/docs`: the Astro site. Published content lives in `apps/docs/src/content/docs/`, split into `en` and `pt-br`. Pages are `.mdx`, so a page can pull in front-end components instead of being limited to prose. The site covers product reference, API reference, guides, use cases, and code samples.
+- `apps/redirects-massive`: the Azion edge function that serves the docs redirect map, one JSON file per language in `apps/redirects-massive/src/redirects/{en,pt-br}/doc.json`.
 
 English is the source of truth. Portuguese mirrors it, and divergence is tracked in an `i18n` issue rather than left silent.
 
@@ -50,6 +53,8 @@ Before you open a pull request:
 pnpm build:local     # build + frontmatter validation
 pnpm lint:slugcheck  # permalink rules
 ```
+
+The site scripts run from the repository root; `pnpm <script>` forwards to `apps/docs`. Run a script of another app with `pnpm -F <app> <script>`, for example `pnpm -F redirects-massive test`.
 
 pnpm is the package manager of record. Do not commit npm or yarn lockfiles.
 

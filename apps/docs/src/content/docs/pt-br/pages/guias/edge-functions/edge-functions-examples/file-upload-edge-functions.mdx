@@ -1,0 +1,323 @@
+---
+title: Implemente upload de arquivos com Functions
+description: >-
+  Construa um endpoint Hono que verifica o arquivo enviado e o grava em um
+  bucket do Object Storage a partir de uma função.
+meta_tags: 'functions, file upload, object storage, hono, multipart form, azion cli'
+namespace: docs_guides_file_upload
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/upload-arquivos-functions/
+---
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Neste tutorial, você vai construir um endpoint de upload que armazena cada arquivo recebido em um bucket do [Object Storage](/pt-br/documentacao/plataforma/object-storage/). Você vai criar um projeto Hono, escrever o handler de upload, criar um bucket com acesso de escrita, fazer o deploy do projeto e enviar um arquivo para ele.
+
+O código completo deste exemplo está no [pacote file-upload](https://github.com/egermano/edge-functions-examples/tree/main/packages/file-upload) do repositório de exemplos de functions.
+
+---
+
+## Pré-requisitos
+
+- Uma conta Azion. Para criar uma, consulte [Como criar uma conta na Azion](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- Azion CLI instalada. Consulte [Azion CLI](/pt-br/documentacao/devtools/cli/).
+- Object Storage habilitado na sua conta. Consulte [Object Storage](/pt-br/documentacao/plataforma/object-storage/).
+- [Node.js](https://nodejs.org/) versão 18 ou superior.
+- Um terminal e um editor de código.
+
+---
+
+## 1. Crie o projeto
+
+Azion CLI cria um projeto a partir de um preset de framework. Para o passo a passo completo com Hono, consulte [Deploy de aplicação Jamstack com Hono](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/hono/).
+
+Para criar o projeto:
+
+<DocSteps>
+  <DocStep title="Autentique Azion CLI">
+
+  Execute o comando de login:
+
+  ```bash
+  azion login
+  ```
+
+  Sem as flags de credencial, a CLI abre um fluxo pelo navegador. Ela armazena as credenciais localmente, e todo comando seguinte é autorizado na sua conta.
+
+  </DocStep>
+  <DocStep title="Inicialize o projeto">
+
+  Execute Azion CLI no diretório que guarda seus projetos:
+
+  ```bash
+  azion init
+  ```
+
+  </DocStep>
+  <DocStep title="Nomeie o projeto">
+
+  Digite um nome ou pressione `enter` para aceitar a sugestão:
+
+  ```sh
+  ? Your application's name:  (black-thor)
+  ```
+
+  </DocStep>
+  <DocStep title="Selecione o preset Hono">
+
+  Azion CLI lista um preset por framework:
+
+  ```sh
+  ? Choose a preset:  [Use arrows to move, type to filter]
+    Angular
+    Astro
+    Docusaurus
+    Eleventy
+    Emscripten
+    Gatsby
+    Hexo
+  > Hono
+    Hugo
+    Javascript
+    ...
+  ```
+
+  </DocStep>
+  <DocStep title="Selecione um dos templates disponíveis" />
+  <DocStep title="Responda N ao prompt do servidor de desenvolvimento local">
+
+  Os estágios seguintes fazem o deploy do projeto em vez de executá-lo localmente:
+
+  ```sh
+  Do you want to start a local development server? (y/N)
+  ```
+
+  </DocStep>
+  <DocStep title="Acesse a pasta do projeto">
+
+  Azion CLI nomeia a pasta com o nome do projeto:
+
+  ```bash
+  cd <your-project-name>
+  ```
+
+  </DocStep>
+</DocSteps>
+
+A pasta contém o código-fonte da aplicação Hono que o template fornece.
+
+---
+
+## 2. Escreva o handler de upload
+
+O handler responde a uma requisição `POST` em `/upload`. Ele faz o parse do formulário multipart, verifica o arquivo e o grava em um bucket. A gravação passa pelo método `createObject` da [Biblioteca Storage da Azion](/pt-br/documentacao/devtools/azion-lib/storage/).
+
+O campo `entry` do `azion.config.js` indica o arquivo de entrada do projeto. Abra esse arquivo e substitua o conteúdo dele por este código:
+
+```typescript
+import type { AzionBucketObject, AzionStorageResponse } from "azion/storage";
+import { createObject } from "azion/storage";
+import { Hono } from "hono";
+
+const app = new Hono();
+
+app.post("/upload", async (c) => {
+  const body = await c.req.parseBody();
+  const file = body["file"];
+
+  if (
+    !file ||
+    typeof file !== "object" ||
+    typeof file.arrayBuffer !== "function"
+  ) {
+    return c.json({ message: "Invalid file" }, 400);
+  }
+
+  const maxSize = 2 * 1024 * 1024; // 2 MB, em bytes.
+  if (file.size > maxSize) {
+    return c.json({ message: "File size exceeds 2MB limit" }, 413);
+  }
+
+  try {
+    const { data: newObject, error }: AzionStorageResponse<AzionBucketObject> =
+      await createObject({
+        bucket: Azion.env.get("BUCKET_NAME")!,
+        key: file.name,
+        // @ts-expect-error content is wrongly typed
+        content: await file.arrayBuffer(),
+      });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (newObject) {
+      console.log(`Object created with key: ${newObject.key}`);
+    } else {
+      console.error("Failed to create object", error);
+    }
+
+    // @ts-expect-error content is wrongly typed
+    const content = new Uint8Array(newObject.content);
+
+    return c.body(content, {
+      status: 200,
+      headers: {
+        "Content-Type": file.type,
+        "Content-Disposition": `attachment; filename="${newObject?.key}"`,
+        "Content-Length": newObject?.size?.toString() ?? "0",
+      },
+    });
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    return c.json({ message: "Error uploading file" }, 500);
+  }
+});
+
+export default app;
+```
+
+`export default app` é o padrão de handler ES Modules, que Azion recomenda em vez do padrão Service Worker. O código toma quatro decisões:
+
+- Um campo `file` que não contém um arquivo retorna `400` com o corpo `{"message":"Invalid file"}`.
+- Um arquivo acima da constante `maxSize` de 2 MB retorna `413` com o corpo `{"message":"File size exceeds 2MB limit"}`.
+- `createObject` grava o arquivo no bucket nomeado pela variável de ambiente `BUCKET_NAME`. A chave do objeto é o nome do arquivo.
+- Uma falha dentro de `createObject` retorna `500` com o corpo `{"message":"Error uploading file"}` e a exceção chega aos logs da função.
+
+:::caution[Atenção]
+O exemplo monta a chave do objeto a partir de `file.name`, um valor que a requisição fornece. Um upload que reutiliza uma chave de objeto existente substitui o objeto, e a versão anterior não pode ser recuperada. Monte a chave a partir de um valor que sua aplicação controla, para que um upload não substitua outro. Remova separadores de caminho e caracteres de controle de qualquer valor da requisição que chega a uma chave. A requisição também fornece `file.type`, então verifique esse valor contra os tipos que o endpoint aceita.
+:::
+
+---
+
+## 3. Configure as permissões de armazenamento
+
+O nível de acesso de um bucket decide o que Azion Runtime faz com ele. Uma função grava objetos apenas em um bucket cujo acesso é `read_write`. Um bucket definido como `read_only` responde a leituras e rejeita gravações. Azion Runtime não alcança nenhum conteúdo em um bucket definido como `restricted`.
+
+:::caution[Atenção]
+Qualquer usuário pode modificar o conteúdo de um bucket definido como `read_write`. Quando uma função alcança o bucket, o código dessa função decide o que chega ao armazenamento. Mantenha a validação no handler.
+:::
+
+O nome de um bucket é único entre todas as contas Azion. Ele tem de 6 a 63 caracteres, aceita letras, números e o hífen (`-`) e nunca começa com `azion`.
+
+O handler lê o nome do bucket na variável de ambiente `BUCKET_NAME`. Para criar o bucket e armazenar seu nome:
+
+<DocSteps>
+  <DocStep title="Crie o bucket em que o handler grava">
+
+  ```bash
+  azion create storage bucket --name "<your-bucket-name>" --workloads-access 'read_write'
+  ```
+
+  O bucket existe na sua conta e Azion Runtime grava objetos nele.
+
+  </DocStep>
+  <DocStep title="Armazene o nome do bucket na sua conta">
+
+  Insira o mesmo nome que você deu ao bucket:
+
+  ```bash
+  azion create variables --key "BUCKET_NAME" --value "<your-bucket-name>" --secret false
+  ```
+
+  </DocStep>
+</DocSteps>
+
+A variável fica armazenada na conta e a função a lê com `Azion.env.get('BUCKET_NAME')`. Uma variável cuja chave contém `password`, `pwd`, `secret`, `key`, `hash`, `encrypted`, `passcode`, `auth` ou `token` é enviada como secret por padrão. A chave `BUCKET_NAME` não contém nenhuma dessas substrings. A flag `--secret` tem `true` como valor padrão, então `--secret false` armazena o nome do bucket como um valor comum. Um novo valor alcança a função apenas depois de um novo deploy.
+
+---
+
+## 4. Faça o deploy do projeto
+
+Para enviar o projeto para Azion:
+
+<DocSteps>
+  <DocStep title="Confirme qual conta Azion CLI usa">
+
+  Imprima a conta autenticada:
+
+  ```bash
+  azion whoami
+  ```
+
+  O terminal imprime o endereço de e-mail da conta em que os comandos são executados.
+
+  </DocStep>
+  <DocStep title="Faça o deploy do projeto">
+
+  Na pasta do projeto, execute:
+
+  ```bash
+  azion deploy
+  ```
+
+  </DocStep>
+</DocSteps>
+
+O deploy envia o código da função e configura a aplicação. Ele também cria as regras de roteamento, aplica as permissões de armazenamento e retorna um domínio. O domínio tem o formato `https://xxxxxxx.map.azionedge.net`. A propagação leva alguns minutos, então aguarde antes de fazer a requisição ao endpoint.
+
+:::note[nota]
+Azion CLI abre o navegador na página de Azion Console que contém os logs do deploy. Quando o navegador não abre, use o link que o terminal imprime.
+:::
+
+---
+
+## 5. Verifique o upload
+
+Para armazenar um arquivo pelo endpoint:
+
+<DocSteps>
+  <DocStep title="Crie um arquivo de texto">
+
+  Escreva uma linha em um arquivo local:
+
+  ```bash
+  echo "Azion file upload test" > upload-test.txt
+  ```
+
+  O arquivo `upload-test.txt` existe no diretório atual.
+
+  </DocStep>
+  <DocStep title="Envie o arquivo para a rota de upload">
+
+  Envie o arquivo em um formulário multipart, no campo `file`:
+
+  ```bash
+  curl -F "file=@upload-test.txt" https://<your-azion-domain>/upload
+  ```
+
+  O corpo da resposta carrega o objeto armazenado:
+
+  ```text
+  Azion file upload test
+  ```
+
+  </DocStep>
+  <DocStep title="Liste os objetos do bucket">
+
+  Leia as chaves que o bucket contém:
+
+  ```bash
+  azion list storage object --bucket-name "<your-bucket-name>"
+  ```
+
+  A chave `upload-test.txt` aparece na lista.
+
+  </DocStep>
+</DocSteps>
+
+O endpoint passa a armazenar todo arquivo que aceita. Uma requisição cujo campo `file` não contém um arquivo responde `400` e um arquivo acima de 2 MB responde `413`. Quando uma requisição responde `500`, leia os logs da função para encontrar a exceção.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Object Storage" href="/pt-br/documentacao/plataforma/object-storage/" label="Permissões de bucket, chaves de objeto, prefixos e as classes de operação que são cobradas." />
+  <DocCard title="Biblioteca Storage da Azion" href="/pt-br/documentacao/devtools/azion-lib/storage/" label="Todos os métodos de azion/storage, incluindo getObjectByKey, updateObject e deleteObject." />
+  <DocCard title="Variáveis de ambiente" href="/pt-br/documentacao/plataforma/functions/environment-variables/" label="Armazene configurações e segredos fora do código da função e leia cada valor por chave em tempo de execução." />
+  <DocCard title="Solução de problemas de execução e logs de funções" href="/pt-br/documentacao/plataforma/functions/solucao-de-problemas/" label="As correções para uma função que nunca executa, para antes de responder ou não escreve nada nos logs." />
+  <DocCard title="Boas práticas de Functions" href="/pt-br/documentacao/plataforma/functions/boas-praticas/" label="O que cada parte do handler faz e as escolhas de design que mantêm uma invocação dentro dos limites." />
+  <DocCard title="Limites de Functions" href="/pt-br/documentacao/plataforma/functions/limites/" label="O tamanho de corpo que uma função processa por plano e todos os outros limites de Functions." />
+</DocCardGroup>

@@ -18,7 +18,7 @@ How contributions move through `aziontech/docs`: who owns what, what needs whose
 |---|---|---|
 | DevRel | The default owners in [CODEOWNERS](CODEOWNERS) | The project: content, style, IA, i18n, roadmap. Default owner and the final say on everything |
 | DevRel lead | The project owner named under Escalation | The calls that are hard to undo: deleting pages, IA changes, changes to this document |
-| UX Engineering | `@aziontech/team-uxe` | Platform code: `src/` components, config, CI. Co-reviews with DevRel |
+| UX Engineering | `@aziontech/team-uxe` | Platform code: `apps/docs/src/` components, config, CI. Co-reviews with DevRel |
 | Product content | `@aziontech/product-content` | Published content and translations |
 | SMEs | The relevant product team | Technical accuracy in their area |
 | Contributors | Anyone, internal or external | Proposing changes through an issue and a PR |
@@ -34,7 +34,7 @@ Technical content passes two gates: an SME confirms it's true, and DevRel confir
 | New page | Yes | 1 SME + 1 DevRel |
 | Delete or move a page, change a permalink | Yes | 1 DevRel + DevRel lead, and the redirect ships in the same PR |
 | Nav, menu, or IA change | Yes | DevRel lead + 1 UXE |
-| Platform code (`src/`, config, CI) | Yes | 1 UXE + 1 DevRel |
+| Platform code (`apps/docs/src/`, config, CI) | Yes | 1 UXE + 1 DevRel |
 | Change to this document | Yes, as a proposal | DevRel lead, with a comment window for affected teams |
 
 ## How a change moves
@@ -66,11 +66,50 @@ AI-assisted PRs follow the same rules as any other. The author, not the agent, i
 
 ## What CI checks
 
-On every PR: the site builds, frontmatter namespaces and permalinks are present and unique, and the PR title matches the convention. A broken build or a duplicate permalink blocks the merge.
+Three checks have to be green to merge, and each one is its own workflow.
 
-Weekly: a link check crawls the built site for broken internal links and opens an issue when it finds them.
+**CI gate** is the aggregator. A `changes` job reads the diff and decides which of the jobs below
+run, so a PR that only touches `.mdx` never pays for the platform checks. The gate passes when
+every job it covers either succeeded or was cleanly skipped, which is what lets a job be added or
+switched off without editing branch protection.
 
-Everything else in this document is a convention that reviewers uphold, which is how most of it will always work.
+- The site builds, and frontmatter namespaces and permalinks are present and unique. A broken
+  build or a duplicate permalink blocks the merge.
+- The navigation tree validates. A broken entry there takes down every page at once, so this one
+  blocks outright.
+- ESLint, Prettier and Stylelint run **over the files the PR changed**. Over the whole tree they
+  report debt nobody in a given PR created; scoped to the diff they mean what you touch, you leave
+  clean.
+- Dependencies are audited and the diff is scanned for verified secrets. This repository is
+  public: a token pasted into an example goes into the history and does not come out.
+
+**Internal links** builds the site and checks every internal link in it.
+
+**Design system adoption** runs the design-system ESLint rules over the UI and the MDX content,
+writes the result to the run Summary — how many violations there are, which rules, which files, and
+what the check did *not* look at — and then fails if the count is higher than the baseline frozen in
+`ci/baselines.json`. The report comes first and always, so the number reaches you whatever the check
+decides; the check itself is one of the ratchets below.
+
+### Checks that ratchet
+
+Five checks carry more debt than any one PR can clear, so they are frozen at a baseline in
+`ci/baselines.json` and fail only on a number that **grows**: high/critical vulnerabilities, type
+errors from `astro check`, translations whose slug does not match the English page, broken internal
+links (most of those are links to `www.azion.com` pages that live in the site repository, not here),
+and design-system violations. The current numbers are in `ci/baselines.json`; this document does not
+repeat them, because a number copied into prose goes stale the first time someone fixes something.
+
+The count can fall and the baseline is then behind, which is reported and never punished. Whoever
+lowers a count lowers its baseline in the same PR — `pnpm ci:ratchet <check> --update`, then commit
+`ci/baselines.json` — because until the number moves, the check tolerates exactly that many
+regressions from the next PR. CI annotates the PR when a baseline is behind, with that command in
+the annotation. A ratchet whose command stops producing a number **fails**
+rather than passing, because a check that silently measures nothing is worse than no check at all —
+which is exactly what the link checker did for as long as it existed.
+
+Everything else in this document is a convention that reviewers uphold, which is how most of it will
+always work.
 
 ## Review expectations
 

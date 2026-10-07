@@ -1,0 +1,131 @@
+---
+title: Deduplicate webhook deliveries with KV Store
+description: >-
+  Skip a webhook event your function already handled, with one key per event ID
+  in KV Store, written only after the work succeeds.
+meta_tags: 'kv store, webhooks, idempotency, deduplication, event id, azion.kv, expirationTtl, eventual consistency, functions'
+namespace: docs_guides_deduplicate_webhook_deliveries_with_kv_store
+permalink: /documentation/guides/application-development/data/deduplicate-webhook-deliveries-with-kv-store/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+You mark each webhook event that a function handled with a key in KV Store, and the function skips an event whose key already exists, from the Azion API and the function's code. To read and write keys for other purposes, refer to [Manage key-value data from a function](/en/documentation/guides/application-development/data/manage-with-functions/).
+
+A provider that does not see a delivery acknowledged sends the same event again, so one event can reach the function more than once. A key per event ID lets the function recognize a repeat and answer it without doing the work twice.
+
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Req["A verified delivery reaches the function"] --> Seen{"A key for the event ID exists?"}
+  Seen -->|"yes"| Skip["Answer 200, skip the work"]
+  Seen -->|"no"| Work{"Does the work succeed?"}
+  Work -->|"no"| Fail["Answer 500, write no key"]
+  Work -->|"yes"| Put["Write the key, with an expiration"]
+  Put --> Done["Answer 200"]
+```
+
+1. The function reads the key for the event ID. A value means an earlier delivery of the event was handled, so the function answers `200` and does nothing else.
+2. Without a key, the function does the work the event triggers.
+3. When the work fails, the function answers `500` and writes no key, so the provider's next delivery runs the work again.
+4. When the work succeeds, the function writes the key with an expiration and answers `200`.
+
+---
+
+## Prerequisites
+
+- KV Store enabled on your account. The product is in Preview and is not enabled by default, so request access through [Technical Support](/en/documentation/support/).
+- A [personal token](/en/documentation/guides/platform/account-and-billing/personal-tokens/) for the API call that creates the namespace.
+- A function that receives the provider's webhook and verifies its signature, such as the handler that [Build a Stripe webhook handler with Functions](/en/documentation/guides/application-development/functions-and-runtime/stripe-webhooks-functions/) builds. Each event the provider sends carries an ID that stays the same across its deliveries.
+
+The examples use the namespace `webhook-events`, keys of the form `event:<event-id>`, and an expiration of `86400` seconds. Replace them with your own values.
+
+---
+
+## Create the namespace
+
+A namespace is created through the Azion API, and a function only opens one that already exists. A namespace cannot be renamed or deleted, and two names that differ only in case are two namespaces, so create it once, in lowercase. A name runs 3 to 63 characters of letters, numbers, the hyphen, and the underscore.
+
+To create the namespace, send its name to the KV Store API:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/kv/namespaces \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token <personal-token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "webhook-events"}'
+```
+
+The API answers `201` with the namespace. The request is synchronous, and there is no provisioning state to poll:
+
+```json
+{"name":"webhook-events","created_at":"...","last_modified":"..."}
+```
+
+The `webhook-events` namespace exists and is empty. For every field and error of the namespace API, refer to [Namespaces](/en/documentation/platform/kv-store/namespaces/).
+
+---
+
+## Skip a delivery the function already handled
+
+`kv.get` returns `null` for a key the namespace does not hold, so a `null` means the event is new. The function writes the key only after the work succeeds: a key written before a failed attempt marks the event as handled, and the provider's retry is then skipped. `expirationTtl` removes the key after the seconds it names, so the namespace does not keep a key per event forever. Its minimum is 60 seconds.
+
+To deduplicate deliveries, add this code to the function, after the signature check:
+
+```javascript
+const NAMESPACE = 'webhook-events';
+const KEY_TTL_SECONDS = 86400;
+
+// Replace with the work the event triggers, such as a publish to a queue.
+async function handleEvent(event) {
+  console.log(`Handling ${event.id}`);
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    // Read the ID from where your provider puts it, once the signature is verified.
+    const event = await request.json();
+    const key = `event:${event.id}`;
+    const kv = await Azion.KV.open(NAMESPACE);
+
+    // A key for this event means an earlier delivery was already handled.
+    if ((await kv.get(key, 'text')) !== null) {
+      return Response.json({ received: true, duplicate: true });
+    }
+
+    try {
+      await handleEvent(event);
+    } catch (error) {
+      console.log(error.message);
+      return Response.json({ error: 'Event not handled' }, { status: 500 });
+    }
+
+    // Written only after the work succeeds, so a failed attempt is never marked as handled.
+    await kv.put(key, 'handled', { expirationTtl: KEY_TTL_SECONDS });
+    return Response.json({ received: true });
+  },
+};
+```
+
+`Azion.KV` is a global of the runtime, reached with no import line and no credential. `Azion.KV.open` throws `NotFound: KV namespace "webhook-events" does not exist` when the account holds no namespace with that name. Under `azion dev`, `open` accepts a name that belongs to no namespace, so test the function once it is deployed.
+
+The first delivery of an event runs `handleEvent` and writes `event:<event-id>`. A later delivery of the same event, within one day, answers `{"received":true,"duplicate":true}` and does not run the work. A repeat that arrives after the key expires runs the work again, so set `expirationTtl` longer than the time your provider keeps retrying an event.
+
+:::caution
+The key filters repeats; it does not guarantee that the work runs once. KV Store is eventually consistent: a write becomes visible everywhere within 60 seconds, and the client has no compare-and-set. Two deliveries of one event that arrive close together can both read no key and both run the work. Make the work itself tolerate a repeat, such as a table whose primary key is the event ID.
+:::
+
+Each delivery reads one key, and each new event writes one. KV Store includes 100,000 keys read and 1,000 keys written per day before a charge applies, and it accepts 1 write per second to the same key. For every bound, refer to [KV Store limits](/en/documentation/platform/kv-store/limits/).
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="How KV Store works" href="/en/documentation/platform/kv-store/how-it-works/#consistency" label="Why a key written in one place can be missing elsewhere for up to 60 seconds." />
+  <DocCard title="KV Store API" href="/en/documentation/devtools/runtime/api-reference/kv-store/" label="Every method, option, and error of the client that reads and writes the keys." />
+  <DocCard title="Build event-driven APIs" href="/en/documentation/use-cases/build-and-run-applications/build-event-driven-apis/" label="A webhook producer that filters repeated events before it publishes them to a queue." />
+  <DocCard title="Publish a message to Upstash QStash from a function" href="/en/documentation/guides/application-development/integrations/publish-a-message-to-upstash-qstash-from-a-function/" label="Hand each new event to a queue as the work the function does." />
+</DocCardGroup>

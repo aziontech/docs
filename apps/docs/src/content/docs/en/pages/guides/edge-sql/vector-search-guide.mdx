@@ -1,0 +1,242 @@
+---
+title: Build a semantic search with vector embeddings
+description: >-
+  Store OpenAI embeddings in a SQL Database table, index them for approximate
+  nearest-neighbor search, and return the documents closest to a question.
+meta_tags: 'vector search, SQL Database, vector embeddings, semantic search, AI-based applications'
+namespace: documentation_guides_edge_sql_vector_search
+permalink: /documentation/guides/application-development/data/sql-database-vector-search/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+
+In this tutorial, you will build a semantic search that returns the documents closest in meaning to a question, over data stored in [SQL Database](/en/documentation/platform/sql-database/). You will create a database, add a table with a vector column and an index over it, generate embeddings with OpenAI, store them, and query the table by similarity.
+
+The artifact is a TypeScript function that runs on an Azion application. It reaches the database through the [Azion SQL library](/en/documentation/devtools/azion-lib/sql/) and produces its embeddings with the LangChain OpenAI package.
+
+---
+
+## Prerequisites
+
+- Node.js installed. The application and the `azion` library run on it.
+- The Azion CLI installed. For more information, refer to [Azion CLI](/en/documentation/devtools/cli/).
+- An Azion personal token. For more information, refer to [How to manage a personal token](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
+- SQL Database enabled on the account. The product is in Preview, and access is requested through the technical support team. To request it, refer to [Technical Support](/en/documentation/support/).
+- An OpenAI API key. The embedding step calls the OpenAI API with it. To create one, refer to [Create and export an API key](https://platform.openai.com/docs/quickstart/create-and-export-an-api-key).
+
+---
+
+## 1. Create the database
+
+The database is the container the table lives in, and `createDatabase` creates it from the application code. To set the project up and create it:
+
+<DocSteps>
+  <DocStep title="Install the dependencies">
+
+  In the application directory, install the `azion` library and the LangChain OpenAI package:
+
+  ```bash
+  npm install azion @langchain/openai
+  ```
+
+  Both packages are listed under the project dependencies.
+
+  </DocStep>
+  <DocStep title="Store the credentials">
+
+  In the `.env` file, add the personal token and the OpenAI API key:
+
+  ```bash
+  AZION_TOKEN=[TOKEN VALUE]
+  OPENAI_API_KEY=[OPENAI API KEY]
+  ```
+
+  `AZION_TOKEN` authenticates the library, and `OPENAI_API_KEY` authenticates the embedding calls.
+
+  </DocStep>
+  <DocStep title="Create the database in main.ts">
+
+  In `main.ts`, import what the function uses and create the database. `createDatabase` answers with `data` and `error`, and a failure carries its message in `error`:
+
+  ```typescript
+  import { createDatabase, useExecute, useQuery } from 'azion/sql'
+  import { OpenAIEmbeddings } from '@langchain/openai'
+
+  export default async function vectorSearch() {
+    const { error: createError } = await createDatabase('vectorDatabase', { debug: true })
+
+    if (createError) {
+      return Response.json({ error: createError.message }, { status: 500 })
+    }
+  ```
+
+  </DocStep>
+</DocSteps>
+
+The account holds a database named `vectorDatabase`. Provisioning is asynchronous: the status reads `creating` first and reads `created` about 15 seconds later, and a statement runs against the database only after the status reads `created`.
+
+---
+
+## 2. Create the table and the vector index
+
+The table holds the text of each document and its embedding. A vector lives in a column of its own, declared with a blob type that carries its dimension count: `F32_BLOB(1536)` stores 1,536 32-bit floating-point elements, which is the number of dimensions the `text-embedding-3-small` model returns.
+
+The index makes a search consult an approximate-nearest-neighbor structure instead of every row. It is built over `libsql_vector_idx(embedding, 'metric=cosine')`, and the table it covers needs a `ROWID` or a single-column primary key, which `id INTEGER PRIMARY KEY AUTOINCREMENT` provides.
+
+Continue in `main.ts`, and run both statements with `useExecute`, which carries the statements that create and write:
+
+```typescript
+  const setupStatements = [
+    `CREATE TABLE documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content TEXT NOT NULL,
+      embedding F32_BLOB(1536)
+    );`,
+    `CREATE INDEX documents_idx ON documents (
+      libsql_vector_idx(embedding, 'metric=cosine')
+    );`
+  ]
+
+  const { error: setupError } = await useExecute('vectorDatabase', setupStatements)
+
+  if (setupError) {
+    return Response.json({ error: setupError.message }, { status: 500 })
+  }
+```
+
+The database holds a `documents` table and a `documents_idx` index. Creating a vector index also adds a shadow table named `documents_idx_shadow`, which `getTables` and the EdgeSQL Shell both list beside the table.
+
+---
+
+## 3. Generate and store the embeddings
+
+The embedding model turns text into a vector. `text-embedding-3-small` returns 1,536 dimensions, the number the `embedding` column declares, and the same model produces the vectors stored here and the vector the search uses in stage 4.
+
+Continue in `main.ts`. Build the model, embed each document with `embedQuery`, and wrap the result in `vector('[...]')`, which converts an array of numbers into the type the column stores:
+
+```typescript
+  const embeddings = new OpenAIEmbeddings({
+    model: 'text-embedding-3-small',
+    verbose: false,
+    apiKey: process.env.OPENAI_API_KEY
+  })
+
+  const documents = [
+    'Paris is the capital of France',
+    'The Eiffel Tower is a French landmark',
+    'London is the capital of England',
+    'Big Ben is located in London',
+    'Brasilia is the capital of Brazil',
+    'The Amazon rainforest is in Brazil',
+    'French cuisine is world-famous',
+    'Tea is popular in England',
+    'The English Channel separates Britain and France'
+  ]
+
+  const insertStatements = []
+  for (const doc of documents) {
+    const embedding = await embeddings.embedQuery(doc)
+    insertStatements.push(
+      `INSERT INTO documents (content, embedding) VALUES ('${doc}', vector('[${embedding}]'));`
+    )
+  }
+
+  const { error: insertError } = await useExecute('vectorDatabase', insertStatements, { debug: true })
+
+  if (insertError) {
+    return Response.json({ error: insertError.message }, { status: 500 })
+  }
+```
+
+The `documents` table holds one row per entry in the list, each with its text and its embedding, and the index covers those rows. `vector('[...]')` rejects a vector of more than 65,536 dimensions.
+
+---
+
+## 4. Query by similarity
+
+A search embeds the question with the same model and asks the index for the nearest rows. `vector_top_k` takes the index name, the query vector, and the number of rows to return, and answers with an `id` column that the table joins on `rowid`:
+
+```sql
+SELECT content FROM vector_top_k('documents_idx', vector('[...]'), 2) JOIN documents ON documents.rowid = id;
+```
+
+Continue in `main.ts`, and run the statement with `useQuery`, which carries the statements that return rows:
+
+```typescript
+  const query = 'What is the capital of Brazil?'
+  const queryEmbedding = await embeddings.embedQuery(query)
+
+  const searchStatements = [
+    `SELECT content FROM vector_top_k('documents_idx', vector('[${queryEmbedding}]'), 2)
+     JOIN documents ON documents.rowid = id;`
+  ]
+
+  const { data: searchData, error: searchError } = await useQuery('vectorDatabase', searchStatements)
+
+  if (searchError) {
+    return Response.json({ error: searchError.message }, { status: 500 })
+  }
+
+  return Response.json({ data: searchData })
+}
+```
+
+The answer carries `results`, one entry per statement, each with its `columns` and its `rows`. A statement that fails does not fail the call: its message arrives in `error` and in the matching entry of `results`, which is why every operation above reads `error` before it reads `data`.
+
+The function returns the two rows whose embeddings are nearest the question, and a failure anywhere in the chain returns a JSON message with status `500`.
+
+:::note
+SQL Database also supports the LangChain Vector Store integration for document storage, and the LangChain Retriever for hybrid search that combines vector search with full-text search.
+:::
+
+---
+
+## 5. Run it
+
+The function creates its own database, table, index, and rows on the first request. To run it locally:
+
+<DocSteps>
+  <DocStep title="Build the application">
+
+  From the application directory, build it:
+
+  ```bash
+  azion build
+  ```
+
+  The build output is written to the project directory.
+
+  </DocStep>
+  <DocStep title="Start the local server">
+
+  Serve the function from your machine:
+
+  ```bash
+  azion dev
+  ```
+
+  The function answers on the local address the command prints.
+
+  </DocStep>
+  <DocStep title="Send a request">
+
+  Request that local address. The function creates the database, stores the embeddings, embeds `What is the capital of Brazil?`, and searches the index.
+
+  </DocStep>
+</DocSteps>
+
+The response carries the documents whose embeddings are nearest the question, and the account holds the `vectorDatabase` database with the `documents` table and its rows. To search for something else, change the value of `query` and send the request again.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Vector search" href="/en/documentation/platform/sql-database/vector-search/" label="Every vector type, every vector function, and how the index is built." />
+  <DocCard title="Databases and queries" href="/en/documentation/platform/sql-database/databases-and-queries/" label="Every field a database carries, the five operations, and the error codes." />
+  <DocCard title="Query a database from a function" href="/en/documentation/guides/application-development/data/retrieve-data-with-functions/" label="Read the same table from a function at run time." />
+  <DocCard title="Best practices" href="/en/documentation/platform/sql-database/best-practices/" label="How to write statements and handle their errors before you put this in production." />
+</DocCardGroup>

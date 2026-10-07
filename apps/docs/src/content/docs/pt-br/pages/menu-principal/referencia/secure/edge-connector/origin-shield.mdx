@@ -1,0 +1,127 @@
+---
+title: Origin IP ACL e HMAC
+description: Restrinja sua origem aos endereços publicados da Azion, assine as requisições de origem com credenciais HMAC e mantenha a allowlist atualizada.
+meta_tags: 'origin shield, origin ip acl, hmac, allowlist, connectors, origin protection'
+namespace: documentation_products_edge_connector_origin_shield
+permalink: /documentacao/plataforma/connectors/origin-shield/origin-ip-acl-e-hmac/
+---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Uma origem pode verificar duas coisas antes de responder a uma requisição: o endereço de onde vem a conexão e uma assinatura dentro da requisição. Uma verificação de endereço recusa toda conexão de uma fonte fora de um conjunto conhecido, enquanto uma verificação de assinatura recusa toda requisição que não foi assinada com uma chave em que a origem confia.
+
+[Origin Shield](/pt-br/documentacao/plataforma/connectors/#origin-shield) dá as duas verificações a um [connector](/pt-br/documentacao/plataforma/connectors/) do tipo `http`. Origin IP ACL cobre o endereço, e HMAC cobre a assinatura. Para saber onde Origin Shield atua sobre uma requisição, consulte [Como Connectors funciona](/pt-br/documentacao/plataforma/connectors/como-funciona/#origin-shield).
+
+As seções tratam da ativação, de Origin IP ACL, da autenticação HMAC, do que cada mecanismo prova e de como a lista de endereços é atualizada.
+
+---
+
+## Ativação
+
+Origin Shield vem desativado em um connector novo, e ele é ativado em dois níveis. Um switch ativa Origin Shield no connector. Dentro dele, Origin IP ACL e HMAC têm cada um o seu próprio switch, e cada um fica desativado até que você o ative.
+
+No Azion Console, o formulário do connector traz o switch **Origin Shield**. Ativá-lo mostra o switch **Origin IP ACL** e a seção **HMAC**, que contém o seu próprio switch e as credenciais. Na API, os três switches são `attributes.modules.origin_shield.enabled`, `config.origin_ip_acl.enabled` e `config.hmac.enabled`, cada um `false` por padrão. Para os campos e os erros que os protegem, consulte [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#origin-shield).
+
+Origin Shield se aplica apenas a um connector do tipo `http`. Um connector do tipo `storage` ou `live_ingest` não contém endereços nem opções de conexão, e não recebe configurações de Origin Shield. Em um connector do tipo `http`, Origin Shield e Load Balancer podem estar ativados ao mesmo tempo.
+
+Origin IP ACL também decide se a sua conta recebe a lista de endereços. A lista `Azion Origin Shield` aparece na conta assim que pelo menos um connector tem Origin IP ACL ativado.
+
+Uma alteração nesses switches chega ao tráfego como toda alteração de connector: em vários minutos e em momentos diferentes em cada data center. Por exemplo, logo depois que você desativa HMAC, alguns data centers ainda assinam as requisições enquanto outros já as enviam sem assinatura. Para mais informações, consulte [Como Connectors funciona](/pt-br/documentacao/plataforma/connectors/como-funciona/#propagacao).
+
+---
+
+## Origin IP ACL
+
+Uma lista de controle de acesso (ACL) de IP permite ou recusa uma conexão pelo endereço da fonte. Com Origin IP ACL, a lista que a sua origem aplica é `Azion Origin Shield`, uma network list que a Azion mantém em [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/). Ela contém todos os prefixos IPv4 e IPv6 que a infraestrutura da Azion usa para se conectar às origens.
+
+O firewall da sua origem aplica a allowlist, não a Azion. Você permite o tráfego de entrada de cada prefixo da lista e nega todas as outras fontes. A verificação filtra pelo endereço da fonte de cada conexão, nas camadas 3 e 4, então ela atua antes que o seu servidor leia uma requisição. Assim, apenas a infraestrutura da Azion consegue se conectar à origem, e um cliente que se conecta diretamente ao endereço da origem é recusado.
+
+O custo é a manutenção do seu lado. A allowlist na sua origem é uma cópia da lista, e manter essa cópia atualizada é responsabilidade sua. Automatize a atualização, porque uma cópia sem um prefixo recusa as conexões que a Azion abre a partir dele. Por exemplo, quando a Azion adiciona um prefixo e a sua cópia ainda não o tem depois que esses servidores entram em produção, a sua origem recusa as requisições que eles encaminham.
+
+Para ler a lista pelo Azion Console, pela Azion CLI ou pela API e aplicá-la na sua origem, consulte [Libere os IPs da Azion na sua origem](/pt-br/documentacao/suporte/obter-ranges-ip-azion/).
+
+---
+
+## Autenticação HMAC
+
+Um código de autenticação de mensagem baseado em hash (HMAC) assina uma requisição com uma chave secreta. O receptor calcula a assinatura de novo com a sua própria cópia da chave e recusa a requisição quando as duas diferem.
+
+Com HMAC ativado, o connector assina cada requisição que envia à origem com AWS Signature Version 4, o esquema do AWS S3 e de storage compatível com S3. O tipo é `aws4_hmac_sha256`, e o Console o mostra como somente leitura. As credenciais vêm do seu provedor de object storage: uma região que o provedor suporta, o serviço, uma access key e uma secret key. O serviço tem `s3` como padrão.
+
+Use HMAC para entregar conteúdo privado de um bucket compatível com S3 por meio de uma [aplicação](/pt-br/documentacao/plataforma/applications/). O bucket fica fechado ao público, e o connector o lê com as suas credenciais. Por exemplo, um connector que alcança o endpoint S3 `s3.us-east-005.azionstorage.net` de [Object Storage](/pt-br/documentacao/plataforma/object-storage/), com uma credencial restrita a um bucket, recebe o objeto privado com `200`.
+
+O objeto `modules` dos `attributes` desse connector leva as credenciais neste formato:
+
+```json
+{
+  "origin_shield": {
+    "enabled": true,
+    "config": {
+      "origin_ip_acl": { "enabled": false },
+      "hmac": {
+        "enabled": true,
+        "config": {
+          "type": "aws4_hmac_sha256",
+          "attributes": {
+            "region": "us-east-005",
+            "service": "s3",
+            "access_key": "<access-key>",
+            "secret_key": "<secret-key>"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Com HMAC desativado, a mesma requisição chega ao endpoint sem assinatura, e o endpoint responde `401`, não `403`:
+
+```text
+HTTP/2 401 
+content-type: application/xml
+server: azion webserver
+…
+<Error>
+    <Code>UnauthorizedAccess</Code>
+    <Message>bucket is not authorized: <bucket></Message>
+</Error>
+```
+
+Um único conjunto de credenciais assina as requisições para todos os endereços do connector, e um endereço não pode ter as suas próprias. Desativar HMAC remove as credenciais armazenadas, então você as informa de novo quando o ativar outra vez. A assinatura protege apenas uma origem que a verifica.
+
+Para o endpoint, a região e as credenciais que Object Storage aceita, consulte [Compatibilidade com S3](/pt-br/documentacao/plataforma/object-storage/compatibilidade-s3/). Para assinar as requisições a um bucket privado passo a passo, consulte [Assine requisições de origem com HMAC](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/assine-requisicoes-de-origem-com-hmac/).
+
+---
+
+## O que cada mecanismo prova
+
+Origin IP ACL e HMAC respondem a perguntas diferentes sobre uma requisição. Origin IP ACL responde de onde veio a conexão, e HMAC responde de quem são as credenciais que assinaram a requisição.
+
+Um endereço da fonte que está na lista `Azion Origin Shield` prova que a conexão veio da infraestrutura da Azion. Ele não prova que a conexão veio do seu connector, porque a lista contém os endereços que a Azion usa para alcançar as origens, não endereços vinculados à sua conta. Uma assinatura HMAC válida prova que a requisição leva a access key e a secret key armazenadas no seu connector. Apenas quem tem essas credenciais consegue produzi-la.
+
+Cada mecanismo deixa aberto o que o outro fecha. Apenas com uma allowlist, a origem aceita qualquer requisição que chega da infraestrutura da Azion. Apenas com uma assinatura, o endereço da origem fica aberto a conexões de qualquer fonte, e a própria origem precisa recusar as requisições sem assinatura. Por exemplo, um bucket privado protegido por HMAC ainda responde a uma requisição direta, com `401`. Ative os dois quando a origem precisar aceitar apenas requisições que passam pela Azion e levam as suas credenciais.
+
+---
+
+## Atualizações da lista
+
+A Azion atualiza os prefixos de `Azion Origin Shield`, e a lista pode mudar com frequência. A Azion envia um e-mail a toda conta com Origin Shield sempre que a lista muda. Os servidores por trás dos prefixos que uma alteração adiciona entram em produção 7 dias depois que a Azion publica a lista. Esses 7 dias são o seu prazo para atualizar a allowlist na sua origem e toda automação que lê a lista.
+
+Azion Console mantém um histórico da lista, que mostra os prefixos que cada alteração adicionou e removeu. Por exemplo, depois de um e-mail de atualização, o histórico indica quais entradas o firewall da sua origem precisa adicionar ou remover.
+
+A lista traz prefixos IPv6 de todos os data centers da Azion, além dos prefixos IPv4, então ela contém mais entradas do que uma lista apenas IPv4. Uma allowlist que contém apenas os prefixos IPv4 recusa as conexões que a Azion abre por IPv6. Um job que lê a lista em um intervalo menor que 7 dias obtém cada prefixo adicionado antes que os servidores dele entrem em produção. Para a leitura que esse job executa, consulte [Libere os IPs da Azion na sua origem](/pt-br/documentacao/suporte/obter-ranges-ip-azion/).
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Configurações de connector" href="/pt-br/documentacao/plataforma/connectors/configuracoes/#origin-shield">Cada campo de Origin Shield e de HMAC, com o caminho na API, o padrão e o erro que o protege.</DocItem>
+  <DocItem title="Libere os IPs da Azion na sua origem" href="/pt-br/documentacao/suporte/obter-ranges-ip-azion/">Os passos que leem a lista Azion Origin Shield e a aplicam no firewall da sua origem.</DocItem>
+  <DocItem title="Assine requisições de origem com HMAC" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/assine-requisicoes-de-origem-com-hmac/">O procedimento que ativa HMAC em um connector que lê um bucket privado compatível com S3.</DocItem>
+  <DocItem title="Network Lists" href="/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/">As network lists que a Azion mantém, incluindo Azion Origin Shield, e os campos que toda lista compartilha.</DocItem>
+</ItemList>
+</FrameBox>

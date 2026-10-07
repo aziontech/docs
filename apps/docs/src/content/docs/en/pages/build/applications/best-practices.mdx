@@ -1,0 +1,228 @@
+---
+title: Applications best practices
+description: >-
+  Match device groups on precise words, set a TTL per rate of change, vary the
+  cache key only by what changes the response, and cache derived images long.
+meta_tags: 'applications, best practices, rules engine, cache, application accelerator, image processor'
+namespace: documentation_products_applications_best_practices
+permalink: /documentation/platform/applications/best-practices/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Most mistakes in the layer between your users and your origin stay invisible until a user meets one. A visitor sees a page you already replaced, or the origin answers requests that a stored copy could have answered. A session cookie reaches a user it was never issued to, or an image arrives heavier or cropped differently than the page asked.
+
+The cause is rarely one wrong value. More often, a cache key varies by something the response ignores, or one TTL covers content that changes at different rates. Or a change is judged before anyone reads the response.
+
+These practices apply to an [application](/en/documentation/platform/applications/), its [device groups](/en/documentation/platform/applications/device-groups/), the [Rules Engine for Applications](/en/documentation/platform/applications/rules-engine/) rules that act on its traffic, and the cache settings those rules apply. [How Applications works](/en/documentation/platform/applications/how-it-works/) explains the mechanisms behind them, and [Applications limits](/en/documentation/platform/applications/limits/) holds the value of every bound.
+
+The first two practices apply to the application itself. Sections for Cache, Application Accelerator, and Image Processor follow, one per Product an application can enable, each in the order you meet its decisions.
+
+---
+
+## Match a device group on the words that only that device sends
+
+Each device group's regular expression is tested against the `User-Agent` header, and the group a request takes decides its rules and cache variation. `Google Chrome Android` and `Google Chrome Symbian` share `Google Chrome`, so an expression on that name puts both in one group.
+
+Write each expression on the words that set its class of device apart. A group named `Mobile` with `(Mobile|iP(hone|od)|BlackBerry|IEMobile)` catches most mobile devices.
+
+The cost is coverage: a device of the class whose header carries none of the words falls outside the group. Where two classes share a word, the first matching group in the list wins, as [Device Groups](/en/documentation/platform/applications/device-groups/#match-order) shows. To create a group, refer to [Create device groups](/en/documentation/guides/application-development/getting-started/create-device-groups/).
+
+---
+
+## Send the WebSocket upgrade headers only on requests that open a connection
+
+By default, an application with [WebSocket Proxy](/en/documentation/platform/applications/websocket/) enabled proxies every request that carries `Upgrade: websocket` and `Connection: upgrade` to the origin as a WebSocket connection. It does not check the path. Azion recommends that the application you build control those headers, and send them only where the WebSocket protocol should be used.
+
+The decision then lives in your client code. The same client also reopens a connection that closes. Azion recycles keepalive connections approximately every 15 minutes, which can close an active WebSocket connection.
+
+A connection that opens returns `101 Switching Protocols`, and any other status, even a `2xx` or a `3xx`, means the upgrade did not complete. For the headers and the statuses, refer to [WebSocket Proxy](/en/documentation/platform/applications/websocket/#upgrade-headers).
+
+---
+
+## Cache
+
+A cache setting decides how long Azion keeps a copy of a response. Kept too long, the copy shows a visitor content the origin already replaced. Kept too briefly, it sends the origin requests that a stored copy could have answered.
+
+These practices apply to the [cache settings](/en/documentation/platform/applications/cache/cache-settings/) of an application and the rules whose _Set Cache Policy_ behavior applies them. The first practice shows a complete cache setting in the form the API accepts, and later practices name only the field they change. The last practice shows how to confirm each change in the response.
+
+### Match each TTL to how often its content changes
+
+Under _Override cache behavior_, **Max Age** sets the TTL of a copy, and a longer TTL answers more requests but lags further behind the origin. Assets can change only when a deployment replaces them, while a page changes through the day, so one TTL misfits part of the content.
+
+Give each group of paths that changes at one rate its own cache setting and rule. This setting keeps the assets 86,400 seconds in the browser and 300 seconds at Azion:
+
+```json
+{
+  "name": "static-assets",
+  "browser_cache": { "behavior": "override", "max_age": 86400 },
+  "modules": {
+    "cache": { "behavior": "override", "max_age": 300 }
+  }
+}
+```
+
+Pages edited during the day get a second setting and rule, with a lower **Max Age**. A **Max Age** under 60 seconds needs Application Accelerator, or the API refuses it with `21021`. For every bound, refer to [Applications limits](/en/documentation/platform/applications/limits/#cache). For the steps, refer to [Create a cache setting](/en/documentation/guides/application-performance/cache-and-purge/tune-cache-settings/).
+
+### Change an object's name when its content changes
+
+An object that keeps its name needs a purge of every cache layer and variation each time its content changes. Put a version in the file name instead. The cache treats each version as a separate object, and the first request for it fetches the current bytes from the origin. Any scheme serves, such as a counter, a timestamp, or a content hash, provided different content always gets a different name: `https://static.example.com/assets/image_1.jpg` becomes `https://static.example.com/assets/image_2.jpg`.
+
+No purge is needed for an update to reach users, and a browser that holds the earlier name keeps a valid object. Both versions stay available, so a rollback points your pages at the previous name. The cost is that every reference to the object changes with it, which a build step can automate and a hand edit cannot.
+
+### Purge an object that varies by cache key or wildcard
+
+[Real-Time Purge](/en/documentation/platform/applications/cache/real-time-purge/) finds a copy by its cache key, and an object that varies has one key per variation. A URL purge converts the URL into one key. A copy that varies by cookie, device group, or image format survives it, while the purge reports success.
+
+Name those keys in a cache key purge, up to 50 per request, or reach them with a wildcard. These [Azion CLI](/en/documentation/devtools/cli/) commands send both, the wildcard ending in `@@*` for cookie variations:
+
+```bash
+azion purge --cachekey "httpwww.example.com/@@user=user;"
+azion purge --wildcard "www.example.com/@@*"
+```
+
+Each command prints `Purge carried out successfully`. A variation with many values costs more to purge and to store, so choose its purge when you choose the variation. For the purge that reaches each variation, refer to [Real-Time Purge](/en/documentation/platform/applications/cache/real-time-purge/#purge-content-that-varies). For the steps, refer to [Purge cached content](/en/documentation/guides/application-performance/cache-and-purge/purge-cached-content/).
+
+### Keep Tiered Cache for long-lived objects with a stable body
+
+[Tiered Cache](/en/documentation/platform/applications/cache/tiered-cache/) adds a second cache layer that data centers ask before the origin, so one origin fetch serves them all. Turn it on for long-lived objects with a stable body, with `modules.cache.tiered_cache` set to `{ "enabled": true, "topology": "nearest-region" }`.
+
+The setting needs `override`, or the API refuses it with `21001`. With Application Accelerator on, the **Max Age** floor is 3 seconds, and a lower value gets `21020`. The cost is one extra hop on a first-layer miss, and the layer does not fit content that changes every few seconds.
+
+A _Bypass Cache_ rule does not reach the layer, as [Rule out Tiered Cache before you rely on Bypass Cache](/en/documentation/platform/applications/best-practices/#rule-out-tiered-cache-before-you-rely-on-bypass-cache) explains. To remove an object from both layers, purge Tiered Cache before Cache, as [Tiered Cache](/en/documentation/platform/applications/cache/tiered-cache/#purge) shows.
+
+### Turn on stale cache where an old page is better than an error
+
+With **Stale cache** on, Azion serves a copy past its TTL when revalidating it with the origin fails, while the stale window lasts. The visitor gets the last good version rather than an error page. Set `modules.cache.stale_cache.enabled` to `true` for an article, a listing, or a product page. Keep it off for a price or an availability figure that a visitor decides on.
+
+A response served this way reports `STALE` in `x-cache`. For the length of the window, what makes a revalidation fail, and when a purge serves better than expiry, refer to [Expiration and freshness](/en/documentation/platform/applications/cache/expiration-and-freshness/#stale-cache).
+
+### Read the cache status after every cache change
+
+A setting states what Azion should store, and only the response shows what it stored. Send a request with `Pragma: azion-debug-cache` each time you create a setting, change a TTL, or run a purge:
+
+```bash
+curl -sI -H "Pragma: azion-debug-cache" https://www.example.com/static/site.js
+```
+
+The response carries `x-cache: MISS from 179.191.169.65 with HTTP/2.0` and `x-cache-key: httpswww.example.com/static/site.js`. `x-cache` opens with the status, `HIT` for a stored copy and `MISS` for a trip to the origin. `x-cache-key` holds the key a cache key purge takes, with the variations the setting adds.
+
+One response describes one copy on one server, so repeat the request before you conclude anything. For every status value, refer to [Cache keys](/en/documentation/platform/applications/cache/cache-keys/#cache-status). For the steps, refer to [Check the cache status of a response](/en/documentation/guides/application-performance/cache-and-purge/check-page-cache-time/).
+
+---
+
+## Application Accelerator
+
+Every attribute a cache key varies by multiplies the copies Azion keeps of one URL, one copy per value. When the attribute leaves the response unchanged, those copies carry identical bytes, split the traffic between them, and add keys a purge has to reach.
+
+[Application Accelerator](/en/documentation/platform/applications/application-accelerator/settings/) adds the `modules.application_accelerator` object to a cache setting and unlocks Rules Engine behaviors such as _Bypass Cache_ and _Forward Cookies_. While it is off on the application, the API refuses any field of that object with `21013`. The first four practices shape the key, and `x-cache-key` shows what each one adds, as [Read the cache status after every cache change](/en/documentation/platform/applications/best-practices/#read-the-cache-status-after-every-cache-change) explains.
+
+### Key the cache only on the arguments the response depends on
+
+By default, `ignore` leaves the query string out of the cache key, so `?category=shoes` and the bare path share one copy. Under `all`, every argument joins the key, so a link with a campaign argument gets an identical copy of its own.
+
+Under `allowlist`, only the listed arguments vary the key, so the count of copies tracks the content, not the traffic. List exactly the arguments that change the response:
+
+```json
+{
+  "modules": {
+    "application_accelerator": {
+      "cache_vary_by_querystring": {
+        "behavior": "allowlist",
+        "fields": ["category", "page"]
+      }
+    }
+  }
+}
+```
+
+An empty list is refused with `21018`. Leave off an argument that changes the response, and one visitor can see content meant for another. For the values of every variation, refer to [Cache settings](/en/documentation/platform/applications/cache/cache-settings/#application-accelerator). For the steps, refer to [Configure Advanced Cache Key for an application](/en/documentation/guides/application-performance/cache-and-purge/advanced-cache-key/).
+
+### Sort the query string before it enters the key
+
+Unsorted, the listed arguments join the cache key in the order the client wrote them. `?category=shoes&page=2` and `?page=2&category=shoes` then become two copies of the same response. With `sort_enabled` set to `true` in the same `cache_vary_by_querystring` object, the arguments enter the key in alphabetical order, and both requests land on one copy.
+
+The cost shows at purge time: a URL purge reaches the copy only when it names the arguments in alphabetical order. The Azion CLI sets `sort_enabled` only through `--file` and a JSON body. To see which purge reaches each variation, refer to [Real-Time Purge](/en/documentation/platform/applications/cache/real-time-purge/#purge-content-that-varies).
+
+### List only the cookies that segment content
+
+Browsers send every cookie they hold for a domain, and few of them change what the origin returns. Under `all`, an analytics identifier or a consent flag joins the key, and copies multiply with cookie values rather than with content. Under `allowlist`, only the cookies you name vary the key, which is how an application segments content by user profile or another grouping.
+
+Azion recommends the allowlist when cookies manage user sessions: `behavior` set to `allowlist` and `session_id` in `cookie_names`, under `modules.application_accelerator.cache_vary_by_cookies`. The cost is copies: a cookie unique per visitor means one copy per visitor. For the steps, refer to [Configure Advanced Cache Key for an application](/en/documentation/guides/application-performance/cache-and-purge/advanced-cache-key/).
+
+### Denylist session cookies where Forward Cookies runs
+
+The [Forward Cookies](/en/documentation/platform/applications/rules-engine/#forward-cookies) behavior passes the origin's `Set-Cookie` header on to users, cache hits included. A cached response can then hand one user the `Set-Cookie` of another user's session. The remedy Azion documents is the `denylist` behavior of the cookie variation, naming the session cookies that must stay private: `behavior` set to `denylist`, with `session_id` in `cookie_names`.
+
+Put the denylist on the cache setting that the Forward Cookies rule applies through _Set Cache Policy_. A cache setting holds a single cookie behavior, so a segmenting allowlist needs a separate setting. For the steps, refer to [Configure cache policies for an application](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/#forward-cookies-from-the-origin-to-the-user).
+
+### Prefer a TTL of 0 seconds where everyone can share the answer
+
+A **Max Age** of 0 and the [Bypass Cache](/en/documentation/platform/applications/rules-engine/#bypass-cache) behavior both keep users from receiving a stored copy. _Bypass Cache_ forwards each request it matches. A TTL of 0 keeps it on the cache path, where simultaneous requests reach the origin as one.
+
+Use the TTL of 0 when dynamic content is the same for everyone who asks at the same moment, with `modules.cache.max_age` set to `0`. Use _Bypass Cache_, `{ "type": "bypass_cache" }` in the API, when two requests that arrive together need different answers. With Tiered Cache on, neither holds across both layers: **Max Age** stops at 3 seconds, and _Bypass Cache_ does not reach the layer. For how each one handles a request, refer to [Cache variation](/en/documentation/platform/applications/application-accelerator/cache-variation/#bypass-cache-and-a-ttl-of-0).
+
+### Rule out Tiered Cache before you rely on Bypass Cache
+
+_Bypass Cache_ keeps Azion's cache from storing the origin's response, but the [Tiered Cache](/en/documentation/platform/applications/cache/tiered-cache/#bypass-cache) layer is outside the rule's reach. While the rule is active, a layer that the cache settings turn on keeps caching objects for the minimum TTL. The rule shows no trace of it, so a rule that looks right can still leave content cached.
+
+When freshness is the requirement, look for `modules.cache.tiered_cache.enabled` set to `true` in the cache settings that cover the rule's paths. If no layer may keep a copy, decide on Tiered Cache together with the rule. For the symptom a missed layer produces and its fix, refer to [Troubleshoot Applications](/en/documentation/platform/applications/troubleshooting/).
+
+---
+
+## Image Processor
+
+A transformed image can fail a page in three ways. The file outweighs what the page needs, or the crop removes something nobody meant to remove. Or the request fails because of where one parameter sits in the URL. Around the transformation, the cache setting decides how derived images are stored and how often the same work runs again.
+
+These practices apply to [Image Processor](/en/documentation/platform/applications/image-processor/settings/): the `ims` query string, the rule whose _Optimize Images_ behavior acts on it, and that rule's cache setting. The first four practices concern the request, and the last two concern the cache setting.
+
+### Request quality 85 unless one image needs otherwise
+
+The quality filter controls how hard Image Processor compresses a derived image, exchanging bytes for visual fidelity. Its argument is a whole number from 0 to 100. Azion recommends `?ims=filters:quality(85)`, which optimizes the file without a noticeable loss of visual quality.
+
+A lower value makes the file smaller still, and the delivered image shows the loss. A higher one adds weight that a viewer cannot perceive. Depart from 85 only for an image that must look sharper, or weigh less, than 85 delivers. For the argument and its range, refer to [Image Processor URL parameters](/en/documentation/platform/applications/image-processor/url-parameters/#quality).
+
+### Use fit-in when the image must keep its proportions
+
+`?ims=WidthxHeight` fills an exact box, and when the requested shape differs from the source, a centered autocrop trims the overflowing axis. Part of the subject can go with it. `fit-in` places the image inside the same box instead, keeping its aspect ratio and never enlarging it.
+
+On a landscape photograph, `?ims=400x400` crops the picture to fill the square. `?ims=fit-in/400x400` keeps the whole picture and falls short of the square on one side. Use the plain resize when the layout needs the box filled, and `fit-in` when no edge may be lost. For each resize form, refer to [Image Processor URL parameters](/en/documentation/platform/applications/image-processor/url-parameters/#resize).
+
+### Keep ims as the final query-string parameter
+
+Image Processor expects `ims` to be the final parameter of the query string. A parameter placed after it may make the request return a `504` error. `example.com/image.jpeg?ims=1000x1000&ts=1234` is the incorrect form, and `example.com/image.jpeg?ts=1234&ims=1000x1000` is the correct one.
+
+Cache-busting timestamps and tracking values that another system appends follow the same rule. A script that adds a parameter has to insert it ahead of `ims`, not at the end. For the rule, refer to [Image Processor URL parameters](/en/documentation/platform/applications/image-processor/url-parameters/#position-of-the-ims-parameter).
+
+### Add the Accept header that a WEBP or AVIF conversion needs
+
+A conversion to WEBP or AVIF needs a matching request header. `filters:format(webp)` requires `Accept: image/webp`, and `filters:format(avif)` requires `Accept: image/avif`. In the Request Phase, the [Add Request Header](/en/documentation/platform/applications/rules-engine/#add-request-header) behavior supplies the header, so the conversion no longer depends on what the client sends.
+
+A rule that converts to WEBP carries `{ "type": "add_request_header", "attributes": { "value": "Accept: image/webp" } }`. The API rejects the type `add_header` with `10039`. Keep each value in step with the format its `ims` string requests. For the conversion filter, refer to [Image Processor URL parameters](/en/documentation/platform/applications/image-processor/url-parameters/#format-conversion). For the criteria that limit a rule to image requests, refer to [Image Processor settings](/en/documentation/platform/applications/image-processor/settings/#rules-engine-behaviors).
+
+### Put ims in the allowlist of the cache setting that serves images
+
+`ims` carries the transformation, so it is an argument the response depends on. [Key the cache only on the arguments the response depends on](/en/documentation/platform/applications/best-practices/#key-the-cache-only-on-the-arguments-the-response-depends-on) applies to it. The cache setting that the image rule applies sets `fields` to `["ims"]` under an `allowlist`.
+
+The difference is a second Product: `cache_vary_by_querystring` belongs to `modules.application_accelerator`, so keying the cache on `ims` needs Application Accelerator, even though transforming an image does not. For the Azion Console controls that set the field, refer to [Image Processor settings](/en/documentation/platform/applications/image-processor/settings/#cache-variation).
+
+### Keep derived images cached as long as their sources allow
+
+Image Processor counts each transformation, whether a resize, a crop, a format conversion, or a filter, against the monthly Images meter. A request the cache answers runs no transformation and adds nothing. A short **Max Age** makes it redo the same transformation on a timer unrelated to changes at the source.
+
+Give the cache setting for derived images the longest `modules.cache.max_age` its source content tolerates, up to 31,536,000 seconds. The cost is freshness. A replaced source image leaves its derived versions, one key per processing and per format, cached until they expire or a purge removes them. For the images each plan includes, refer to [Applications limits](/en/documentation/platform/applications/limits/#image-processor).
+
+---
+
+## Related resources
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Rules Engine for Applications" href="/en/documentation/platform/applications/rules-engine/">Every variable, operator, and behavior the rules on this page combine.</DocItem>
+  <DocItem title="Application Accelerator settings" href="/en/documentation/platform/applications/application-accelerator/settings/">What each cache variation does to the key, and the behaviors the Product unlocks.</DocItem>
+  <DocItem title="Configure Image Processor on an application" href="/en/documentation/guides/application-performance/delivery-optimization/process-images/">The rule and the cache setting that the Image Processor practices assume, built step by step.</DocItem>
+  <DocItem title="Applications guides and tutorials" href="/en/documentation/platform/applications/guides/">The procedures that apply these practices, one task per guide.</DocItem>
+</ItemList>
+</FrameBox>

@@ -1,0 +1,235 @@
+---
+title: Solucionar problemas de Connectors
+description: Corrija erros de connector, origens que recusam requisições, problemas de Load Balancer e Origin Shield e respostas 421 Misdirected Request.
+meta_tags: 'connectors, troubleshooting, errors, load balancer, origin shield, hmac, 421'
+namespace: documentation_products_connectors_troubleshooting
+permalink: /documentacao/plataforma/connectors/solucao-de-problemas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Esta página lista os sintomas que um [connector](/pt-br/documentacao/plataforma/connectors/) mostra no tráfego real ou em uma requisição recusada, cada um com a sua causa e a sua correção. Os sintomas do próprio connector abrem a página: respostas ausentes ou desatualizadas, endereços recusados, uma origem que recusa a requisição e respostas `421`. Seções para [Load Balancer](/pt-br/documentacao/plataforma/connectors/#load-balancer), [Origin Shield](/pt-br/documentacao/plataforma/connectors/#origin-shield) e [Live Ingest](/pt-br/documentacao/plataforma/connectors/#live-ingest) a encerram. Uma recusa citada é a mensagem da API, e Azion CLI imprime a mesma mensagem dentro do seu próprio erro.
+
+---
+
+## O workload responde 404 There's nothing here yet
+
+As requisições ao workload domain retornam `404` e a página HTML da Azion `There's nothing here yet` em vez da resposta da sua origem.
+
+O deployment que nomeia a aplicação ainda não se propagou. Ou nenhuma regra da aplicação nomeia um connector e, até que uma nomeie, a aplicação não tem origem.
+
+- **Repita a requisição depois de vários minutos**: um deployment novo só alcança o tráfego quando se [propaga](/pt-br/documentacao/plataforma/connectors/como-funciona/#propagacao).
+- **Adicione uma regra que nomeie o connector**: uma regra da Request Phase com o behavior _Set Connector_ envia as requisições a ele, como [As requisições nunca chegam à origem](/pt-br/documentacao/plataforma/applications/solucao-de-problemas/#as-requisicoes-nunca-chegam-a-origem) mostra.
+- **Verifique qual regra rodou na requisição**: ative **Debug Rules**, como [Uma regra não age sobre as requisições que você espera](/pt-br/documentacao/plataforma/applications/solucao-de-problemas/#uma-regra-nao-age-sobre-as-requisicoes-que-voce-espera) explica.
+
+Quando o deployment e a regra se propagam, a mesma requisição retorna `HTTP/2 200` da sua origem.
+
+---
+
+## Uma nova configuração do connector ainda não tem efeito
+
+Depois que você salva uma mudança em um connector, algumas requisições ainda chegam à origem com as configurações anteriores, ou as respostas alternam entre o antigo e o novo.
+
+A mudança se espalha pela infraestrutura distribuída da Azion ao longo de vários minutos, e os data centers a aplicam em momentos diferentes. Por exemplo, logo depois de uma mudança em `host`, algumas requisições chegam à origem com o novo header `Host` e outras com o anterior.
+
+- **Espere vários minutos antes de testar**: uma requisição antecipada mede a propagação, não a configuração.
+- **Envie várias requisições, não uma**: repita a requisição até que as respostas concordem.
+- **Confirme que a API armazenou a mudança**: `azion describe connector --connector-id <connector-id> --format json` imprime o connector, e `GET /v4/workspace/connectors/{connector_id}` o retorna com `200`.
+
+Quando todo data center tem a mudança, cada requisição chega à origem com as novas configurações.
+
+---
+
+## O endereço é recusado com Invalid address format
+
+Salvar um connector falha com `400`, código `28001` e `Invalid address format. Must be a valid IPv4, IPv6, or CNAME.` No Azion Console, o campo **Address** mostra `Address must be a valid IPv4, IPv6, or hostname, without protocol or port.`
+
+O endereço carrega um protocolo ou uma porta, como `https://origin.example.com` ou `origin.example.com:443`, como os erros de [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#erros) mostram.
+
+- **Envie apenas o hostname ou o endereço IP**: `origin.example.com`, sem esquema e sem dois-pontos.
+- **Defina as portas à parte**: em **HTTP Port** e **HTTPS Port**, `http_port` e `https_port` na API, como [Endereços](/pt-br/documentacao/plataforma/connectors/configuracoes/#enderecos) lista.
+- **Defina um caminho à parte**: em **Path**, `path_prefix` na API.
+
+A API então aceita o connector com `202` e `"state": "pending"`.
+
+---
+
+## A origem retorna o site errado ou um erro para o Host que recebe
+
+A origem responde às requisições que o connector envia com o conteúdo de outro site, ou com um erro.
+
+O `host` do connector tem como padrão `${host}`, que envia o host que o cliente solicitou, como o workload domain. Uma origem que roteia as requisições por nome pode não responder a esse host, como [Header Host](/pt-br/documentacao/plataforma/connectors/como-funciona/#header-host) explica.
+
+- **Defina o nome que a origem serve**: em **Host**, ou `connection_options.host` na API, envie um valor literal como `origin.example.com`, como [Opções de conexão](/pt-br/documentacao/plataforma/connectors/configuracoes/#opcoes-de-conexao) lista.
+- **Mantenha `${host}` para uma origem que serve o seu nome público**: um servidor com vários virtual hosts o lê para escolher o site.
+- **Verifique também o caminho**: `path_prefix` vai na frente do caminho solicitado, então `/get` chega à origem como `/anything/get` com `/anything`.
+
+Quando a mudança se propaga, a origem recebe `Host: origin.example.com` e responde com o seu próprio site.
+
+---
+
+## Uma requisição recebe 421 Misdirected Request
+
+Um cliente recebe `421 Misdirected Request` para uma requisição HTTPS a um workload.
+
+A requisição chegou em uma conexão TLS estabelecida para um hostname diferente do seu header `Host`, e o certificado do workload não cobre esse host. Os clientes causam isso quando reutilizam uma conexão para vários hostnames, por meio de connection pooling ou de multiplexação HTTP/2, ou quando enviam um header `Host` fora do certificado.
+
+- **Encontre o hostname**: em [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/), filtre as requisições pelo status code `421` e compare os campos `host` e `ssl_server_name` de cada evento.
+- **Cubra cada hostname no certificado**: liste-o no Common Name (CN) ou nos Subject Alternative Names (SAN) do certificado em [Certificate Manager](/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/), com um wildcard como `*.example.com` ou um certificado multi-SAN.
+- **Abra uma conexão por hostname**: altere a lógica de conexão do cliente quando o hostname precisar ficar fora do certificado.
+
+As requisições para o hostname então recebem a sua resposta normal. Para as verificações que decidem um `421` na conexão do cliente com o workload, consulte [SNI Check](/pt-br/documentacao/plataforma/connectors/sni-check/).
+
+---
+
+## O connector não pode ser excluído
+
+Um `DELETE` de um connector falha com `400`, código `28000` e `Cannot delete an Connector referenced by another resource. References: EdgeApplicationRuleEngine - id: <rule-id>`.
+
+Uma regra ainda nomeia o connector com _Set Connector_, e a mensagem informa o ID da regra, como os erros de [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#erros) mostram. Azion CLI imprime a mesma mensagem dentro de `Error: Failed to delete the Connector: [...]`.
+
+- **Aponte a regra para outro connector**: altere o connector que o behavior _Set Connector_ dela nomeia.
+- **Ou exclua a regra**: quando nenhuma regra precisar mais do connector.
+- **Repita o `DELETE`**: cada regra que a mensagem nomeia precisa ter saído antes.
+
+O `DELETE` então retorna `202` com `{"state":"pending"}`.
+
+---
+
+## Load Balancer
+
+Load Balancer distribui as requisições de um connector do tipo `http` entre vários endereços. Para saber como ele escolhe um endereço, consulte [Métodos de balanceamento](/pt-br/documentacao/plataforma/connectors/load-balancer/metodos-de-balanceamento/).
+
+### Um segundo endereço é recusado
+
+Adicionar um segundo endereço falha com `400`, código `28004` e `To use more than one address, you must enable the Load Balancer module.` A mesma recusa responde a uma atualização que desativa Load Balancer enquanto o connector ainda tem dois endereços.
+
+Um connector tem um endereço, a menos que Load Balancer esteja ativado, como os erros de [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#erros) mostram.
+
+- **Ative Load Balancer no connector**: ative o switch **Load Balancer** na seção **Modules**, ou envie `modules.load_balancer.enabled` como `true` com um `config`.
+- **Ou mantenha um endereço**: remova os outros antes de desativar Load Balancer.
+
+A API então aceita o connector com `202`.
+
+### Mais de 15 endereços são recusados
+
+Salvar um connector com um 16º endereço falha com `400`, código `28011` e `When the Load Balancer module is enabled, you can use up to 15 addresses.`
+
+Com Load Balancer ativado, um connector tem até 15 endereços, como [Limites de Connectors](/pt-br/documentacao/plataforma/connectors/limites/#load-balancer) lista.
+
+- **Mantenha 15 endereços ou menos** no connector: remova um endereço antes de adicionar outro.
+
+A API então aceita o connector com `202`.
+
+### Backup é recusado com IP Hash
+
+Salvar um connector falha com `400`, código `28005` e `Backup addresses are not allowed when using 'ip_hash' as load balance method.` Azion Console mostra `Backup role is not available when the load balancing method is IP Hash.`
+
+Com _IP Hash_, todo endereço precisa ser `primary`, como os erros de [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#erros) mostram.
+
+- **Defina o endereço como Primary**: _Primary_ em **Server Role**, ou `server_role` como `primary` na API, como [Função do servidor](/pt-br/documentacao/plataforma/connectors/load-balancer/metodos-de-balanceamento/#funcao-do-servidor) explica.
+- **Ou escolha outro método**: _Round Robin_ ou _Least Connections_ mantêm o endereço de backup.
+
+A API então aceita o connector com `202`.
+
+### Load Balancer não pode ser ativado sem configurações
+
+Uma requisição de API que ativa Load Balancer falha com `400`, código `28014` e `Module configuration must be provided when 'enabled' is true.`
+
+A requisição enviou `enabled` como `true` sem `config`, com um `config` vazio ou com `null`. Azion Console preenche as configurações por conta própria, então a recusa vem da API, como os erros de [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#erros) mostram.
+
+- **Envie `config` com pelo menos uma chave**, como `"config": {"method": "round_robin"}`: cada chave que você deixa de fora assume o seu padrão da API.
+- **Verifique os padrões**: `max_retries` `0`, `connection_timeout` `60` e `read_write_timeout` `120`, como [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#load-balancer) lista.
+
+A API então retorna `202`, e o connector é lido de volta com o `config` completo.
+
+### Um endereço inativo ainda recebe requisições
+
+Depois que você define um endereço como inativo, algumas requisições ainda chegam a esse servidor.
+
+A mudança se espalha ao longo de vários minutos, e os data centers a aplicam em momentos diferentes. Um data center sem a mudança mantém o endereço no rodízio, como [Endereços ativos](/pt-br/documentacao/plataforma/connectors/load-balancer/metodos-de-balanceamento/#enderecos-ativos) explica.
+
+- **Mantenha o servidor respondendo**: deixe-o no ar até que nenhuma requisição chegue a ele.
+- **Envie várias requisições para confirmar**: uma resposta mostra apenas o que um data center tem.
+- **Confirme que a API armazenou a mudança**: o endereço é lido de volta com `"active": false`.
+
+Quando todo data center tem a mudança, todas as requisições chegam apenas aos endereços ativos.
+
+---
+
+## Origin Shield
+
+Origin Shield protege a origem de um connector do tipo `http` com Origin IP ACL e HMAC. Para saber como cada um funciona, consulte [Origin IP ACL e HMAC](/pt-br/documentacao/plataforma/connectors/origin-shield/origin-ip-acl-e-hmac/).
+
+### A Azion é recusada na origem depois de uma atualização da lista
+
+Depois que a Azion atualiza a lista `Azion Origin Shield`, a sua origem recusa algumas das requisições que a Azion encaminha.
+
+A allowlist da sua origem é uma cópia da lista, e falta nela um prefixo que a atualização adicionou. Os servidores por trás desse prefixo entram em produção 7 dias depois que a Azion publica a lista, como [Atualizações da lista](/pt-br/documentacao/plataforma/connectors/origin-shield/origin-ip-acl-e-hmac/#atualizacoes-da-lista) explica.
+
+- **Leia o histórico de mudanças**: Azion Console mantém um histórico da lista, com os prefixos que cada mudança adicionou e removeu.
+- **Libere cada prefixo, IPv4 e IPv6**: uma allowlist só com os prefixos IPv4 recusa as conexões que a Azion abre por IPv6.
+- **Automatize a atualização**: um job que lê a lista com mais frequência do que a cada 7 dias obtém cada prefixo a tempo, como [Mantenha a allowlist atualizada](/pt-br/documentacao/suporte/obter-ranges-ip-azion/#mantenha-a-allowlist-atualizada) mostra.
+
+A sua origem então aceita cada conexão que a Azion abre para ela.
+
+### O endpoint de storage retorna 401 UnauthorizedAccess
+
+As requisições por meio de um connector ao endpoint S3 de um bucket privado, como `s3.us-east-005.azionstorage.net`, retornam `401`, não `403`, com este corpo:
+
+```text
+<Error>
+    <Code>UnauthorizedAccess</Code>
+    <Message>bucket is not authorized: <bucket></Message>
+</Error>
+```
+
+HMAC está desativado, então o connector envia cada requisição sem assinatura, e o endpoint recusa o acesso ao bucket privado.
+
+- **Ative HMAC**: com **Origin Shield** ativado, ative o switch da seção **HMAC**, ou envie `origin_shield.config.hmac.enabled` como `true` na API.
+- **Use uma credencial restrita ao bucket**: a sua access key e a sua secret key vão em **Access Key** e **Secret Key**.
+- **Combine com o endpoint**: para `s3.us-east-005.azionstorage.net`, envie `region` `us-east-005` e `service` `s3`, como [Assine requisições de origem com HMAC](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/assine-requisicoes-de-origem-com-hmac/) mostra.
+
+Quando a mudança se propaga, o endpoint responde `200` com o objeto.
+
+### As credenciais HMAC somem depois que HMAC é desativado
+
+Depois que você desativa HMAC, o bloco `hmac` do connector é lido de volta com `"config": null`. Uma requisição posterior com `hmac.enabled` como `true` e sem `hmac.config` falha com `400`, código `28014` e `Module configuration must be provided when 'enabled' is true.`
+
+Desativar HMAC remove as credenciais armazenadas, e HMAC ativado precisa delas de novo, como os erros de [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#erros) mostram.
+
+- **Informe as credenciais de novo**: envie `hmac.config` com `type`, `region`, `service`, `access_key` e `secret_key`, ou preencha a seção **HMAC** no Azion Console, como [Autenticação HMAC](/pt-br/documentacao/plataforma/connectors/origin-shield/origin-ip-acl-e-hmac/#autenticacao-hmac) descreve.
+
+A API então retorna `202`, e o connector volta a assinar as requisições quando a mudança se propaga.
+
+---
+
+## Live Ingest
+
+Live Ingest recebe uma transmissão ao vivo por meio de um connector do tipo `live_ingest`. Para saber como a transmissão chega aos espectadores, consulte [Ingestão e entrega](/pt-br/documentacao/plataforma/connectors/live-ingest/ingestao-e-entrega/).
+
+### Um connector de Live Ingest é recusado sem uma região
+
+Criar um connector do tipo `live_ingest` falha com `400`, código `10059` e `This field is required.`, com o pointer `/data/attributes/region`.
+
+A API exige `attributes.region` para esse tipo, e um `bucket` sozinho não atende à exigência, como os erros de [Configurações de connector](/pt-br/documentacao/plataforma/connectors/configuracoes/#erros) mostram.
+
+- **Envie `region`** com `us-east-1`, `us-east-2`, `br-east-1`, `br-east-2` ou `br-east-3`, como [Live Ingest](/pt-br/documentacao/plataforma/connectors/configuracoes/#live-ingest) lista. Um valor fora da lista falha com `10039`.
+- **Deixe `bucket` de fora**: a API o aceita com esse tipo e não o armazena.
+
+A API então retorna `202` com `"attributes": {"region": "br-east-1"}`, ou a região que você enviou.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Configurações de connector" href="/pt-br/documentacao/plataforma/connectors/configuracoes/#erros">Cada campo de um connector, com a tabela completa de recusas e o que fazer em cada uma.</DocItem>
+  <DocItem title="Como Connectors funciona" href="/pt-br/documentacao/plataforma/connectors/como-funciona/">O caminho que uma requisição percorre de uma regra até o connector e como uma mudança se propaga, base da maioria das correções desta página.</DocItem>
+  <DocItem title="Solucionar problemas de Applications" href="/pt-br/documentacao/plataforma/applications/solucao-de-problemas/">As correções para requisições que nunca chegam à origem e para uma regra que não age sobre uma requisição.</DocItem>
+  <DocItem title="Origin IP ACL e HMAC" href="/pt-br/documentacao/plataforma/connectors/origin-shield/origin-ip-acl-e-hmac/">Como a allowlist e a assinatura da requisição protegem a origem, e o que cada uma comprova.</DocItem>
+</ItemList>
+</FrameBox>
