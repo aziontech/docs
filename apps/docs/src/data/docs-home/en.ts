@@ -228,7 +228,7 @@ export const en: DocsHomeContent = {
 				{
 					icon: 'pi pi-arrow-right-arrow-left',
 					title: 'Stream to SIEM',
-					href: '/en/documentation/guides/',
+					href: '/en/documentation/guides/application-security/firewall-and-waf/integrate-siems/',
 					class: 'sm:col-span-2 lg:col-span-3',
 					body: 'Stream WAF and firewall events where your team watches.',
 				},
