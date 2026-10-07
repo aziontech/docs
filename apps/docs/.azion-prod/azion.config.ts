@@ -132,7 +132,80 @@ export default {
             ]
           }
         ],
-        response: []
+        response: [
+          {
+            name: 'Serve llms.txt as UTF-8',
+            description:
+              'The storage connector sends text/plain without a charset, so browsers decode Portuguese text as Windows-1252',
+            active: true,
+            criteria: [
+              [
+                {
+                  variable: '${uri}',
+                  conditional: 'if',
+                  operator: 'matches',
+                  argument: '\\.txt$'
+                },
+                {
+                  variable: '${status}',
+                  conditional: 'and',
+                  operator: 'is_equal',
+                  argument: '200'
+                }
+              ]
+            ],
+            behaviors: [
+              {
+                type: 'filter_response_header',
+                attributes: {
+                  value: 'Content-Type'
+                }
+              },
+              {
+                type: 'add_response_header',
+                attributes: {
+                  value: 'Content-Type: text/plain; charset=utf-8'
+                }
+              }
+            ]
+          },
+          {
+            name: 'Serve Markdown twins as UTF-8',
+            description:
+              'The storage connector sends text/markdown without a charset, so browsers decode Portuguese text as Windows-1252',
+            active: true,
+            criteria: [
+              [
+                {
+                  variable: '${uri}',
+                  conditional: 'if',
+                  operator: 'matches',
+                  argument: '\\.md$'
+                },
+                {
+                  variable: '${status}',
+                  conditional: 'and',
+                  operator: 'is_equal',
+                  argument: '200'
+                }
+              ]
+            ],
+            behaviors: [
+              {
+                type: 'filter_response_header',
+                attributes: {
+                  value: 'Content-Type'
+                }
+              },
+              {
+                type: 'add_response_header',
+                attributes: {
+                  value: 'Content-Type: text/markdown; charset=utf-8'
+                }
+              }
+            ]
+          }
+        ]
       }
     }
   ],
