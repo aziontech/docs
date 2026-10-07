@@ -233,6 +233,17 @@ export const handlers: Record<string, Handler> = {
 		);
 	},
 
+	/** A changelog entry: its date as a section heading, then the version and tags, then the notes. */
+	async DocUpdate(node, ctx) {
+		const tags = (attr(node, 'tags') as string[] | undefined) ?? [];
+		const meta = [str(node, 'description'), tags.join(', ')].filter(Boolean).join(' · ');
+		return [
+			heading(2, [text(str(node, 'label') ?? '')]),
+			...(meta ? [paragraph([text(meta)])] : []),
+			...asBlocks(await ctx.transform(node.children ?? [])),
+		];
+	},
+
 	// --- Navigation ------------------------------------------------------------------------
 	DocCardGroup: entries,
 	ItemList: entries,

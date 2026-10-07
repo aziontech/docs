@@ -195,6 +195,42 @@ describe('mdxToMarkdown', () => {
 		);
 	});
 
+	test('turns a changelog entry into a dated section with its version and tags', async () => {
+		const out = await convert(
+			[
+				'<DocUpdate label="September 2, 2026" description="Version 2.8.0" tags={["Terraform Provider"]} anchor="september-2-2026">',
+				'',
+				'### Bug Fixes',
+				'',
+				'- **Import**: Fixed `terraform import`.',
+				'',
+				'</DocUpdate>',
+				'',
+				'<DocUpdate label="January, 2022" anchor="january-2022">',
+				'',
+				'Pipelines use a secure connection.',
+				'',
+				'</DocUpdate>',
+			].join('\n')
+		);
+		expect(out).toBe(
+			[
+				'## September 2, 2026',
+				'',
+				'Version 2.8.0 · Terraform Provider',
+				'',
+				'### Bug Fixes',
+				'',
+				'- **Import**: Fixed `terraform import`.',
+				'',
+				'## January, 2022',
+				'',
+				'Pipelines use a secure connection.',
+				'',
+			].join('\n')
+		);
+	});
+
 	test('splits one-line components out of their paragraph', async () => {
 		const out = await convert(
 			[

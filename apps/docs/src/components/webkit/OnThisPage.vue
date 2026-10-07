@@ -55,8 +55,10 @@ const onSelect = (event: MouseEvent, item: DocTocItem) => {
 	const target = document.getElementById(item.id);
 	if (!target) return;
 
+	// The page position, not offsetTop: a heading inside a positioned box (a changelog entry's
+	// sticky date column) reports its offset from that box, which is 0.
 	window.scrollTo({
-		top: target.offsetTop - 96,
+		top: target.getBoundingClientRect().top + window.scrollY - 96,
 		behavior: 'smooth',
 	});
 	activeId.value = item.id;
