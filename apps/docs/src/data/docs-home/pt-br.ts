@@ -227,7 +227,7 @@ export const ptBr: DocsHomeContent = {
 				{
 					icon: 'pi pi-arrow-right-arrow-left',
 					title: 'Envie para um SIEM',
-					href: '/pt-br/documentacao/guias/',
+					href: '/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/integrar-siems/',
 					class: 'sm:col-span-2 lg:col-span-3',
 					body: 'Transmita eventos do WAF e do firewall para onde sua equipe acompanha.',
 				},
