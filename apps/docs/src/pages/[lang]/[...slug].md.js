@@ -3,7 +3,7 @@ import { getLangFromSlug, stripLangFromSlug, getSlugFromPermalink } from '~/util
 import { docsHomeEntries } from '~/data/docs-home';
 import { ARCHITECTURES_HOME_NAMESPACE, architecturesHomeMarkdown } from '~/data/architectures-home';
 import { DEVTOOLS_HOME_NAMESPACE, devtoolsHomeMarkdown } from '~/data/devtools-home';
-import { getHubDirectory } from '~/nav/index';
+import { getGuidesHome, getHubDirectory } from '~/nav/index';
 import { pricingRows } from '~/data/pricing';
 import { useTranslationsForLang } from '~/i18n/util';
 import { guidesCatalog } from '~/util/guidesCatalog';
@@ -50,6 +50,41 @@ async function guidesGroups(lang) {
 		.filter((group) => group.items.length > 0);
 }
 
+const SKILL_KINDS = new Set(['tutorial', 'how-to-guide', 'multi-product-guide']);
+const guidePages = new Map();
+
+/** Namespaces of the tutorials, how-to guides, and multi-product guides the guides hub lists. */
+function guideNamespaces(lang) {
+	if (!guidePages.has(lang))
+		guidePages.set(
+			lang,
+			getGuidesHome('guides', lang).then(
+				({ entries }) =>
+					new Set(
+						entries
+							.filter((entry) => entry.page && SKILL_KINDS.has(entry.kind))
+							.map((entry) => entry.page)
+					)
+			)
+		);
+	return guidePages.get(lang);
+}
+
+/** A skill-style frontmatter: `azion-` plus the title as a slug of at most 64 characters, and the description. */
+function skillHeader(title, description) {
+	const slug = title
+		.normalize('NFKD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+	let name = slug.startsWith('azion-') ? slug : `azion-${slug}`;
+	if (name.length > 64) name = name.slice(0, 65).replace(/-[^-]*$/, '');
+	const lines = ['---', `name: ${name}`];
+	if (description) lines.push('description: >-', `  ${description.replace(/\s+/g, ' ').trim()}`);
+	return `${lines.join('\n')}\n---\n\n`;
+}
+
 function removeFrontMatter(body) {
 	return body.replace(/^---[\s\S]*?---\n?/, '');
 }
@@ -60,6 +95,9 @@ function getMarkdownContent(title, body) {
 
 /** The page's MDX as plain Markdown; a page that fails to convert keeps its raw body. */
 async function getPageMarkdown(page, lang) {
+	const header = (await guideNamespaces(lang)).has(page.data.namespace)
+		? skillHeader(page.data.title, page.data.description)
+		: '';
 	try {
 		const markdown = await mdxToMarkdown(page.body, {
 			lang,
@@ -68,10 +106,10 @@ async function getPageMarkdown(page, lang) {
 			data: { guides: guidesGroups, pricing: pricingRows },
 			onUnknown: (name) => console.warn(`[markdown twin] ${page.id}: no rule for ${name}`),
 		});
-		return `# ${page.data.title}\n\n${markdown}`;
+		return `${header}# ${page.data.title}\n\n${markdown}`;
 	} catch (error) {
 		console.warn(`[markdown twin] ${page.id}: ${error.message}; serving the raw MDX body`);
-		return getMarkdownContent(page.data.title, page.body);
+		return header + getMarkdownContent(page.data.title, page.body);
 	}
 }
 
