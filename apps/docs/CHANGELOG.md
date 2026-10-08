@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.1](https://github.com/aziontech/docs/compare/docs-v2.0.0...docs-v2.0.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **nav:** point the logo and Reference links at the docs home ([#2445](https://github.com/aziontech/docs/issues/2445)) ([126cb85](https://github.com/aziontech/docs/commit/126cb855435afe953a3f4525abe3c121f3b2f320))
+* **nav:** reshape the mobile menu around the docs tree ([#2448](https://github.com/aziontech/docs/issues/2448)) ([d026459](https://github.com/aziontech/docs/commit/d0264594f13164a6a91a13a710699b6baafb0cfa))
+
 ## [2.0.0](https://github.com/aziontech/docs/compare/docs-v1.0.0...docs-v2.0.0) (2026-10-08)
 
 
