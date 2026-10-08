@@ -5,7 +5,7 @@ export default {
   },
   storage: [
     {
-      name: 'docs-prod',
+      name: 'prod-docs',
       prefix: '20261005193619',
       dir: './dist',
       workloadsAccess: 'read_only'
@@ -17,7 +17,7 @@ export default {
       active: true,
       type: 'storage',
       attributes: {
-        bucket: 'docs-prod',
+        bucket: 'prod-docs',
         prefix: '20261005193619'
       }
     }
