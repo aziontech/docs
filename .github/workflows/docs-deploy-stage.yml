@@ -1,0 +1,457 @@
+name: Deploy docs (stage)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: docs-vX.Y.Z tag to deploy to stage (release-please dispatches this; also used for a manual redeploy)
+        required: true
+        type: string
+      promote:
+        description: Open the production promotion PR after a green stage deploy (a release always does; tick this only to promote a hand-run redeploy)
+        required: false
+        default: false
+        type: boolean
+      trigger:
+        description: What started this deploy. release-please passes `release`; leave `manual` for a hand-run redeploy
+        required: false
+        default: manual
+        type: choice
+        options:
+          - manual
+          - release
+
+permissions: {}
+
+env:
+  HUSKY: 0
+  TAG_PREFIX: docs-v
+  STATE_DIR: apps/docs/azion/stage
+
+jobs:
+  deploy:
+    name: Stage build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: stage
+      url: ${{ steps.release.outputs.url }}
+    permissions:
+      contents: read
+      deployments: write
+    concurrency:
+      group: deploy-stage
+      cancel-in-progress: false
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+
+    steps:
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^${TAG_PREFIX}[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release_tag must be ${TAG_PREFIX}X.Y.Z, got '${RELEASE_TAG}'"
+            exit 1
+          fi
+
+      - name: Checkout release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.release_tag }}
+          persist-credentials: false
+
+      - name: Checkout the Azion state from main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: main-state
+          sparse-checkout: apps/docs/azion
+          persist-credentials: false
+
+      - name: Resolve release metadata
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r '.version // empty' apps/docs/package.json)"
+          if [ "${TAG_PREFIX}${VERSION}" != "$RELEASE_TAG" ]; then
+            echo "::error::${RELEASE_TAG} checks out apps/docs/package.json version ${VERSION}: tag and version disagree"
+            exit 1
+          fi
+
+          rm -rf "$STATE_DIR"
+          cp -R "main-state/${STATE_DIR}" "$STATE_DIR"
+          cp "${STATE_DIR}/azion.json" "${RUNNER_TEMP}/azion-state-before.json"
+
+          {
+            echo "version=${VERSION}"
+            echo "source_commit=$(git rev-parse HEAD)"
+            echo "node_version=$(cut -d. -f1 .nvmrc)"
+            echo "url=$(jq -r '.workloads.url' "${STATE_DIR}/azion.json")"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/setup
+
+      - name: Install Azion CLI
+        id: cli
+        run: |
+          set -euo pipefail
+          source .cli-version
+          : "${CLI_VERSION:?.cli-version must define CLI_VERSION}"
+          CLI_PKG="azion_${CLI_VERSION}_linux_amd64.deb"
+          BASE_URL="https://github.com/aziontech/azion/releases/download/${CLI_VERSION}"
+
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o "$CLI_PKG" "${BASE_URL}/${CLI_PKG}"
+          curl -fsSL -o azion_checksum.txt "${BASE_URL}/azion_v${CLI_VERSION}_checksum"
+
+          CHECKSUM_LINE="$(awk -v pkg="$CLI_PKG" '$2 == pkg' azion_checksum.txt)"
+          if [ -z "$CHECKSUM_LINE" ]; then
+            echo "::error::No checksum entry for ${CLI_PKG} in azion_v${CLI_VERSION}_checksum"
+            exit 1
+          fi
+          echo "$CHECKSUM_LINE" | sha256sum -c -
+
+          sudo dpkg -i "$CLI_PKG"
+          rm -f "$CLI_PKG" azion_checksum.txt
+          azion version
+          echo "cli_version=${CLI_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Azion CLI
+        env:
+          DEPLOY_TOKEN: ${{ secrets.AZION_TOKEN_V4 }}
+        run: azion -t "$DEPLOY_TOKEN"
+
+      - name: Smoke check authentication
+        run: |
+          set -euo pipefail
+          if ! azion whoami > /dev/null 2>&1; then
+            echo "::error::azion whoami failed: the AZION_TOKEN_V4 repository secret is missing or invalid"
+            exit 1
+          fi
+          echo "Azion CLI authenticated"
+
+      - name: Build and deploy to stage
+        env:
+          NODE_OPTIONS: --max-old-space-size=8120
+        run: pnpm deploy:stage:azion
+
+      - name: Verify the bundle targets stage
+        run: |
+          set -euo pipefail
+          BUCKET="$(jq -r '.storage[0].name // empty' apps/docs/.edge/manifest.json)"
+          if [ "$BUCKET" != "stage-docs" ]; then
+            echo "::error::the deployed bundle uses bucket '${BUCKET}', expected stage-docs"
+            exit 1
+          fi
+          echo "Bundle verified: bucket stage-docs"
+
+      - name: Smoke check the stage URL
+        env:
+          URL: ${{ steps.release.outputs.url }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' "${URL}/en/documentation/" || true)"
+            if [ "$CODE" = "200" ]; then
+              echo "${URL}/en/documentation/ answered 200"
+              exit 0
+            fi
+            echo "Attempt ${attempt}: HTTP ${CODE}; retrying in 15s"
+            sleep 15
+          done
+          echo "::error::${URL}/en/documentation/ did not answer 200 after the deploy"
+          exit 1
+
+      - name: Report Azion state changes
+        if: always()
+        run: |
+          set -euo pipefail
+          AFTER="${STATE_DIR}/azion.json"
+          BEFORE="${RUNNER_TEMP}/azion-state-before.json"
+          [ -f "$AFTER" ] && [ -f "$BEFORE" ] || exit 0
+          if diff <(jq -S . "$BEFORE") <(jq -S . "$AFTER") > "${RUNNER_TEMP}/azion-state.diff"; then
+            echo "Azion state unchanged"
+            exit 0
+          fi
+          echo "::warning::The Azion CLI changed ${AFTER}. Commit it to main through a PR (see the job summary)."
+          {
+            echo "### Azion state changed"
+            echo
+            echo "Open a PR to main with this change to \`${AFTER}\`, or the next deploy recreates the resource."
+            echo
+            echo '```diff'
+            cat "${RUNNER_TEMP}/azion-state.diff"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record stage deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_COMMIT: ${{ steps.release.outputs.source_commit }}
+          NODE_VERSION: ${{ steps.release.outputs.node_version }}
+          CLI_VERSION: ${{ steps.cli.outputs.cli_version }}
+          URL: ${{ steps.release.outputs.url }}
+          REQUESTED_BY: ${{ github.actor }}
+          TRIGGER: ${{ inputs.trigger == 'release' && 'release' || 'manual' }}
+        run: |
+          set -euo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          DEPLOYMENT_ID="$(
+            jq -n \
+              --arg ref "$RELEASE_TAG" \
+              --arg desc "Stage deploy of $RELEASE_TAG" \
+              --arg sha "$SOURCE_COMMIT" \
+              --arg node "$NODE_VERSION" \
+              --arg cli "$CLI_VERSION" \
+              --arg dir "$STATE_DIR" \
+              --arg by "$REQUESTED_BY" \
+              --arg trigger "$TRIGGER" \
+              '{
+                 ref: $ref,
+                 environment: "stage",
+                 description: $desc,
+                 auto_merge: false,
+                 required_contexts: [],
+                 payload: {
+                   sourceCommit: $sha,
+                   nodeVersion: $node,
+                   cliVersion: $cli,
+                   configDir: $dir,
+                   requestedBy: $by,
+                   trigger: $trigger
+                 }
+               }' \
+              | gh api "repos/${GITHUB_REPOSITORY}/deployments" --input - --jq '.id'
+          )"
+
+          jq -n --arg log "$RUN_URL" --arg url "$URL" \
+            '{
+               state: "success",
+               environment_url: $url,
+               log_url: $log,
+               description: "Deployed",
+               auto_inactive: true
+             }' \
+            | gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" --input - --jq '.state'
+
+          {
+            echo "### Stage deployment recorded"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Version | \`${RELEASE_TAG}\` |"
+            echo "| Source commit | \`${SOURCE_COMMIT}\` |"
+            echo "| URL | ${URL} |"
+            echo "| Deployment | [\`${DEPLOYMENT_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/deployments/stage) |"
+            echo "| Trigger | ${TRIGGER}, by ${REQUESTED_BY} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Recorded deployment ${DEPLOYMENT_ID}: stage <- ${RELEASE_TAG}"
+
+  promote:
+    name: Open production promotion PR
+    needs: deploy
+    if: inputs.trigger == 'release' || inputs.promote
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      deployments: read
+    concurrency:
+      group: promote-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          install: 'false'
+
+      - name: Check production is behind this release
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#"$TAG_PREFIX"}"
+          CURRENT="$(jq -r '.release.version // empty' deployments/production.json)"
+
+          version_gt() {
+            local -a a b
+            IFS=. read -ra a <<<"$1"
+            IFS=. read -ra b <<<"$2"
+            for i in 0 1 2; do
+              (( a[i] > b[i] )) && return 0
+              (( a[i] < b[i] )) && return 1
+            done
+            return 1
+          }
+
+          if [ -n "$CURRENT" ] && ! version_gt "$VERSION" "$CURRENT"; then
+            echo "Production already records ${CURRENT}; ${RELEASE_TAG} is not newer: no promotion"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          OPEN_HEADS="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json headRefName --jq ".[].headRefName | select(startswith(\"promote/production-${TAG_PREFIX}\"))")"
+          NEWER=""
+          for head in $OPEN_HEADS; do
+            OPEN="${head#"promote/production-${TAG_PREFIX}"}"
+            [[ "$OPEN" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+            if version_gt "$OPEN" "$VERSION"; then
+              NEWER="$OPEN"
+              break
+            fi
+          done
+          if [ -n "$NEWER" ]; then
+            echo "Promotion PR for ${TAG_PREFIX}${NEWER} is already open; ${RELEASE_TAG} is older: no promotion"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Read stage evidence from the Deployments API
+        id: stage
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          REPO="$GITHUB_REPOSITORY"
+
+          DEPLOYMENT=""
+          STATUS=""
+          for id in $(gh api "repos/${REPO}/deployments?environment=stage&ref=${RELEASE_TAG}&per_page=20" --jq '.[].id'); do
+            STATUS="$(gh api "repos/${REPO}/deployments/${id}/statuses?per_page=100" \
+              --jq '[.[] | select(.state == "success")] | first // empty')"
+            if [ -n "$STATUS" ]; then
+              DEPLOYMENT="$(gh api "repos/${REPO}/deployments/${id}")"
+              break
+            fi
+          done
+
+          if [ -z "$DEPLOYMENT" ]; then
+            echo "::error::No green stage deployment for ${RELEASE_TAG}: nothing to promote"
+            exit 1
+          fi
+
+          SOURCE_COMMIT="$(jq -r '.payload.sourceCommit // empty' <<<"$DEPLOYMENT")"
+          TAG_COMMIT="$(gh api "repos/${REPO}/commits/${RELEASE_TAG}" --jq '.sha')"
+
+          if [ "$SOURCE_COMMIT" != "$TAG_COMMIT" ]; then
+            echo "::error::${RELEASE_TAG} now points at ${TAG_COMMIT}, but stage deployed ${SOURCE_COMMIT:-<none>}: the tag moved"
+            exit 1
+          fi
+
+          {
+            echo "deployment_id=$(jq -r '.id' <<<"$DEPLOYMENT")"
+            echo "source_commit=${SOURCE_COMMIT}"
+            echo "node_version=$(jq -r '.payload.nodeVersion' <<<"$DEPLOYMENT")"
+            echo "cli_version=$(jq -r '.payload.cliVersion' <<<"$DEPLOYMENT")"
+            echo "log_url=$(jq -r '.log_url' <<<"$STATUS")"
+            echo "deployed_at=$(jq -r '.created_at' <<<"$STATUS")"
+            echo "trigger=$(jq -r '.payload.trigger // "release"' <<<"$DEPLOYMENT")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write production manifest
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          DEPLOY_STATE: ready
+          DEPLOY_TRIGGER: ${{ steps.stage.outputs.trigger == 'manual' && 'manual' || 'release' }}
+          DEPLOY_REQUESTED_BY: ${{ github.actor }}
+          RELEASE_VERSION: ${{ needs.deploy.outputs.version }}
+          RELEASE_GIT_TAG: ${{ inputs.release_tag }}
+          RELEASE_SOURCE_COMMIT: ${{ steps.stage.outputs.source_commit }}
+          BUILD_NODE_VERSION: ${{ steps.stage.outputs.node_version }}
+          BUILD_CLI_VERSION: ${{ steps.stage.outputs.cli_version }}
+          STAGE_DEPLOYMENT_ID: ${{ steps.stage.outputs.deployment_id }}
+          STAGE_GIT_TAG: ${{ inputs.release_tag }}
+          STAGE_SOURCE_COMMIT: ${{ steps.stage.outputs.source_commit }}
+          STAGE_STATE: success
+          STAGE_LOG_URL: ${{ steps.stage.outputs.log_url }}
+          STAGE_DEPLOYED_AT: ${{ steps.stage.outputs.deployed_at }}
+        run: node scripts/ci/write-deployment-manifest.mjs
+
+      - name: Open or update the promotion pull request
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_COMMIT: ${{ steps.stage.outputs.source_commit }}
+          STAGE_DEPLOYMENT_ID: ${{ steps.stage.outputs.deployment_id }}
+          STAGE_LOG_URL: ${{ steps.stage.outputs.log_url }}
+        run: |
+          set -euo pipefail
+
+          REPO="$GITHUB_REPOSITORY"
+          BRANCH="promote/production-${RELEASE_TAG}"
+          TITLE="chore(deploy): promote ${RELEASE_TAG} to production"
+          CHANGED="$(git status --porcelain)"
+
+          if [ "$CHANGED" != " M deployments/production.json" ]; then
+            echo "::error::expected only deployments/production.json to change, got:"
+            echo "$CHANGED"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add deployments/production.json
+          git commit -m "$TITLE"
+
+          gh auth setup-git
+          git push --force "https://github.com/${REPO}.git" "HEAD:refs/heads/${BRANCH}"
+
+          BODY="$(cat <<EOF
+          Promotes **${RELEASE_TAG}** to production. Merging this PR **is** the production deploy: \`docs-deploy-production.yml\` runs on the push to \`main\`.
+
+          | | |
+          | --- | --- |
+          | Source commit | \`${SOURCE_COMMIT}\` |
+          | Stage deployment | [\`${STAGE_DEPLOYMENT_ID}\`](${STAGE_LOG_URL}) (green) |
+          | Release | ${GITHUB_SERVER_URL}/${REPO}/releases/tag/${RELEASE_TAG} |
+          | Opened by | ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID} |
+
+          **Before merging:** this PR was opened with the workflow token, so its required checks did not start on their own. Close and reopen it to trigger them.
+
+          Do not edit \`deployments/production.json\` by hand: rerun *Deploy docs (stage)* for this tag with **promote** ticked to regenerate it.
+          EOF
+          )"
+
+          EXISTING="$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh pr edit "$EXISTING" --repo "$REPO" --title "$TITLE" --body "$BODY"
+            PR_URL="$(gh pr view "$EXISTING" --repo "$REPO" --json url --jq '.url')"
+          else
+            PR_URL="$(gh pr create --repo "$REPO" --draft --base main --head "$BRANCH" --title "$TITLE" --body "$BODY")"
+          fi
+
+          gh pr list --repo "$REPO" --state open --limit 100 --json number,headRefName \
+            --jq ".[] | select(.headRefName | startswith(\"promote/production-\")) | select(.headRefName != \"${BRANCH}\") | .number" \
+            | while read -r number; do
+                gh pr close "$number" --repo "$REPO" --delete-branch \
+                  --comment "Superseded by ${PR_URL} (${RELEASE_TAG})."
+              done
+
+          {
+            echo "### Production promotion"
+            echo
+            echo "${RELEASE_TAG} is ready to promote: ${PR_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Promotion PR: ${PR_URL}"

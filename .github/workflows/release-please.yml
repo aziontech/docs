@@ -1,0 +1,63 @@
+name: Release Please
+
+# Versions the docs app (apps/docs) only: commits outside it never cut a release.
+# Merging the Release PR tags docs-vX.Y.Z and dispatches the stage deploy of that tag.
+#
+# The stage deploy is started with `gh workflow run`, not `workflow_call`: an event made
+# with GITHUB_TOKEN only creates a run through workflow_dispatch, and the dispatched run
+# resolves the stage environment's secrets on its own, so no secret crosses workflows.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Maintain Release PR / cut releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      # The package is not ".", so the action prefixes every output with its path.
+      release_created: ${{ steps.release.outputs['apps/docs--release_created'] }}
+      tag_name: ${{ steps.release.outputs['apps/docs--tag_name'] }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main
+
+  deploy-stage:
+    name: Trigger stage deploy
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch docs-deploy-stage.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          gh workflow run docs-deploy-stage.yml \
+            --ref main \
+            -f release_tag="${RELEASE_TAG}" \
+            -f trigger=release
+          echo "Dispatched docs-deploy-stage.yml for ${RELEASE_TAG}: see Actions > Deploy docs (stage)"

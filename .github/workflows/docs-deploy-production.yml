@@ -1,0 +1,396 @@
+name: Deploy docs (production)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - deployments/production.json
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  HUSKY: 0
+  TAG_PREFIX: docs-v
+  STATE_DIR: apps/docs/azion/production
+
+jobs:
+  deploy:
+    name: Production build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: ${{ steps.release.outputs.url }}
+    permissions:
+      contents: read
+      deployments: write
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Refuse to run outside main
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::production deploys run from main only, got ${GITHUB_REF}"
+            exit 1
+          fi
+
+      - name: Refuse a superseded manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          last_manifest_commit() {
+            gh api "repos/${GITHUB_REPOSITORY}/commits?sha=$1&path=deployments/production.json&per_page=1" --jq '.[0].sha'
+          }
+          THIS="$(last_manifest_commit "$GITHUB_SHA")"
+          LATEST="$(last_manifest_commit main)"
+          if [ -z "$THIS" ] || [ "$THIS" != "$LATEST" ]; then
+            echo "::error::this run's production.json (${THIS:-none}) is not the latest on main (${LATEST}): dispatch the workflow again to deploy what main records"
+            exit 1
+          fi
+
+      - name: Checkout the promotion
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: promotion
+          sparse-checkout: |
+            deployments
+            scripts/ci
+            apps/docs/azion
+          persist-credentials: false
+
+      - name: Read the promoted release
+        id: release
+        working-directory: promotion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          MANIFEST=deployments/production.json
+
+          node scripts/ci/validate-deployment-manifest.mjs "$MANIFEST"
+
+          STATE="$(jq -r '.state' "$MANIFEST")"
+          TRIGGER="$(jq -r '.deploy.trigger' "$MANIFEST")"
+
+          if [ "$STATE" != "ready" ]; then
+            echo "::error::production.json is in state '${STATE}': only a 'ready' promotion is deployed"
+            exit 1
+          fi
+
+          if [ "$TRIGGER" != "release" ] && [ "$TRIGGER" != "manual" ]; then
+            echo "::error::production.json trigger '${TRIGGER}' is not handled by this workflow"
+            exit 1
+          fi
+
+          VERSION="$(jq -r '.release.version' "$MANIFEST")"
+          PREVIOUS="$(jq -r '.deploy.previousVersion // empty' "$MANIFEST")"
+
+          version_gt() {
+            local -a a b
+            IFS=. read -ra a <<<"$1"
+            IFS=. read -ra b <<<"$2"
+            for i in 0 1 2; do
+              (( a[i] > b[i] )) && return 0
+              (( a[i] < b[i] )) && return 1
+            done
+            return 1
+          }
+
+          if [ -n "$PREVIOUS" ] && ! version_gt "$VERSION" "$PREVIOUS"; then
+            echo "::error::${VERSION} is not newer than ${PREVIOUS}: a downgrade is a rollback, not a promotion"
+            exit 1
+          fi
+
+          # previousVersion is only the manifest's own claim; a reverted promotion restores
+          # an older manifest that still agrees with itself. What is live is the newest
+          # pipeline record (the automatic `environment:` record has no payload). The same
+          # version is allowed: that is redeploying a failed or partial deploy.
+          LIVE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/deployments?environment=production&per_page=100" \
+            --jq '[.[] | select(.payload.sourceCommit != null)][0].ref // empty')"
+          if [ -n "$LIVE_TAG" ]; then
+            LIVE="${LIVE_TAG#"$TAG_PREFIX"}"
+            if ! [[ "$LIVE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::latest production deployment has ref '${LIVE_TAG}', expected ${TAG_PREFIX}X.Y.Z"
+              exit 1
+            fi
+            if version_gt "$LIVE" "$VERSION"; then
+              echo "::error::production runs ${LIVE}; ${VERSION} would be a downgrade"
+              exit 1
+            fi
+          fi
+
+          {
+            echo "version=${VERSION}"
+            echo "git_tag=$(jq -r '.release.gitTag' "$MANIFEST")"
+            echo "source_commit=$(jq -r '.release.sourceCommit' "$MANIFEST")"
+            echo "node_version=$(jq -r '.build.nodeVersion' "$MANIFEST")"
+            echo "cli_version=$(jq -r '.build.cliVersion' "$MANIFEST")"
+            echo "trigger=${TRIGGER}"
+            echo "previous_version=${PREVIOUS}"
+            echo "stage_deployment_id=$(jq -r '.stage.deploymentId' "$MANIFEST")"
+            echo "url=$(jq -r '.workloads.url' "${STATE_DIR}/azion.json")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Re-check the stage evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.git_tag }}
+          SOURCE_COMMIT: ${{ steps.release.outputs.source_commit }}
+          STAGE_DEPLOYMENT_ID: ${{ steps.release.outputs.stage_deployment_id }}
+        run: |
+          set -euo pipefail
+          DEPLOYMENT="$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${STAGE_DEPLOYMENT_ID}")"
+
+          if [ "$(jq -r '.environment' <<<"$DEPLOYMENT")" != "stage" ] \
+            || [ "$(jq -r '.ref' <<<"$DEPLOYMENT")" != "$RELEASE_TAG" ] \
+            || [ "$(jq -r '.payload.sourceCommit // empty' <<<"$DEPLOYMENT")" != "$SOURCE_COMMIT" ]; then
+            echo "::error::deployment ${STAGE_DEPLOYMENT_ID} is not a stage deploy of ${RELEASE_TAG} at ${SOURCE_COMMIT}"
+            exit 1
+          fi
+
+          GREEN="$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${STAGE_DEPLOYMENT_ID}/statuses?per_page=100" \
+            --jq '[.[] | select(.state == "success")] | length')"
+          if [ "$GREEN" -eq 0 ]; then
+            echo "::error::stage deployment ${STAGE_DEPLOYMENT_ID} never reached success"
+            exit 1
+          fi
+          echo "Stage evidence confirmed: deployment ${STAGE_DEPLOYMENT_ID}"
+
+      - name: Checkout release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ steps.release.outputs.git_tag }}
+          path: source
+          persist-credentials: false
+
+      - name: Verify the tag is the promoted source
+        working-directory: source
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.git_tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          SOURCE_COMMIT: ${{ steps.release.outputs.source_commit }}
+          NODE_VERSION: ${{ steps.release.outputs.node_version }}
+          CLI_VERSION_PINNED: ${{ steps.release.outputs.cli_version }}
+        run: |
+          set -euo pipefail
+          HEAD_COMMIT="$(git rev-parse HEAD)"
+          if [ "$HEAD_COMMIT" != "$SOURCE_COMMIT" ]; then
+            echo "::error::${RELEASE_TAG} checks out ${HEAD_COMMIT}, the promotion is for ${SOURCE_COMMIT}: the tag moved"
+            exit 1
+          fi
+
+          PACKAGE_VERSION="$(jq -r '.version // empty' apps/docs/package.json)"
+          if [ "$PACKAGE_VERSION" != "$VERSION" ]; then
+            echo "::error::${RELEASE_TAG} checks out apps/docs/package.json version ${PACKAGE_VERSION}: tag and version disagree"
+            exit 1
+          fi
+
+          if [ "$(cut -d. -f1 .nvmrc)" != "$NODE_VERSION" ]; then
+            echo "::error::.nvmrc at the tag is $(cat .nvmrc), the manifest pins node ${NODE_VERSION}"
+            exit 1
+          fi
+
+          source .cli-version
+          if [ "$CLI_VERSION" != "$CLI_VERSION_PINNED" ]; then
+            echo "::error::.cli-version at the tag says ${CLI_VERSION}, the manifest pins ${CLI_VERSION_PINNED}"
+            exit 1
+          fi
+
+          # The tag can predate the last change to the CLI state; deploy with main's.
+          rm -rf "$STATE_DIR"
+          cp -R "../promotion/${STATE_DIR}" "$STATE_DIR"
+          cp "${STATE_DIR}/azion.json" "${RUNNER_TEMP}/azion-state-before.json"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: source/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: source/.nvmrc
+          cache: pnpm
+          cache-dependency-path: source/pnpm-lock.yaml
+
+      - name: Install dependencies --frozen-lockfile
+        working-directory: source
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Azion CLI
+        working-directory: source
+        run: |
+          set -euo pipefail
+          source .cli-version
+          CLI_PKG="azion_${CLI_VERSION}_linux_amd64.deb"
+          BASE_URL="https://github.com/aziontech/azion/releases/download/${CLI_VERSION}"
+
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o "$CLI_PKG" "${BASE_URL}/${CLI_PKG}"
+          curl -fsSL -o azion_checksum.txt "${BASE_URL}/azion_v${CLI_VERSION}_checksum"
+
+          CHECKSUM_LINE="$(awk -v pkg="$CLI_PKG" '$2 == pkg' azion_checksum.txt)"
+          if [ -z "$CHECKSUM_LINE" ]; then
+            echo "::error::No checksum entry for ${CLI_PKG} in azion_v${CLI_VERSION}_checksum"
+            exit 1
+          fi
+          echo "$CHECKSUM_LINE" | sha256sum -c -
+
+          sudo dpkg -i "$CLI_PKG"
+          rm -f "$CLI_PKG" azion_checksum.txt
+          azion version
+
+      - name: Configure Azion CLI
+        env:
+          DEPLOY_TOKEN: ${{ secrets.AZION_TOKEN_V4 }}
+        run: azion -t "$DEPLOY_TOKEN"
+
+      - name: Smoke check authentication
+        run: |
+          set -euo pipefail
+          if ! azion whoami > /dev/null 2>&1; then
+            echo "::error::azion whoami failed: the AZION_TOKEN_V4 repository secret is missing or invalid"
+            exit 1
+          fi
+          echo "Azion CLI authenticated"
+
+      - name: Build and deploy to production
+        working-directory: source
+        env:
+          NODE_OPTIONS: --max-old-space-size=8120
+        run: pnpm deploy:prod:azion
+
+      - name: Verify the bundle targets production
+        working-directory: source
+        run: |
+          set -euo pipefail
+          BUCKET="$(jq -r '.storage[0].name // empty' apps/docs/.edge/manifest.json)"
+          if [ "$BUCKET" != "prod-docs" ]; then
+            echo "::error::the deployed bundle uses bucket '${BUCKET}', expected prod-docs"
+            exit 1
+          fi
+          echo "Bundle verified: bucket prod-docs"
+
+      - name: Smoke check the production URL
+        env:
+          URL: ${{ steps.release.outputs.url }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' "${URL}/en/documentation/" || true)"
+            if [ "$CODE" = "200" ]; then
+              echo "${URL}/en/documentation/ answered 200"
+              exit 0
+            fi
+            echo "Attempt ${attempt}: HTTP ${CODE}; retrying in 15s"
+            sleep 15
+          done
+          echo "::error::${URL}/en/documentation/ did not answer 200 after the deploy"
+          exit 1
+
+      - name: Report Azion state changes
+        if: always()
+        working-directory: source
+        run: |
+          set -euo pipefail
+          AFTER="${STATE_DIR}/azion.json"
+          BEFORE="${RUNNER_TEMP}/azion-state-before.json"
+          [ -f "$AFTER" ] && [ -f "$BEFORE" ] || exit 0
+          if diff <(jq -S . "$BEFORE") <(jq -S . "$AFTER") > "${RUNNER_TEMP}/azion-state.diff"; then
+            echo "Azion state unchanged"
+            exit 0
+          fi
+          echo "::warning::The Azion CLI changed ${AFTER}. Commit it to main through a PR (see the job summary)."
+          {
+            echo "### Azion state changed"
+            echo
+            echo "Open a PR to main with this change to \`${AFTER}\`, or the next deploy recreates the resource."
+            echo
+            echo '```diff'
+            cat "${RUNNER_TEMP}/azion-state.diff"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record production deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.git_tag }}
+          SOURCE_COMMIT: ${{ steps.release.outputs.source_commit }}
+          NODE_VERSION: ${{ steps.release.outputs.node_version }}
+          CLI_VERSION: ${{ steps.release.outputs.cli_version }}
+          PREVIOUS_VERSION: ${{ steps.release.outputs.previous_version }}
+          STAGE_DEPLOYMENT_ID: ${{ steps.release.outputs.stage_deployment_id }}
+          URL: ${{ steps.release.outputs.url }}
+          REQUESTED_BY: ${{ github.actor }}
+          TRIGGER: ${{ steps.release.outputs.trigger }}
+        run: |
+          set -euo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          DEPLOYMENT_ID="$(
+            jq -n \
+              --arg ref "$RELEASE_TAG" \
+              --arg desc "Production deploy of $RELEASE_TAG" \
+              --arg sha "$SOURCE_COMMIT" \
+              --arg node "$NODE_VERSION" \
+              --arg cli "$CLI_VERSION" \
+              --arg dir "$STATE_DIR" \
+              --arg by "$REQUESTED_BY" \
+              --arg trigger "$TRIGGER" \
+              --arg previous "$PREVIOUS_VERSION" \
+              --arg manifest "$GITHUB_SHA" \
+              --argjson stage "$STAGE_DEPLOYMENT_ID" \
+              '{
+                 ref: $ref,
+                 environment: "production",
+                 description: $desc,
+                 auto_merge: false,
+                 required_contexts: [],
+                 production_environment: true,
+                 payload: {
+                   sourceCommit: $sha,
+                   nodeVersion: $node,
+                   cliVersion: $cli,
+                   configDir: $dir,
+                   requestedBy: $by,
+                   trigger: $trigger,
+                   previousVersion: (if $previous == "" then null else $previous end),
+                   manifestCommit: $manifest,
+                   stageDeploymentId: $stage
+                 }
+               }' \
+              | gh api "repos/${GITHUB_REPOSITORY}/deployments" --input - --jq '.id'
+          )"
+
+          jq -n --arg log "$RUN_URL" --arg url "$URL" \
+            '{
+               state: "success",
+               environment_url: $url,
+               log_url: $log,
+               description: "Deployed",
+               auto_inactive: true
+             }' \
+            | gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" --input - --jq '.state'
+
+          {
+            echo "### Production deployment recorded"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Version | \`${RELEASE_TAG}\` |"
+            echo "| Previous version | ${PREVIOUS_VERSION:-_none recorded_} |"
+            echo "| Source commit | \`${SOURCE_COMMIT}\` |"
+            echo "| Manifest commit | \`${GITHUB_SHA}\` |"
+            echo "| Stage evidence | deployment \`${STAGE_DEPLOYMENT_ID}\` |"
+            echo "| URL | ${URL} |"
+            echo "| Deployment | [\`${DEPLOYMENT_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/deployments/production) |"
+            echo "| Trigger | ${TRIGGER}, by ${REQUESTED_BY} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Recorded deployment ${DEPLOYMENT_ID}: production <- ${RELEASE_TAG}"
