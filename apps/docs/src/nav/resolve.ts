@@ -787,7 +787,7 @@ export function buildDirectory(
 		{
 			id: 'directory/reference',
 			label: labels.reference,
-			href: `/${lang}/`,
+			href: `/${lang}/${DOCS_BASE[lang]}/`,
 			target: '_self',
 		},
 	];
