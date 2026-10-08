@@ -17,6 +17,12 @@ function parseTitle(meta: string | null | undefined): string | undefined {
 	return match?.[2] || undefined;
 }
 
+// A `diff` word in the info string (```js diff) marks the first column of every
+// line as a diff marker: `+` added, `-` removed, a space unchanged.
+function parseDiff(meta: string | null | undefined): boolean {
+	return Boolean(meta && /(^|\s)diff(\s|$)/.test(meta));
+}
+
 function remarkCodeBlocks(): unified.Plugin<[], mdast.Root> {
 	const transformer: unified.Transformer<mdast.Root> = (tree) => {
 		visit(tree, 'code', (node: mdast.Code, index, parent) => {
@@ -36,6 +42,7 @@ function remarkCodeBlocks(): unified.Plugin<[], mdast.Root> {
 					code: node.value || ' ',
 					lang: node.lang ?? undefined,
 					fileName: parseTitle(node.meta),
+					diff: parseDiff(node.meta) ? 'true' : undefined,
 				},
 			});
 		});
