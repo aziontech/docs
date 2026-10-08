@@ -45,6 +45,7 @@ export default {
 	'leftSidebar.allProducts': 'All products',
 	'leftSidebar.backToDocs': 'Back to Docs',
 	'leftSidebar.backTo': 'Back to {name}',
+	'leftSidebar.theme': 'Theme',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Last updated',
 	'pageHeader.copy': 'Copy as Markdown',

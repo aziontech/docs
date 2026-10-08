@@ -47,6 +47,7 @@ export default UIDictionary({
 	'leftSidebar.allProducts': 'Todos os produtos',
 	'leftSidebar.backToDocs': 'Voltar para Docs',
 	'leftSidebar.backTo': 'Voltar para {name}',
+	'leftSidebar.theme': 'Tema',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Última atualização',
 	'pageHeader.copy': 'Copiar como Markdown',
