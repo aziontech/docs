@@ -1,780 +1,1042 @@
 ---
-title: "Migre da Fastly para a Azion | Guia completo"
+title: Migre da Fastly para a Azion
 description: >-
-  Aprenda a migrar da Fastly para a Azion com menos risco operacional. Migre Fastly Full-Site Delivery, Compute, Edge Data Storage, Object Storage, Image Optimizer, WAF, proteção DDoS, controles de bots, TLS, logging e fluxos de observabilidade para Azion Applications, Functions, KV Store, Object Storage, Image Processor, Firewall, Certificate Manager, Data Stream, Real-Time Events e Real-Time Metrics.
-meta_tags: 'Azion, Fastly, migração, applications, functions, cache, WAF, logging'
+  Migre um serviço da Fastly para a Azion: recrie a entrega, a lógica VCL, o
+  código do Compute, o cache e a segurança, mova os dados e troque o domínio.
+meta_tags: 'fastly, migration, applications, functions, rules engine, cache, tiered cache, load balancer, kv store, object storage, image processor, websocket, certificate manager, firewall, waf, data stream, real-time metrics, azion cli, api'
 namespace: docs_guides_fastly_to_azion
 permalink: /documentacao/guias/plataforma/migracao/fastly-guia-migracao/
 ---
 
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
 import Tabs from '~/components/webkit/Tabs.vue'
-import Code from '~/components/webkit/CodeBlock.vue'
 
-# Migre da Fastly para a Azion
+Um serviço da Fastly acumula anos de lógica de entrega: várias origens, snippets VCL, condições, pacotes do Compute, dictionaries e cache overrides. Ao redor dele ficam a automação de TLS, as políticas de WAF, os endpoints de logging e os dashboards dos inspectors. Movê-lo significa recriar cada camada na Azion e confirmar o comportamento antes da mudança do domínio.
 
-Uma migração de plataforma geralmente começa muito antes de o primeiro serviço ser clonado ou o primeiro domínio ser migrado. Começa quando uma equipe percebe que entrega, compute, cache, segurança e observabilidade estão espalhados por muitas superfícies de configuração.
+Na Azion, uma [aplicação](/pt-br/documentacao/plataforma/applications/) e suas regras assumem a entrega, o roteamento e o cache, e os [connectors](/pt-br/documentacao/plataforma/connectors/) guardam as origens. [Functions](/pt-br/documentacao/plataforma/functions/) executa o código do Compute. [KV Store](/pt-br/documentacao/plataforma/kv-store/) e [Object Storage](/pt-br/documentacao/plataforma/object-storage/) guardam os dados. [Firewall](/pt-br/documentacao/plataforma/firewall/) filtra o tráfego, e um [workload](/pt-br/documentacao/plataforma/workloads/) atende o domínio. [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/), [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/) e [Data Stream](/pt-br/documentacao/plataforma/data-stream/) substituem os inspectors e os endpoints de logging.
 
-Para equipes que usam Fastly, esse momento costuma aparecer depois de anos de lógica de entrega acumulada: serviços com múltiplas origens, snippets VCL, pacotes Compute, dictionaries, cache overrides, automação TLS, políticas WAF, endpoints de logging e dashboards de inspeção. Cada camada pode funcionar individualmente, mas o modelo operacional combinado pode desacelerar releases e tornar mudanças mais difíceis de validar.
+Cada etapa deste guia move uma camada, na ordem em que uma migração acontece: inventário, entrega, código e regras, dados, segurança, monitoramento e o domínio. Origens, políticas de cache, redirecionamentos, headers e acesso aos dados migram com mudanças pontuais de configuração. Quando um downtime próximo de zero não é um requisito, migre em fases com janelas de manutenção. As gravações param durante cada passo, então os dados não precisam de sincronização paralela.
 
-Para equipes que usam Fastly Full-Site Delivery, Compute, Edge Data Storage, Object Storage, Image Optimizer, Fastly Next-Gen WAF, DDoS Protection, Bot Management, Platform TLS, High Volume Logging, Domain Inspector, Origin Inspector ou Log Explorer & Insights, a Azion oferece recursos equivalentes por meio de Applications, Functions, KV Store, Object Storage, Image Processor, Firewall, Web Application Firewall, DDoS Protection, Bot Manager, Certificate Manager, Data Stream, Real-Time Events e Real-Time Metrics.
+---
 
-O motivo mais forte para migrar não é simplesmente substituir um fornecedor por outro. É consolidar entrega de aplicações, compute, storage, segurança e observabilidade em uma plataforma unificada projetada para aplicações distribuídas globalmente.
+Os pré-requisitos e os procedimentos desta página mudam conforme a interface que você seleciona:
 
-## Como Funciona a Migração da Fastly para a Azion
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.cli">CLI</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+</Tabs>
 
-Migrações de plataforma tradicionais frequentemente exigem reescrever lógica de serviço, reconfigurar origens do zero e recriar comportamento de segurança e logging sob pressão. Essa abordagem cria risco operacional, estende prazos e dificulta rollback.
+## Pré-requisitos
 
-A abordagem de migração da Azion preserva o comportamento da sua aplicação enquanto faz a transição para uma plataforma unificada:
+- Uma conta Azion. Para abrir uma, [cadastre-se no Azion Console](https://console.azion.com/signup). Para mais informações, consulte [Crie uma conta](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- A conta Fastly, com acesso aos seus serviços, versões de serviço, pacotes do Compute, armazenamentos de dados e configurações de TLS.
+- Acesso aos registros DNS ou ao registrador de cada domínio que você move.
+- `curl` e `dig`, para verificar as respostas e as respostas DNS.
 
-1. **Caminho de migração incremental.** Comece com um serviço Fastly representativo, valide entrega e segurança na Azion e expanda para serviços adicionais somente depois que o padrão estiver comprovado.
+<Tabs client:visible sharedStore="interface">
 
-2. **Lógica de aplicação preservada.** Origens, políticas de cache, redirects, headers, controles de segurança e padrões de acesso a dados mapeiam para Azion Applications, Rules Engine, Functions, Connectors, KV Store e Object Storage com mudanças de configuração focadas.
+<Fragment slot="panel.console">
 
-3. **Modelo de plataforma unificado.** Em vez de gerenciar entrega, compute, storage, segurança e observabilidade como produtos desconectados, a Azion reúne esses recursos com APIs, fluxos de Console e padrões de deployment consistentes.
+- Acesso ao Azion Console. Para entrar, consulte [Acesse Azion Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/como-acessar-o-azion-console/).
 
-## Mapeamento de Recursos
+</Fragment>
 
-A tabela a seguir fornece um mapeamento abrangente dos produtos e áreas de configuração da Fastly para seus equivalentes na Azion. Um traço (`-`) indica que a Azion atualmente não oferece um equivalente direto.
+<Fragment slot="panel.cli">
 
-| Produto ou Recurso Fastly | Descrição | Equivalente Azion |
-| :------------------------ | :---------- | :---------------- |
-| **Full-Site Delivery** | Entrega de sites, aplicações, APIs e tráfego mobile por meio de serviços Fastly. | [Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/) |
-| **Serviços Fastly** | Principal recurso de entrega para domínios, origens, caching, tratamento de requisições e versões de serviço. | [Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/) + [Workloads](https://www.azion.com/pt-br/documentacao/plataforma/workloads/) |
-| **Domains** | Hostnames associados a serviços Fastly. | [Workloads](https://www.azion.com/pt-br/documentacao/plataforma/workloads/) |
-| **Hosts e origens** | Configuração de backend origin para serviços de entrega Fastly. | [Connectors](https://www.azion.com/pt-br/documentacao/plataforma/connectors/) |
-| **Origin Shield / padrões de shielding** | Reduz tráfego na origem roteando cache misses por uma localização intermediária de shield. | [Origin Shield](https://www.azion.com/pt-br/documentacao/plataforma/connectors/#origin-shield) + [Tiered Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/cache/tiered-cache/) |
-| **Conditions** | Condições de request, cache e response na configuração de serviço Fastly. | [Rules Engine para Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/rules-engine/) |
-| **Request settings** | Manipulação, encaminhamento e tratamento de requisições. | [Rules Engine para Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/rules-engine/) + [Functions](https://www.azion.com/pt-br/documentacao/plataforma/functions/) |
-| **Response settings** | Comportamento de headers de resposta e entrega. | [Rules Engine para Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/rules-engine/) |
-| **VCL snippets / VCL customizado** | Lógica customizada de entrega para redirects, headers, cache keys, seleção de origem e controle de requisições. | [Rules Engine para Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/rules-engine/) + [Functions](https://www.azion.com/pt-br/documentacao/plataforma/functions/) |
-| **Compute** | Plataforma de compute serverless que executa código customizado na rede da Fastly. | [Functions para Applications](https://www.azion.com/pt-br/documentacao/plataforma/functions/) |
-| **Compute packages** | Código de aplicação empacotado e publicado no Fastly Compute. | [Functions](https://www.azion.com/pt-br/documentacao/plataforma/functions/) + [Azion CLI](https://www.azion.com/pt-br/documentacao/devtools/cli/) |
-| **Edge Data Storage** | Dados key-value usados por serviços Fastly Compute. | [KV Store](https://www.azion.com/pt-br/documentacao/plataforma/kv-store/) |
-| **Object Storage** | Object storage compatível com S3 integrado a serviços de entrega e compute. | [Object Storage](https://www.azion.com/pt-br/documentacao/plataforma/object-storage/) |
-| **Cache Reservation** | Capacidade reservada de cache para conteúdo na Fastly. | [Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/#cache) + [Tiered Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/cache/tiered-cache/) |
-| **Cache APIs** | Padrões de interação programática com cache para aplicações Compute. | [Functions](https://www.azion.com/pt-br/documentacao/plataforma/functions/) + [Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/#cache) + [Real-Time Purge](https://www.azion.com/pt-br/documentacao/plataforma/applications/cache/real-time-purge/) |
-| **Streaming Delivery** | Entrega de conteúdo de live streaming e video-on-demand. | [Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/) + [Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/#cache) + [Object Storage](https://www.azion.com/pt-br/documentacao/plataforma/object-storage/) |
-| **Media Shield for Live** | Reduz tráfego na origem em fluxos de vídeo ao vivo. | [Tiered Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/cache/tiered-cache/) + [Origin Shield](https://www.azion.com/pt-br/documentacao/plataforma/connectors/#origin-shield) |
-| **Media Shield for VOD** | Reduz tráfego na origem em fluxos de video-on-demand. | [Tiered Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/cache/tiered-cache/) + [Origin Shield](https://www.azion.com/pt-br/documentacao/plataforma/connectors/#origin-shield) |
-| **Image Optimizer** | Serviço de transformação e otimização de imagens em tempo real. | [Image Processor](https://www.azion.com/pt-br/documentacao/plataforma/applications/#image-processor) |
-| **WebSockets** | Comunicação bidirecional e persistente para aplicações em tempo real. | [WebSocket Proxy](https://www.azion.com/pt-br/documentacao/plataforma/applications/websocket/) + [WebSocket API](https://www.azion.com/pt-br/documentacao/devtools/runtime/api-reference/websocket/) |
-| **Fanout** | Padrões de mensagem publish-subscribe na Fastly. | [Functions](https://www.azion.com/pt-br/documentacao/plataforma/functions/) + [WebSocket Proxy](https://www.azion.com/pt-br/documentacao/plataforma/applications/websocket/) |
-| **AI Accelerator** | Cache semântico e aceleração de tráfego para APIs de IA generativa. | [AI Inference](https://www.azion.com/pt-br/documentacao/plataforma/ai-inference/) + [Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/#cache) |
-| **Fastly Next-Gen WAF** | Web application firewall para detectar tráfego suspeito e proteger aplicações. | [Web Application Firewall](https://www.azion.com/pt-br/documentacao/plataforma/firewall/#waf) |
-| **Edge Rate Limiting** | Conta requisições e aplica ações quando limites são excedidos. | [Rules Engine para Firewall](https://www.azion.com/pt-br/documentacao/plataforma/firewall/rules-engine/) + [Functions para Firewall](https://www.azion.com/pt-br/documentacao/plataforma/firewall/functions/) |
-| **Fastly DDoS Protection** | Visibilidade e mitigação de DDoS. | [DDoS Protection](https://www.azion.com/pt-br/documentacao/plataforma/workloads/#ddos-protection) + [Network Shield](https://www.azion.com/pt-br/documentacao/plataforma/firewall/#network-shield) |
-| **Bot Management** | Detecta e responde a tráfego automatizado. | [Bot Manager](https://www.azion.com/pt-br/documentacao/plataforma/firewall/#bot-manager) + [Bot Manager Lite](https://www.azion.com/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/) |
-| **Certainly** | Autoridade certificadora da Fastly para certificados TLS. | [Certificate Manager](https://www.azion.com/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/) |
-| **Platform TLS** | Gerenciamento de certificados TLS e chaves via API. | [Certificate Manager](https://www.azion.com/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/) + [Azion API](https://www.azion.com/pt-br/documentacao/devtools/api/) |
-| **TLS Service Options** | Configuração TLS para servir sites e aplicações por HTTPS. | [Certificate Manager](https://www.azion.com/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/) + [Workloads](https://www.azion.com/pt-br/documentacao/plataforma/workloads/) |
-| **High Volume Logging** | Streaming de logs em tempo real para destinos externos. | [Data Stream](https://www.azion.com/pt-br/documentacao/plataforma/data-stream/) |
-| **Log Explorer & Insights** | Inspeciona e monitora dados de log na plataforma Fastly. | [Real-Time Events](https://www.azion.com/pt-br/documentacao/plataforma/real-time-events/) |
-| **Domain Inspector** | Visibilidade e relatórios de tráfego em nível de domínio. | [Real-Time Metrics](https://www.azion.com/pt-br/documentacao/plataforma/real-time-metrics/) |
-| **Origin Inspector** | Visibilidade e relatórios de respostas da origem. | [Real-Time Metrics](https://www.azion.com/pt-br/documentacao/plataforma/real-time-metrics/) + [Real-Time Events](https://www.azion.com/pt-br/documentacao/plataforma/real-time-events/) |
-| **Observability features** | Visibilidade de tráfego, segurança, performance e origem. | [Real-Time Metrics](https://www.azion.com/pt-br/documentacao/plataforma/real-time-metrics/) + [Real-Time Events](https://www.azion.com/pt-br/documentacao/plataforma/real-time-events/) + [Data Stream](https://www.azion.com/pt-br/documentacao/plataforma/data-stream/) |
-| **Fastly API** | Gerenciamento programático de recursos Fastly. | [Azion API](https://www.azion.com/pt-br/documentacao/devtools/api/) |
-| **Fastly CLI** | Fluxo de linha de comando para serviços Fastly e projetos Compute. | [Azion CLI](https://www.azion.com/pt-br/documentacao/devtools/cli/) |
-| **Fastly Terraform Provider** | Infrastructure as Code para recursos Fastly. | [Terraform Provider](https://www.azion.com/pt-br/documentacao/devtools/terraform/) |
+- [Azion CLI](/pt-br/documentacao/devtools/cli/), instalada e autorizada com sua conta. Os comandos desta página correspondem à Azion CLI 4.23.0.
 
-## Estratégia de Migração
+</Fragment>
 
-A migração é organizada em torno das quatro categorias de produtos da Azion, permitindo que as equipes planejem e executem cada camada independentemente:
+<Fragment slot="panel.api">
 
-- **Build**: migre serviços de entrega, origens, comportamento VCL, código Compute, políticas de cache, otimização de imagens, streaming, WebSocket e padrões de aceleração de IA.
-- **Secure**: migre domínios, certificados, políticas WAF, proteção DDoS, controles de bots e rate limiting.
-- **Store**: migre object storage e dados key-value para Object Storage e KV Store.
-- **Observe**: migre logging, inspectors, métricas, dashboards e destinos externos de logs para a stack de observabilidade em tempo real da Azion.
+- Um personal token, enviado no header `Authorization` como `Token [TOKEN VALUE]`. Para criar um, consulte [Gerencie um personal token](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/). Toda requisição desta página vai para `https://api.azion.com/v4`.
 
-:::note
-Se você não precisa de tempo de inatividade próximo de zero, pode migrar em fases com janelas de manutenção. Isso permite parar escritas durante cada etapa de migração sem exigir sincronização paralela de dados.
-:::
+</Fragment>
 
-## Build
+</Tabs>
 
-A categoria Build cobre deployment de aplicações, configuração de entrega, compute, roteamento, cache e otimização de mídia. Comece aqui para recriar o comportamento da aplicação que os usuários veem antes de mover camadas de segurança, dados e observabilidade.
+---
 
-### 1. Configuração do Projeto na Azion
+## Faça o inventário da conta Fastly
 
-O primeiro passo traz sua aplicação para a Azion de uma forma familiar para equipes que já gerenciam serviços Fastly e projetos Compute. Se você usou versões de serviço Fastly, pacotes Compute e deployments via CLI, já entende o padrão: definir configuração, publicar uma versão, validar comportamento e promover tráfego quando estiver pronto.
+Mova um serviço primeiro, e não o mais complexo da conta. Escolha um serviço que teste o caminho completo e ainda migre rápido. Um bom primeiro serviço tem um ou dois domínios, algumas origens, regras de cache, redirecionamentos e headers. Ele também pode ter um pacote do Compute e um destino de logging. Use-o para documentar o processo e encontrar os padrões que sua equipe reutiliza. Depois expanda: VCL mais complexo, mais serviços Compute, os dados armazenados, a observabilidade e as regras de segurança.
 
-A Azion segue um fluxo similar, mas consolida entrega de aplicações, Functions, regras, segurança e observabilidade no mesmo contexto de plataforma.
+Antes de criar qualquer coisa na Azion, liste o que o serviço usa:
 
-#### Diferenças Principais
+- Serviços ativos e suas versões de serviço.
+- Domínios e certificados TLS.
+- Origens, shielding, health checks e lógica de failover.
+- Configurações de cache, chaves de cache, comportamento de conteúdo expirado e fluxos de purge.
+- Condições, snippets VCL, VCL personalizado e configurações de requisição e de resposta.
+- Pacotes do Compute e seus runtimes de linguagem, com o `fastly.toml` e as configurações de CI/CD que fazem o deploy deles.
+- Dictionaries, dados do Config Store, valores do Secret Store e Edge Data Storage.
+- Buckets do Object Storage, otimização de imagens, streaming, WebSocket e tráfego do AI Accelerator.
+- Políticas de WAF, controles de bots, proteções contra DDoS e rate limits.
+- Endpoints de logging, dashboards dos inspectors e os alertas que dependem deles.
+
+Cada item da lista corresponde a uma etapa deste guia. A tabela em Mapeie cada produto da Fastly para a Azion indica o destino de cada um.
+
+---
+
+## Mapeie cada produto da Fastly para a Azion
+
+Todo produto da Fastly do inventário tem um destino na Azion. Encontre o produto na primeira coluna e mova-o com a etapa que indica seu destino. Um traço (`-`) na última coluna significa que a Azion não tem um equivalente direto.
+
+| Produto da Fastly | O que cobre | Destino na Azion |
+| --- | --- | --- |
+| AI Accelerator | Cache semântico e aceleração de tráfego para APIs de IA generativa | [AI Inference](/pt-br/documentacao/plataforma/ai-inference/) e Cache |
+| Bot Management | Detecção de tráfego automatizado e resposta a ele | [Bot Manager](/pt-br/documentacao/plataforma/firewall/bot-manager/primeiros-passos/) e [Bot Manager Lite](/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/) |
+| Cache APIs | Interação programática com o cache para aplicações Compute | Functions, Cache e [Real-Time Purge](/pt-br/documentacao/plataforma/applications/cache/real-time-purge/) |
+| Cache Reservation | Capacidade de cache reservada para conteúdo | [Cache](/pt-br/documentacao/plataforma/applications/#cache), incluindo [Tiered Cache](/pt-br/documentacao/plataforma/applications/cache/tiered-cache/) |
+| Certainly | Autoridade certificadora da Fastly para certificados TLS | [Certificate Manager](/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/) |
+| Compute | Computação serverless que executa código personalizado na rede da Fastly | Functions |
+| Compute packages | Código de aplicação empacotado para deploy no Compute | Functions e [Azion CLI](/pt-br/documentacao/devtools/cli/) |
+| Conditions | Condições de requisição, de cache e de resposta | [Rules Engine para Applications](/pt-br/documentacao/plataforma/applications/rules-engine/) |
+| DDoS Protection | Visibilidade e mitigação de DDoS | [DDoS Protection](/pt-br/documentacao/plataforma/workloads/#ddos-protection) |
+| Domain Inspector | Visibilidade e relatórios de tráfego por domínio | Real-Time Metrics |
+| Domains | Hostnames associados aos serviços | Workloads |
+| Edge Data Storage | Dados chave-valor usados pelos serviços Compute | KV Store |
+| Edge Rate Limiting | Contagem de requisições e ação quando os limites são excedidos | [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/) e [Functions para Firewall](/pt-br/documentacao/plataforma/firewall/functions/) |
+| Fanout | Padrões de mensagens publish-subscribe | Functions e [WebSocket Proxy](/pt-br/documentacao/plataforma/applications/websocket/) |
+| Fastly API | Gerenciamento programático de recursos da Fastly | [Azion API](/pt-br/documentacao/devtools/api/) |
+| Fastly CLI | Fluxo de linha de comando para serviços e projetos Compute | Azion CLI |
+| Fastly services | O recurso de entrega para domínios, origens, cache, tratamento de requisições e versões de serviço | Applications, atendido por Workloads |
+| Fastly Terraform Provider | Infraestrutura como código para recursos da Fastly | [Terraform Provider](/pt-br/documentacao/devtools/terraform/) |
+| Full-Site Delivery | Entrega de sites, aplicações, APIs e conteúdo para dispositivos móveis | Applications |
+| High Volume Logging | Streaming de logs em tempo real para destinos externos | Data Stream |
+| Hosts and origins | Configuração das origens de backend dos serviços de entrega | Connectors |
+| Image Optimizer | Transformação e otimização de imagens em tempo real | [Image Processor](/pt-br/documentacao/plataforma/applications/image-processor/primeiros-passos/) |
+| Log Explorer & Insights | Inspeção e monitoramento de dados de log | Real-Time Events |
+| Media Shield for Live | Offload da origem para vídeo ao vivo | Tiered Cache, com [Origin Shield](/pt-br/documentacao/plataforma/connectors/#origin-shield) para restringir a origem |
+| Media Shield for VOD | Offload da origem para vídeo sob demanda | Tiered Cache, com Origin Shield para restringir a origem |
+| Next-Gen WAF | Detecção de tráfego suspeito e proteção de aplicações | [Web Application Firewall](/pt-br/documentacao/plataforma/firewall/waf/primeiros-passos/) |
+| Object Storage | Armazenamento de objetos compatível com S3 | Object Storage |
+| Observability features | Visibilidade de tráfego, segurança, performance e origem | Real-Time Metrics, Real-Time Events e Data Stream |
+| Origin Inspector | Visibilidade e relatórios das respostas da origem | Real-Time Metrics e Real-Time Events |
+| Platform TLS | Gerenciamento de certificados e chaves orientado por API | Certificate Manager e Azion API |
+| Request settings | Manipulação, encaminhamento e tratamento de requisições | Rules Engine para Applications e Functions |
+| Response settings | Headers de resposta e comportamento de entrega | Rules Engine para Applications |
+| Shielding | Encaminhamento dos cache misses por um local de shield intermediário | Tiered Cache. Origin Shield, um módulo de Connectors, restringe a origem aos endereços da Azion |
+| Streaming Delivery | Entrega de streaming ao vivo e de vídeo sob demanda | Applications, Cache e Object Storage |
+| TLS Service Options | Configurações de TLS para servir sites por HTTPS | Certificate Manager e Workloads |
+| VCL snippets and custom VCL | Lógica personalizada para redirecionamentos, headers, chaves de cache, seleção de origem e controle de requisições | Rules Engine para Applications e Functions |
+| WebSockets | Conexões bidirecionais de longa duração | WebSocket Proxy e a [API WebSocket](/pt-br/documentacao/devtools/runtime/api-reference/websocket/) |
+
+---
+
+## Recrie o serviço na Azion
+
+Na Azion, um serviço da Fastly se divide em três recursos. Um connector guarda a origem, uma aplicação guarda as regras e o cache, e um workload atende a aplicação em seus domínios.
 
 | Aspecto | Fastly | Azion |
-| :------ | :----- | :---- |
-| **Recurso principal de entrega** | Service | Application + Workload |
-| **Arquivo de config** | `fastly.toml`, VCL, configuração de versão de serviço | `azion.config.js` e configuração via Console |
-| **Deployment de compute** | Compute package | Function + Function Instance |
-| **Roteamento e comportamento** | VCL, conditions, request/response settings | Rules Engine + Functions |
-| **Observabilidade** | Inspectors, logging endpoints, Log Explorer | Real-Time Metrics, Real-Time Events, Data Stream |
-
-#### Conecte Seu Repositório
-
-1. Abra o [Azion Console](https://console.azion.com/).
-2. Clique em **+ Create** > **Import from GitHub**.
-3. Autorize o GitHub App da Azion.
-4. Selecione o repositório que deseja migrar.
-
-:::note
-Mantenha o primeiro deployment intencionalmente pequeno. Não tente migrar todos os serviços Fastly, domínios, snippets VCL, pacotes Compute, dependências de storage, políticas de segurança e endpoints de logging de uma vez. Comece provando que um serviço representativo consegue rodar na Azion.
-:::
-
-#### Configure Seu Build
-
-A Azion detecta automaticamente seu framework e configura as definições de build. Sobrescreva o preset detectado em `azion.config.js`:
-
-<Code client:visible lang="javascript" code={`
-import { defineConfig } from 'azion'
-
-export default defineConfig({
-  name: 'my-fastly-migration',
-  preset: 'nextjs', // Sobrescreva a auto-detecção se necessário
-})
-`} />
-
-#### Faça Deploy e Verifique
-
-Faça deploy pelo Azion Console ou CLI. Sua URL temporária da Azion segue este padrão:
-
-<Code client:visible lang="text" code={`
-https://xxxxxxxxxx.map.azionedge.net/
-`} />
-
-Valide o deployment antes de mover domínios de produção:
-
-<Code client:visible lang="bash" code={`
-curl -I https://xxxxxxxxxx.map.azionedge.net/
-curl https://xxxxxxxxxx.map.azionedge.net/health
-`} />
-
-#### Documentação de referência
-
-* [Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/)
-* [Applications primeiros passos](https://www.azion.com/pt-br/documentacao/plataforma/applications/primeiros-passos/)
-* [Azion CLI visão geral](https://www.azion.com/pt-br/documentacao/devtools/cli/)
-* [Importe um projeto existente do GitHub](https://www.azion.com/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/importar-um-projeto-existente-do-github/)
-
-### 2. Convertendo Configuração de Serviço e Build
-
-Uma migração pode parecer bem-sucedida quando a primeira requisição retorna `200`, mas falhar depois quando comportamento de cache, redirects, headers ou roteamento de origem difere da Fastly. Revise cuidadosamente a configuração do serviço em vez de tratar a migração como uma simples substituição de comandos.
-
-#### Referência Rápida de CLI
+| --- | --- | --- |
+| Recurso principal de entrega | Serviço e versão de serviço | Aplicação, atendida por um workload |
+| Domínios | Domínios do serviço | Os **Domains** de um workload |
+| Origens | Hosts e backends | Connectors |
+| Arquivo de configuração | `fastly.toml`, VCL e a configuração da versão de serviço | [`azion.config.js`](/pt-br/documentacao/devtools/cli/azion-config-js/), que também pode ser `azion.config.mjs` ou `azion.config.cjs`, e Azion Console |
+| Lógica de comportamento | Condições, configurações de requisição e de resposta e VCL | Rules Engine e Functions |
+| Controle de cache | Configurações de cache, VCL e surrogate keys | Configurações de cache, Rules Engine e Real-Time Purge |
+| Deployment do Compute | Pacote do Compute | Uma função e sua instância de função |
+| Observabilidade | Inspectors, endpoints de logging e Log Explorer | Real-Time Metrics, Real-Time Events e Data Stream |
 
 | Tarefa | Fastly CLI | Azion CLI |
-| :----- | :--------- | :-------- |
-| **Instalar** | `brew install fastly/tap/fastly` | `curl -fsSL https://cli.azion.app/install.sh \| bash` |
-| **Login** | `fastly profile create` | `azion login` |
-| **Dev local** | `fastly compute serve` | `azion dev` |
-| **Deploy** | `fastly compute publish` ou ativação de serviço | `azion deploy` |
-| **Ver logs** | Logging endpoint Fastly ou Log Explorer | `azion logs` |
-| **Purge** | `fastly purge` | `azion purge` |
+| --- | --- | --- |
+| Instalar | `brew install fastly/tap/fastly` | `curl -fsSL https://cli.azion.app/install.sh \| bash`, ou `brew install azion` |
+| Entrar | `fastly profile create` | `azion login` |
+| Rodar localmente | `fastly compute serve` | `azion dev` |
+| Fazer o deploy | `fastly compute publish`, ou a ativação do serviço | `azion link`, depois `azion deploy` |
+| Ver os logs | Um endpoint de logging, ou Log Explorer | `azion logs http` para as requisições, e `azion logs cells` para os logs de console das funções |
+| Fazer purge | `fastly purge` | `azion purge --urls`, `--cachekey` ou `--wildcard` |
 
-#### Inventário de Configuração
+Os dois subcomandos `azion logs` retornam os logs dos últimos 5 minutos. Para suas flags, consulte [Logs da Azion CLI](/pt-br/documentacao/devtools/cli/logs/).
 
-Antes de recriar o serviço na Azion, faça inventário de:
+### Entregue uma origem por meio de uma aplicação
 
-* Serviços Fastly ativos e versões de serviço
-* Domínios e certificados TLS
-* Origens, shielding, health checks e lógica de failover
-* Configurações de cache, cache keys, comportamento stale e fluxos de purge
-* Conditions, snippets VCL, VCL customizado e request/response settings
-* Pacotes Compute e runtimes de linguagem
-* Dictionaries, dados de Config Store, valores de Secret Store e Edge Data Storage
-* Políticas WAF, controles de bot, proteções DDoS e rate limits
-* Logging endpoints, dashboards de inspector e dependências de alertas
+Um serviço à frente de uma origem se torna a cadeia connector, aplicação, regra e workload. A regra envia toda requisição para o connector com _Set Connector_.
 
-#### Documentação de referência
-
-* [Azion CLI visão geral](https://www.azion.com/pt-br/documentacao/devtools/cli/)
-* [azion.config.js referência](https://www.azion.com/pt-br/documentacao/devtools/cli/azion-config-js/)
-* [azion deploy comando](https://www.azion.com/pt-br/documentacao/devtools/cli/deploy/)
-
-### 3. Migrando Variáveis de Ambiente e Secrets
-
-Variáveis de ambiente e secrets contêm API keys, credenciais de origem, feature flags, endpoints de terceiros e configurações operacionais. Migrá-las incorretamente causa falhas de runtime mesmo quando o deployment é bem-sucedido.
-
-#### Diferenças Principais
-
-| Aspecto | Fastly | Azion |
-| :------ | :----- | :---- |
-| **Acesso em Compute** | APIs de ambiente ou secrets específicas por linguagem | `Azion.env.get('VARIABLE')` |
-| **Dados de configuração** | Dictionaries, Config Store, Secret Store | Variables, KV Store, Function Instances |
-| **Escopo de runtime** | Contexto de serviço ou pacote Compute | Contexto de Function instance e application |
-
-#### Avalie Suas Variáveis
-
-Antes de alterar código, identifique todas as variáveis em:
-
-* `fastly.toml` e configuração do projeto Compute
-* Dictionaries e Config Store da Fastly
-* Valores no Fastly Secret Store
-* Configurações de ambiente CI/CD
-* Configuração de runtime no código fonte
-
-#### Crie Variáveis na Azion
-
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API</Fragment>
+<Tabs client:visible sharedStore="interface">
 
 <Fragment slot="panel.console">
-1. Acesse o [Azion Console](https://console.azion.com/).
-2. Navegue para **Build > Variables**.
-3. Clique em **Add Variable**.
-4. Insira o nome e valor da variável.
-5. Clique em **Save**.
+
+Para montar a cadeia no Azion Console, crie quatro recursos, nesta ordem. São um connector do tipo HTTP, uma aplicação, uma regra da Request Phase com **Set Connector** e um workload. Os painéis Console de [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/) mostram cada campo. Crie um connector para cada origem, ou um connector com vários endereços, como mostra Balanceie o tráfego entre origens.
+
 </Fragment>
 
-<Fragment slot="panel.api">
-<Code client:visible lang="bash" code={`
-curl -X POST 'https://api.azionapi.net/variables' \
---header 'Accept: application/json; version=3' \
---header 'Authorization: Token [TOKEN VALUE]' \
---header 'Content-Type: application/json' \
---data '{
-  "key": "API_TOKEN",
-  "value": "token-value"
-}'
-`} />
-:::note
-A Azion gerencia variáveis de ambiente no nível da Function instance, não por meio de uma API standalone de variáveis. As variáveis são configuradas como pares key-value no campo `vars` ao criar ou atualizar uma Function instance. Consulte a [documentação de Functions Instances](https://www.azion.com/pt-br/documentacao/plataforma/applications/functions-instances/) para detalhes.
-:::
-</Fragment>
-</Tabs>
+<Fragment slot="panel.cli">
 
-#### Atualize Seu Código
+Para montar a cadeia com Azion CLI, declare-a no `azion.config.js`. Este arquivo guarda um connector, uma aplicação com uma configuração de cache e duas regras, e um workload:
 
-<Code client:visible lang="javascript" code={`
-// Antes: acesso a configuração no Fastly Compute varia por runtime
-const apiKey = process.env.API_KEY;
-
-// Depois: Azion Functions
-const apiKey = Azion.env.get('API_KEY');
-`} />
-
-:::caution[warning]
-Evite copiar secrets para notas locais, tickets, mensagens de chat ou documentos temporários. Mantenha secrets em sistemas aprovados e limite acesso aos processos que precisam deles.
-:::
-
-#### Documentação de referência
-
-* [Environment Variables](https://www.azion.com/pt-br/documentacao/guias/)
-* [Trabalhando com variáveis](https://www.azion.com/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/trabalhar-com-variaveis/)
-* [Functions Instances](https://www.azion.com/pt-br/documentacao/plataforma/applications/functions-instances/)
-
-### 4. Migrando Full-Site Delivery para Applications
-
-Serviços Fastly Full-Site Delivery entregam sites, aplicações, APIs e tráfego mobile por meio de domínios, origens, regras de cache e lógica customizada de entrega. Azion Applications fornecem recursos equivalentes com Rules Engine, Cache, Functions e Connectors integrados.
-
-#### Diferenças Principais
-
-| Aspecto | Fastly Full-Site Delivery | Azion Applications |
-| :------ | :------------------------ | :----------------- |
-| **Recurso de entrega** | Service e versão de serviço | Application |
-| **Domínios** | Domínios do serviço | Workloads e domínios customizados |
-| **Origens** | Hosts e backends | Connectors |
-| **Lógica de comportamento** | Conditions, request/response settings, VCL | Rules Engine e Functions |
-| **Controle de cache** | Cache settings, VCL, surrogate keys | Cache Settings, Rules Engine, Real-Time Purge |
-
-#### Passos de Configuração
-
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API</Fragment>
-
-<Fragment slot="panel.console">
-1. Acesse o [Azion Console](https://console.azion.com/).
-2. Navegue para **Build > Applications**.
-3. Clique em **Add Application**.
-4. Configure suas **Main Settings**.
-5. Crie Connectors para cada origem Fastly.
-6. Configure **Cache Settings** e **Rules Engine**.
-7. Adicione domínios customizados por Workloads quando estiver pronto para o cutover.
-</Fragment>
-
-<Fragment slot="panel.api">
-<Code client:visible lang="bash" code={`
-curl -X POST 'https://api.azionapi.net/v4/workspace/applications' \
-  --header 'Authorization: Token YOUR_TOKEN' \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "name": "fastly-service-migration",
-    "origins": [
-      {
-        "name": "origin-main",
-        "addresses": [
-          {
-            "address": "origin.example.com",
-            "weight": 1
-          }
-        ]
-      }
-    ],
-    "cache_settings": {
-      "default_ttl": 3600
-    }
-  }'
-`} />
-</Fragment>
-</Tabs>
-
-#### Migração de Configuração de Serviço
-
-<Code client:visible lang="javascript" code={`
-import { defineConfig } from 'azion'
+```javascript
+import { defineConfig } from '@aziontech/config'
 
 export default defineConfig({
-  name: 'fastly-service-migration',
+  connectors: [{
+    name: 'primary-origin',
+    type: 'http',
+    attributes: {
+      addresses: [{ address: 'origin.example.com' }],
+      connectionOptions: { transportPolicy: 'force_https', host: 'origin.example.com' },
+      modules: {
+        loadBalancer: { enabled: false, config: null },
+        originShield: { enabled: false, config: null }
+      }
+    }
+  }],
   applications: [{
     name: 'main-app',
-    origins: [{
-      name: 'primary-origin',
-      type: 'http',
-      addresses: [{
-        address: 'origin.example.com',
-        weight: 1
-      }]
+    active: true,
+    cache: [{
+      name: 'default-cache',
+      stale: true,
+      browser: { maxAgeSeconds: 3600 },
+      edge: { maxAgeSeconds: 3600 }
     }],
-    cache: {
-      ttl: 3600,
-      staleWhileRevalidate: 300
-    },
     rules: {
-      request: [{
-        name: 'API routes bypass cache',
-        criteria: [{
-          variable: 'uri',
-          operator: 'starts_with',
-          argument: '/api/'
-        }],
-        behavior: {
-          bypassCache: true,
-          setOrigin: 'primary-origin'
+      request: [
+        {
+          name: 'Send to origin',
+          active: true,
+          criteria: [[{ variable: '${uri}', conditional: 'if', operator: 'starts_with', argument: '/' }]],
+          behaviors: [
+            { type: 'set_connector', attributes: { value: 'primary-origin' } },
+            { type: 'set_cache_policy', attributes: { value: 'default-cache' } }
+          ]
+        },
+        {
+          name: 'API routes bypass cache',
+          active: true,
+          criteria: [[{ variable: '${uri}', conditional: 'if', operator: 'starts_with', argument: '/api/' }]],
+          behaviors: [{ type: 'bypass_cache' }]
         }
-      }]
+      ]
     }
+  }],
+  workloads: [{
+    name: 'main-app',
+    active: true,
+    infrastructure: 1,
+    deployments: [{
+      name: 'main-app',
+      current: true,
+      active: true,
+      strategy: { type: 'default', attributes: { application: 'main-app' } }
+    }]
   }]
 })
-`} />
+```
 
-#### Documentação de referência
+O `value` de um comportamento indica um recurso do mesmo arquivo pelo seu `name`. Um connector do tipo `http` precisa do seu objeto `modules`, mesmo com os dois módulos desativados. Na pasta do projeto, instale o pacote que o arquivo importa:
 
-* [Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/)
-* [Applications Main Settings](https://www.azion.com/pt-br/documentacao/plataforma/applications/main-settings/)
-* [Rules Engine para Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/rules-engine/)
-* [Connectors](https://www.azion.com/pt-br/documentacao/plataforma/connectors/)
+```bash
+npm install -D @aziontech/config
+```
 
-### 5. Migrando VCL, Conditions e Headers
+Depois crie os recursos:
 
-Serviços Fastly frequentemente contêm comportamento crítico em snippets VCL, conditions e request ou response settings. Migre regras simples para Rules Engine e reserve Functions para comportamento que exige código.
+```bash
+azion config apply
+```
 
-#### Diferenças Principais
+O comando mostra o ID de cada recurso que cria e depois uma linha que começa com `Configuration applied successfully`. _Bypass Cache_ requer Application Accelerator, e a CLI o ativa na aplicação que o usa. Executá-lo de novo com o mesmo arquivo atualiza os mesmos recursos. Para cada chave, consulte [azion.config.js](/pt-br/documentacao/devtools/cli/azion-config-js/) e [azion config](/pt-br/documentacao/devtools/cli/config/).
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+A API cria cada recurso separadamente. Uma aplicação precisa apenas de `name`, e suas configurações de cache e suas regras são sub-recursos:
+
+1. Crie o connector com uma requisição `POST` para `https://api.azion.com/v4/workspace/connectors`.
+2. Crie a aplicação com uma requisição `POST` para `https://api.azion.com/v4/workspace/applications`.
+3. Crie a regra com uma requisição `POST` para `/v4/workspace/applications/<application-id>/request_rules`.
+4. Crie o workload com uma requisição `POST` para `/v4/workspace/workloads`.
+5. Crie seu deployment com uma requisição `POST` para `/v4/workspace/workloads/<workload-id>/deployments`.
+
+Cada resposta traz `"state": "pending"` e o `id` que a próxima requisição usa. Para cada corpo, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+
+</Fragment>
+
+</Tabs>
+
+### Faça o deploy de um projeto a partir do repositório
+
+Um projeto do Compute ou um site com framework faz o deploy a partir do seu repositório. A Azion suporta 19 frameworks e 5 presets genéricos. Azion Console importa um repositório com um de seis presets, e Azion CLI pede o preset em um seletor.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Para importar o repositório no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra o diálogo de criação">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Create**. O diálogo **New** abre.
+
+  </DocStep>
+  <DocStep title="Abra a aba Import from GitHub">
+
+  No diálogo **New**, selecione a aba **Import from GitHub** e depois selecione o card.
+
+  </DocStep>
+  <DocStep title="Conecte sua conta do GitHub">
+
+  Na seção **GitHub Connection**, selecione **Connect with GitHub** e instale o Azion GitHub App para o repositório.
+
+  </DocStep>
+  <DocStep title="Selecione o repositório">
+
+  Em **Git Scope**, selecione a conta do GitHub. Em **Repository**, selecione o repositório a mover.
+
+  </DocStep>
+  <DocStep title="Selecione o preset">
+
+  Em **Preset**, selecione o framework: _Next.js_, _Angular_, _Astro_, _Hexo_, _React_ ou _Vue_.
+
+  </DocStep>
+  <DocStep title="Informe o comando de instalação">
+
+  Em **Install Command**, informe o comando que instala o projeto. Por exemplo: `npm install`.
+
+  </DocStep>
+  <DocStep title="Selecione Deploy" />
+</DocSteps>
+
+A Azion faz o build do projeto e cria sua aplicação e seu workload. Para cada campo da página, consulte [Importe um projeto do GitHub](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/importar-um-projeto-existente-do-github/).
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Na raiz do projeto, vincule-o à Azion e selecione o preset quando a CLI pedir:
+
+```bash
+azion link
+```
+
+Depois faça o deploy. O `azion deploy` precisa das configurações do projeto que o `azion link` grava:
+
+```bash
+azion deploy
+```
+
+A CLI faz o build do projeto e o deploy na Azion. Para definir o preset no código, coloque-o em `build.preset` do `azion.config.js`:
+
+```javascript
+import { defineConfig } from '@aziontech/config'
+
+export default defineConfig({
+  build: {
+    preset: 'javascript',
+    polyfills: true
+  }
+})
+```
+
+O preset de um projeto Next.js é `next`. O pacote `azion` que exemplos antigos importam está obsoleto: importe `defineConfig` de `@aziontech/config`. Instale esse pacote no projeto antes, com `npm install -D @aziontech/config`. Sem ele, a CLI falha com `Failed to load configuration file`. Para os comandos, consulte [Primeiros passos com Azion CLI](/pt-br/documentacao/devtools/cli/primeiros-passos/) e [azion deploy](/pt-br/documentacao/devtools/cli/deploy/).
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+A API cria a aplicação, suas regras e o workload, um recurso por vez. Para montar essa cadeia, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+
+</Fragment>
+
+</Tabs>
+
+### Verifique o deployment
+
+O deployment responde em um domínio de workload que a Azion atribui sob `map.azionedge.net`, como `xxxxxxxxxx.map.azionedge.net`. Antes de mover qualquer domínio de produção, envie uma requisição para o caminho raiz, com esse domínio no lugar de `<your-workload-domain>`:
+
+```bash
+curl -i https://<your-workload-domain>/
+```
+
+A resposta traz o status, os headers e o corpo que o serviço retorna para `/`. Envie a mesma requisição para cada rota crítica, como um endpoint `/health`. Um primeiro `200` sozinho comprova pouco: o comportamento do cache, os redirecionamentos, os headers e o roteamento para a origem ainda podem diferir da Fastly.
+
+Se o build falhar na Azion, compare o preset com o framework do projeto e verifique `build.preset`, `build.entry` e `build.bundler` no `azion.config.js`. O bloco `build` não tem campo de comando.
+
+---
+
+## Mova as variáveis de ambiente
+
+Variáveis de ambiente guardam chaves de API, credenciais de origem, feature flags, endpoints de terceiros e configurações operacionais. Uma variável que não chega à Azion quebra o serviço em tempo de execução, mesmo quando o deployment tem sucesso.
 
 | Aspecto | Fastly | Azion |
-| :------ | :----- | :---- |
-| **Redirects simples** | VCL ou request settings | Comportamento de redirect no Rules Engine |
-| **Alterações de header** | VCL, response settings | Comportamento de request/response no Rules Engine |
-| **Seleção de origem** | Seleção de backend em VCL | Rules Engine + Connectors |
-| **Lógica complexa** | VCL customizado ou Compute | Functions |
-| **Pattern matching** | Conditions e expressões VCL | Critérios do Rules Engine e regex |
+| --- | --- | --- |
+| Acesso pelo código | APIs de ambiente ou de secrets específicas de cada linguagem | `Azion.env.get('VARIABLE')`, ou `process.env.VARIABLE` |
+| Dados de configuração | Dictionaries, Config Store e Secret Store | Variáveis de ambiente, KV Store e os argumentos de uma instância de função |
+| Escopo | O serviço ou o pacote do Compute | A conta, até 100 variáveis |
 
-#### Exemplo de Migração de Redirect
+Procure variáveis no `fastly.toml` e no projeto do Compute, nos dictionaries e nas entradas do Config Store, no Secret Store, nas configurações de CI/CD e no código-fonte. Na Azion, cada variável tem uma chave, um valor e uma flag que a marca como secret. Dados que mudam por requisição, como uma tabela de roteamento, ficam melhor no KV Store. Um valor que pertence a uma instância de função vai nos seus argumentos, que o código lê de `ctx.args`.
 
-<Code client:visible lang="text" code={`
-# Padrão VCL da Fastly
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+Para criar as variáveis no Azion Console, abra a página **Variables** do menu **Account** e crie cada variável com sua chave e seu valor. Transforme em secret uma variável que guarda uma credencial.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para criar cada variável com Azion CLI:
+
+```bash
+azion create variables --key API_KEY --value <your-value> --secret false
+```
+
+A CLI responde com o UUID da nova variável:
+
+```text
+Created variable with UUID 802ed956-f302-4d96-9a48-45630668ab4c
+```
+
+Defina `--secret true` para uma credencial. Para listar as variáveis, execute `azion list variables`. Para os outros comandos, consulte [variables](/pt-br/documentacao/devtools/cli/recursos/variables/).
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Azion CLI e Azion Console criam as variáveis. Para as interfaces que criam, listam e alteram uma variável, consulte [Variáveis de ambiente](/pt-br/documentacao/plataforma/functions/environment-variables/).
+
+</Fragment>
+
+</Tabs>
+
+Uma função em produção lê uma variável com `Azion.env.get()`, e `process.env` continua funcionando:
+
+```javascript diff
+-// Before: Fastly Compute, where configuration access varies by runtime
+-const apiKey = process.env.API_KEY;
+ 
++// After: Azion
++const apiKey = Azion.env.get('API_KEY');
+```
+
+No `azion dev`, uma função lê o arquivo `.env` do projeto em vez das variáveis da conta, ou todo o ambiente do shell quando não há arquivo `.env`. Se uma função informar que uma variável não foi encontrada, confirme que a variável existe na conta e que o código a lê com `Azion.env.get()`. Para os argumentos da instância, consulte [Functions instances](/pt-br/documentacao/plataforma/applications/functions-instances/).
+
+:::caution[Atenção]
+Mantenha os secrets em sistemas aprovados e limite o acesso aos processos que precisam deles. Nunca copie um secret para notas locais, tickets, mensagens de chat ou documentos temporários.
+:::
+
+---
+
+## Mova serviços do Compute para Functions
+
+Os serviços do Compute carregam o tratamento de requisições, a orquestração de APIs, a personalização, a autenticação e a lógica de integração. Na Azion, esse código roda em [Functions](/pt-br/documentacao/plataforma/functions/). Uma função guarda o código, uma [instância de função](/pt-br/documentacao/plataforma/applications/functions-instances/) o executa em uma aplicação, e uma regra decide quais requisições chegam até ela.
+
+| Aspecto | Fastly Compute | Azion Functions |
+| --- | --- | --- |
+| Unidade de deployment | Pacote do Compute | Uma função e sua instância de função |
+| Modelo de runtime | Runtimes baseados em WebAssembly | Funções geradas como JavaScript ou WebAssembly |
+| Handler | Handler de requisição específico do runtime | `export default { async fetch(request, env, ctx) {} }` |
+| Variáveis | APIs de ambiente específicas do runtime | `Azion.env.get('VARIABLE')` |
+| Dados da plataforma | Edge Data Storage, Config Store e Secret Store | KV Store, Object Storage e variáveis de ambiente |
+
+Em uma função em produção, `env` é um objeto vazio, e `ctx` traz `args` e `waitUntil`. A Azion também executa o formato Service Worker, `addEventListener('fetch', ...)`, mas o objeto ES Modules é o handler recomendado:
+
+```javascript diff
+-// Before: Fastly Compute, JavaScript
+-addEventListener('fetch', (event) => {
+-  event.respondWith(handleRequest(event.request));
+-});
+-
+-async function handleRequest(request) {
+-  const url = new URL(request.url);
+-  return new Response('Path: ' + url.pathname, {
+-    status: 200,
+-    headers: { 'Content-Type': 'text/plain' }
+-  });
+-}
+ 
++// After: Azion
++export default {
++  async fetch(request, env, ctx) {
++    const url = new URL(request.url);
++    return new Response('Path: ' + url.pathname, {
++      status: 200,
++      headers: { 'Content-Type': 'text/plain' }
++    });
++  }
++};
+```
+
+Para um projeto do Compute em outra linguagem, `azion list presets` inclui `rustwasm` para Rust e `emscripten` para C++. Uma linguagem sem preset, como Go, é reescrita em JavaScript. Em qualquer caso, o código que chama APIs da plataforma Fastly muda. Separe a lógica de negócio dessas chamadas e associe cada área à sua API da Azion:
+
+| Área do código | Na Azion |
+| --- | --- |
+| Parsing da requisição | As APIs padrão `Request` e `URL` |
+| Criação da resposta | A API padrão `Response` |
+| Headers | `request.headers` e os headers da resposta |
+| Valores de ambiente | `Azion.env.get()` |
+| Dados chave-valor | `Azion.KV`, como mostra Mova Edge Data Storage para KV Store |
+| Serviços externos | `fetch()` |
+
+Para os presets, consulte [Presets da Azion CLI](/pt-br/documentacao/devtools/cli/recursos/presets/). Para os formatos de handler, consulte [Handlers](/pt-br/documentacao/devtools/runtime/api-reference/handlers/), e para as APIs de runtime, [Web APIs](/pt-br/documentacao/devtools/runtime/api-reference/javascript/).
+
+---
+
+## Converta o VCL e as condições do serviço
+
+O comportamento crítico para o negócio costuma ficar em snippets VCL, condições e configurações de requisição ou de resposta. A maior parte dele passa para o [Rules Engine para Applications](/pt-br/documentacao/plataforma/applications/rules-engine/). Reserve Functions para a lógica que precisa de código, como consultas externas, tokens assinados ou algoritmos personalizados.
+
+| Lógica | Fastly | Azion |
+| --- | --- | --- |
+| Redirecionamentos simples | VCL ou configurações de requisição | Uma regra com _Redirect To (301 Moved Permanently)_ ou _Redirect To (302 Found)_ |
+| Alterações de headers | VCL ou configurações de resposta | Uma regra com _Add Request Header_, _Filter Request Header_ ou _Add Response Header_ |
+| Seleção de origem | Seleção de backend no VCL | Uma regra com _Set Connector_, que indica um connector |
+| Correspondência de padrões | Condições e expressões VCL | Critérios de regra, com o operador `matches` para uma expressão regular |
+| Lógica complexa | VCL personalizado ou Compute | Functions |
+
+Converta cada condição sobre o caminho em um critério de regra. Mova cada header que uma configuração de resposta adiciona para uma regra da Response Phase, e cada normalização de header de requisição para uma regra da Request Phase. Reconstrua a seleção de backend como um connector por origem, escolhido por _Set Connector_ na regra correspondente. No `azion.config.js`, esses comportamentos são `redirect_to_301`, `add_request_header`, `filter_request_header`, `add_response_header` e `set_connector`. Para manter um caminho fora do cache, adicione _Bypass Cache_, `bypass_cache`, à sua regra.
+
+Quando a aplicação responde de forma diferente do serviço da Fastly, compare a versão ativa do serviço com as regras e os connectors da aplicação. As causas comuns são uma regra, um ramo do VCL, uma chave de cache ou uma seleção de origem que não foi mapeada. Para ver quais regras rodam em uma requisição, consulte [Faça o debug de regras](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/debug-regras/).
+
+---
+
+## Recrie redirecionamentos e reescritas
+
+Redirecionamentos protegem rankings de busca, links de campanhas, backlinks e favoritos. Quando um redirecionamento quebra, o resultado é perda de tráfego e jornadas de usuário interrompidas. A Azion guarda os redirecionamentos nas regras da aplicação, que você escreve no Azion Console, na API ou no `azion.config.js`.
+
+| Aspecto | Fastly | Azion |
+| --- | --- | --- |
+| Configuração | VCL ou configurações de requisição | [Rules Engine para Applications](/pt-br/documentacao/plataforma/applications/rules-engine/) |
+| Correspondência de padrões | Condições e expressões VCL | Expressões regulares com o operador `matches`, como `^/.*$`, além de `starts_with` e `is_equal` |
+| Valores capturados | `re.group.1` | `%{name[index]}`, como `%{capture[1]}` e `%{capture[2]}`, de um comportamento _Capture Match Groups_ na mesma regra |
+
+Um redirecionamento em VCL se torna uma regra com um critério, uma captura e um redirecionamento:
+
+```text
+# VCL da Fastly
 if (req.url.path ~ "^/old/(.*)$") {
   set req.http.Location = "/new/" + re.group.1;
   error 750 "Moved Permanently";
 }
 
-# Rules Engine da Azion
-Criteria: \${uri} matches ^/old/(.*)$
-Behavior: Redirect To (301): /new/%{capture[1]}
-`} />
+# Regra da Azion
+Criteria:  ${uri} matches ^/old/(.*)$
+Behavior:  Capture Match Groups (array capture, subject ${uri}, regex ^/old/(.*)$)
+Behavior:  Redirect To (301 Moved Permanently): /new/%{capture[1]}
+```
 
-#### Exemplo de Migração de Headers de Segurança
+Os critérios de uma regra selecionam as requisições, mas não capturam nada. Para reutilizar parte do caminho no destino, adicione um comportamento _Capture Match Groups_ antes do redirecionamento, na mesma regra. _Capture Match Groups_ requer [Application Accelerator](/pt-br/documentacao/plataforma/applications/application-accelerator/configuracoes/) na aplicação. O array é local, então só a regra que o captura pode lê-lo.
 
-<Code client:visible lang="javascript" code={`
-import type { AzionConfig } from 'azion/config';
+<Tabs client:visible sharedStore="interface">
 
-const config: AzionConfig = {
+<Fragment slot="panel.console">
+
+Para criar o redirecionamento no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a aplicação">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Applications** e selecione a aplicação.
+
+  </DocStep>
+  <DocStep title="Vá para a aba Rules Engine" />
+  <DocStep title="Selecione + Rule" />
+  <DocStep title="Dê um nome à regra">
+
+  Informe um nome como `old-path-redirect` e selecione **Request Phase**.
+
+  </DocStep>
+  <DocStep title="Defina os critérios">
+
+  Em **Criteria**, selecione `${uri}` e o operador _matches_. Como argumento, informe `^/old/(.*)$`.
+
+  </DocStep>
+  <DocStep title="Adicione o comportamento Capture Match Groups">
+
+  Em **Behaviors**, selecione _Capture Match Groups_. Informe `capture` como nome do array, `${uri}` como **Subject** e `^/old/(.*)$` como **Regex**.
+
+  </DocStep>
+  <DocStep title="Adicione o redirecionamento">
+
+  Adicione um segundo comportamento, _Redirect To (301 Moved Permanently)_, com `/new/%{capture[1]}` como argumento.
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+A regra aparece na lista de regras de requisição.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para criar o redirecionamento com Azion CLI, adicione a regra às `rules` da aplicação no `azion.config.js`. Dê a ela os comportamentos `capture_match_groups` e `redirect_to_301` e execute `azion deploy`. Para os campos de uma regra, consulte [azion.config.js](/pt-br/documentacao/devtools/cli/azion-config-js/).
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para criar o redirecionamento, envie uma requisição `POST` para as regras de requisição da aplicação:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "old-path-redirect",
+  "criteria": [[{ "conditional": "if", "variable": "${uri}", "operator": "matches", "argument": "^/old/(.*)$" }]],
+  "behaviors": [
+    { "type": "capture_match_groups", "attributes": { "subject": "${uri}", "regex": "^/old/(.*)$", "captured_array": "capture" } },
+    { "type": "redirect_to_301", "attributes": { "value": "/new/%{capture[1]}" } }
+  ]
+}'
+```
+
+A resposta traz `"state": "pending"` e a regra com seu `id`.
+
+</Fragment>
+
+</Tabs>
+
+Para verificar o redirecionamento, requisite um caminho antigo:
+
+```bash
+curl -I https://<your-workload-domain>/old/post
+```
+
+A resposta traz `301 Moved Permanently` e um header `location` que termina em `/new/post`. Uma regra nova pode levar alguns minutos para se propagar. Diante de uma resposta inesperada, aguarde e tente de novo antes de diagnosticar. Se o redirecionamento ainda falhar, teste a expressão regular e seus grupos de captura com os caminhos antigos.
+
+Para servir conteúdo de outro caminho sem redirecionamento, use _Rewrite Request_ com as mesmas capturas. Em mudanças sensíveis para SEO, prefira redirecionamentos permanentes, evite cadeias de redirecionamento, mantenha os caminhos canônicos consistentes e teste os caminhos com e sem barra final.
+
+---
+
+## Recrie headers personalizados
+
+Headers controlam o cache, a segurança e o comportamento do navegador. Na Fastly, o VCL e as configurações de resposta os alteram. A Azion os adiciona com regras em qualquer uma das fases: _Add Request Header_ altera a requisição enviada à origem, e _Add Response Header_ altera a resposta enviada ao usuário.
+
+| Aspecto | Fastly | Azion |
+| --- | --- | --- |
+| Configuração | VCL e configurações de resposta | Rules Engine para Applications, no Azion Console, na API ou no `azion.config.js` |
+| Fases | — | Requisição e resposta |
+| Valores dinâmicos | — | Variáveis de regra, como `${uri}`, `${host}` ou `${geoip_city_country_code}` |
+
+Este `azion.config.js` adiciona dois headers de segurança a toda resposta da aplicação:
+
+```javascript
+import { defineConfig } from '@aziontech/config'
+
+export default defineConfig({
   applications: [{
     name: 'my-app',
     rules: {
       response: [{
         name: 'Security Headers',
         active: true,
-        criteria: [{
-          variable: 'uri',
+        criteria: [[{
+          variable: '${uri}',
           conditional: 'if',
           operator: 'starts_with',
           argument: '/'
-        }],
-        behavior: {
-          addResponseHeader: [
-            'X-Frame-Options: SAMEORIGIN',
-            'X-Content-Type-Options: nosniff'
-          ]
-        }
+        }]],
+        behaviors: [
+          { type: 'add_response_header', attributes: { value: 'X-Frame-Options: SAMEORIGIN' } },
+          { type: 'add_response_header', attributes: { value: 'X-Content-Type-Options: nosniff' } }
+        ]
       }]
     }
   }]
-};
+})
+```
 
-export default config;
-`} />
+O valor tem o formato `Name: value`, e o Console recusa qualquer outro formato com `Header must follow the header-name: value format`. Um workload precisa atender a aplicação para que os headers cheguem a um domínio. Execute `azion deploy` e depois verifique uma resposta:
 
-#### Checklist de Migração
+```bash
+curl -I https://<your-workload-domain>/
+```
 
-* Converta condições baseadas em path para critérios do Rules Engine.
-* Mova adições simples de headers para regras de resposta.
-* Mova normalização de headers de requisição para regras de request.
-* Recrie seleção de origem com Connectors e Rules Engine.
-* Use Functions apenas quando as condições exigirem código, consultas externas, signed tokens ou algoritmos customizados.
+A resposta traz `x-frame-options: SAMEORIGIN` e `x-content-type-options: nosniff`. Um header que depende de uma lógica que nenhuma regra expressa vai em uma função.
 
-#### Documentação de referência
+---
 
-* [Rules Engine para Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/rules-engine/)
-* [Functions](https://www.azion.com/pt-br/documentacao/plataforma/functions/)
-* [azion.config.js referência](https://www.azion.com/pt-br/documentacao/devtools/cli/azion-config-js/)
+## Recrie as configurações de cache
 
-### 6. Migrando Compute para Functions
-
-Serviços Fastly Compute executam código empacotado na rede da Fastly. Azion Functions oferecem execução JavaScript distribuída para tratamento de requisições, orquestração de APIs, personalização, redirects, autenticação e lógica de integração.
-
-#### Diferenças Principais
-
-| Aspecto | Fastly Compute | Azion Functions |
-| :------ | :------------- | :-------------- |
-| **Unidade de deployment** | Compute package | Function e Function Instance |
-| **Modelo de runtime** | Runtimes baseados em WebAssembly | Runtime JavaScript |
-| **Assinatura de função** | Handler de requisição específico por runtime | `export default { async fetch(request) {} }` |
-| **Acesso ao ambiente** | APIs de ambiente específicas por runtime | `Azion.env.get('VARIABLE')` |
-| **Acesso a dados da plataforma** | Edge Data Storage, Config Store, Secret Store | KV Store, Object Storage, Variables |
-
-#### Atualize a Assinatura da Função
-
-<Code client:visible lang="javascript" code={`
-// Antes: estilo JavaScript do Fastly Compute
-addEventListener('fetch', (event) => {
-  event.respondWith(handleRequest(event.request));
-});
-
-async function handleRequest(request) {
-  const url = new URL(request.url);
-  return new Response('Path: ' + url.pathname, {
-    status: 200,
-    headers: { 'Content-Type': 'text/plain' }
-  });
-}
-
-// Depois: Azion Functions
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-    return new Response('Path: ' + url.pathname, {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain' }
-    });
-  }
-};
-`} />
-
-#### Atualize Acesso à Configuração
-
-<Code client:visible lang="javascript" code={`
-// Antes: acesso à configuração no Fastly Compute varia por runtime
-const apiToken = process.env.API_TOKEN;
-
-// Depois: Azion Functions
-const apiToken = Azion.env.get('API_TOKEN');
-`} />
-
-#### Código Compute que Não Está em JavaScript
-
-Projetos Fastly Compute escritos em Rust, Go ou outras linguagens que compilam para WebAssembly devem ser reescritos em JavaScript para Azion Functions. Durante a reescrita, separe lógica de negócio genérica de APIs específicas da plataforma:
-
-| Área de Código | Orientação de Migração |
-| :------------- | :--------------------- |
-| Parsing de requisição | Use as APIs padrão `Request` e `URL`. |
-| Criação de resposta | Use a API padrão `Response`. |
-| Headers | Use `request.headers` e headers de resposta. |
-| Valores de ambiente | Use `Azion.env.get()`. |
-| Dados key-value | Use `Azion.KV`. |
-| Serviços externos | Use `fetch()`. |
-
-#### Documentação de referência
-
-* [Functions](https://www.azion.com/pt-br/documentacao/plataforma/functions/)
-* [Functions Instances](https://www.azion.com/pt-br/documentacao/plataforma/applications/functions-instances/)
-* [Runtime APIs](https://www.azion.com/pt-br/documentacao/guias/)
-* [Referência de JavaScript Runtime APIs](https://www.azion.com/pt-br/documentacao/devtools/runtime/api-reference/javascript/)
-
-### 7. Migrando Load Balancing e Failover de Origem
-
-Configurações de origem da Fastly podem incluir múltiplos backends, shielding, health checks e lógica de failover. A Azion usa Connectors, Load Balancer e Rules Engine para recriar roteamento de origem e comportamento de disponibilidade.
-
-#### Diferenças Principais
+Na Fastly, o cache depende das configurações do serviço, do VCL, das surrogate keys, dos cache overrides e das APIs de purge. Na Azion, uma [configuração de cache](/pt-br/documentacao/plataforma/applications/cache/cache-settings/) define por quanto tempo uma resposta fica em cache e o que faz duas requisições compartilharem uma cópia em cache. Uma regra com _Set Cache Policy_ aplica a configuração às requisições a que corresponde. A regra seleciona uma configuração, e a configuração guarda o TTL e a chave de cache.
 
 | Aspecto | Fastly | Azion |
-| :------ | :----- | :---- |
-| **Recurso de origem** | Backend ou host | Connector |
-| **Health checks** | Health checks de backend | Health checks de Connector |
-| **Failover** | VCL ou configurações de serviço | Load Balancer e Rules Engine |
-| **Origin shielding** | Shielding | Origin Shield e Tiered Cache |
-| **Origens ponderadas** | Lógica de seleção de backend | Pesos de endereço no Load Balancer |
+| --- | --- | --- |
+| Política de cache | Configurações do serviço, VCL e cache overrides | Configurações de cache, aplicadas pelo Rules Engine |
+| Chave de cache | VCL e configuração de cache | Personalizável na configuração de cache, com os controles **Cache vary by**, que requerem Application Accelerator |
+| TTL | — | **Max Age** de cada configuração de cache, de 0 a 31.536.000 segundos |
+| Shielding | Um local de shield | [Tiered Cache](/pt-br/documentacao/plataforma/applications/cache/tiered-cache/), uma segunda camada de cache ativada por configuração de cache |
+| Purge | URL, surrogate key e purge do serviço | URL, chave de cache e wildcard |
+| Conteúdo expirado | VCL e configurações de conteúdo expirado | **Stale cache**, que entrega uma cópia expirada quando a revalidação falha |
 
-#### Passos de Configuração
+**Max Age** tem padrão de 60 segundos. Um valor abaixo de 60 requer Application Accelerator, e uma configuração de cache com Tiered Cache ativado precisa de pelo menos 3 segundos e de _Override cache behavior_. **Stale cache** respeita o `stale-while-revalidate` que a origem envia, ou mantém uma janela de 300 segundos com _Override cache behavior_. Ele vem ativado por padrão no Azion Console e desativado na API e na CLI.
 
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API</Fragment>
+<Tabs client:visible sharedStore="interface">
 
 <Fragment slot="panel.console">
-1. Acesse o [Azion Console](https://console.azion.com/).
-2. Vá para **Products menu** > **Connectors**.
-3. Crie um Connector para cada servidor de origem.
-4. Configure health checks.
-5. Configure pesos de origem e comportamento de failover.
-6. Associe Connectors às regras da sua Application.
+
+Para criar a configuração de cache no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a aplicação">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Applications** e selecione a aplicação.
+
+  </DocStep>
+  <DocStep title="Vá para a aba Cache Settings" />
+  <DocStep title="Selecione + Cache" />
+  <DocStep title="Dê um nome à configuração de cache">
+
+  Em **Name**, informe `default-cache`.
+
+  </DocStep>
+  <DocStep title="Mantenha Override cache behavior selecionado">
+
+  Em **Cache**, mantenha _Override cache behavior_ selecionado, para que **Max Age** substitua o TTL que a origem envia.
+
+  </DocStep>
+  <DocStep title="Defina Max Age">
+
+  Em **Max Age**, informe o TTL em segundos. Por exemplo: `86400`.
+
+  </DocStep>
+  <DocStep title="(Opcional) Ative Tiered Cache">
+
+  Ative **Tiered Cache** e selecione a **Tiered Cache Region**. Use-o onde o serviço da Fastly usava shielding.
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+A nova configuração aparece na lista **Cache Settings**. Para aplicá-la, crie uma regra da Request Phase na aba **Rules Engine**. Use critérios como `${uri}` _starts with_ `/static/` e o comportamento **Set Cache Policy** definido como `default-cache`.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+As flags da CLI não definem o TTL do cache, o comportamento do cache nem Tiered Cache. Envie o corpo completo da configuração de cache a partir de um arquivo com `--file`, como mostra [Primeiros passos com Cache](/pt-br/documentacao/plataforma/applications/cache/primeiros-passos/).
+
 </Fragment>
 
 <Fragment slot="panel.api">
-<Code client:visible lang="bash" code={`
-curl -X POST 'https://api.azionapi.net/v4/workspace/connectors' \
-  --header 'Authorization: Token YOUR_TOKEN' \
+
+Para criar a configuração de cache, envie uma requisição `POST` para as configurações de cache da aplicação:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/applications/<application-id>/cache_settings \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
   --header 'Content-Type: application/json' \
   --data '{
-    "name": "origin-pool",
-    "type": "http",
-    "attributes": {
-      "addresses": [
-        {
-          "address": "origin1.example.com",
-          "active": true,
-          "modules": {
-            "load_balancer": {
-              "weight": 3,
-              "method": "round_robin"
-            }
-          }
-        },
-        {
-          "address": "origin2.example.com",
-          "active": true,
-          "modules": {
-            "load_balancer": {
-              "weight": 1,
-              "method": "round_robin"
-            }
-          }
-        }
-      ]
+  "name": "default-cache",
+  "browser_cache": { "behavior": "override", "max_age": 3600 },
+  "modules": {
+    "cache": {
+      "behavior": "override",
+      "max_age": 86400,
+      "stale_cache": { "enabled": true },
+      "tiered_cache": { "enabled": true, "topology": "nearest-region" }
     }
-  }'
-`} />
+  }
+}'
+```
+
+As configurações de cache são sub-recursos de uma aplicação. Para alterar uma, envie os mesmos campos em uma requisição `PATCH` para `/v4/workspace/applications/<application-id>/cache_settings/<cache-setting-id>`. Depois aplique a configuração com uma regra de requisição:
+
+```json
+{
+  "name": "apply-default-cache",
+  "active": true,
+  "criteria": [[{ "variable": "${uri}", "operator": "starts_with", "conditional": "if", "argument": "/static/" }]],
+  "behaviors": [{ "type": "set_cache_policy", "attributes": { "value": <cache-setting-id> } }]
+}
+```
+
+A regra aplica `default-cache` a toda requisição cujo caminho começa com `/static/`.
+
 </Fragment>
+
 </Tabs>
 
-#### Documentação de referência
+Para variar o cache por query string, cookie ou dispositivo, use os controles **Cache vary by** da configuração de cache: **Cache vary by Query String**, **Cache vary by Cookies** e **Cache vary by Devices**. Eles requerem Application Accelerator na aplicação. **Cache vary by Devices** com o comportamento _Allowlist_ mantém uma cópia para cada grupo de dispositivos que você seleciona. Os grupos vêm da aba **Device Groups** da aplicação. Para os controles, consulte [Variação de cache](/pt-br/documentacao/plataforma/applications/application-accelerator/variacao-de-cache/).
 
-* [Connectors](https://www.azion.com/pt-br/documentacao/plataforma/connectors/)
-* [Load Balancer](https://www.azion.com/pt-br/documentacao/plataforma/connectors/#load-balancer)
-* [Origin Shield](https://www.azion.com/pt-br/documentacao/plataforma/connectors/#origin-shield)
+Quando menos requisições vêm do cache depois da migração, compare a configuração de cache com o serviço da Fastly. Compare os controles **Cache vary by** com as chaves de cache, **Max Age** com os TTLs e Tiered Cache com o shielding.
 
-### 8. Migrando Configuração de Cache
+A Azion não tem purge por surrogate key. Substitua cada `fastly purge` pelo endpoint de purge do tipo correspondente:
 
-A configuração de cache determina como conteúdo é armazenado, revalidado e purgado. O comportamento de cache da Fastly frequentemente combina service settings, VCL, surrogate keys, cache overrides e APIs de purge. A Azion fornece Cache Settings, Rules Engine, Tiered Cache e Real-Time Purge.
+```bash diff
+-# Before: Fastly purge by URL
+-fastly purge --service-id SERVICE_ID https://www.example.com/images/logo.png
+ 
++# After: Azion purge by URL
++curl --request POST \
++  --url https://api.azion.com/v4/workspace/purge/url \
++  --header 'Authorization: Token [TOKEN VALUE]' \
++  --header 'Content-Type: application/json' \
++  --data '{
++  "items": ["https://www.example.com/images/logo.png"],
++  "layer": "cache"
++}'
+ 
++# After: Azion purge by wildcard
++curl --request POST \
++  --url https://api.azion.com/v4/workspace/purge/wildcard \
++  --header 'Authorization: Token [TOKEN VALUE]' \
++  --header 'Content-Type: application/json' \
++  --data '{
++  "items": ["https://www.example.com/images/*"],
++  "layer": "cache"
++}'
+```
 
-#### Diferenças Principais
+Purge é um endpoint de nível superior, não aninhado em applications. Um purge por URL aceita até 50 itens, e um purge por wildcard aceita uma expressão. Só um purge por chave de cache, em `/v4/workspace/purge/cachekey`, alcança Tiered Cache com `"layer": "tiered_cache"`. Um purge por URL ou wildcard com essa camada falha com `30001`.
 
-| Aspecto | Fastly Cache | Azion Cache |
-| :------ | :----------- | :---------- |
-| **Política de cache** | Service settings, VCL, cache overrides | Cache Settings e Rules Engine |
-| **Cache key** | VCL e configuração de cache | Advanced Cache Key |
-| **Shielding** | Shield POP | Tiered Cache e Origin Shield |
-| **Purge** | URL, surrogate key, service purge | URL, Cache Key, Wildcard purge |
-| **Conteúdo stale** | VCL e stale settings | Configurações stale-while-revalidate |
+Azion CLI faz o purge da mesma forma:
 
-#### Passos de Configuração
+```bash
+azion purge --urls 'www.example.com/images/logo.png'
+```
 
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API</Fragment>
+O comando responde `Purge carried out successfully`. Em um script, sempre passe `--urls`, `--cachekey` ou `--wildcard`: sem flag e sem terminal, o comando falha com `Error: EOF`. Para os tipos de purge, consulte [Real-Time Purge](/pt-br/documentacao/plataforma/applications/cache/real-time-purge/) e [azion purge](/pt-br/documentacao/devtools/cli/purge/).
+
+---
+
+## Balanceie o tráfego entre origens
+
+Na Azion, [Load Balancer](/pt-br/documentacao/plataforma/connectors/load-balancer/metodos-de-balanceamento/) é um módulo de um connector, não um recurso separado. Um connector do tipo `http` guarda cada origem como um endereço, até 15 endereços com Load Balancer ativado e um endereço sem ele. Uma regra com _Set Connector_ envia as requisições da aplicação para o connector.
+
+| Aspecto | Fastly | Azion Load Balancer |
+| --- | --- | --- |
+| Recurso de origem | Backend ou host | Endereços de um connector |
+| Origens com peso | Lógica de seleção de backend | Um **Weight** para cada endereço |
+| Métodos de balanceamento | — | _Round Robin_, _Least Connections_ e _IP Hash_, que são `round_robin`, `least_conn` e `ip_hash` na API |
+| Health checks | Health checks de backend | Nenhum. O failover é passivo: **Max Retries** e os timeouts tratam uma conexão que falhou |
+| Failover | VCL ou configurações do serviço | Vários endereços _Primary_ com pesos e endereços _Backup_ que recebem tráfego apenas quando todos os primários falham |
+| Shielding | Shielding | Tiered Cache, na configuração de cache. Origin Shield no connector restringe a origem aos endereços da Azion |
+
+Nenhum método direciona por localização ou por tempo de resposta medido, e não há afinidade por cookie: _IP Hash_ associa cada endereço IP de cliente a um endereço. Cada endereço tem um **Weight** de 1 a 100, que define sua parcela do tráfego. _IP Hash_ recusa endereços _Backup_, com `28005` na API. **Max Retries** aceita de 0 a 20, **Connection Timeout** de 1 a 300 segundos e **Read/Write Timeout** de 1 a 600 segundos. Esses campos existem apenas com Load Balancer ativado. Quando você o ativa no Azion Console, o formulário preenche _Round Robin_, `3`, `30` e `60`. Os padrões da API são `0`, `60` e `120`.
+
+<Tabs client:visible sharedStore="interface">
 
 <Fragment slot="panel.console">
-1. Acesse o [Azion Console](https://console.azion.com/).
-2. Edite sua **Application**.
-3. Navegue para **Cache Settings**.
-4. Configure o TTL padrão de cache.
-5. Habilite **Tiered Cache** quando for necessário reduzir carga na origem.
-6. Adicione regras de cache customizadas pelo **Rules Engine**.
+
+Para ativar Load Balancer no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a página Connectors">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Connectors**.
+
+  </DocStep>
+  <DocStep title="Abra o connector da origem" />
+  <DocStep title="Ative Load Balancer">
+
+  Em **Modules**, ative **Load Balancer**.
+
+  </DocStep>
+  <DocStep title="Selecione o método de balanceamento">
+
+  Em **Load Balancer Configuration**, defina **Method** como _Round Robin_, _Least Connections_ ou _IP Hash_.
+
+  </DocStep>
+  <DocStep title="Configure o primeiro endereço">
+
+  Em **Address Management**, no endereço existente, defina **Server Role** e **Weight**.
+
+  </DocStep>
+  <DocStep title="Selecione Add Address" />
+  <DocStep title="Informe a próxima origem">
+
+  No novo **Address**, informe o host da origem, sem protocolo nem porta. Depois defina seu **Server Role** e seu **Weight**.
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+O Console mostra `Connector has been updated`. O connector tem Load Balancer ativado e um endereço para cada origem.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+O comando de atualização precisa do corpo completo do connector. Coloque-o em um arquivo JSON e envie-o com `--file`, como mostra [Primeiros passos com Load Balancer](/pt-br/documentacao/plataforma/connectors/load-balancer/primeiros-passos/).
+
 </Fragment>
 
 <Fragment slot="panel.api">
-<Code client:visible lang="bash" code={`
-curl -X PATCH 'https://api.azion.com/v4/workspace/applications/{application_id}/cache_settings/{cache_setting_id}' \
-  --header 'Authorization: Token YOUR_TOKEN' \
+
+Para ativar Load Balancer, envie uma requisição `PATCH` para o connector. O endereço traz `server_role` e `weight`, e o método, as tentativas e os timeouts ficam em `attributes.modules.load_balancer.config`:
+
+```bash
+curl --request PATCH \
+  --url https://api.azion.com/v4/workspace/connectors/<connector-id> \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
   --header 'Content-Type: application/json' \
   --data '{
-    "name": "default-cache",
-    "browser_cache": {
-      "ttl": 3600
-    },
+  "attributes": {
+    "addresses": [
+      { "address": "origin1.example.com", "modules": { "load_balancer": { "server_role": "primary", "weight": 3 } } },
+      { "address": "origin2.example.com", "modules": { "load_balancer": { "server_role": "primary", "weight": 1 } } }
+    ],
     "modules": {
-      "cache": {
-        "ttl": 86400
-      },
-      "tiered_cache": {
-        "enabled": true
+      "load_balancer": {
+        "enabled": true,
+        "config": { "method": "round_robin", "max_retries": 3, "connection_timeout": 10, "read_write_timeout": 30 }
       }
     }
-  }'
-`} />
-:::note
-Cache settings são gerenciadas como sub-recursos em Applications. Você deve especificar `application_id` e `cache_setting_id` para atualizar a configuração de cache.
-:::
+  }
+}'
+```
+
+A resposta traz `"state": "pending"`. Dois endereços com Load Balancer desativado são recusados com `28004`, e `"enabled": true` com um `config` vazio é recusado com `28014`.
+
 </Fragment>
+
 </Tabs>
 
-#### Fastly Purge para Azion Purge
+Para os campos do connector, consulte [Configurações de connectors](/pt-br/documentacao/plataforma/connectors/configuracoes/) e [Connectors](/pt-br/documentacao/plataforma/connectors/).
 
-<Code client:visible lang="bash" code={`
-# Antes: Fastly purge por URL
-fastly purge --service-id SERVICE_ID https://www.example.com/images/logo.png
+---
 
-# Depois: Azion purge por URL
-curl -X POST 'https://api.azion.com/v4/workspace/purge/url' \
-  --header 'Authorization: Token YOUR_TOKEN' \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "items": ["https://www.example.com/images/logo.png"],
-    "layer": "cache"
-  }'
+## Entregue imagens otimizadas
 
-# Depois: Azion purge por wildcard
-curl -X POST 'https://api.azion.com/v4/workspace/purge/wildcard' \
-  --header 'Authorization: Token YOUR_TOKEN' \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "items": ["https://www.example.com/images/*"],
-    "layer": "cache"
-  }'
-`} />
-
-#### Documentação de referência
-
-* [Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/#cache)
-* [Cache Settings](https://www.azion.com/pt-br/documentacao/plataforma/applications/cache/cache-settings/)
-* [Tiered Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/cache/tiered-cache/)
-* [Real-Time Purge](https://www.azion.com/pt-br/documentacao/plataforma/applications/cache/real-time-purge/)
-
-### 9. Migrando Image Optimizer para Image Processor
-
-Otimização de imagens reduz o tamanho dos arquivos preservando qualidade visual. Azion Image Processor transforma, otimiza e entrega imagens de locais distribuídos usando parâmetros de URL e configuração de application.
-
-#### Diferenças Principais
+[Image Processor](/pt-br/documentacao/plataforma/applications/image-processor/primeiros-passos/) redimensiona, recorta, converte e aplica filtros a imagens sob demanda. Ele não armazena nada: lê a imagem de origem da origem da aplicação. Essa origem pode ser um servidor HTTP ou um bucket do Object Storage atrás de um connector.
 
 | Aspecto | Fastly Image Optimizer | Azion Image Processor |
-| :------ | :--------------------- | :-------------------- |
-| **Transformações** | Transformações de imagem em tempo real | Resize, crop, fit, otimização de formato |
-| **Formato de URL** | Query parameters ou opções de imagem configuradas | Query parameter `?ims=<OPTIONS>` |
-| **Suporte a formatos** | Formatos de imagem otimizados | WebP, AVIF, JPEG, PNG |
-| **Caminho de entrega** | Serviço Fastly | Azion Application com Image Processor |
-| **Fonte de storage** | Origem ou object storage | Origem HTTP ou Object Storage |
+| --- | --- | --- |
+| Transformações | Transformações de imagem em tempo real | Redimensionamento, recorte, encaixe, formato, qualidade, rotação, preenchimento e marca d'água |
+| Formato de URL | Parâmetros de query ou opções de imagem configuradas | `/image.png?ims=<OPTIONS>` |
+| Formatos | Formatos de imagem otimizados | WebP, AVIF, JPEG, GIF e PNG |
+| Caminho de entrega | O serviço da Fastly | Uma aplicação com Image Processor ativado |
+| Fonte das imagens | A origem ou o armazenamento de objetos | A origem da aplicação, como Object Storage |
 
-#### Passos de Configuração
+Image Processor funciona em dois passos: ative o módulo na aplicação e depois crie uma regra com o comportamento _Optimize Images_. Uma requisição que nenhuma regra desse tipo atende é entregue sem processamento. Image Processor não tem configuração padrão de qualidade nem de formato: a URL de cada requisição os traz.
 
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API</Fragment>
+<Tabs client:visible sharedStore="interface">
 
 <Fragment slot="panel.console">
-1. Acesse o [Azion Console](https://console.azion.com/).
-2. Edite sua **Application**.
-3. Navegue para configurações de **Image Processor**.
-4. Habilite Image Processor.
-5. Configure comportamento padrão de qualidade e formato.
-6. Valide URLs representativas de imagem antes do cutover.
+
+Para ativar Image Processor no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra a aplicação">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Applications** e selecione a aplicação.
+
+  </DocStep>
+  <DocStep title="Ative Image Processor">
+
+  Na aba **Main Settings**, em **Modules**, ative **Image Processor**. Para mais informações, consulte [Main Settings](/pt-br/documentacao/plataforma/applications/main-settings/).
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+  <DocStep title="Adicione a regra Optimize Images">
+
+  Na aba **Rules Engine**, crie uma regra da Request Phase com `${uri}` _matches_ `\.(jpg|jpeg|gif|bmp|png|ico|webp|avif)` e o comportamento _Optimize Images_.
+
+  </DocStep>
+</DocSteps>
+
+As requisições de imagem que atendem à regra agora são processadas.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para ativar Image Processor com Azion CLI, siga o painel CLI de [Primeiros passos com Image Processor](/pt-br/documentacao/plataforma/applications/image-processor/primeiros-passos/).
+
 </Fragment>
 
 <Fragment slot="panel.api">
-<Code client:visible lang="bash" code={`
-curl -X PATCH 'https://api.azionapi.net/v4/workspace/applications/{application_id}' \
-  --header 'Authorization: Token YOUR_TOKEN' \
+
+Para ativar o módulo, envie uma requisição `PATCH` para a aplicação. A chave `image_processor` fica em `modules`, no nível da aplicação:
+
+```bash
+curl --request PATCH \
+  --url https://api.azion.com/v4/workspace/applications/<application-id> \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
   --header 'Content-Type: application/json' \
   --data '{
-    "modules": {
-      "image_processor": {
-        "enabled": true
-      }
-    }
-  }'
-`} />
-:::note
-A configuração `image_processor` deve ser aninhada em `modules` no corpo da requisição. Image Processor é gerenciado no nível da application.
-:::
+  "modules": {
+    "image_processor": { "enabled": true }
+  }
+}'
+```
+
+Depois crie uma regra de requisição com o comportamento `optimize_images`, como mostra [Primeiros passos com Image Processor](/pt-br/documentacao/plataforma/applications/image-processor/primeiros-passos/).
+
 </Fragment>
+
 </Tabs>
 
-#### Comparação de Formato de URL
+Image Processor lê a transformação do parâmetro de query `ims`:
 
-<Code client:visible lang="text" code={`
-# Padrões de transformação de imagem da Fastly variam por implementação
+```text
+# Fastly Image Optimizer
 https://www.example.com/image.jpg?width=400&quality=85
 
-# Azion Image Processor
-https://www.example.com/image.jpg?ims=400x400
-`} />
+# Azion
+https://www.example.com/image.jpg?ims=400x/filters:quality(85)
+```
 
-#### Parâmetros de Transformação
+| Sintaxe | Resultado | Exemplo |
+| --- | --- | --- |
+| `?ims=WxH` | Redimensiona para a largura e a altura, recortando para caber quando ambas estão definidas | `?ims=400x300` |
+| `?ims=Wx` | Redimensiona para a largura, com a altura proporcional | `?ims=400x` |
+| `?ims=xH` | Redimensiona para a altura, com a largura proporcional | `?ims=x300` |
+| `?ims=fit-in/WxH` | Encaixa a imagem dentro das dimensões, sem nunca ampliá-la | `?ims=fit-in/400x300` |
+| `?ims=fit-in/WxH/filters:fill(Color)` | Encaixa a imagem e preenche o restante da área com uma cor | `?ims=fit-in/400x300/filters:fill(white)` |
 
-| Sintaxe | Descrição | Exemplo |
-| :------ | :-------- | :------ |
-| `?ims=WxH` | Redimensiona para largura x altura | `?ims=400x300` |
-| `?ims=Wx` | Redimensiona para largura com altura automática | `?ims=400x` |
-| `?ims=xH` | Redimensiona para altura com largura automática | `?ims=x300` |
-| `?ims=WxH:fill` | Corta para dimensões exatas | `?ims=400x300:fill` |
-| `?ims=WxH:fit` | Ajusta dentro das dimensões | `?ims=400x300:fit` |
+Image Processor converte para WebP quando o header `Accept` do cliente permite. AVIF precisa de `?ims=filters:format(avif)` e de um cliente que aceite `image/avif`. Para manter em cache uma cópia para cada valor de `ims`, ative Application Accelerator e varie o cache por query string. Verifique URLs de imagem representativas no domínio do workload antes da virada. Para cada parâmetro, consulte [Parâmetros de URL](/pt-br/documentacao/plataforma/applications/image-processor/parametros-de-url/).
 
-:::note
-Azion Image Processor otimiza automaticamente o formato da imagem com base no header `Accept` do cliente, servindo WebP ou AVIF para navegadores compatíveis.
-:::
+---
 
-#### Documentação de referência
+## Mova streaming, WebSockets e Fanout
 
-* [Image Processor](https://www.azion.com/pt-br/documentacao/plataforma/applications/#image-processor)
-* [Como processar imagens](https://www.azion.com/pt-br/documentacao/guias/performance-e-confiabilidade/otimizacao-de-entrega/processar-imagens/)
-* [Object Storage](https://www.azion.com/pt-br/documentacao/plataforma/object-storage/)
+O tráfego de streaming, Media Shield, WebSocket e Fanout consome muita banda ou tem longa duração. Mova cada um conforme seu modelo de tráfego: mídia que vai para o cache, conexões de longa duração ou mensagens publish-subscribe.
 
-### 10. Migrando Streaming, Media Shield, WebSockets e Fanout
+| Recurso da Fastly | Na Azion |
+| --- | --- |
+| Streaming Delivery | Uma aplicação com Cache, e Object Storage para os arquivos de mídia |
+| Media Shield for Live e for VOD | Tiered Cache na configuração de cache, que reduz as requisições que chegam à origem |
+| WebSockets | [WebSocket Proxy](/pt-br/documentacao/plataforma/applications/websocket/) quando a origem é o servidor WebSocket, ou a [API WebSocket](/pt-br/documentacao/devtools/runtime/api-reference/websocket/) quando uma função é |
+| Fanout | Functions com a API WebSocket, além de um serviço externo de publish-subscribe quando necessário |
 
-Padrões Fastly de streaming, Media Shield, WebSocket e Fanout são usados para workloads de alto volume de banda e aplicações em tempo real. Migre cada padrão com base no modelo de tráfego: mídia cacheável, conexões persistentes ou comportamento publish-subscribe.
+Uma transmissão ao vivo que a Azion ingere chega por meio de um connector do tipo `live_ingest`. Ele recebe a transmissão por RTMP e a converte para HLS, e uma aplicação a entrega aos espectadores. Para o fluxo, consulte [Ingestão e entrega](/pt-br/documentacao/plataforma/connectors/live-ingest/ingestao-e-entrega/).
 
-#### Mapeamento de Capacidade
+### Transporte conexões WebSocket
 
-| Recurso Fastly | Caminho de Migração na Azion |
-| :------------- | :--------------------------- |
-| Streaming Delivery | Applications + Cache + Object Storage |
-| Media Shield for Live | Tiered Cache + Origin Shield |
-| Media Shield for VOD | Tiered Cache + Origin Shield |
-| WebSockets | WebSocket Proxy + WebSocket API |
-| Fanout | Functions + WebSocket Proxy + serviço pub/sub externo quando necessário |
+WebSocket Proxy e a API WebSocket estão disponíveis com os suportes Business, Enterprise ou Mission-Critical, ou com um contrato Reserved Capacity ou Saving Plan. Para solicitar acesso, entre em contato com o [Suporte Técnico](/pt-br/documentacao/suporte/).
 
-#### Checklist de Migração de WebSocket
+Uma aplicação com WebSocket Proxy trata como conexão WebSocket toda requisição que traz os dois headers de upgrade, qualquer que seja o caminho:
 
-1. Habilite suporte a WebSocket na Application de destino.
-2. Confirme que a origem aceita os headers `Upgrade: websocket` e `Connection: upgrade`.
-3. Valide que rotas da aplicação não aplicam cache ou image processing ao tráfego WebSocket.
-4. Teste upgrades bem-sucedidos com respostas `101 Switching Protocols`.
-5. Monitore eventos e erros WebSocket após o cutover.
+| Header | Valor |
+| --- | --- |
+| `Upgrade` | `websocket` |
+| `Connection` | `upgrade` |
 
-#### Exemplo de Function com WebSocket
+Antes da virada:
 
-<Code client:visible lang="javascript" code={`
+1. Confirme que o cliente e a origem suportam WebSocket nativamente e que a origem aceita `Upgrade: websocket` e `Connection: upgrade`.
+2. Envie os headers de upgrade apenas nas requisições que abrem uma conexão e mantenha as regras de cache e de imagem fora desses caminhos.
+3. Teste um upgrade: uma conexão que abre retorna `101 Switching Protocols`. Qualquer outro status, mesmo um `2xx` ou um `3xx`, significa que o upgrade não foi concluído.
+4. Faça o cliente reabrir uma conexão fechada. A Azion recicla as conexões keepalive a cada 15 minutos, aproximadamente, o que pode fechar uma conexão WebSocket ativa.
+
+As regras de firewall podem inspecionar uma requisição WebSocket antes de o upgrade ser concluído. Depois da virada, acompanhe os eventos `websocket.connection.accepted`, `message.sent` e `message.received` no Real-Time Metrics e no Data Stream.
+
+### Sirva WebSockets a partir de uma função
+
+Quando uma função é o servidor WebSocket, `upgradeWebSocket(request)` aceita o upgrade e retorna um `response` e um `socket`. O runtime também oferece helpers que fazem broadcast de uma mensagem para todos os clientes conectados, o que cobre um padrão Fanout:
+
+```javascript
 export default {
-  async fetch(request) {
+  async fetch(request, env, ctx) {
     if (request.headers.get('upgrade') === 'websocket') {
       const { response, socket } = upgradeWebSocket(request);
 
@@ -788,36 +1050,31 @@ export default {
     return new Response('Expected WebSocket upgrade', { status: 400 });
   }
 };
-`} />
+```
 
-#### Documentação de referência
+Uma requisição sem o header `upgrade` recebe `400` com `Expected WebSocket upgrade`. No `azion dev`, `upgradeWebSocket` não está definido, então teste a função em produção. Para a API, consulte [WebSocket](/pt-br/documentacao/devtools/runtime/api-reference/websocket/).
 
-* [WebSocket Proxy](https://www.azion.com/pt-br/documentacao/plataforma/applications/websocket/)
-* [WebSocket API](https://www.azion.com/pt-br/documentacao/devtools/runtime/api-reference/websocket/)
-* [Tiered Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/cache/tiered-cache/)
-* [Origin Shield](https://www.azion.com/pt-br/documentacao/plataforma/connectors/#origin-shield)
+---
 
-### 11. Migrando Padrões de AI Accelerator
+## Mova os padrões do AI Accelerator
 
-Fastly AI Accelerator foca em cache semântico e aceleração para tráfego de APIs de IA. Na Azion, workloads de IA podem combinar AI Inference, Functions, Cache, Real-Time Events e Data Stream dependendo se o objetivo é execução de inferência, controle de tráfego, observabilidade ou cache de respostas.
-
-#### Diferenças Principais
+Fastly AI Accelerator faz cache e acelera o tráfego para APIs de IA generativa. Na Azion, o destino depende do objetivo: executar a inferência, controlar o tráfego, observá-lo ou fazer cache das respostas.
 
 | Aspecto | Fastly AI Accelerator | Azion |
-| :------ | :-------------------- | :---- |
-| **Padrão principal** | Cache semântico para tráfego de APIs de IA | AI Inference + Functions + Cache |
-| **Controle de requisições** | Lógica de serviço e Compute | Rules Engine + Functions |
-| **Observabilidade** | Logging e inspectors | Real-Time Events + Data Stream + Real-Time Metrics |
-| **Execução de modelo** | APIs externas de IA aceleradas pela Fastly | AI Inference ou APIs externas chamadas por Functions |
+| --- | --- | --- |
+| Padrão principal | Cache semântico para o tráfego de APIs de IA | AI Inference, Functions e Cache |
+| Controle de requisições | Lógica do serviço e do Compute | Rules Engine e Functions |
+| Observabilidade | Logging e inspectors | Real-Time Events, Data Stream e Real-Time Metrics |
+| Execução de modelos | APIs de IA externas aceleradas pela Fastly | [AI Inference](/pt-br/documentacao/plataforma/ai-inference/), ou APIs de IA externas chamadas a partir de uma função |
 
-#### Exemplo de Integração via Function
+Uma função pode continuar chamando o provedor de IA externo, com a chave em uma variável de ambiente:
 
-<Code client:visible lang="javascript" code={`
+```javascript
 export default {
-  async fetch(request) {
+  async fetch(request, env, ctx) {
     const prompt = await request.text();
 
-    const response = await fetch('https://ai-provider.example.com/v1/chat/completions', {
+    return fetch('https://ai-provider.example.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -825,550 +1082,568 @@ export default {
       },
       body: JSON.stringify({ prompt })
     });
-
-    return response;
   }
 };
-`} />
+```
 
-#### Documentação de referência
+A função retorna a resposta do provedor ao cliente. Para executar o modelo na Azion, chame-o pelo seu ID com `Azion.AI.run()`. AI Inference executa um catálogo de [modelos](/pt-br/documentacao/plataforma/ai-inference/modelos/) open source, e a chamada não precisa de credencial:
 
-* [AI Inference](https://www.azion.com/pt-br/documentacao/plataforma/ai-inference/)
-* [Modelos AI Inference](https://www.azion.com/en/documentation/platform/ai-inference/models/)
-* [Functions](https://www.azion.com/pt-br/documentacao/plataforma/functions/)
-* [Cache](https://www.azion.com/pt-br/documentacao/plataforma/applications/#cache)
+```javascript
+const modelResponse = await Azion.AI.run("Qwen/Qwen3-30B-A3B-Instruct-2507-FP8", {
+  "stream": false,
+  "messages": [
+    { "role": "system", "content": "You are a helpful assistant." },
+    { "role": "user", "content": "Name three European capitals." }
+  ]
+})
+const answer = modelResponse?.choices?.[0]?.message?.content
+```
 
-## Secure
+No `azion dev`, `Azion.AI` é `undefined`. Teste a chamada em uma função em produção. Para os campos da requisição, consulte [Invocação de modelos](/pt-br/documentacao/plataforma/ai-inference/invocacao-de-modelos/) e a [API de runtime de IA](/pt-br/documentacao/devtools/runtime/api-reference/ai/). Para um endpoint `/v1/chat/completions` compatível com OpenAI na Azion, faça o deploy do template [AI Inference Starter Kit](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/ai-inference-starter-kit/) a partir do Azion Console > **Create**.
 
-A categoria Secure cobre domínios, certificados, regras de firewall, controles de bots, proteção DDoS e rate limiting. Planeje essas migrações como cutovers controlados, porque elas afetam como usuários chegam à sua aplicação e como o tráfego é protegido em produção.
+---
 
-### 1. Migrando Domínios Customizados
+## Mova Edge Data Storage para KV Store
 
-A migração de domínios customizados é uma das partes mais sensíveis de qualquer transição de plataforma. Ela afeta usuários, SEO, confiança na marca e disponibilidade de produção. Planeje a migração de domínio como um cutover controlado, não como uma alteração de DNS de última hora.
+[KV Store](/pt-br/documentacao/plataforma/kv-store/) guarda configurações, feature flags, personalização, metadados de autorização e estado leve. As chaves ficam em um namespace. Uma função abre o namespace com `Azion.KV.open()`, um global do runtime que não precisa de linha de import.
 
-#### Estratégias de Migração
+| Aspecto | Fastly Edge Data Storage | Azion KV Store |
+| --- | --- | --- |
+| Modelo de dados | Contêineres chave-valor | Namespaces de pares chave-valor |
+| Acesso | Pelo Compute | Por uma função, por meio de `Azion.KV` |
+| Usos comuns | Configuração, flags e metadados de sessão | Estado de sessão, feature flags, tabelas de roteamento, preferências por usuário e contadores de rate limit |
+| Consistência | Depende da aplicação | Uma gravação fica visível em todos os lugares em até 60 segundos, ou dentro do `cacheTtl` da leitura |
 
-| Estratégia | Melhor Para | Controle de DNS |
-| :--------- | :---------- | :-------------- |
-| **CNAME** | Migração rápida de subdomínio | Mantenha seu provedor de DNS |
-| **Nameserver** | Controle total de DNS e domínios apex | Transfira DNS para a Azion |
+```javascript diff
+-// Before: Fastly, where data access varies by product and runtime
+-const value = await edgeData.get('feature:checkout');
+-await edgeData.put('feature:checkout', 'enabled');
+ 
++// After: Azion
++const kv = await Azion.KV.open('my-namespace');
++const value = await kv.get('feature:checkout');
++await kv.put('feature:checkout', 'enabled');
+```
 
-#### Crie o Certificado
+`Azion.KV.open()` é o único ponto de entrada e é assíncrono. O namespace precisa existir antes, ou `open()` lança `NotFound`. `get()` retorna o valor como texto por padrão, e `null` para uma chave inexistente, assim como para uma chave expirada. Ele também retorna `json`, `arrayBuffer` ou `stream` quando o segundo argumento indica esse tipo.
 
-Crie seu certificado SSL/TLS antes de apontar seu domínio para a Azion. Isso garante que usuários consigam acessar a aplicação com segurança por HTTPS quando o domínio começar a resolver para a nova infraestrutura.
+KV Store não tem importação em massa. Nenhuma tela do Azion Console, comando da CLI, chamada de API ou recurso do Terraform lê ou grava chaves. Para mover os dados:
 
-A Azion oferece certificados Let's Encrypt gratuitos com renovação automática.
+1. Exporte da Fastly as chaves, os valores, os metadados e as regras de expiração.
+2. Crie o namespace pela API:
 
-#### Configure o Domínio
+   ```bash
+   curl --request POST \
+     --url https://api.azion.com/v4/workspace/kv/namespaces \
+     --header 'Authorization: Token [TOKEN VALUE]' \
+     --header 'Content-Type: application/json' \
+     --data '{ "name": "fastly-migration-kv" }'
+   ```
 
-Crie um workload no Azion Console e associe seu domínio customizado. Consulte a [documentação de Workloads](https://www.azion.com/pt-br/documentacao/plataforma/workloads/).
+   O namespace existe, e uma função pode abri-lo pelo nome. O nome aceita de 3 a 63 caracteres, diferencia maiúsculas de minúsculas e é permanente: um namespace não pode ser renomeado nem excluído.
 
-#### Aponte o Domínio para a Azion
+3. Grave as chaves a partir de uma função em produção com `kv.put()`.
 
-<Tabs client:visible>
-    <Fragment slot="tab.cname">Migração CNAME</Fragment>
-    <Fragment slot="tab.nameserver">Migração por Nameserver</Fragment>
+A função grava uma chave no máximo uma vez por segundo. Um valor aceita até 25 MB, uma chave até 512 bytes e os metadados até 1.024 bytes. Associe cada expiração à opção `expiration`, em segundos Unix, ou a `expirationTtl`, em segundos com mínimo de 60. Antes da importação, mantenha os prefixos das chaves e verifique a codificação dos valores de texto, JSON e dados binários. Revise o código que trata uma chave inexistente. Teste os caminhos de leitura e gravação antes de mover o tráfego de produção. Se faltarem chaves depois da importação, exporte-as de novo, verifique o nome do namespace e verifique a codificação.
 
-<Fragment slot="panel.cname">
-Aponte o subdomínio para o domínio gerado pela Azion:
+Para as operações de namespace e seus erros, consulte [Namespaces](/pt-br/documentacao/plataforma/kv-store/namespaces/). Para o cliente, consulte [API de runtime do KV Store](/pt-br/documentacao/devtools/runtime/api-reference/kv-store/) e [Gerencie KV Store com Functions](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gerenciar-com-funcoes/).
 
-<Code client:visible lang="text" code={`
-www CNAME xxxxxxxxxx.map.azionedge.net
-`} />
+---
 
-Isso mantém seu provedor atual de DNS enquanto roteia tráfego pela Azion.
-</Fragment>
+## Mova Fastly Object Storage para Object Storage
 
-<Fragment slot="panel.nameserver">
-Configure seu domínio para usar os nameservers da Azion:
-
-<Code client:visible lang="text" code={`
-ns1.aziondns.net
-ns2.aziondns.com
-ns3.aziondns.org
-`} />
-
-Isso dá à Azion controle total de DNS, necessário para domínios apex.
-</Fragment>
-</Tabs>
-
-#### Verifique Propagação
-
-<Code client:visible lang="bash" code={`
-dig www.yourdomain.com CNAME +short
-curl -I https://www.yourdomain.com/
-`} />
-
-:::caution[warning]
-Antes de trocar tráfego de produção, confirme: o certificado está ativo, o domínio está associado ao workload correto, registros DNS estão prontos, rotas críticas foram testadas, redirects se comportam como esperado e monitoramento está configurado para validação pós-cutover.
-:::
-
-#### Documentação de referência
-
-* [Workloads](https://www.azion.com/pt-br/documentacao/plataforma/workloads/)
-* [Crie um domínio customizado da Azion](https://www.azion.com/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/criar-dominio-personalizado-azion/)
-* [Edge DNS](https://www.azion.com/pt-br/documentacao/plataforma/edge-dns/)
-* [Certificate Manager](https://www.azion.com/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/)
-
-### 2. Migrando TLS para Certificate Manager
-
-Fastly Platform TLS, TLS Service Options e fluxos baseados em Certainly gerenciam certificados e comportamento de serviço HTTPS. Azion Certificate Manager gerencia Let's Encrypt, certificados customizados, certificados Azion SAN e certificados Trusted CA para cenários mTLS.
-
-#### Diferenças Principais
-
-| Aspecto | Fastly TLS | Azion Certificate Manager |
-| :------ | :--------- | :------------------------ |
-| **Certificados gerenciados** | Fluxos Platform TLS e Certainly | Certificados Let's Encrypt e Azion SAN |
-| **Certificados customizados** | Upload ou certificados gerenciados via API | Upload de certificados customizados e chaves privadas |
-| **Automação** | Fastly API | Console e Azion API |
-| **mTLS** | Configuração TLS e segurança da Fastly | Certificados Trusted CA e configuração mTLS |
-| **Associação** | Serviço/domínio Fastly | Associação com Workload ou domínio |
-
-#### Upload de Certificado Customizado
-
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API</Fragment>
-
-<Fragment slot="panel.console">
-1. Vá para **Products menu** > **Certificate Manager**.
-2. Clique em **+ Certificate**.
-3. Selecione **Custom Certificate**.
-4. Faça upload do certificado em formato PEM.
-5. Faça upload da chave privada.
-6. Envie a cadeia intermediária de CA, se aplicável.
-7. Associe o certificado ao seu workload.
-</Fragment>
-
-<Fragment slot="panel.api">
-<Code client:visible lang="bash" code={`
-curl -X POST 'https://api.azionapi.net/v4/workspace/tls/certificates' \
-  --header 'Authorization: Token YOUR_TOKEN' \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "name": "my-custom-cert",
-    "certificate": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
-    "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
-  }'
-`} />
-</Fragment>
-</Tabs>
-
-#### Documentação de referência
-
-* [Certificate Manager](https://www.azion.com/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/)
-* [Crie um certificado digital](https://www.azion.com/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/certificado-digital/)
-* [mTLS](https://www.azion.com/pt-br/documentacao/plataforma/workloads/mtls/)
-
-### 3. Migrando Fastly Next-Gen WAF para Web Application Firewall
-
-Web Application Firewall protege aplicações contra tráfego malicioso, SQL injection, cross-site scripting e outros ataques de camada de aplicação. Migrar regras WAF exige mapeamento cuidadoso de lógica de regra, condições de match e modos de enforcement.
-
-#### Diferenças Principais
-
-| Aspecto | Fastly Next-Gen WAF | Azion WAF |
-| :------ | :------------------ | :-------- |
-| **Proteção gerenciada** | Regras e sinais Next-Gen WAF | WAF Rule Sets |
-| **Lógica customizada** | Regras e conditions WAF | Rules Engine para Firewall |
-| **Ações** | Padrões de allow, block, log, challenge | Allow, deny, drop, redirect, custom HTML, hold connection |
-| **Tuning** | Exclusão de sinais e thresholds | Modos Learning e Blocking, configurações de sensibilidade |
-| **Associação** | Escopo de serviço ou domínio | Firewall associado a workloads |
-
-#### Passos de Migração
-
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API</Fragment>
-
-<Fragment slot="panel.console">
-1. Acesse o [Azion Console](https://console.azion.com/).
-2. Vá para **Products menu** > **Firewall**.
-3. Selecione ou crie uma instância de Firewall.
-4. Navegue para **WAF**.
-5. Habilite os rule sets gerenciados desejados.
-6. Configure sensibilidade por rule set.
-7. Crie regras customizadas no **Rules Engine**.
-8. Associe o Firewall ao seu workload.
-</Fragment>
-
-<Fragment slot="panel.api">
-<Code client:visible lang="bash" code={`
-curl -X POST 'https://api.azion.com/v4/workspace/wafs' \
-  --header 'Accept: application/json' \
-  --header 'Authorization: Token [TOKEN]' \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "active": true,
-    "name": "Fastly Migration WAF",
-    "product_version": "1.0",
-    "engine_settings": {
-      "engine_version": "2021-Q3",
-      "type": "score",
-      "attributes": {
-        "rulesets": [1],
-        "thresholds": [
-          { "threat": "sql_injection", "sensitivity": "medium" }
-        ]
-      }
-    }
-  }'
-`} />
-</Fragment>
-</Tabs>
-
-#### Exemplo de Migração de Regra
-
-<Code client:visible lang="text" code={`
-# Intenção no estilo Fastly
-Bloquear requisições para /admin exceto quando o IP do cliente estiver em uma rede aprovada.
-
-# Critérios Azion
-Variable: \${uri}
-Operator: matches
-Argument: /admin
-
-AND
-
-Variable: \${remote_addr}
-Operator: does not match
-Argument: 10.0.0.0/8
-
-Behavior: Deny (403)
-`} />
-
-:::note
-Execute mudanças de WAF em modo monitorado antes de aplicar bloqueios. Compare falsos positivos, principais regras acionadas, requisitos de bypass e exceções específicas da aplicação antes do enforcement em produção.
-:::
-
-#### Documentação de referência
-
-* [Web Application Firewall](https://www.azion.com/pt-br/documentacao/plataforma/firewall/#waf)
-* [WAF Rule Sets](https://www.azion.com/pt-br/documentacao/plataforma/firewall/waf/rule-sets/)
-* [Rules Engine para Firewall](https://www.azion.com/pt-br/documentacao/plataforma/firewall/rules-engine/)
-* [Functions para Firewall](https://www.azion.com/pt-br/documentacao/plataforma/firewall/functions/)
-
-### 4. Migrando Proteção DDoS
-
-Proteção DDoS defende contra ataques volumétricos, ataques de protocolo e floods de camada de aplicação. A Azion fornece proteção DDoS automática e recursos de Network Shield para controles de camada de rede.
-
-#### Diferenças Principais
-
-| Aspecto | Fastly DDoS Protection | Azion DDoS Protection |
-| :------ | :--------------------- | :-------------------- |
-| **Ativação** | Configuração de produto e serviço | Proteção automática com controles de segurança configuráveis |
-| **Cobertura de camada** | Mitigação de rede e camada de aplicação | Padrões de proteção L3, L4 e L7 |
-| **Customização** | Controles de segurança Fastly | Firewall, Network Shield, Rules Engine |
-| **Visibilidade** | Dashboards e logs de segurança Fastly | Real-Time Metrics, Real-Time Events, Data Stream |
-
-#### Passos de Migração
-
-1. Documente suposições atuais de DDoS na Fastly, processos de suporte e caminhos de escalação.
-2. Confirme a configuração de workload, Firewall e Network Shield na Azion.
-3. Recrie controles de camada de aplicação usando Rules Engine para Firewall.
-4. Valide observabilidade por Real-Time Metrics, Real-Time Events e Data Stream.
-5. Mantenha procedimentos de rollback e escalação prontos durante a janela de cutover.
-
-#### Documentação de referência
-
-* [DDoS Protection](https://www.azion.com/pt-br/documentacao/plataforma/workloads/#ddos-protection)
-* [DDoS Mitigation](https://www.azion.com/pt-br/documentacao/plataforma/workloads/ddos-protection/ddos-mitigation/)
-* [Network Shield](https://www.azion.com/pt-br/documentacao/plataforma/firewall/#network-shield)
-
-### 5. Migrando Bot Management
-
-Gerenciamento de bots protege aplicações contra abuso automatizado enquanto permite bots legítimos. Azion Bot Manager fornece controles de detecção e resposta, e Bot Manager Lite está disponível via Marketplace para casos de uso mais simples.
-
-#### Diferenças Principais
-
-| Aspecto | Fastly Bot Management | Azion Bot Manager |
-| :------ | :-------------------- | :---------------- |
-| **Detecção** | Sinais e comportamento de bots | Machine learning, análise comportamental, fingerprinting, intelligence de reputação |
-| **Ações** | Padrões de allow, block, challenge | Allow, deny, drop, redirect, custom HTML, random delay, hold connection |
-| **Opção Lite** | Recursos Fastly dependentes do plano | Bot Manager Lite via Marketplace |
-| **Integração com regras** | Configuração de segurança Fastly | Firewall Rules Engine |
-
-#### Regras Customizadas de Bot
-
-<Code client:visible lang="text" code={`
-Criteria: \${user_agent} contains "BadBot"
-Behavior: Deny (403)
-
-Criteria: \${user_agent} contains "Googlebot"
-Behavior: Allow
-`} />
-
-#### Verificação
-
-<Code client:visible lang="bash" code={`
-curl -A "BadBot/1.0" https://yourdomain.com/
-curl -A "Mozilla/5.0" https://yourdomain.com/
-`} />
-
-#### Documentação de referência
-
-* [Bot Manager](https://www.azion.com/pt-br/documentacao/plataforma/firewall/#bot-manager)
-* [Bot Manager Lite](https://www.azion.com/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/)
-* [Bot Manager Lite integration kit](https://www.azion.com/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/bot-manager-lite-integration-kit/)
-
-### 6. Migrando Edge Rate Limiting
-
-Rate limiting protege aplicações contra abuso limitando taxas de requisições por cliente, rota, método, token ou chave customizada. Recrie o comportamento de rate limiting da Fastly com regras de Firewall e Functions quando forem necessários contadores ou lógica customizados.
-
-#### Diferenças Principais
-
-| Aspecto | Fastly Edge Rate Limiting | Padrão de Rate Limiting Azion |
-| :------ | :------------------------ | :---------------------------- |
-| **Configuração** | Controles de rate limiting Fastly | Firewall Rules Engine + Functions |
-| **Granularidade** | Cliente, rota, chaves específicas de serviço | IP, path, método, headers, lógica customizada |
-| **Ações** | Bloquear ou penalizar clientes | Deny, drop, redirect, resposta customizada |
-| **Contadores customizados** | Controles Fastly ou lógica Compute | Functions + KV Store |
-
-#### Rate Limiting Baseado em Firewall
-
-<Code client:visible lang="bash" code={`
-curl -X POST 'https://api.azionapi.net/v4/workspace/firewalls/{firewall_id}/request_rules' \
-  --header 'Authorization: Token YOUR_TOKEN' \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "name": "Rate Limit API",
-    "criteria": [[{"variable": "\${uri}", "operator": "starts_with", "argument": "/api/"}]],
-    "behaviors": [
-      {"type": "rate_limit", "attributes": {"rps": 100, "window": 60, "action": "block"}}
-    ]
-  }'
-`} />
-
-#### Documentação de referência
-
-* [Rules Engine para Firewall](https://www.azion.com/pt-br/documentacao/plataforma/firewall/rules-engine/)
-* [Functions para Firewall](https://www.azion.com/pt-br/documentacao/plataforma/firewall/functions/)
-* [KV Store](https://www.azion.com/pt-br/documentacao/plataforma/kv-store/)
-
-## Store
-
-A categoria Store cobre serviços de dados. Migre object storage e dados key-value com atenção a consistência, padrões de acesso, nomes de objetos, permissões e compatibilidade da aplicação.
-
-### 1. Migrando Fastly Object Storage para Object Storage
-
-Object storage armazena arquivos importantes para usuários e operações de negócio: imagens, documentos, assets estáticos, arquivos de mídia, uploads e conteúdo gerado. Azion Object Storage é compatível com S3 e pode ser usado como origem para Applications.
-
-#### Diferenças Principais
+[Object Storage](/pt-br/documentacao/plataforma/object-storage/) guarda imagens, documentos, assets estáticos, mídia, uploads e arquivos gerados. Ele fala o protocolo S3, então ferramentas e SDKs S3 o alcançam com um novo endpoint, uma região e um par de chaves.
 
 | Aspecto | Fastly Object Storage | Azion Object Storage |
-| :------ | :-------------------- | :------------------- |
-| **Protocolo** | Fluxos compatíveis com S3 | Padrão S3 |
-| **Endpoint** | Endpoint de object storage da Fastly | `s3.us-east-005.azionstorage.net` |
-| **Caminho de entrega** | Serviços de entrega Fastly | Applications + Connectors |
-| **Gerenciamento de objetos** | Ferramentas compatíveis com S3 | Ferramentas compatíveis com S3, API, CLI, Runtime API |
-| **Entrega para usuários finais** | Serviço de entrega | Application com Connector para Object Storage |
+| --- | --- | --- |
+| Protocolo | Fluxos compatíveis com S3 | S3 |
+| Endpoint | O endpoint do Object Storage da Fastly | `s3.us-east-005.azionstorage.net` |
+| Região | — | `us-east-005` |
+| Gerenciamento de objetos | Ferramentas compatíveis com S3 | Ferramentas compatíveis com S3, a API, a CLI e a API de runtime |
+| Entrega aos usuários | O serviço de entrega da Fastly | Uma aplicação, por meio de um connector do tipo `storage` |
 
-#### Atualize a Configuração
+O par de chaves vem de uma credencial do Object Storage. Crie-a no Azion Console ou com uma requisição `POST` para `https://api.azion.com/v4/workspace/storage/credentials`. A `secret_key` só volta na resposta de criação. Para migrar, a credencial precisa de pelo menos `listBuckets`, `listFiles` e `writeFiles`, além de `listAllBucketNames` para listar os buckets. Quando o acesso for negado, verifique primeiro o par de chaves e o endpoint.
 
-<Code client:visible lang="javascript" code={`
+Um script de migração em Node.js alcança Object Storage com o AWS SDK:
+
+```javascript
 import { S3Client } from '@aws-sdk/client-s3';
 
 const client = new S3Client({
   region: 'us-east-005',
   endpoint: 'https://s3.us-east-005.azionstorage.net',
   credentials: {
-    accessKeyId: Azion.env.get('AZION_ACCESS_KEY'),
-    secretAccessKey: Azion.env.get('AZION_SECRET_KEY')
+    accessKeyId: process.env.AZION_ACCESS_KEY,
+    secretAccessKey: process.env.AZION_SECRET_KEY
   }
 });
-`} />
+```
 
-#### Migre Dados com Ferramentas Compatíveis com S3
+Para copiar os dados com o [s3cmd](https://s3tools.org/s3cmd), crie antes o bucket de destino no Azion Console, na API ou na CLI. O s3cmd não cria nem remove um bucket na Azion: `s3cmd mb` e `s3cmd rb` são recusados com `403 AccessDenied`. Um nome de bucket aceita de 6 a 63 caracteres, é único entre todas as contas e não pode começar com `azion`.
 
-Use ferramentas como `s3cmd`, `rclone` ou AWS CLI para mover objetos:
+1. Execute `s3cmd --configure -c ~/.s3cfg-azion` e informe estes valores:
 
-| Tarefa | Padrão de Comando |
-| :----- | :---------------- |
-| Listar buckets | `s3cmd ls` |
-| Fazer upload de objeto | `s3cmd put file.png s3://my-bucket/` |
-| Fazer download de objeto | `s3cmd get s3://my-bucket/file.png` |
-| Sincronizar buckets | `s3cmd sync s3://source-bucket/ s3://dest-bucket/` |
+   - **Access Key** e **Secret Key**: o par de chaves da credencial.
+   - **Default Region**: `us-east-005`.
+   - **S3 Endpoint**: `s3.us-east-005.azionstorage.net`.
+   - **DNS-style bucket+hostname:port template**: `%(bucket).s3.us-east-005.azionstorage.net`.
+   - **Use HTTPS protocol**: `true`.
 
-:::note
-Use o endpoint S3 para operações de gerenciamento de objetos. Para entrega a usuários finais, sirva objetos por Applications e Connectors para que o tráfego se beneficie de cache, controles de segurança e seu domínio de produção.
-:::
+2. Configure um segundo arquivo, `~/.s3cfg-fastly`, com o endpoint e as chaves do bucket da Fastly. Uma configuração do s3cmd guarda um endpoint.
+3. Baixe os objetos da Fastly:
 
-#### Documentação de referência
+   ```bash
+   s3cmd -c ~/.s3cfg-fastly sync s3://fastly-bucket/ ./export/
+   ```
 
-* [Object Storage](https://www.azion.com/pt-br/documentacao/plataforma/object-storage/)
-* [Como acessar Object Storage usando o protocolo S3](https://www.azion.com/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/protocolo-s3-para-object-storage/)
-* [Crie e modifique um bucket](https://www.azion.com/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/)
-* [Upload e download de objetos](https://www.azion.com/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/upload-e-download-de-objetos-do-bucket/)
-* [Use um bucket como origem](https://www.azion.com/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/)
+4. Envie-os para a Azion:
 
-### 2. Migrando Edge Data Storage para KV Store
+   ```bash
+   s3cmd -c ~/.s3cfg-azion sync ./export/ s3://azion-bucket/
+   ```
 
-Fastly Edge Data Storage e padrões key-value relacionados são comumente usados para configuração, feature flags, personalização, metadados de autorização e estado leve. Azion KV Store oferece storage key-value distribuído acessível por Functions.
+Os objetos estão no bucket da Azion. Para verificar, liste-os com `s3cmd -c ~/.s3cfg-azion ls s3://azion-bucket/`. `s3cmd ls` sem bucket lista todos os buckets, o que exige `listAllBucketNames` na credencial. `s3cmd sync s3://source-bucket/ s3://dest-bucket/` copia apenas entre dois buckets do mesmo provedor. Outros comandos funcionam da mesma forma: `s3cmd put file.png s3://my-bucket/` envia um objeto, e `s3cmd get s3://my-bucket/file.png` baixa um. O rclone, a AWS CLI e outras ferramentas S3 também funcionam.
 
-#### Diferenças Principais
+Azion Console recusa um upload individual acima de 300 MB. A API e as ferramentas S3 não estão sujeitas a esse limite. Use o endpoint S3 para gerenciar os objetos. Entregue-os aos usuários por meio de uma aplicação e de um connector, para que o tráfego tenha cache, segurança e seu domínio. O acesso do bucket aos workloads é `read_only`, `read_write` ou `restricted`, e uma credencial funciona de forma independente dele. Para as operações S3, consulte [Compatibilidade com S3](/pt-br/documentacao/plataforma/object-storage/compatibilidade-s3/) e [Use ferramentas compatíveis com S3](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/protocolo-s3-para-object-storage/). Para os buckets e seus objetos, consulte [Crie e modifique um bucket](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/), [Faça upload e download de objetos](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/upload-e-download-de-objetos-do-bucket/) e [Use um bucket como origem](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/).
 
-| Aspecto | Fastly Edge Data Storage | Azion KV Store |
-| :------ | :----------------------- | :------------- |
-| **Modelo de dados** | Containers key-value | Namespaces com pares key-value |
-| **Padrão de acesso** | Acesso por Compute | Functions por `Azion.KV` |
-| **Casos de uso comuns** | Configuração, flags, metadados de sessão | Configuração, flags, metadados de sessão, estado leve |
-| **Planejamento de consistência** | Dependente da aplicação | Planeje comportamento distribuído de key-value |
+---
 
-#### Comparação de API
+## Proteja a aplicação com WAF
 
-<Code client:visible lang="javascript" code={`
-// Antes: acesso a dados na Fastly varia por produto e runtime
-const value = await edgeData.get('feature:checkout');
-await edgeData.put('feature:checkout', 'enabled');
+[Web Application Firewall](/pt-br/documentacao/plataforma/firewall/waf/primeiros-passos/) pontua as requisições em relação a oito famílias de ameaças: cross-site scripting, directory traversal, evading tricks, file upload, identified attack, remote file inclusion, SQL injection e unwanted access. Um conjunto de regras WAF guarda uma sensibilidade para cada família, e uma regra de firewall o aplica com _Set WAF_.
 
-// Depois: Azion KV Store
-const kv = await Azion.KV.open('my-namespace');
+| Aspecto | Fastly Next-Gen WAF | Azion WAF |
+| --- | --- | --- |
+| Proteção gerenciada | Regras e signals do Next-Gen WAF | Um ruleset gerenciado, pontuado por família de ameaças |
+| Lógica personalizada | Regras de WAF e condições | [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/) |
+| Ações | Padrões de permissão, bloqueio, log e desafio | _Deny_, _Drop_, _Set Rate Limit_, _Set WAF_, _Run Function_ e _Set Custom Response_. Não há comportamento de permissão |
+| Modos | — | _Logging_ e _Blocking_ |
+| Ajuste | Exclusão de signals e limiares | Uma sensibilidade para cada família de ameaças, exceções de WAF e a aba **Tuning** |
+| Escopo | O serviço ou o domínio | Um firewall vinculado ao workload |
 
-const value = await kv.get('feature:checkout');
-await kv.put('feature:checkout', 'enabled');
-`} />
+`mode` é obrigatório em todo comportamento _Set WAF_ e não tem padrão. Comece em _Logging_ para verificar o que o conjunto de regras bloquearia e depois mude para _Blocking_. Antes de aplicar o bloqueio, compare os falsos positivos, as regras mais acionadas e as exceções de que a aplicação precisa. No modo _Blocking_, uma requisição que o conjunto de regras bloqueia recebe `400`. Para evitar que uma requisição legítima corresponda, adicione uma exceção de WAF ou use a aba **Tuning**.
 
-#### Crie um Namespace de KV Store
-
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API</Fragment>
+<Tabs client:visible sharedStore="interface">
 
 <Fragment slot="panel.console">
-O Azion Console não tem uma tela para o KV Store. Um namespace é criado pela API da Azion, na
-aba **API**. Para os campos, as operações e os erros, consulte
-[Namespaces](/pt-br/documentacao/plataforma/kv-store/namespaces/).
+
+Para configurar o WAF no Azion Console:
+
+<DocSteps>
+  <DocStep title="Crie o conjunto de regras">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Edge Libraries** > **WAF Rules** e crie um conjunto de regras. Defina a sensibilidade de cada família em **Threat Type Configuration**.
+
+  </DocStep>
+  <DocStep title="Abra o firewall">
+
+  Vá para **Secure** > **Firewalls** e selecione ou crie o firewall.
+
+  </DocStep>
+  <DocStep title="Ative Web Application Firewall">
+
+  Na aba **Main Settings**, em **Modules**, ative **Web Application Firewall** e selecione **Save**.
+
+  </DocStep>
+  <DocStep title="Aplique o conjunto de regras">
+
+  Na aba **Rules Engine**, crie uma regra com o comportamento _Set WAF_. Em **Select a WAF**, selecione o conjunto de regras. Em **Select a WAF mode**, selecione _Logging_.
+
+  </DocStep>
+  <DocStep title="Vincule o firewall ao workload">
+
+  No workload, em **Deployment Settings**, selecione o firewall em **Firewall**.
+
+  </DocStep>
+</DocSteps>
+
+O firewall aplica o conjunto de regras às requisições do workload.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para vincular um firewall com Azion CLI, passe `--firewall-id` para o deployment do workload. Para o conjunto de regras e a regra, siga [Primeiros passos com WAF](/pt-br/documentacao/plataforma/firewall/waf/primeiros-passos/).
+
 </Fragment>
 
 <Fragment slot="panel.api">
-<Code client:visible lang="bash" code={`
-curl -X POST 'https://api.azion.com/v4/workspace/kv/namespaces' \
-  --header 'Authorization: Token YOUR_TOKEN' \
+
+Para criar o conjunto de regras, envie uma requisição `POST` para o endpoint de WAF:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/wafs \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
   --header 'Content-Type: application/json' \
   --data '{
-    "name": "fastly-migration-kv"
-  }'
-`} />
+  "active": true,
+  "name": "Fastly Migration WAF",
+  "product_version": "1.0",
+  "engine_settings": {
+    "engine_version": "2021-Q3",
+    "type": "score",
+    "attributes": {
+      "rulesets": [1],
+      "thresholds": [
+        { "threat": "sql_injection", "sensitivity": "medium" }
+      ]
+    }
+  }
+}'
+```
+
+`rulesets` aceita apenas `[1]`. Depois aplique o conjunto de regras com uma regra de firewall cujo comportamento é `{ "type": "set_waf", "attributes": { "waf_id": <waf-rule-set-id>, "mode": "logging" } }`. A API recusa `learning` como modo.
+
 </Fragment>
+
 </Tabs>
 
-#### Checklist de Migração
+Converta cada regra de WAF da Fastly em critérios de firewall. As variáveis do firewall diferem das variáveis da aplicação: o caminho é `${request_uri}`, e uma faixa de endereços vai em uma Network List comparada com `${network}`.
 
-* Exporte keys, values, metadados e regras de expiração da Fastly.
-* Preserve prefixos de chave e convenções de nomenclatura quando possível.
-* Documente comportamento padrão para chaves ausentes.
-* Valide encoding de valores, serialização JSON e tratamento de dados binários.
-* Teste caminhos de leitura e escrita antes de mover tráfego de produção.
+```text
+# Intenção
+Bloquear as requisições para /admin, exceto quando o IP do cliente está em uma rede aprovada.
 
-#### Documentação de referência
+# Critérios da Azion
+${request_uri}  starts with     /admin
+and
+${network}      is not in list  <network-list-id>   (uma Network List que contém 10.0.0.0/8)
 
-* [KV Store](https://www.azion.com/pt-br/documentacao/plataforma/kv-store/)
-* [Gerencie KV Store com Functions](https://www.azion.com/en/documentation/guides/application-development/data/manage-with-functions/)
-* [KV Store API](https://www.azion.com/pt-br/documentacao/devtools/runtime/api-reference/kv-store/)
-* [Functions](https://www.azion.com/pt-br/documentacao/plataforma/functions/)
+# Comportamento da Azion
+Deny (403 Forbidden)
+```
 
-## Observe
+O critério `${network}` requer Network Shield no firewall. Para as variáveis e os operadores, consulte [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/). Para os campos do conjunto de regras, consulte [Conjuntos de regras WAF](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/), e para código em um firewall, [Functions para Firewall](/pt-br/documentacao/plataforma/firewall/functions/).
 
-A categoria Observe cobre métricas, eventos, logs e destinos externos de streaming. Migrar observabilidade garante que você mantenha visibilidade de produção, capacidade de troubleshooting e relatórios de compliance após o cutover.
+---
 
-### 1. Migrando Domain e Origin Inspector para Real-Time Metrics
+## Conte com DDoS Protection
 
-Fastly Domain Inspector e Origin Inspector fornecem visibilidade de tráfego e origem. Azion Real-Time Metrics fornece dashboards e acesso via GraphQL para requisições, bandwidth, status codes, latência, cache e comportamento de origem.
+[DDoS Protection](/pt-br/documentacao/plataforma/workloads/#ddos-protection) está ativado em todo workload, sem nada para criar e nada para configurar. Ele mitiga ataques volumétricos, de protocolo e de camada de aplicação nas camadas 3, 4, 6 e 7.
 
-#### Diferenças Principais
+| Aspecto | Fastly DDoS Protection | Azion DDoS Protection |
+| --- | --- | --- |
+| Ativação | Configuração do produto e do serviço | Automática, e não pode ser desativada |
+| Camadas | Mitigação nas camadas de rede e de aplicação | 3, 4, 6 e 7 |
+| Personalização | Controles de segurança da Fastly | Regras de firewall personalizadas |
+| Visibilidade | Dashboards e logs de segurança da Fastly | Real-Time Metrics, Real-Time Events e Data Stream |
+| Cobrança | — | Sem medição para as camadas 3 e 4. A mitigação na camada 7 pode gerar tráfego cobrável |
 
-| Aspecto | Fastly Inspectors | Azion Real-Time Metrics |
-| :------ | :---------------- | :---------------------- |
-| **Escopo** | Relatórios de domínio e origem | Métricas de application, workload, cache, performance e tráfego |
-| **Método de acesso** | Fastly UI e APIs | Console e GraphQL API |
-| **Casos de uso** | Tendências de tráfego, performance de origem | Tendências de tráfego, latência, cache hit ratio, erros, comportamento de origem |
-| **Foco da migração** | Paridade de dashboards e alertas | Dashboards, filtros, queries GraphQL, Grafana se necessário |
+Um firewall mostra a chave **DDoS Protection Unmetered** em **Main Settings** > **Modules**, sempre ativada. Na API, `modules.ddos_protection` é somente leitura. DDoS Protection não tem limiares, chaves por regra nem alertas. Para uma mitigação direcionada, escreva regras personalizadas no firewall vinculado ao workload. O Security Response Team é um add-on dos suportes Enterprise e Mission-Critical. Para os tipos de ataque, consulte [Mitigação de ataques](/pt-br/documentacao/plataforma/workloads/ddos-protection/ddos-mitigation/).
 
-#### Métricas Disponíveis
+Antes da virada, registre as premissas de DDoS, os processos de suporte e os caminhos de escalonamento da configuração da Fastly. Confirme o workload, o firewall e a configuração de Network Shield dele. Mantenha os procedimentos de rollback e de escalonamento prontos durante a janela da virada.
 
-Azion Real-Time Metrics acompanha:
+[Network Shield](/pt-br/documentacao/plataforma/firewall/network-shield/primeiros-passos/) é um módulo diferente do firewall. Ele compara o endereço do cliente com uma Network List de endereços IP, faixas CIDR, ASNs ou países, por meio do critério `${network}`. Use-o para bloquear ou permitir conjuntos de clientes, restringir países ou aplicar rate limit a um conjunto de clientes.
 
-* **Métricas de requisição**: total de requisições, requisições por status code, requisições por método HTTP
-* **Métricas de performance**: response time, upstream header time, origin response time
-* **Métricas de bandwidth**: dados transferidos e dados economizados por cache
-* **Métricas de cache**: hit ratio, miss ratio, objetos expirados
-* **Métricas de erro**: erros 4xx, erros 5xx, erros de origem
+---
 
-#### Acesse Real-Time Metrics
+## Recrie o gerenciamento de bots
 
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API (GraphQL)</Fragment>
+[Bot Manager](/pt-br/documentacao/plataforma/firewall/bot-manager/primeiros-passos/) pontua cada requisição e age conforme a pontuação. Bot Manager Lite é a função do Marketplace incluída em todos os planos, e Bot Manager completo está disponível no Enterprise.
+
+| Aspecto | Fastly Bot Management | Azion Bot Manager |
+| --- | --- | --- |
+| Detecção | Signals e comportamento de bots | Regras estáticas, um método comportamental dinâmico no Bot Manager completo, fingerprints de dispositivo e Network Lists de reputação |
+| Ações | Padrões de permissão, bloqueio e desafio | `allow`, `custom_html`, `deny`, `drop`, `hold_connection`, `random_delay` e `redirect` |
+| Versão Lite | Recursos da Fastly que dependem do plano | Bot Manager Lite, do Marketplace |
+| Integração com regras | Configuração de segurança da Fastly | Uma regra _Run Function_ no firewall |
+
+Bot Manager Lite pontua uma requisição com 26 regras estáticas, em relação a um `threshold` cujo padrão é 30, e executa a ação `deny` por padrão. Ele também pode verificar o cliente em Network Lists de reputação. Os níveis de tolerância pertencem às regras dinâmicas do Bot Manager completo, que Bot Manager Lite não tem.
+
+Para configurar Bot Manager Lite no Azion Console:
+
+<DocSteps>
+  <DocStep title="Instale a integração">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Marketplace**, busque **Bot Manager Lite** e selecione **Install**. A instalação tem efeito imediato.
+
+  </DocStep>
+  <DocStep title="Abra o firewall">
+
+  Vá para **Firewalls** e selecione um firewall com o módulo **Functions** ativado.
+
+  </DocStep>
+  <DocStep title="Crie a instância de função">
+
+  Na aba **Functions Instances**, crie uma instância do Bot Manager Lite. Para mais informações, consulte [Functions instances](/pt-br/documentacao/plataforma/firewall/functions-instances/). Nos argumentos JSON, defina `threshold` e `action`.
+
+  </DocStep>
+  <DocStep title="Execute a função">
+
+  Na aba **Rules Engine**, crie uma regra com o comportamento _Run Function_ e a instância.
+
+  </DocStep>
+  <DocStep title="Vincule o firewall ao workload" />
+</DocSteps>
+
+O firewall pontua as requisições do workload. Para cada argumento, consulte [Instale Bot Manager Lite](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/bot-manager-lite/) e [Bot Manager Lite](/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/).
+
+Para bloquear um cliente pelo seu user agent, adicione uma regra de firewall:
+
+```text
+Criteria: ${header_user_agent} matches BadBot
+Behavior: Deny (403 Forbidden)
+```
+
+`${header_user_agent}` requer o módulo WAF no firewall e suporta apenas _matches_ e _does not match_. O firewall não tem comportamento de permissão. Para isentar um cliente como `Googlebot`, adicione um critério _does not match_ à regra de bloqueio ou ordene as regras. Um cliente pode enviar qualquer user agent, então verifique um bot legítimo de outra forma. Para verificar a regra:
+
+```bash
+curl -A "BadBot/1.0" https://<your-domain>/
+curl -A "Mozilla/5.0" https://<your-domain>/
+```
+
+A primeira resposta é `403`, com a página de erro Forbidden. A segunda, com o user agent de um navegador, recebe a resposta normal.
+
+---
+
+## Recrie os rate limits
+
+A Azion limita a taxa de requisições de duas formas, e cada uma cobre uma parte diferente do que Fastly Edge Rate Limiting faz. Use o comportamento nativo _Set Rate Limit_ de uma regra de firewall para limitar as requisições por segundo ou por minuto, por endereço IP do cliente ou entre todos os clientes. Use a integração [Upstash Rate Limiting](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/upstash-rate-limiting-integration/), um rate limit com penalidade executado como função de firewall, para chaves personalizadas, janelas personalizadas ou um período de penalidade.
+
+| Recurso | _Set Rate Limit_ nativo | Função Upstash Rate Limiting |
+| --- | --- | --- |
+| Chave de contagem | Endereço IP do cliente ou global | Qualquer combinação de metadados da requisição, headers e hostname |
+| Janela | Por segundo ou por minuto | Qualquer intervalo em segundos ou minutos, com limites diferentes para diferentes horários do dia |
+| Algoritmo | Leaky bucket, contado em cada data center | Fixed window, sliding window ou token bucket, contado globalmente |
+| Resposta | `429`, sem header de rate limit | `429` no limite e `403` durante uma penalidade |
+| Ação apenas de log | Nenhuma | Nenhuma |
+| Requisitos | Nenhum | Uma conta Upstash e Global Database |
+
+### Use o rate limit nativo
+
+Um comportamento _Set Rate Limit_ conta as requisições a que sua regra corresponde. Os critérios da regra definem o escopo do limite, como o caminho com `${request_uri}`, ou o método, que requer WAF no firewall. **Rate Limit Type** é _Req/s_ ou _Req/min_, e **Limit By** é _Client IP address_ ou _Global_. **Average Rate Limit** aceita no mínimo 1, e **Maximum Burst Size** aceita no mínimo 1 e se aplica apenas a _Req/s_. Nenhum comportamento pode vir depois de _Set Rate Limit_ em uma regra. Uma regra cujos critérios unem vários caminhos com `or` compartilha uma contagem entre todos eles.
+
+<Tabs client:visible sharedStore="interface">
 
 <Fragment slot="panel.console">
-1. Acesse o [Azion Console](https://console.azion.com/).
-2. Vá para **Products menu** > **Real-Time Metrics**.
-3. Selecione sua application ou workload.
-4. Configure intervalo de tempo e filtros.
-5. Exporte ou recrie dashboards se necessário.
+
+Para criar o rate limit no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra o firewall">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Secure** > **Firewalls** e selecione o firewall.
+
+  </DocStep>
+  <DocStep title="Vá para a aba Rules Engine" />
+  <DocStep title="Selecione + Rule" />
+  <DocStep title="Defina os critérios">
+
+  Em **Criteria**, selecione `${request_uri}`, o operador _starts with_ e `/api/` como argumento.
+
+  </DocStep>
+  <DocStep title="Adicione o comportamento Set Rate Limit">
+
+  Em **Behaviors**, selecione _Set Rate Limit_. Defina **Rate Limit Type** como _Req/s_, **Limit By** como _Client IP address_, **Average Rate Limit** como `10` e **Maximum Burst Size** como `10`.
+
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
+
+A regra aparece na lista de regras do firewall.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para criar a regra com Azion CLI, salve o corpo da regra do painel API em um arquivo. Depois passe o arquivo com `--file` para o comando de regra de firewall. Para os comandos, consulte [Primeiros passos com Firewall](/pt-br/documentacao/plataforma/firewall/primeiros-passos/).
+
 </Fragment>
 
 <Fragment slot="panel.api">
-<Code client:visible lang="graphql" code={`
-query HttpMetricsQuery {
-  httpMetrics(
-    limit: 10,
-    filter: {
-      tsRange: {begin: "2024-01-01T00:00:00", end: "2024-01-02T00:00:00"}
+
+Para criar o rate limit, envie uma requisição `POST` para as regras de requisição do firewall:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/firewalls/<firewall-id>/request_rules \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "api rate limit",
+  "active": true,
+  "criteria": [
+    [{ "variable": "${request_uri}", "conditional": "if", "operator": "starts_with", "argument": "/api/" }]
+  ],
+  "behaviors": [
+    { "type": "set_rate_limit", "attributes": { "type": "second", "limit_by": "client_ip", "average_rate_limit": 10, "maximum_burst_size": 10 } }
+  ]
+}'
+```
+
+A resposta traz `"state": "pending"` e a regra.
+
+</Fragment>
+
+</Tabs>
+
+Uma requisição além da taxa e do burst recebe `429`, com a página de erro intitulada Too Many Requests. Para saber como a taxa e o burst admitem requisições, consulte [Set Rate Limit](/pt-br/documentacao/plataforma/firewall/rules-engine/#set-rate-limit).
+
+### Use o rate limit com penalidade
+
+A função Upstash Rate Limiting mantém seus contadores em um Upstash Global Database. Por isso, ela conta cada requisição em toda a rede, e não em cada data center. Uma requisição durante uma penalidade recebe `403 Forbidden`. Uma requisição válida é contada, e a função retorna `429 Too Many Requests` quando a contagem atinge o limite.
+
+Para configurá-la no Azion Console:
+
+<DocSteps>
+  <DocStep title="Instale a integração">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Marketplace**, busque `Upstash Rate Limiting` e selecione **Install**.
+
+  </DocStep>
+  <DocStep title="Abra o firewall">
+
+  Vá para **Firewalls** e abra um firewall com **Functions** ativado em **Modules**.
+
+  </DocStep>
+  <DocStep title="Crie a instância de função">
+
+  Na aba **Functions Instances**, crie uma instância. Em **Function**, selecione a função Upstash Rate Limiting e edite os **Arguments** em JSON.
+
+  </DocStep>
+  <DocStep title="Execute a função">
+
+  Na aba **Rules Engine**, crie uma regra com critérios como `Host` _matches_ `yourdomain.com` e o comportamento _Run Function_ com a instância.
+
+  </DocStep>
+  <DocStep title="Vincule o firewall ao workload">
+
+  Execute o comando da CLI que cria o deployment do workload com o firewall:
+
+  ```bash
+  azion create workload-deployment --workload-id <workload-id> --name <deployment-name> --application-id <application-id> --firewall-id <firewall-id> --strategy-type default --active true --current true
+  ```
+
+  </DocStep>
+</DocSteps>
+
+A função conta as requisições a que a regra corresponde. Estes argumentos definem uma sliding window de 2 requisições a cada 20 segundos, da meia-noite ao meio-dia UTC, com uma penalidade de 45 segundos:
+
+```json
+{
+  "upstash_redis_rest_url": "https://your-database.upstash.io",
+  "upstash_redis_rest_token": "<your-upstash-token>",
+  "rate_limit_prefix": "my_rate_limit",
+  "rate_limit_key_metadata": ["remote_addr"],
+  "rate_limit_key_header": ["x-a-custom-header"],
+  "rate_limit_key_hostname": true,
+  "rate_limit_repenalize": true,
+  "rate_limits": [
+    {
+      "algorithm": "sliding_window",
+      "requests": 2,
+      "interval": "20 s",
+      "start": "00:00",
+      "end": "12:00",
+      "penalty_in_seconds": 45
     }
-    aggregate: {sum: requests}
-    groupBy: [ts]
-  ) {
+  ]
+}
+```
+
+| Argumento | Descrição |
+| --- | --- |
+| `upstash_redis_rest_url`, `upstash_redis_rest_token` | A URL REST e o token do banco de dados Upstash que guarda os contadores e as penalidades |
+| `rate_limit_prefix` | Um prefixo para cada chave, que mantém separadas duas instâncias da função |
+| `rate_limit_key_metadata` | Os metadados da requisição que formam a chave, como `remote_addr` |
+| `rate_limit_key_header` | Os headers que formam a chave |
+| `rate_limit_key_hostname` | Quando `true`, o hostname faz parte da chave |
+| `rate_limit_repenalize` | Quando `true`, cada requisição durante uma penalidade a reinicia |
+| `rate_limits` | As janelas, pelo menos uma. Quando duas janelas se sobrepõem, vale a primeira da lista |
+| `algorithm` | `fixed_window`, `sliding_window` ou `token_bucket` |
+| `requests` | As requisições permitidas no intervalo |
+| `interval` | A janela, como um número e `s` ou `m`. Por exemplo: `"120 s"` |
+| `start`, `end` | O horário do dia que a janela cobre, em UTC no formato de 24 horas. Os padrões são `00:00` e `23:59` |
+| `penalty_in_seconds` | Por quanto tempo um cliente que excede o limite recebe `403`. Sem ele, a janela é um rate limit simples |
+| `max_tokens`, `refil_rate` | O tamanho do bucket e a recarga por intervalo de uma janela `token_bucket`. `refil_rate` é a grafia que a função lê |
+
+A chave une o prefixo e cada valor que os argumentos selecionam. Neste exemplo, ela é `my_rate_limit + client IP + x-a-custom-header value + hostname`, como `my_rate_limit_127.0.0.1_Value_azion.com`. Para a configuração completa, consulte [Instale a integração Upstash Rate Limiting](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/upstash-rate-limiting-integration/). KV Store também lista contadores de rate limit entre seus usos, para um contador que a própria função mantém.
+
+---
+
+## Reconstrua o monitoramento
+
+A Azion divide a observabilidade em três produtos. [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/) mostra agregados ao longo do tempo em gráficos e substitui Domain Inspector e Origin Inspector. [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/) responde a consultas sobre requisições individuais e substitui Log Explorer & Insights. [Data Stream](/pt-br/documentacao/plataforma/data-stream/) envia os logs para destinos externos e substitui High Volume Logging.
+
+### Real-Time Metrics
+
+| Aspecto | Fastly Domain Inspector e Origin Inspector | Azion Real-Time Metrics |
+| --- | --- | --- |
+| Escopo | Relatórios de domínio e de origem | Requisições, dados transferidos, códigos de status, offload de cache e tempo médio de requisição |
+| Acesso | A interface e as APIs da Fastly | Dashboards, **Copy query**, **Export CSV** e a API GraphQL |
+| Casos de uso | Tendências de tráfego e performance da origem | Tendências de tráfego, offload de cache e erros da Azion ou da origem |
+| Foco da migração | Paridade de dashboards e alertas | Dashboards, filtros, consultas GraphQL e Grafana |
+
+Uma métrica leva até 10 minutos para agregar. Os dados ficam por 2 anos, exceto 90 dias para `httpBreakdownMetrics` e 60 dias para `botManagerBreakdownMetrics`. O intervalo é de 1 minuto abaixo de 2,5 dias, 1 hora até 60 dias e 1 dia acima disso.
+
+Os dashboards de Applications mostram:
+
+- **Requests**: total de requisições, requisições por método e por esquema e **Average Request Time**, o tempo médio em segundos que a Azion leva para processar e responder a uma requisição.
+- **Status Codes**: as respostas 2XX, 3XX, 4XX e 5XX e a tabela **Requests by Status and Upstream Status**, que distingue erros da Azion de erros da origem.
+- **Data Transferred**: dados e largura de banda economizados e perdidos e **Edge Offload**.
+- Cache: **Requests Offloaded**, **Saved Requests** e **Missed Requests**.
+
+Real-Time Metrics não informa latência, tempo até o primeiro byte nem tempo de resposta da origem. Para ler o status de cache das requisições, filtre um dashboard por **Upstream Cache Status**, cujos valores incluem `HIT`, `MISS`, `STALE` e `EXPIRED`. Para encontrar erros da origem, filtre por **Upstream Status**, que é `0` quando a origem não respondeu.
+
+Para abrir os dashboards, acesse [Azion Console](https://console.azion.com/) > **Real-Time Metrics**. Ele abre em **Build** > **Applications** > **Data Transferred**, nos **Last 5 minutes**. Para restringir um dashboard a um workload, adicione o filtro **Domain** ou **Workload**. Para exportar um gráfico, abra seu menu **More options** e selecione **Export CSV**.
+
+Para consultar os mesmos dados, envie uma consulta GraphQL para `https://api.azion.com/v4/metrics/graphql`:
+
+```graphql
+query {
+  workloadMetrics(limit: 3, filter: { tsRange: {begin: "2026-10-01T14:00:00", end: "2026-10-03T14:00:00"} }, aggregate: { sum: requests }, groupBy: [ts], orderBy: [ts_DESC]) {
     ts
     sum
   }
 }
-`} />
-</Fragment>
-</Tabs>
+```
 
-#### Documentação de referência
+Substitua as datas por um intervalo dentro do período de retenção. Um intervalo fora dele retorna um array vazio. `limit` aceita até 10.000 linhas e tem padrão 10. O dataset `httpMetrics` de consultas antigas ainda funciona, mas está obsoleto. Para cada campo, consulte [Campos GraphQL do Real-Time Metrics](/pt-br/documentacao/devtools/graphql/campos-gql-real-time-metrics/) e [Primeiros passos com Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/primeiros-passos/). Para dashboards no Grafana, consulte [Dashboards personalizados do plugin Grafana](/pt-br/documentacao/guias/plataforma/observabilidade/azion-plugin-grafana/). Para ler os dashboards, consulte [Analise métricas](/pt-br/documentacao/guias/plataforma/observabilidade/analisar-metricas/).
 
-* [Real-Time Metrics](https://www.azion.com/pt-br/documentacao/plataforma/real-time-metrics/)
-* [Real-Time Metrics primeiros passos](https://www.azion.com/pt-br/documentacao/plataforma/real-time-metrics/primeiros-passos/)
-* [Analisar métricas](https://www.azion.com/pt-br/documentacao/guias/plataforma/observabilidade/analisar-metricas/)
-* [Dashboards customizados com plugin Grafana](https://www.azion.com/pt-br/documentacao/guias/plataforma/observabilidade/azion-plugin-grafana/)
-
-### 2. Migrando Log Explorer & Insights para Real-Time Events
-
-Dados de log são essenciais para debugging, análise de segurança e compliance. Real-Time Events fornece acesso imediato a logs pelo Console ou GraphQL API para troubleshooting e investigação.
-
-#### Diferenças Principais
+### Real-Time Events
 
 | Aspecto | Fastly Log Explorer & Insights | Azion Real-Time Events |
-| :------ | :----------------------------- | :--------------------- |
-| **Método de acesso** | Fastly UI | Console e GraphQL API |
-| **Modelo de dados** | Campos de log Fastly | Datasets de HTTP, WAF, DNS, Functions, imagens e outros eventos |
-| **Consulta** | Filtros no Explorer | Filtros no Console e GraphQL |
-| **Casos de uso** | Debugging e investigação de segurança | Debugging, investigação de segurança, evidência de compliance |
+| --- | --- | --- |
+| Acesso | A interface da Fastly | Consultas no Azion Console ou na API GraphQL |
+| Modelo de dados | Campos de log da Fastly | Oito fontes de dados, listadas abaixo |
+| Consultas | Filtros do Explorer | Filtros do Console e GraphQL |
+| Casos de uso | Debugging e investigação de segurança | Debugging, investigação de segurança e evidências de compliance |
 
-#### Acesse Real-Time Events
+Um registro pode ser consultado até 30 segundos depois do evento e fica disponível por 7 dias. Para uma retenção maior, use Data Stream. Real-Time Events não precisa de configuração. Suas fontes de dados são **HTTP Requests**, **Functions**, **Functions Console**, **Image Processor**, **Tiered Cache**, **Edge DNS**, **Data Stream** e **Activity History**. Os resultados do WAF são campos de **HTTP Requests**.
 
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API (GraphQL)</Fragment>
+Para consultar os eventos no Azion Console:
 
-<Fragment slot="panel.console">
-1. Acesse o [Azion Console](https://console.azion.com/).
-2. Vá para **Products menu** > **Real-Time Events**.
-3. Selecione o dataset, como HTTP Requests ou WAF.
-4. Configure intervalo de tempo e filtros.
-5. Clique em **Search** para consultar logs.
-6. Clique em uma linha para inspecionar detalhes do evento.
-</Fragment>
+<DocSteps>
+  <DocStep title="Abra Real-Time Events">
 
-<Fragment slot="panel.api">
-<Code client:visible lang="graphql" code={`
-query HttpEvents {
+  Acesse [Azion Console](https://console.azion.com/) > **Products menu** > **Observe** > **Real-Time Events**.
+
+  </DocStep>
+  <DocStep title="Selecione a fonte de dados">
+
+  Selecione a fonte de dados, como **HTTP Requests**.
+
+  </DocStep>
+  <DocStep title="Defina o período e os filtros">
+
+  Defina o **Time Filter**, que abre nos últimos 15 minutos, e adicione condições em **Filter by**.
+
+  </DocStep>
+  <DocStep title="Selecione Refresh" />
+</DocSteps>
+
+A tabela de resultados lista os eventos. Selecione uma linha para abrir o registro completo.
+
+Para consultar os mesmos dados, envie uma consulta GraphQL para `https://api.azion.com/v4/events/graphql`. O dataset `workloadEvents` guarda as requisições HTTP:
+
+```graphql
+query {
   workloadEvents(
-    limit: 100,
-    filter: {
-      tsRange: {begin: "2024-01-01T00:00:00", end: "2024-01-01T01:00:00"}
-    }
+    limit: 100
+    filter: { tsRange: { begin: "2026-10-07T00:00:00", end: "2026-10-07T01:00:00" } }
+    orderBy: [ts_DESC]
   ) {
     ts
     remoteAddress
@@ -1377,158 +1652,256 @@ query HttpEvents {
     upstreamResponseTime
   }
 }
-`} />
-</Fragment>
-</Tabs>
+```
 
-#### Documentação de referência
+Substitua as datas por um intervalo dentro dos últimos 7 dias. `upstreamResponseTime` e `upstreamHeaderTime` são campos brutos de `workloadEvents`, e `upstreamResponseTime` mostra `-` para uma resposta entregue a partir do cache. Para cada campo, consulte [Campos GraphQL do Real-Time Events](/pt-br/documentacao/devtools/graphql/campos-gql-real-time-events/) e [Investigue requisições com a API GraphQL](/pt-br/documentacao/guias/plataforma/observabilidade/investigar-requisicoes-api-graphql/). Para ler um registro, consulte [Entenda os logs do Real-Time Events](/pt-br/documentacao/guias/plataforma/observabilidade/entender-logs/).
 
-* [Real-Time Events](https://www.azion.com/pt-br/documentacao/plataforma/real-time-events/)
-* [Real-Time Events primeiros passos](https://www.azion.com/pt-br/documentacao/plataforma/real-time-events/primeiros-passos/)
-* [Investigue requisições com GraphQL API](https://www.azion.com/pt-br/documentacao/guias/plataforma/observabilidade/investigar-requisicoes-api-graphql/)
-* [Entenda logs do Real-Time Events](https://www.azion.com/pt-br/documentacao/guias/plataforma/observabilidade/entender-logs/)
-
-### 3. Migrando High Volume Logging para Data Stream
-
-Fastly High Volume Logging exporta logs para destinos downstream. Azion Data Stream exporta logs continuamente para destinos externos para armazenamento de longo prazo, analytics, SIEM e monitoramento operacional.
-
-#### Diferenças Principais
+### Data Stream
 
 | Aspecto | Fastly High Volume Logging | Azion Data Stream |
-| :------ | :------------------------- | :---------------- |
-| **Modelo de entrega** | Streaming de logs para endpoints configurados | Push para destinos externos |
-| **Formato** | Formatos de log específicos por endpoint | JSON e templates customizáveis |
-| **Destinos** | Serviços externos de logging e storage | S3, Azure Blob, Datadog, Splunk, Kafka, BigQuery, Elasticsearch, endpoints HTTP e mais |
-| **Seleção de origem** | Logs de serviço Fastly | Applications, WAF, Functions e outras fontes de eventos |
+| --- | --- | --- |
+| Entrega | Streaming de logs para endpoints configurados | Push para um destino externo |
+| Formato | Formatos de log específicos de cada endpoint | Templates que selecionam os campos |
+| Destinos | Serviços externos de logging e de armazenamento | 11 tipos, listados abaixo |
+| Fontes | Logs dos serviços da Fastly | _Activity History_, _Applications_, _Functions_ e _WAF Events_ |
 
-#### Configure Data Stream
+Os registros saem em lotes de 2.000 ou a cada 60 segundos e são entregues em até 3 minutos. A retenção é definida pelo destino. Um stream envia uma fonte de dados para um destino:
 
-<Tabs client:visible>
-    <Fragment slot="tab.console">Console</Fragment>
-    <Fragment slot="tab.api">API</Fragment>
+- **Armazenamento**: Amazon S3, Azure Blob Storage e Azion Object Storage, pelo tipo S3.
+- **Monitoramento**: Datadog, Splunk, Elasticsearch e Azure Monitor.
+- **Streaming**: AWS Kinesis Data Firehose e Apache Kafka.
+- **Analytics**: Google BigQuery.
+- **Segurança**: IBM QRadar.
+- **Personalizado**: Standard HTTP/HTTPS POST.
+
+Um stream precisa de exatamente um entre sampling e um filtro de workload. Salvar um stream ativo com sampling desativa todos os outros streams da conta. Streams com filtro coexistem.
+
+<Tabs client:visible sharedStore="interface">
 
 <Fragment slot="panel.console">
-1. Acesse o [Azion Console](https://console.azion.com/).
-2. Vá para **Products menu** > **Data Stream**.
-3. Clique em **+ Stream**.
-4. Configure a source, como Applications ou WAF.
-5. Selecione ou crie um template para o formato de log.
-6. Escolha um destino.
-7. Configure credenciais do destino.
-8. Ative o stream.
+
+Para criar um stream no Azion Console:
+
+<DocSteps>
+  <DocStep title="Abra Data Stream">
+
+  Acesse [Azion Console](https://console.azion.com/) > **Data Stream**.
+
+  </DocStep>
+  <DocStep title="Selecione + Stream" />
+  <DocStep title="Selecione a fonte de dados">
+
+  Em **Input**, selecione a **Data Source**: _Activity History_, _Applications_, _Functions_ ou _WAF Events_.
+
+  </DocStep>
+  <DocStep title="Selecione o template">
+
+  Em **Render Template**, selecione o **Template**.
+
+  </DocStep>
+  <DocStep title="Selecione o destino">
+
+  Em **Output**, selecione o **Connector**, como _Simple Storage Service (S3)_, e informe suas credenciais.
+
+  </DocStep>
+  <DocStep title="Ative Active e selecione Save" />
+</DocSteps>
+
+O stream começa a enviar depois de 1 a 2 minutos.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+Para criar um stream com Azion CLI, siga o painel CLI de [Primeiros passos com Data Stream](/pt-br/documentacao/plataforma/data-stream/primeiros-passos/).
+
 </Fragment>
 
 <Fragment slot="panel.api">
-<Code client:visible lang="bash" code={`
-curl -X POST 'https://api.azion.com/v4/workspace/stream/streams' \
-  --header 'Authorization: Token YOUR_TOKEN' \
-  --header 'Content-Type: application/json' \
-  --data '{
-    "name": "Fastly Migration Log Stream",
-    "source": {
-      "type": "applications"
-    },
-    "template_id": 12345,
-    "endpoint": {
+
+Para criar um stream, envie uma requisição `POST` para `https://api.azion.com/v4/workspace/stream/streams`. O corpo tem `inputs`, `transform` e `outputs`:
+
+```json
+{
+  "name": "activity-to-bucket",
+  "active": true,
+  "inputs": [
+    { "type": "raw_logs", "attributes": { "data_source": "activity_history" } }
+  ],
+  "transform": [
+    { "type": "sampling", "attributes": { "rate": 100 } },
+    { "type": "render_template", "attributes": { "template": 251 } }
+  ],
+  "outputs": [
+    {
       "type": "s3",
-      "name": "my-s3-endpoint",
-      "bucket": "my-logs-bucket",
-      "region": "us-east-1",
-      "access_key": "YOUR_ACCESS_KEY",
-      "secret_key": "YOUR_SECRET_KEY"
-    },
-    "active": true
-  }'
-`} />
+      "attributes": {
+        "host_url": "https://s3.us-east-005.azionstorage.net",
+        "bucket_name": "<your-bucket>",
+        "region": "us-east-005",
+        "access_key": "[ACCESS KEY]",
+        "secret_key": "[SECRET KEY]",
+        "object_key_prefix": "activity",
+        "content_type": "plain/text"
+      }
+    }
+  ]
+}
+```
+
+Um `POST` retorna `201`. Para um stream de Applications, use `"data_source": "workloads"`. Sem sampling nem filtro de workload, a criação falha com `32002`, e com ambos falha com `32007`. Os templates são criados em `/v4/workspace/stream/templates`.
+
 </Fragment>
+
 </Tabs>
 
-#### Destinos Suportados
+Quando os logs não chegam ao destino, verifique o status do stream, as credenciais do destino e as variáveis que o template seleciona. Para um destino Object Storage, a credencial precisa de `listAllBucketNames`, `listBuckets`, `listFiles` e `writeFiles`, ou todo envio falha com `503`. Para os campos, consulte [Configurações do stream](/pt-br/documentacao/plataforma/data-stream/configuracoes-do-stream/) e [Fontes de dados e variáveis](/pt-br/documentacao/plataforma/data-stream/fontes-de-dados-e-variaveis/). Para o sampling, consulte [Configure o sampling](/pt-br/documentacao/guias/plataforma/observabilidade/configurar-sampling/).
 
-Data Stream suporta múltiplos padrões de destino:
+---
 
-* **Cloud Storage**: Amazon S3, Azure Blob Storage, Azion Object Storage
-* **Monitoramento**: Datadog, Splunk, Elasticsearch, Azure Monitor
-* **Streaming**: AWS Kinesis Data Firehose, Apache Kafka
-* **Analytics**: Google BigQuery
-* **Segurança**: IBM QRadar
-* **Custom**: HTTP Webhook, Standard HTTP/HTTPS POST
+## Prepare o certificado
 
-#### Documentação de referência
+[Certificate Manager](/pt-br/documentacao/plataforma/workloads/certificate-manager/primeiros-passos/) guarda os certificados que os workloads servem. Fastly Platform TLS, TLS Service Options e Certainly correspondem a ele. Prepare o certificado antes de o domínio apontar para a Azion, para que os usuários acessem o serviço por HTTPS desde a primeira requisição.
 
-* [Data Stream](https://www.azion.com/pt-br/documentacao/plataforma/data-stream/)
-* [Data Stream primeiros passos](https://www.azion.com/pt-br/documentacao/plataforma/data-stream/primeiros-passos/)
-* [Use Data Stream](https://www.azion.com/pt-br/documentacao/plataforma/data-stream/primeiros-passos/)
-* [Como configurar sampling no Data Stream](https://www.azion.com/pt-br/documentacao/guias/plataforma/observabilidade/configurar-sampling/)
-* [Como selecionar variáveis no Data Stream](https://www.azion.com/pt-br/documentacao/plataforma/data-stream/fontes-de-dados-e-variaveis/)
+| Área | Fastly TLS | Azion Certificate Manager |
+| --- | --- | --- |
+| Certificados gerenciados | Fluxos do Platform TLS e do Certainly | Let's Encrypt para seus próprios domínios. Azion SAN cobre o domínio de workload `azionedge.net` e o hostname `azion.app` |
+| Certificados personalizados | Certificados enviados por upload ou gerenciados pela API | Upload de um certificado e sua chave privada, de domínio único ou SAN, com chaves RSA 2048 ou P-256 |
+| Automação | A API da Fastly | Azion Console e Azion API |
+| mTLS | Configuração de TLS e de segurança da Fastly | Certificados Trusted CA. Azion SAN não suporta mTLS |
+| Associação | O serviço ou o domínio | O workload |
+| Renovação | — | Os certificados Let's Encrypt são renovados a partir de 30 dias antes da expiração de 90 dias. Os certificados personalizados seguem seu próprio ciclo de vida |
 
-## Troubleshooting
+A Azion emite um certificado Let's Encrypt sem custo adicional assim que você escolhe um preset Let's Encrypt. Escolha o desafio conforme onde o DNS responde:
 
-### Problemas Comuns
+- **HTTP-01** precisa que o hostname, e cada nome alternativo, já apontem para a Azion.
+- **DNS-01** funciona antes da migração. Em um provedor de DNS externo, adicione um CNAME de `_acme-challenge.<domain>` para `<domain>.letsencrypt.azion.com`. No Edge DNS, o registro é automático.
 
-| Problema | Causa Provável | Solução |
-| :------- | :------------- | :------ |
-| **Application responde de forma diferente da Fastly** | Regras, VCL, cache key ou seleção de origem não foram totalmente mapeadas | Compare o comportamento da versão de serviço Fastly com Rules Engine e configuração de Connector na Azion |
-| **Variáveis de ambiente não encontradas** | Variáveis não foram configuradas na Function instance | Confirme que variáveis existem e que o código usa `Azion.env.get()` |
-| **Redirects não funcionam** | Padrão VCL foi convertido para regex incorreta | Teste capture groups e verifique critérios do Rules Engine |
-| **Headers ausentes** | Response settings ou lógica VCL de headers não foram migrados | Adicione regras de resposta ou uma Function para headers dinâmicos |
-| **Cache hit ratio cai** | Cache key, TTL ou comportamento de shielding mudou | Revise Cache Settings, Advanced Cache Key, Tiered Cache e Origin Shield |
-| **Código Compute falha** | APIs específicas da Fastly permanecem no código | Reescreva APIs de plataforma usando Azion Functions e Runtime APIs |
-| **Dados KV ausentes** | Exportação ou importação do Edge Data Storage ficou incompleta | Reexporte chaves, valide namespaces e confira encoding de valores |
-| **Object Storage retorna access denied** | Credenciais S3 ou endpoint estão incorretos | Verifique credenciais e use `s3.us-east-005.azionstorage.net` |
-| **Upgrade WebSocket falha** | Headers de upgrade ou configuração do módulo na application estão ausentes | Confirme headers `Upgrade` e `Connection` e valide `101 Switching Protocols` |
-| **Logs ausentes no destino** | Source, template ou endpoint do Data Stream está incorreto | Valide status do stream, credenciais do destino e variáveis selecionadas |
-| **Certificado não está ativo** | Propriedade do domínio ou associação do certificado está incompleta | Confirme status do certificado e associação do workload antes do cutover DNS |
+Para uma migração a partir da Fastly, use DNS-01.
 
-## Principais Vantagens Após a Migração
+<Tabs client:visible sharedStore="interface">
 
-Migrar da Fastly para a Azion é mais forte quando a equipe trata o primeiro cutover como um padrão de migração repetível. O objetivo imediato é continuidade: usuários continuam chegando aos mesmos domínios, rotas críticas continuam funcionando, controles de segurança permanecem ativos e observabilidade está pronta antes do tráfego mudar.
+<Fragment slot="panel.console">
 
-O valor maior vem depois da migração, quando as equipes operam entrega, compute, storage, segurança e observabilidade em um único modelo de plataforma.
+Para solicitar o certificado no Azion Console:
 
-| Área | Vantagem após a migração | O que isso significa na prática |
-| :--- | :----------------------- | :------------------------------ |
-| **Estratégia de migração** | Caminho de migração incremental | Equipes podem migrar um serviço Fastly por vez e validar cada camada independentemente. |
-| **Modelo de plataforma** | Plataforma de aplicações unificada | Recursos de Build, Secure, Store e Observe são gerenciados por um modelo de plataforma conectado. |
-| **Build** | Deployment moderno de aplicações | Applications podem ser implantadas pelo GitHub ou CLI com configuração Azion. |
-| **Build** | Controle de aplicação baseado em regras | Rules Engine gerencia redirects, headers, comportamento de cache, roteamento e lógica de request/response. |
-| **Build** | Execução distribuída de functions | Functions substituem lógica Compute que controla autenticação, personalização, APIs e integrações. |
-| **Build** | Cache e proteção de origem integrados | Cache, Tiered Cache, Origin Shield e Application Accelerator reduzem dependência da origem. |
-| **Build** | Otimização de imagem no momento da entrega | Image Processor transforma e otimiza imagens por parâmetros de URL e configuração da application. |
-| **Secure** | Cutover controlado de domínio e TLS | Workloads, Edge DNS e Certificate Manager podem ser preparados antes de trocar tráfego de produção. |
-| **Secure** | Segurança de aplicação integrada | WAF, Bot Manager, Network Shield, padrões de rate limiting e regras de Firewall protegem workloads em conjunto. |
-| **Store** | Object Storage compatível com S3 | Fluxos Fastly Object Storage podem ser migrados usando ferramentas e SDKs compatíveis com S3. |
-| **Store** | KV para dados de aplicação de baixa latência | Casos de uso de Edge Data Storage podem migrar para KV Store para configuração, flags, metadados e estado leve. |
-| **Observe** | Métricas em tempo real para visibilidade de produção | Real-Time Metrics substitui visões de inspector com dashboards e acesso GraphQL. |
-| **Observe** | Eventos em tempo real para investigação | Real-Time Events fornece logs detalhados para requisições, functions, WAF, DNS, image processing e outros datasets. |
-| **Observe** | Streaming de dados para ferramentas externas | Data Stream envia logs para destinos externos para SIEM, analytics, storage e workflows de compliance. |
+<DocSteps>
+  <DocStep title="Abra o workload">
 
-Com a Azion, equipes podem construir e executar aplicações em infraestrutura globalmente distribuída enquanto combinam compute, entrega, storage, segurança e observabilidade em um só ambiente. Isso reduz a fragmentação que costuma aparecer quando aplicações modernas dependem de muitos serviços separados e padrões de configuração diferentes.
+  Acesse [Azion Console](https://console.azion.com/) > **Workloads** e selecione ou crie o workload.
 
-## Próximos Passos
+  </DocStep>
+  <DocStep title="Informe os domínios">
 
-Depois que sua migração estiver concluída:
+  Em **Domains**, informe cada hostname a que o serviço responde. Wildcards são recusados.
 
-* Revise [Real-Time Metrics](https://www.azion.com/pt-br/documentacao/plataforma/real-time-metrics/) para monitorar performance da aplicação.
-* Configure [Real-Time Events](https://www.azion.com/pt-br/documentacao/plataforma/real-time-events/) para visibilidade de produção.
-* Configure [Web Application Firewall](https://www.azion.com/pt-br/documentacao/plataforma/firewall/#waf) para segurança de produção.
-* Revise guias individuais de recursos para configuração avançada.
+  </DocStep>
+  <DocStep title="Ative o HTTPS">
 
-### Comece com um Serviço Pequeno
+  Em **Protocol Settings**, ative **HTTPS support**.
 
-A melhor forma de começar não é com o serviço Fastly mais complexo do seu portfólio. Comece com um serviço significativo o suficiente para validar o caminho de migração, mas pequeno o bastante para mover com rapidez e segurança.
+  </DocStep>
+  <DocStep title="Selecione o certificado">
 
-Escolha um serviço que inclua partes representativas da sua arquitetura: um ou dois domínios, algumas origens, regras de cache, redirects, headers, talvez um pacote Compute e um destino de logging. Use esse serviço para validar o fluxo, documentar o processo e identificar padrões internos que sua equipe possa reutilizar.
+  Em **Digital Certificate**, selecione _New Let's Encrypt Certificate (DNS-01)_.
 
-A partir daí, expanda gradualmente. Migre VCL mais complexo. Mova serviços Compute adicionais. Traga storage e dados key-value. Adicione observabilidade. Revise regras de segurança. Então prepare cutovers de produção com mais confiança.
+  </DocStep>
+  <DocStep title="Selecione Save" />
+</DocSteps>
 
-### Próximos Passos Recomendados
+A primeira tentativa acontece em até 5 minutos depois de salvar, e as novas tentativas seguem aos 5, 10, 15, 20 e 30 minutos, depois em um ritmo mais lento. O status passa de `pending` para `challenge_verification` e depois para `active` ou `failed`.
 
-* [Crie sua conta gratuita na Azion](https://console.azion.com/signup)
-* [Leia a documentação de Applications](https://www.azion.com/pt-br/documentacao/plataforma/applications/)
-* [Explore a Azion CLI](https://www.azion.com/pt-br/documentacao/devtools/cli/)
-* [Revise Data Stream](https://www.azion.com/pt-br/documentacao/plataforma/data-stream/)
+Para enviar um certificado que você já tem, acesse **Certificate Manager** e crie um certificado digital com o preset **Server Certificate**. Cole o certificado PEM e a chave privada. Os certificados intermediários vão no mesmo campo do certificado. Depois selecione-o no campo **Digital Certificate** do workload. Para os passos, consulte [Faça upload de um certificado digital](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/certificado-digital/).
 
-## Precisa de Ajuda?
+</Fragment>
 
-Obtenha ajuda com [o time de Suporte da Azion](https://www.azion.com/pt-br/documentacao/), ou entre na nossa [comunidade no Discord](https://discord.gg/azion) para ver como outras pessoas estão usando a Azion.
+<Fragment slot="panel.cli">
+
+Para definir o mTLS ou o certificado de um workload com Azion CLI, execute `azion update workload --file` com o corpo do workload. Para os comandos de certificado, consulte [Primeiros passos com Certificate Manager](/pt-br/documentacao/plataforma/workloads/certificate-manager/primeiros-passos/).
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+Para enviar um certificado, envie uma requisição `POST` para o endpoint de certificados:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/tls/certificates \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "my-custom-cert",
+  "type": "edge_certificate",
+  "certificate": "-----BEGIN CERTIFICATE-----\n<certificate-body>\n-----END CERTIFICATE-----\n",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n<private-key-body>\n-----END PRIVATE KEY-----\n"
+}'
+```
+
+A API responde `201`. Cada PEM é uma string JSON com quebras de linha `\n`. Para solicitar um certificado Let's Encrypt, envie uma requisição `POST` para `/v4/workspace/tls/certificates/request` com `name`, `"authority": "lets_encrypt"`, `challenge` (`http` ou `dns`), `common_name` e, opcionalmente, `alternative_names`.
+
+Para servir o certificado, defina seu ID em `tls.certificate` do workload, ou `null` para Azion SAN:
+
+```json
+{
+  "name": "my-workload",
+  "active": true,
+  "infrastructure": 1,
+  "domains": ["www.example.com"],
+  "tls": { "certificate": 12345, "ciphers": 4, "minimum_version": "tls_1_2" }
+}
+```
+
+`infrastructure` `1` é produção. `minimum_version` aceita `tls_1_0`, `tls_1_1`, `tls_1_2` ou `tls_1_3` e tem padrão `tls_1_3`. `ciphers` aceita de 1 a 8 e tem padrão 7. Envie o corpo para `https://api.azion.com/v4/workspace/workloads`.
+
+</Fragment>
+
+</Tabs>
+
+Se o certificado não ficar ativo, leia seus campos `status` e `status_detail`. Para HTTP-01, verifique se o hostname aponta para a Azion. Para DNS-01, verifique o CNAME `_acme-challenge`. Confirme que o hostname está nos **Domains** do workload. As novas tentativas continuam conforme o cronograma, então um registro corrigido emite o certificado mais tarde. Para as regras de emissão, consulte [Emissão e renovação](/pt-br/documentacao/plataforma/workloads/certificate-manager/emissao-e-renovacao/), e para cada campo de certificado, [Certificados](/pt-br/documentacao/plataforma/workloads/certificate-manager/certificados/).
+
+O mTLS precisa de um certificado Trusted CA, e um certificado gerado pela Azion não pode ser o Trusted CA. A equipe de vendas ativa o mTLS na conta. Depois defina `mtls.enabled`, `mtls.config.certificate` e `verification`, `enforce` ou `permissive`, no workload pela API ou com `azion update workload --file`. O mTLS funciona apenas por HTTPS. Para os passos, consulte [Configure o mTLS em um workload](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/associar-um-certificado-mtls/) e [mTLS](/pt-br/documentacao/plataforma/workloads/mtls/).
+
+---
+
+## Aponte o domínio para o workload
+
+A mudança de DNS é a virada: assim que o domínio resolve para o workload, os usuários acessam o serviço pela Azion. Ela afeta os usuários, o SEO, a confiança na marca e a disponibilidade, então trate-a como uma transição controlada. Antes da virada, confirme que:
+
+- O certificado está ativo.
+- O hostname está nos **Domains** do workload.
+- Os registros DNS estão prontos.
+- As rotas críticas e os redirecionamentos respondem como esperado no domínio do workload. Para testá-los com o hostname real antes da virada, consulte [Teste uma aplicação pelo arquivo hosts](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/primeiros-passos/testar-edge-application-atraves-do-arquivo-hosts/).
+- O monitoramento está pronto para acompanhar o tráfego depois da virada.
+
+Aponte cada nome com o registro que sua zona permite:
+
+| Estratégia | Use para | Registro |
+| --- | --- | --- |
+| CNAME | Um subdomínio, mantendo o provedor de DNS atual | `www CNAME <your-workload-domain>` |
+| Nameservers | O apex e todos os outros nomes, com Edge DNS respondendo pela zona | Um ANAME no apex para o domínio do workload |
+
+Para a estratégia de nameservers, crie antes a zona no [Edge DNS](/pt-br/documentacao/plataforma/edge-dns/), com todos os registros da zona atual. Edge DNS aceita 11 tipos de registro: A, AAAA, ANAME, CAA, CNAME, DS, MX, NS, PTR, SRV e TXT. Um ANAME cria um alias do apex para um hostname da Azion, e seu TTL precisa ser 20. Depois defina os nameservers do domínio no registrador como `ns1.aziondns.net`, `ns2.aziondns.com` e `ns3.aziondns.org`. Para a zona e seus registros, consulte [Primeiros passos com Edge DNS](/pt-br/documentacao/plataforma/edge-dns/primeiros-passos/).
+
+Para verificar um CNAME e a resposta com o hostname real:
+
+```bash
+dig www.example.com CNAME +short
+curl -I https://www.example.com/
+```
+
+A resposta do `dig` é o domínio do workload, como `xxxxxxxxxx.map.azionedge.net`, e o `curl` retorna a resposta do workload. Mudanças de DNS levam tempo para se propagar. Para as configurações do domínio personalizado no Console, consulte [Aponte um domínio para um workload](/pt-br/documentacao/guias/plataforma/migracao/apontar-dominio-para-a-azion/). Para mover os nameservers, consulte [Migre os nameservers para a Azion](/pt-br/documentacao/guias/plataforma/migracao/migrar-ns-para-a-azion/). Para as configurações do workload, consulte [Workloads](/pt-br/documentacao/plataforma/workloads/).
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Real-Time Metrics" href="/pt-br/documentacao/plataforma/real-time-metrics/primeiros-passos/" label="Acompanhe requisições, dados transferidos, códigos de status e offload de cache depois da virada." />
+  <DocCard title="Real-Time Events" href="/pt-br/documentacao/plataforma/real-time-events/primeiros-passos/" label="Consulte requisições individuais, logs de funções e resultados do WAF dos últimos 7 dias." />
+  <DocCard title="Web Application Firewall" href="/pt-br/documentacao/plataforma/firewall/waf/primeiros-passos/" label="Mude o conjunto de regras de Logging para Blocking quando o tráfego estiver limpo." />
+  <DocCard title="Azion CLI" href="/pt-br/documentacao/devtools/cli/" label="Faça o deploy, vincule e gerencie o serviço a partir de um terminal." />
+  <DocCard title="Comunidade Azion" href="https://discord.gg/azion" label="Pergunte à comunidade Azion no Discord como outras pessoas rodam seus serviços na Azion." />
+  <DocCard title="Suporte Azion" href="/pt-br/documentacao/suporte/" label="Abra um ticket com a equipe de suporte quando a migração precisar de ajuda." />
+</DocCardGroup>
