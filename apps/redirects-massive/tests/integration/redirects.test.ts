@@ -12,9 +12,9 @@ const PT = 'https://www.azion.com/pt-br/documentacao'
 
 describe('redirects handler', () => {
   const cases: Array<[string, string]> = [
-    [`${EN}/products/core-concepts/`, `${EN}/products/azion-platform-overview/`],
-    [`${PT}/produtos/conceitos-basicos/`, `${PT}/produtos/visao-geral-da-plataforma-da-azion/`],
-    [`${EN}/products/changelog/`, `${EN}/products/release-notes/`]
+    [`${EN}/products/core-concepts/`, `${EN}/fundamentals/how-it-works/`],
+    [`${PT}/produtos/conceitos-basicos/`, `${PT}/fundamentos/como-funciona/`],
+    [`${EN}/products/changelog/`, `${EN}/changelog/`]
   ]
 
   it.each(cases)('permanently (301) redirects %s -> %s', async (url, expected) => {
@@ -30,11 +30,11 @@ describe('redirects handler', () => {
     expect(without.status).toBe(301)
   })
 
-  it('serves a flattened chain in a single hop (A -> C, never A -> B)', async () => {
-    // marketplace/bot-manager -> secure/edge-firewall/bot-manager -> secure/firewall/bot-manager
+  it('serves a former chain in a single hop (A -> C, never A -> B)', async () => {
+    // marketplace/bot-manager -> secure/edge-firewall/bot-manager -> ... -> platform/firewall
     const res = await handler(new Request(`${EN}/products/marketplace/bot-manager/`))
     expect(res.status).toBe(301)
-    expect(res.headers.get('Location')).toBe(`${EN}/products/secure/firewall/bot-manager/`)
+    expect(res.headers.get('Location')).toBe(`${EN}/platform/firewall/`)
   })
 
   it('caches permanent (301) redirects', async () => {
@@ -44,20 +44,7 @@ describe('redirects handler', () => {
 
   it('preserves the request query string across the redirect', async () => {
     const res = await handler(new Request(`${EN}/products/core-concepts/?utm_source=x&a=1`))
-    expect(res.headers.get('Location')).toBe(
-      `${EN}/products/azion-platform-overview/?utm_source=x&a=1`
-    )
-  })
-
-  it('puts the query string before the fragment of a target that has one', async () => {
-    const res = await handler(new Request(`${PT}/produtos/cli/domains/?utm_source=x`))
-    expect(res.status).toBe(301)
-    expect(res.headers.get('Location')).toBe(`${PT}/devtools/cli/create/?utm_source=x#domains`)
-  })
-
-  it('keeps the fragment of a target when the request has no query string', async () => {
-    const res = await handler(new Request(`${PT}/produtos/cli/domains/`))
-    expect(res.headers.get('Location')).toBe(`${PT}/devtools/cli/create/#domains`)
+    expect(res.headers.get('Location')).toBe(`${EN}/fundamentals/how-it-works/?utm_source=x&a=1`)
   })
 
   it('passes non-redirect URLs through to origin untouched', async () => {
@@ -65,7 +52,7 @@ describe('redirects handler', () => {
     const fetchFn = vi.fn(async () => passthrough)
     vi.stubGlobal('fetch', fetchFn)
 
-    const request = new Request(`${EN}/products/azion-platform-overview/`)
+    const request = new Request(`${EN}/fundamentals/how-it-works/`)
     const res = await handler(request)
 
     expect(fetchFn).toHaveBeenCalledWith(request)
@@ -76,6 +63,33 @@ describe('redirects handler', () => {
     for (const { to } of redirectMap.values()) {
       expect(redirectMap.has(normalizeUrl(to))).toBe(false)
     }
+  })
+})
+
+describe('redirects handler — targets with a #fragment', () => {
+  // The docs data has no anchored target; a mocked table proves the handler keeps the fragment.
+  async function anchoredHandler() {
+    vi.resetModules()
+    vi.doMock('../../src/redirects', () => ({
+      resolveRedirect: () => ({ to: `${PT}/devtools/cli/recursos/#domains`, status: 301 }),
+      normalizeUrl: (url: string) => url,
+      redirectMap: new Map(),
+      redirectCount: 0
+    }))
+    return (await import('../../src/index')).default
+  }
+
+  it('puts the query string before the fragment of a target that has one', async () => {
+    const res = await (
+      await anchoredHandler()
+    )(new Request(`${PT}/produtos/cli/domains/?utm_source=x`))
+    expect(res.status).toBe(301)
+    expect(res.headers.get('Location')).toBe(`${PT}/devtools/cli/recursos/?utm_source=x#domains`)
+  })
+
+  it('keeps the fragment of a target when the request has no query string', async () => {
+    const res = await (await anchoredHandler())(new Request(`${PT}/produtos/cli/domains/`))
+    expect(res.headers.get('Location')).toBe(`${PT}/devtools/cli/recursos/#domains`)
   })
 })
 
