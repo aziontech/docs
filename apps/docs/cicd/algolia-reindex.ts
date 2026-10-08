@@ -28,7 +28,8 @@ interface AlgoliaRecord {
 }
 
 /**
- * Parse command line arguments to extract app ID and API key
+ * Read the app ID and API key from ALGOLIA_APP_ID / ALGOLIA_API_KEY, falling back to the
+ * app= / api= arguments. CI uses the environment: an argument is visible in the process list.
  */
 function parseArgs(): AlgoliaConfig {
 	const args = process.argv;
@@ -37,8 +38,8 @@ function parseArgs(): AlgoliaConfig {
 	const apiMatch = args.find((arg) => arg.startsWith('api='));
 
 	return {
-		app: appMatch?.replace('app=', '') || '',
-		api: apiMatch?.replace('api=', '') || '',
+		app: process.env.ALGOLIA_APP_ID || appMatch?.replace('app=', '') || '',
+		api: process.env.ALGOLIA_API_KEY || apiMatch?.replace('api=', '') || '',
 	};
 }
 
@@ -173,7 +174,7 @@ async function main(): Promise<void> {
 
 	if (!config.key.app || !config.key.api) {
 		throw new Error(
-			'[!] Invalid arguments. Usage: tsx algolia-reindex.ts app=<APP_ID> api=<API_KEY>'
+			'[!] Missing credentials. Set ALGOLIA_APP_ID and ALGOLIA_API_KEY, or pass app=<APP_ID> api=<API_KEY>'
 		);
 	}
 
