@@ -27,10 +27,6 @@ interface AlgoliaRecord {
 	[key: string]: unknown;
 }
 
-/**
- * Read the app ID and API key from ALGOLIA_APP_ID / ALGOLIA_API_KEY, falling back to the
- * app= / api= arguments. CI uses the environment: an argument is visible in the process list.
- */
 function parseArgs(): AlgoliaConfig {
 	const args = process.argv;
 
