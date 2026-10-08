@@ -1,6 +1,6 @@
 import type { MarkdownHeading } from 'astro';
 
-const FENCE = /^(\s*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1\2[^\n]*$/gm;
+const FENCE = /^([ \t]*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?\n\1\2[^\n]*$/gm;
 const ENTRY = /<DocUpdate\s([^>]*)>/g;
 
 const attribute = (attrs: string, name: string) =>
