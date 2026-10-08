@@ -187,8 +187,8 @@ const rootGroups = computed<MenuGroupNode[]>(() => {
 	return drilled.value ? props.catalogGroups ?? [] : visibleGroups.value;
 });
 
-/** Only over a catalog, and only while levels can open: the mobile drawer, or a failed load,
- * mounts the page's tree alone, as before. */
+/** Only over a catalog, and only while levels can open: a failed load mounts the page's tree
+ * alone, as before. */
 const parent = computed(() => (hasCatalog.value && drillable.value ? props.parentLevel : null));
 
 const visibleParentGroups = computed<MenuGroupNode[]>(() => {

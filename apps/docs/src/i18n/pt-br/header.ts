@@ -1,52 +1,3 @@
-const menuSecondaryMobile = [
-	{
-		// label: 'Documents',
-		items: [
-			{
-				label: 'Carreiras',
-				// icon: 'pi pi-briefcase',
-				tags: ['estamos contratando'],
-				url: '/pt-br/carreiras/',
-			},
-			{
-				label: 'Casos de Sucesso',
-				// icon: 'pi pi-dollar'
-				url: '/pt-br/resource-hub/',
-			},
-			{
-				label: 'Suporte',
-				// icon: 'pi pi-question-circle'
-				url: '/pt-br/precos/',
-			},
-			{
-				label: 'Política de privacidade',
-				// icon: 'pi pi-exclamation-triangle'
-				url: '/pt-br/documentacao/contratos/politica-de-privacidade/',
-			},
-		],
-	},
-];
-
-const bottomButtonsMobile = [
-	{
-		label: 'Conta Gratuita',
-		urlTitle: 'Azion Console Conta Gratuita',
-		url: 'https://console.azion.com/singup',
-		destak: true,
-	},
-	{
-		label: 'Sign In',
-		urlTitle: 'Azion Console Sign In',
-		url: 'https://console.azion.com/login',
-	},
-	{
-		label: 'Contato',
-		url: '/pt-br/contato/',
-		urlTitle: 'Contact Page',
-		icon: 'pi pi-chevron-right text-body-xs',
-	},
-];
-
 const algoliaIndex = [
 	{
 		name: `azion-doc-ptbr`,
@@ -81,8 +32,6 @@ const algoliaModel = [
 const algoliaInputPlaceholder = 'Digite sua busca';
 
 export default {
-	menuSecondaryMobile,
-	bottomButtonsMobile,
 	algoliaIndex,
 	algoliaModel,
 	algoliaInputPlaceholder,
