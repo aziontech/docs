@@ -1,3 +1,16 @@
+import process from 'node:process'
+
+const environments = {
+  production: { name: 'docs-prod', bucket: 'prod-docs', prefix: '20261005193619' },
+  stage: { name: 'docs-stage', bucket: 'stage-docs', prefix: '20261006140609' }
+} as const
+
+const env = process.env.AZION_ENV
+if (env !== 'production' && env !== 'stage') {
+  throw new Error(`AZION_ENV must be "production" or "stage", got "${env ?? ''}"`)
+}
+const { name, bucket, prefix } = environments[env]
+
 export default {
   build: {
     preset: 'astro',
@@ -5,26 +18,26 @@ export default {
   },
   storage: [
     {
-      name: 'prod-docs',
-      prefix: '20261005193619',
+      name: bucket,
+      prefix,
       dir: './dist',
       workloadsAccess: 'read_only'
     }
   ],
   connectors: [
     {
-      name: 'docs-prod',
+      name,
       active: true,
       type: 'storage',
       attributes: {
-        bucket: 'prod-docs',
-        prefix: '20261005193619'
+        bucket,
+        prefix
       }
     }
   ],
   applications: [
     {
-      name: 'docs-prod',
+      name,
       imageProcessorEnabled: true,
       cache: [],
       rules: {
@@ -68,7 +81,7 @@ export default {
               {
                 type: 'set_connector',
                 attributes: {
-                  value: 'docs-prod'
+                  value: name
                 }
               }
             ]
@@ -472,18 +485,18 @@ export default {
   ],
   workloads: [
     {
-      name: 'docs-prod',
+      name,
       active: true,
       infrastructure: 1,
       deployments: [
         {
-          name: 'docs-prod',
+          name,
           current: true,
           active: true,
           strategy: {
             type: 'default',
             attributes: {
-              application: 'docs-prod'
+              application: name
             }
           }
         }
