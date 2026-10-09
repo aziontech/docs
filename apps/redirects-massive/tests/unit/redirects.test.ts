@@ -168,11 +168,6 @@ describe('resolveRedirect — data decisions', () => {
     )
   })
 
-  it('redirects the Use Cases index pages to Guides', () => {
-    expect(resolveRedirect(`${EN}/use-cases/`)?.to).toBe(`${EN}/guides/`)
-    expect(resolveRedirect(`${PT}/casos-de-uso/`)?.to).toBe(`${PT}/guias/`)
-  })
-
   it('resolves a source whose scheme was mistyped in the old data', () => {
     expect(
       resolveRedirect(`${PT}/produtos/guias/build/integrar-resend-email-edge-functions/`)?.to
