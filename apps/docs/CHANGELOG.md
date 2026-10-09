@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.3](https://github.com/aziontech/docs/compare/docs-v2.0.2...docs-v2.0.3) (2026-10-09)
+
+
+### Documentation
+
+* **use-cases:** explain each use case as a design and move values and checks into the guides ([#2457](https://github.com/aziontech/docs/issues/2457)) ([4f05338](https://github.com/aziontech/docs/commit/4f053388c890966b5c11778cf20f9de462cb2181))
+
 ## [2.0.2](https://github.com/aziontech/docs/compare/docs-v2.0.1...docs-v2.0.2) (2026-10-09)
 
 
