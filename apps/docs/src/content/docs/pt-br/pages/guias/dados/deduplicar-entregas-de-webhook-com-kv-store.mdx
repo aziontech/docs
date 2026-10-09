@@ -66,6 +66,20 @@ A API responde `201` com o namespace. A requisição é síncrona, e não existe
 
 O namespace `webhook-events` existe e está vazio. Para todos os campos e erros da API de namespaces, consulte [Namespaces](/pt-br/documentacao/plataforma/kv-store/namespaces/).
 
+No caso de uso [Criar APIs orientadas a eventos](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-orientadas-a-eventos/), esta seção usa estes valores:
+
+| Configuração | Valor |
+| --- | --- |
+| Namespace | `events-idempotency` |
+
+Um namespace não pode ser renomeado nem apagado, e os nomes diferenciam maiúsculas de minúsculas, então crie-o uma única vez, em letras minúsculas. O namespace `events-idempotency` existe e está vazio.
+
+No caso de uso [Criar agentes de IA](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/criar-agentes-de-ia/), esta seção usa estes valores:
+
+| Configuração | Valor |
+| --- | --- |
+| Namespace do KV Store | `agent-state` |
+
 ---
 
 ## Pule uma entrega que a function já tratou
@@ -121,11 +135,81 @@ Cada entrega lê uma key, e cada evento novo grava uma. O KV Store inclui 100.00
 
 ---
 
+## Publique cada evento no Upstash QStash uma única vez
+
+Quando o trabalho que um evento dispara é uma publicação em uma fila, a key só é gravada depois que a fila aceita a mensagem. A rota desta seção substitui a rota `POST /webhook` do handler que [Construa um handler de webhooks do Stripe com Functions](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/webhooks-stripe-functions/) constrói, até o passo 4, e mantém o middleware `verifyStripeWebhook` dele. Ela lê o namespace `events-idempotency`, criado como [Crie o namespace](#crie-o-namespace) mostra, e o token do QStash e o domínio do consumidor das variáveis de ambiente `QSTASH_TOKEN` e `CONSUMER_DOMAIN`, armazenadas como [Armazene o token e o destino](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/publicar-uma-mensagem-no-upstash-qstash-a-partir-de-uma-function/#armazene-o-token-e-o-destino) mostra.
+
+No arquivo de entrada do projeto, substitua a rota `app.post("/webhook", ...)` por esta:
+
+```typescript
+const IDEMPOTENCY_NAMESPACE = "events-idempotency";
+const KEY_TTL_SECONDS = 86400;
+
+app.post("/webhook", verifyStripeWebhook, async (c) => {
+  const event = c.get("stripeEvent");
+  const kv = await Azion.KV.open(IDEMPOTENCY_NAMESPACE);
+
+  // A key for this event means an earlier delivery was already queued.
+  if ((await kv.get(event.id, "text")) !== null) {
+    return c.json({ received: true, duplicate: true });
+  }
+
+  // QStash delivers the message to the consumer's domain.
+  const published = await fetch(`https://qstash.upstash.io/v1/publish/${Azion.env.get("CONSUMER_DOMAIN")}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${Azion.env.get("QSTASH_TOKEN")}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      event_id: event.id,
+      type: event.type,
+      object_id: (event.data.object as { id: string }).id,
+      received_ms: Date.now(),
+    }),
+  });
+  if (!published.ok) {
+    console.error(`QStash answered ${published.status}`);
+    return c.json({ error: "Event not queued" }, 500);
+  }
+
+  // Written only after the publish, so a failed publish is never marked as queued.
+  await kv.put(event.id, "queued", { expirationTtl: KEY_TTL_SECONDS });
+  return c.json({ received: true });
+});
+```
+
+Implante o projeto a partir do diretório dele:
+
+```bash
+azion deploy
+```
+
+A Azion CLI constrói o projeto, implanta-o e abre o Azion Console na página que traz os logs do deployment. O endpoint de webhook registrado no provedor continua sendo `https://api.example.com/webhook`. A propagação leva alguns minutos.
+
+A rota responde ao provedor assim que o evento é enfileirado. Uma entrega repetida responde `{"received":true,"duplicate":true}` e não publica nada, e uma publicação que o QStash não aceita responde `500`, então o provedor reenvia o evento.
+
+Para confirmar a rota, envie um evento de teste com a Stripe CLI e, depois, leia o que a function registrou no log:
+
+```bash
+stripe trigger payment_intent.succeeded
+azion logs cells --tail
+```
+
+O handler responde `{ "received": true }`, e o Stripe Dashboard lista a entrega e o código de resposta dela para o endpoint. O terminal exibe as mensagens de console dos últimos 5 minutos. Nenhuma linha `QStash answered` aparece, então o QStash aceitou todas as publicações.
+
+O caso de uso [Criar APIs orientadas a eventos](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-orientadas-a-eventos/) usa os valores deste exemplo.
+
+Estas verificações confirmam o caso de uso [Criar APIs orientadas a eventos](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-orientadas-a-eventos/).
+
+---
+
 ## Próximos passos
 
 <DocCardGroup cols={2}>
   <DocCard title="Como o KV Store funciona" href="/pt-br/documentacao/plataforma/kv-store/como-funciona/#consistencia" label="Por que uma key gravada em um lugar pode faltar em outro por até 60 segundos." />
   <DocCard title="KV Store API" href="/pt-br/documentacao/devtools/runtime/api-reference/kv-store/" label="Todos os métodos, opções e erros do cliente que lê e grava as keys." />
-  <DocCard title="Crie APIs orientadas a eventos" href="/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-orientadas-a-eventos/" label="Um produtor de webhooks que filtra eventos repetidos antes de publicá-los em uma fila." />
+  <DocCard title="Criar APIs orientadas a eventos" href="/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-orientadas-a-eventos/" label="Um produtor de webhooks que filtra eventos repetidos antes de publicá-los em uma fila." />
   <DocCard title="Publique uma mensagem no Upstash QStash a partir de uma function" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/publicar-uma-mensagem-no-upstash-qstash-a-partir-de-uma-function/" label="Entregue cada evento novo a uma fila como o trabalho que a function faz." />
+  <DocCard title="Criar agentes de IA" href="/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/criar-agentes-de-ia/" label="Um agente cujo estado entre etapas fica em um namespace do KV Store." />
 </DocCardGroup>

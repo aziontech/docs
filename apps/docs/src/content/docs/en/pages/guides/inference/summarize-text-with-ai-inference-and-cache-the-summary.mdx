@@ -1,0 +1,136 @@
+---
+title: Summarize text with AI Inference and cache the summary
+description: >-
+  Summarize a text with a catalog model on AI Inference from a function, and
+  return the same summary from the Cache API for the same text.
+meta_tags: 'summarization, AI Inference, Azion.AI.run, Cache API, SHA-256, functions, Qwen3 30B A3B Instruct, max_tokens'
+namespace: docs_guides_summarize_text_with_ai_inference_and_cache_the_summary
+permalink: /documentation/guides/ai/inference/summarize-text-with-ai-inference-and-cache-the-summary/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+You summarize a text with a catalog model on AI Inference from a function, and store each summary with the Cache API under the SHA-256 of the text, so a repeated text is answered without a model call. To call a chat model without a cache first, refer to [Call a model on AI Inference from a function](/en/documentation/guides/ai/inference/call-a-model-on-ai-inference-from-a-function/).
+
+---
+
+## Prerequisites
+
+- An application with Application Accelerator turned on, which the **Run Function** behavior requires. To create one, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
+- The id of the model to call, copied from its page in [AI models](/en/documentation/platform/ai-inference/models/).
+
+The Cache API is not defined under `azion dev`, so test the function once it runs on the application.
+
+The examples use `/api/summarize` for the route, `ai-summarize` for the function and its instance, and `www.example.com` for the domain your application answers on. Replace them with your values.
+
+---
+
+## Create the summarization function
+
+The function refuses a missing text with `400` and a text over 20,000 characters with `413` before any model call. It looks the SHA-256 of the text up in the `ai-summarize` cache, calls the model on a miss, and stores the summary for one day.
+
+Create a function named `ai-summarize` with this code:
+
+```javascript
+const MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8";
+const MAX_CHARS = 20000;
+const CACHE_SECONDS = 86400;
+
+async function sha256(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+    const { text } = await request.json();
+    if (typeof text !== "string" || text.trim() === "") {
+      return Response.json({ error: "text is required" }, { status: 400 });
+    }
+    if (text.length > MAX_CHARS) {
+      return Response.json({ error: `text is longer than ${MAX_CHARS} characters` }, { status: 413 });
+    }
+
+    const cache = await caches.open("ai-summarize");
+    const cacheKey = `https://ai-summarize.cache/${await sha256(text)}`;
+    const hit = await cache.match(cacheKey);
+    if (hit) {
+      return new Response(await hit.text(), {
+        headers: { "Content-Type": "application/json", "x-summary-cache": "hit" }
+      });
+    }
+
+    const modelResponse = await Azion.AI.run(MODEL, {
+      "stream": false,
+      "max_tokens": 300,
+      "messages": [
+        { "role": "system", "content": "Summarize the user's text in at most three sentences. Use only facts the text states." },
+        { "role": "user", "content": text }
+      ]
+    });
+    const summary = modelResponse?.choices?.[0]?.message?.content?.trim();
+    if (!summary) {
+      return Response.json({ error: "the model returned no summary" }, { status: 502 });
+    }
+
+    const body = JSON.stringify({ summary });
+    await cache.put(cacheKey, new Response(body, {
+      headers: { "Content-Type": "application/json", "cache-control": `max-age=${CACHE_SECONDS}` }
+    }));
+    return new Response(body, {
+      headers: { "Content-Type": "application/json", "x-summary-cache": "miss" }
+    });
+  },
+};
+```
+
+To create the function and its instance, follow [Functions quickstart](/en/documentation/platform/functions/quickstart/) with the name `ai-summarize`, and name the instance on your application `ai-summarize`, with no Args.
+
+The application carries an `ai-summarize` instance that returns a summary for a text, from the cache when the same text was summarized in the last day.
+
+The [Add AI features to existing applications](/en/documentation/use-cases/build-and-run-ai-workloads/add-ai-features-to-existing-applications/) use case uses the values of this example.
+
+---
+
+## Run the function on the route
+
+The rule matches `/api/summarize` exactly, so no other path of your application runs the function, and it runs in the Request Phase, because the function produces the whole response.
+
+Create the rule as [Add the rule that runs the function](/en/documentation/guides/application-development/functions-and-runtime/serverless-functions/#add-the-rule-that-runs-the-function) shows, with the name `ai - summarize`, the criterion `${uri}` _is equal_ `/api/summarize`, and the **Run Function** behavior selecting the `ai-summarize` instance.
+
+A `POST` to `/api/summarize` on your domain runs the function, and every other path keeps the rules it had. A new rule takes a few minutes to propagate.
+
+---
+
+## Confirm the route returns a summary
+
+To send a text to the route:
+
+```bash
+curl -s -i -X POST https://www.example.com/api/summarize \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"<a paragraph of your own content>"}'
+```
+
+The response carries `x-summary-cache: miss` and a JSON body with `summary`. Send the same request again: the response carries `x-summary-cache: hit` and the same `summary`. Send `{"text":""}`: the response is `400` with `text is required`, which the function returns before the model call.
+
+The route returns a summary for a text, and answers the same text from the cache for one day.
+
+These checks confirm the [Add AI features to existing applications](/en/documentation/use-cases/build-and-run-ai-workloads/add-ai-features-to-existing-applications/) use case.
+
+In the [Add AI features to existing applications](/en/documentation/use-cases/build-and-run-ai-workloads/add-ai-features-to-existing-applications/) use case, expect:
+
+- **The route runs only on its path.** Any other path of your application answers as it did before the rule existed.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Cache a function's response with the Cache API" href="/en/documentation/guides/application-development/functions-and-runtime/cache-a-function-response-with-the-cache-api/" label="Build a cache key for a request, and delete an entry after a write." />
+  <DocCard title="Add AI features to existing applications" href="/en/documentation/use-cases/build-and-run-ai-workloads/add-ai-features-to-existing-applications/" label="The design this function serves: the model, the input bound, and the cache lifetime, with the reason for each." />
+</DocCardGroup>

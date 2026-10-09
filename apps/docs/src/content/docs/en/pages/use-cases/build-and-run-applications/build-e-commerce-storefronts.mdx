@@ -9,9 +9,6 @@ permalink: /documentation/use-cases/build-and-run-applications/build-e-commerce-
 ---
 import DocCardGroup from '@aziontech/webkit/doc-card-group'
 import DocCard from '@aziontech/webkit/doc-card'
-import DocSteps from '@aziontech/webkit/doc-steps'
-import DocStep from '@aziontech/webkit/doc-step'
-import Tabs from '~/components/webkit/Tabs.vue'
 
 A digital commerce team runs the storefront of an online store on a commerce platform it operates, such as Magento or WooCommerce. Catalog and product pages are the same for every visitor and must stay fast during traffic peaks, while prices and stock change during the day. The cart, the checkout, and the pages of a signed-in visitor are different for every visitor and must never come from a shared copy. This page configures an application in front of the store that caches the catalog, sends cart, checkout, and session traffic to the store, and purges a product page when it changes. The result is measured by time to first byte on catalog and product pages, the time from a price or stock change to a live page, and the share of catalog requests that never reach the commerce platform.
 
@@ -19,10 +16,9 @@ This use case does not cover protecting login and checkout against bots. For tha
 
 ## Prerequisites
 
+- An Azion account. If you do not have one, [create an account](https://console.azion.com/signup).
 - An application that serves the store through a connector and a workload. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
 - Application Accelerator on that application, which the **Bypass Cache** and **Forward Cookies** behaviors require. To turn it on, refer to [Turn on Application Accelerator](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/#turn-on-application-accelerator).
-- A personal token, for the API and the purge calls. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
-- The paths and the session cookie of your store. This page uses `/products/` and `/category/` for the catalog, `/cart`, `/checkout`, and `/account` for per-visitor pages, `session_id` for the cookie the store sets when a visitor starts a session, and `www.example.com` for the domain. Replace each value with your store's in every step.
 
 ---
 
@@ -66,7 +62,7 @@ Read the diagram from the application outward. Every request passes through its 
 5. When a product changes, the commerce platform calls the Real-Time Purge API, which removes the affected product pages from Cache before their TTL ends.
 6. The next request for a purged page reaches the store, and the new version is cached.
 
-### Components
+### Platform Resources
 
 - **application**: the Platform Resource in front of the store. It holds the cache settings and the rules that decide, request by request, whether a page is cached or bypassed.
 - **Rules Engine**: the Feature of the application that matches paths and cookies. The cache bypass for a signed-in visitor depends on a cookie condition, because the same product path is shared for an anonymous visitor and private for a signed-in one.
@@ -83,128 +79,17 @@ Read the diagram from the application outward. Every request passes through its 
 
 ---
 
-## Configure the catalog cache
+## How the design works
+
+This section explains how the application splits shared catalog pages from per-visitor pages, and how a catalog change reaches the cache.
+
+### The catalog cache
 
 The catalog cache is a cache setting and the rule that applies it. The rule matches the catalog paths only for visitors without a session, so a signed-in visitor never receives a shared copy.
 
 The cache setting uses two values. **Max Age** is `600` seconds: the purge configured below refreshes a changed page at once, so **Max Age** only bounds how long a page stays stale when a purge is missed. The browser cache is overridden to `0` seconds, because a copy in the visitor's browser cannot be purged, and a stale price would stay there until it expires.
 
-<Tabs client:visible sharedStore="interface">
-<Fragment slot="tab.console">Console</Fragment>
-<Fragment slot="tab.api">API</Fragment>
-
-<Fragment slot="panel.console">
-
-To create the cache setting:
-
-<DocSteps>
-  <DocStep title="Open the Cache Settings tab">
-
-  Access [Azion Console](https://console.azion.com/) > **Applications** > **your application**, then go to the **Cache Settings** tab.
-
-  </DocStep>
-  <DocStep title="Select + Cache" />
-  <DocStep title="Name the cache setting">
-
-  In **Name**, enter `storefront-catalog`.
-
-  </DocStep>
-  <DocStep title="Set the browser cache">
-
-  Under **Browser Cache**, select _Override cache settings_ and set the maximum age to `0`.
-
-  </DocStep>
-  <DocStep title="Set Max Age">
-
-  Under **Cache**, select _Override cache behavior_ and set **Max Age** to `600`.
-
-  </DocStep>
-  <DocStep title="Select Save" />
-</DocSteps>
-
-The `storefront-catalog` setting appears in the **Cache Settings** tab. To create the rule that applies it:
-
-<DocSteps>
-  <DocStep title="Go to the Rules Engine tab" />
-  <DocStep title="Select + Rule" />
-  <DocStep title="Name the rule">
-
-  Enter `storefront - catalog cache`.
-
-  </DocStep>
-  <DocStep title="Select Request Phase" />
-  <DocStep title="Match the catalog paths">
-
-  In the **Criteria** section, set the first criterion to `${uri}` _starts with_ `/products/`. Add a second criterion joined by **Or**: `${uri}` _starts with_ `/category/`.
-
-  </DocStep>
-  <DocStep title="Exclude visitors with a session">
-
-  Add a second criteria group with one criterion: `${cookie_session_id}` _does not exist_.
-
-  </DocStep>
-  <DocStep title="In the Behaviors section, select Set Cache Policy" />
-  <DocStep title="Select the storefront-catalog cache setting" />
-  <DocStep title="Select Save" />
-</DocSteps>
-
-</Fragment>
-
-<Fragment slot="panel.api">
-
-To create the cache setting, send its body to the application's cache settings:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/applications/<application-id>/cache_settings \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "name": "storefront-catalog",
-  "browser_cache": { "behavior": "override", "max_age": 0 },
-  "modules": { "cache": { "behavior": "override", "max_age": 600 } }
-}'
-```
-
-The API answers `201` with the new setting. Keep its `id` for the rule:
-
-```json
-{"state":"executed","data":{"id":<cache-setting-id>,"name":"storefront-catalog",...}}
-```
-
-To create the rule, send two criteria groups. Groups join with `and`, so a request matches only when its path is a catalog path and it carries no session cookie:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "name": "storefront - catalog cache",
-  "active": true,
-  "criteria": [
-    [
-      { "variable": "${uri}", "conditional": "if", "operator": "starts_with", "argument": "/products/" },
-      { "variable": "${uri}", "conditional": "or", "operator": "starts_with", "argument": "/category/" }
-    ],
-    [
-      { "variable": "${cookie_session_id}", "conditional": "if", "operator": "does_not_exist" }
-    ]
-  ],
-  "behaviors": [{ "type": "set_cache_policy", "attributes": { "value": <cache-setting-id> } }]
-}'
-```
-
-The API answers `202` with a `state` of `pending` and the rule as it was stored.
-
-</Fragment>
-</Tabs>
-
-Catalog and product pages requested without a session cookie are cached for 600 seconds, and browsers revalidate them on every visit. A new rule takes a few minutes to propagate.
-
----
-
-## Configure the bypass for cart, checkout, and sessions
+### The bypass for cart, checkout, and sessions
 
 The bypass rule sends every per-visitor request to the store. It matches the cart, checkout, and account paths, and any request that carries the session cookie, so a visitor who added an item to the cart also bypasses the cache on catalog pages. The rule carries **Forward Cookies** as well, so the session cookie the store sets reaches the visitor. Nothing this rule matches is cached, so no visitor can receive another visitor's cookie.
 
@@ -226,80 +111,7 @@ flowchart TD
 3. A request without the cookie on `/products/` or `/category/` takes the `storefront-catalog` cache setting.
 4. Any other path is left to the application's other rules.
 
-The rule joins two procedures of [Configure cache policies for an application](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/), [Bypass the cache for a path](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/#bypass-the-cache-for-a-path) and [Forward cookies from the origin to the user](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/#forward-cookies-from-the-origin-to-the-user), in one rule with the store's four criteria joined by **Or**. The guide's denylist cache setting is left out, because nothing this rule matches is cached:
-
-<Tabs client:visible sharedStore="interface">
-<Fragment slot="tab.console">Console</Fragment>
-<Fragment slot="tab.api">API</Fragment>
-
-<Fragment slot="panel.console">
-
-To create the bypass rule:
-
-<DocSteps>
-  <DocStep title="Go to the Rules Engine tab">
-
-  Access [Azion Console](https://console.azion.com/) > **Applications** > **your application**, then go to the **Rules Engine** tab.
-
-  </DocStep>
-  <DocStep title="Select + Rule" />
-  <DocStep title="Name the rule">
-
-  Enter `storefront - bypass per-visitor pages`.
-
-  </DocStep>
-  <DocStep title="Select Request Phase" />
-  <DocStep title="Match the per-visitor paths">
-
-  In the **Criteria** section, set the first criterion to `${uri}` _starts with_ `/cart`. Add two criteria joined by **Or**: `${uri}` _starts with_ `/checkout`, and `${uri}` _starts with_ `/account`.
-
-  </DocStep>
-  <DocStep title="Match the session cookie">
-
-  Add a fourth criterion joined by **Or**: `${cookie_session_id}` _exists_.
-
-  </DocStep>
-  <DocStep title="In the Behaviors section, select Bypass Cache" />
-  <DocStep title="Add the Forward Cookies behavior" />
-  <DocStep title="Select Save" />
-</DocSteps>
-
-</Fragment>
-
-<Fragment slot="panel.api">
-
-To create the bypass rule, send its four criteria in one group joined by `or`, and both behaviors:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "name": "storefront - bypass per-visitor pages",
-  "active": true,
-  "criteria": [
-    [
-      { "variable": "${uri}", "conditional": "if", "operator": "starts_with", "argument": "/cart" },
-      { "variable": "${uri}", "conditional": "or", "operator": "starts_with", "argument": "/checkout" },
-      { "variable": "${uri}", "conditional": "or", "operator": "starts_with", "argument": "/account" },
-      { "variable": "${cookie_session_id}", "conditional": "or", "operator": "exists" }
-    ]
-  ],
-  "behaviors": [{ "type": "bypass_cache" }, { "type": "forward_cookies" }]
-}'
-```
-
-The API answers `202` with a `state` of `pending` and the rule as it was stored.
-
-</Fragment>
-</Tabs>
-
-Cart, checkout, and account requests, and every request with a session, reach the store, and Azion stores none of their responses. A new rule takes a few minutes to propagate.
-
----
-
-## Configure purge on catalog changes
+### The purge on catalog changes
 
 A changed product page is refreshed by a purge that the commerce platform sends when the product is saved. The call goes in the code the platform runs when a product is saved, and it authenticates with the personal token.
 
@@ -324,57 +136,7 @@ sequenceDiagram
 3. Azion removes both pages from the cache once the purge propagates.
 4. The next request for each page reaches the store, and the new version is cached.
 
-The save code sends the purges that [Purge pages when the origin publishes a change](/en/documentation/guides/application-performance/cache-and-purge/purge-on-publish/) describes, with the store's values:
-
-- **On every save**, a URL purge for the product page and the category pages that list it. For the example product, the body of `POST /v4/workspace/purge/url` is:
-
-  ```json
-  {"items":["https://www.example.com/products/blue-shirt","https://www.example.com/category/shirts"],"layer":"cache"}
-  ```
-
-- **Only when the save changes the product's images**, a wildcard purge for every size and format of them. Azion accepts 2,000 wildcard purge requests in a 24-hour interval, so a wildcard on every save of a large catalog can reach that bound. The body of `POST /v4/workspace/purge/wildcard` is:
-
-  ```json
-  {"items":["www.example.com/media/blue-shirt*"]}
-  ```
-
-Each call answers `201` with `state` set to `executed`. The product page, its category page, and any changed images leave the cache, and the next request for each one fetches the new version from the store. To confirm a purge completed, find it in the purge history, as the guide shows.
-
----
-
-## Verify the setup
-
-Each check sends a request with the `Pragma: azion-debug-cache` header, which makes the response carry the `x-cache` header. For how to read it, refer to [Check the cache status of a response](/en/documentation/guides/application-performance/cache-and-purge/check-page-cache-time/).
-
-- **Catalog pages answer from cache.** Request a product page twice without a cookie:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" https://www.example.com/products/blue-shirt
-  ```
-
-  The second response carries `x-cache: HIT`. The first can carry `MISS`, while Azion fetches the page from the store.
-
-- **The cart never comes from cache.** Request the cart:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" https://www.example.com/cart
-  ```
-
-  The response carries `x-cache: BYPASS`.
-
-- **A visitor with a session never gets a shared catalog page.** Request a product page with the session cookie:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" -H "Cookie: session_id=test" https://www.example.com/products/blue-shirt
-  ```
-
-  The response carries `x-cache: BYPASS`.
-
-- **A product change reaches the page.** Send the purge for `/products/blue-shirt`, wait for it to appear in the purge history, and request the page again. The response carries `x-cache: MISS`, and the request after it carries `HIT`.
-
-- **Product images are processed.** Request an image with an `ims` query string, such as `https://www.example.com/media/blue-shirt.jpg?ims=400x`. The response carries `x-ims: Enabled`.
-
-A rule that seems to have no effect may still be propagating. When it persists after a few minutes, turn on [Debug Rules](/en/documentation/platform/applications/main-settings/#debug-rules) to see which rules ran on the request.
+Azion accepts 2,000 wildcard purge requests in a 24-hour interval, so a wildcard on every save of a large catalog can reach that bound.
 
 ---
 
@@ -400,6 +162,7 @@ A rule that seems to have no effect may still be propagating. When it persists a
 ## Guides in this use case
 
 <DocCardGroup cols={2}>
+  <DocCard title="Configure cache policies for an application" href="/en/documentation/guides/application-performance/cache-and-purge/cache-settings/" label="Creates the catalog cache rule and the bypass rule for cart, checkout, and sessions, in Azion Console or with the API." />
   <DocCard title="Purge pages when the origin publishes a change" href="/en/documentation/guides/application-performance/cache-and-purge/purge-on-publish/" label="Sends the purge calls the store makes on each product save, and confirms each one completed." />
-  <DocCard title="Configure cache policies for an application" href="/en/documentation/guides/application-performance/cache-and-purge/cache-settings/" label="Bypasses the cache and forwards cookies on a path, the two behaviors of the cart, checkout, and session rule." />
+  <DocCard title="Configure Image Processor on an application" href="/en/documentation/guides/application-performance/delivery-optimization/process-images/" label="Confirms that each product image variant is processed and cached." />
 </DocCardGroup>

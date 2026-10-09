@@ -9,9 +9,6 @@ permalink: /documentation/use-cases/build-and-run-ai-workloads/add-ai-features-t
 ---
 import DocCardGroup from '@aziontech/webkit/doc-card-group'
 import DocCard from '@aziontech/webkit/doc-card'
-import DocSteps from '@aziontech/webkit/doc-steps'
-import DocStep from '@aziontech/webkit/doc-step'
-import Tabs from '~/components/webkit/Tabs.vue'
 
 A product team wants AI features such as summarization, classification, moderation, or image understanding in an application it already runs, without operating GPU infrastructure. The application already sits behind Azion, and the team wants one more API route that it can call from its code like any other. This page adds a summarization route to that application: a function validates the request, calls a model from the AI Inference catalog, caches the result for identical text, and returns the summary. The result is measured by inference latency per request, consumption per thousand requests, and task accuracy on a test set.
 
@@ -19,9 +16,8 @@ This use case does not cover conversational assistants grounded in company conte
 
 ## Prerequisites
 
+- An Azion account. If you do not have one, [create an account](https://console.azion.com/signup).
 - An application and a workload that already serve your application, with **Application Accelerator** turned on, which the **Run Function** behavior requires. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
-- A personal token, for the API steps. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
-- The values of your own setup. This page uses `/api/summarize` for the route, `ai-summarize` for the function and its instance, and `www.example.com` for the domain your application answers on. Replace each value with yours in every step.
 
 ---
 
@@ -65,7 +61,7 @@ Read the diagram from the function outward. The arrows that reach the function c
 5. The function stores the summary in the cache under the hash, for one day.
 6. The function returns the summary and whether it came from the cache.
 
-### Components
+### Platform Resources
 
 - **application**: the Platform Resource that routes `/api/summarize` to the function. The route is one rule on the application that already serves your traffic, so the domain, the TLS certificate, and any authentication in front of it are the ones the application already has. Azion issues no credential for a model call, so a route with no check of its own answers anyone who reaches it.
 - **Functions**: handles each request. The `ai-summarize` function holds the prompt, the model id, the input bounds, and the shape of the response, so every decision about what the model receives is code your team owns.
@@ -79,7 +75,11 @@ Read the diagram from the function outward. The arrows that reach the function c
 
 ---
 
-## Configure the summarization function
+## How the design works
+
+This section explains the summarization function and the route that runs it, and the reason behind each choice.
+
+### The summarization function
 
 The function is the whole feature: it decides what the model is asked, what it may receive, and what the caller gets back.
 
@@ -89,157 +89,9 @@ The function is the whole feature: it decides what the model is asked, what it m
 - **A result is cached for one day under the SHA-256 of the text.** The same text yields a summary the caller can reuse, so a repeated text costs no model call. The function caches as [Cache a function's response with the Cache API](/en/documentation/guides/application-development/functions-and-runtime/cache-a-function-response-with-the-cache-api/) describes, with the cache `ai-summarize`, the key `https://ai-summarize.cache/<sha-256 of the text>`, and `max-age=86400`.
 - **The model's text is read with optional chaining.** A response missing a level yields an empty summary, which the function reports as `502`, instead of an exception.
 
-Create a function named `ai-summarize` with this code:
-
-```javascript
-const MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8";
-const MAX_CHARS = 20000;
-const CACHE_SECONDS = 86400;
-
-async function sha256(text) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export default {
-  async fetch(request, env, ctx) {
-    if (request.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
-    }
-    const { text } = await request.json();
-    if (typeof text !== "string" || text.trim() === "") {
-      return Response.json({ error: "text is required" }, { status: 400 });
-    }
-    if (text.length > MAX_CHARS) {
-      return Response.json({ error: `text is longer than ${MAX_CHARS} characters` }, { status: 413 });
-    }
-
-    const cache = await caches.open("ai-summarize");
-    const cacheKey = `https://ai-summarize.cache/${await sha256(text)}`;
-    const hit = await cache.match(cacheKey);
-    if (hit) {
-      return new Response(await hit.text(), {
-        headers: { "Content-Type": "application/json", "x-summary-cache": "hit" }
-      });
-    }
-
-    const modelResponse = await Azion.AI.run(MODEL, {
-      "stream": false,
-      "max_tokens": 300,
-      "messages": [
-        { "role": "system", "content": "Summarize the user's text in at most three sentences. Use only facts the text states." },
-        { "role": "user", "content": text }
-      ]
-    });
-    const summary = modelResponse?.choices?.[0]?.message?.content?.trim();
-    if (!summary) {
-      return Response.json({ error: "the model returned no summary" }, { status: 502 });
-    }
-
-    const body = JSON.stringify({ summary });
-    await cache.put(cacheKey, new Response(body, {
-      headers: { "Content-Type": "application/json", "cache-control": `max-age=${CACHE_SECONDS}` }
-    }));
-    return new Response(body, {
-      headers: { "Content-Type": "application/json", "x-summary-cache": "miss" }
-    });
-  },
-};
-```
-
-To create the function and its instance, follow [Functions quickstart](/en/documentation/platform/functions/quickstart/) with the name `ai-summarize`, and name the instance on your application `ai-summarize`, with no Args. The Cache API is not defined under `azion dev`, so test the function once it runs on the application.
-
-The application carries an `ai-summarize` instance that returns a summary for a text, from the cache when the same text was summarized in the last day.
-
----
-
-## Configure the API route
+### The API route
 
 The route is a rule on the application that already serves your application. It matches `/api/summarize` exactly, so no other path of your application runs the function, and it runs in the Request Phase, because the function produces the whole response.
-
-<Tabs client:visible sharedStore="interface">
-<Fragment slot="tab.console">Console</Fragment>
-<Fragment slot="tab.api">API</Fragment>
-
-<Fragment slot="panel.console">
-
-To create the rule:
-
-<DocSteps>
-  <DocStep title="Open the application">
-
-  Access [Azion Console](https://console.azion.com/) > **Applications** > **your application**.
-
-  </DocStep>
-  <DocStep title="In the Rules Engine tab, select + Rule" />
-  <DocStep title="Name the rule">
-
-  Enter `ai - summarize`.
-
-  </DocStep>
-  <DocStep title="Select Request Phase" />
-  <DocStep title="Match the route">
-
-  In the **Criteria** section, select the `${uri}` variable, the _is equal_ operator, and `/api/summarize` as the argument.
-
-  </DocStep>
-  <DocStep title="In the Behaviors section, select Run Function" />
-  <DocStep title="Select the ai-summarize instance" />
-  <DocStep title="Select Save" />
-</DocSteps>
-
-</Fragment>
-
-<Fragment slot="panel.api">
-
-To create the rule, send it to the application's request rules, with the ID of the `ai-summarize` instance:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
-  --header 'Accept: application/json' \
-  --header 'Authorization: Token [TOKEN VALUE]' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "name": "ai - summarize",
-  "active": true,
-  "criteria": [
-    [
-      { "variable": "${uri}", "conditional": "if", "operator": "is_equal", "argument": "/api/summarize" }
-    ]
-  ],
-  "behaviors": [{ "type": "run_function", "attributes": { "value": <function-instance-id> } }]
-}'
-```
-
-The API answers with a `state` of `pending` and the rule as it was stored.
-
-</Fragment>
-</Tabs>
-
-A `POST` to `/api/summarize` on your domain runs the function, and every other path keeps the rules it had. A new rule takes a few minutes to propagate.
-
----
-
-## Verify the setup
-
-- **The route returns a summary.** Send a text:
-
-  ```bash
-  curl -s -i -X POST https://www.example.com/api/summarize \
-    -H 'Content-Type: application/json' \
-    -d '{"text":"<a paragraph of your own content>"}'
-  ```
-
-  The response carries `x-summary-cache: miss` and a JSON body with `summary`.
-
-- **The same text is answered from the cache.** Send the same request again. The response carries `x-summary-cache: hit` and the same `summary`.
-
-- **Invalid input never reaches the model.** Send `{"text":""}`. The response is `400` with `text is required`, which the function returns before the model call.
-
-- **The route runs only on its path.** Request any other path of your application. It answers as it did before the rule existed.
-
-When the route answers with your application's own page instead of JSON, the rule may still be propagating. When it persists after a few minutes, read the function's log lines under the **Functions Console** data source of [Real-Time Events](/en/documentation/platform/real-time-events/quickstart/).
 
 ---
 
@@ -266,6 +118,8 @@ When the route answers with your application's own page instead of JSON, the rul
 ## Guides in this use case
 
 <DocCardGroup cols={2}>
+  <DocCard title="Summarize text with AI Inference and cache the summary" href="/en/documentation/guides/ai/inference/summarize-text-with-ai-inference-and-cache-the-summary/" label="Holds the ai-summarize function's code, creates its instance, and runs the checks of this use case." />
+  <DocCard title="Run a function on an application" href="/en/documentation/guides/application-development/functions-and-runtime/serverless-functions/" label="Creates the rule that runs the function on /api/summarize, in Azion Console or with the API." />
   <DocCard title="Cache a function's response with the Cache API" href="/en/documentation/guides/application-development/functions-and-runtime/cache-a-function-response-with-the-cache-api/" label="Stores each summary under the hash of its text and returns it for the same text." />
   <DocCard title="Call a model on AI Inference from a function" href="/en/documentation/guides/ai/inference/call-a-model-on-ai-inference-from-a-function/" label="Sends the text to the catalog model with Azion.AI.run and reads the summary from the response." />
 </DocCardGroup>

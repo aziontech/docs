@@ -9,9 +9,6 @@ permalink: /documentacao/casos-de-uso/proteger-aplicacoes-e-redes/preparar-aplic
 ---
 import DocCardGroup from '@aziontech/webkit/doc-card-group'
 import DocCard from '@aziontech/webkit/doc-card'
-import DocSteps from '@aziontech/webkit/doc-steps'
-import DocStep from '@aziontech/webkit/doc-step'
-import Tabs from '~/components/webkit/Tabs.vue'
 
 Uma equipe de segurança ou de compliance é responsável por uma aplicação web que trata dados de cartão ou dados pessoais sob um padrão como PCI DSS, SOC 2, LGPD ou GDPR. Ela precisa mostrar aos auditores que o tráfego é criptografado, que os ataques na camada de aplicação são filtrados, que o acesso é restrito e que os eventos de segurança são guardados. Esta página configura o redirecionamento para HTTPS na application, as restrições por país e por endereço no seu firewall e um stream que exporta cada requisição e cada evento do WAF a um destino que a equipe mantém. O resultado é medido por cada controle auditado mapeado a uma configuração da plataforma, pela completude e pelo período de retenção dos logs de segurança e pelo tempo necessário para preparar as evidências de auditoria.
 
@@ -19,12 +16,11 @@ Este caso de uso não cobre as certificações da própria Azion como fornecedor
 
 ## Pré-requisitos
 
+- Uma conta Azion. Se você ainda não tem uma, [crie uma conta](https://console.azion.com/signup).
 - Uma application que serve a aplicação web por meio de um connector e de um workload. Para criá-los, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
 - HTTPS ativado nas configurações de protocolo do workload, com um certificado que cobre os seus domínios. Para que a Azion solicite e renove um, consulte [Solicite um certificado Let's Encrypt](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/como-gerar-um-certificado-lets-encrypt/), e para enviar um certificado próprio, consulte [Primeiros passos com Certificate Manager](/pt-br/documentacao/plataforma/workloads/certificate-manager/primeiros-passos/).
 - Um firewall vinculado ao deployment do workload, com WAF aplicado a toda requisição. Para construí-lo, consulte [Vincule um firewall a um workload](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/proteja-seu-dominio/) e [Aplique um rule set a toda requisição](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/aplicar-rule-set/).
 - Um endpoint que guarda os eventos pelo período que o seu padrão exige, como um SIEM ou um bucket de armazenamento. Para os endpoints aos quais um stream envia, consulte [Endpoints](/pt-br/documentacao/plataforma/data-stream/endpoints/).
-- Um personal token, para as abas de API. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
-- Os valores da sua aplicação. Esta página usa `www.example.com` como domínio, `BR` e `US` como os países que a aplicação atende, `/admin` como o seu caminho de administração, `203.0.113.0/24` como a rede da sua equipe, um cluster Apache Kafka em `kafka1.example.com:9092` com o tópico `azion.audit` como endpoint e `audit` como prefixo de cada objeto que cria. Substitua cada valor pelo seu em todos os passos.
 
 ---
 
@@ -72,7 +68,7 @@ Leia o diagrama como dois caminhos. O caminho contínuo é a requisição: cript
 5. Data Stream exporta o registro de cada requisição, com as suas variáveis do WAF, ao SIEM ou ao armazenamento que a equipe mantém pelo período que o seu padrão exige.
 6. Real-Time Events guarda cada registro por 7 dias, para a revisão de um incidente recente.
 
-### Componentes
+### Recursos de Plataforma
 
 - **Certificate Manager**: o Platform Resource que guarda os certificados TLS que um workload apresenta, enviados pela equipe ou solicitados ao Let's Encrypt e renovados pela Azion.
 - **application**: o Platform Resource que redireciona HTTP simples para HTTPS e entrega as requisições que o firewall deixa passar.
@@ -87,192 +83,29 @@ Leia o diagrama como dois caminhos. O caminho contínuo é a requisição: cript
 
 ---
 
-## Configure a imposição de HTTPS
+## Como o design funciona
+
+Esta seção explica por que cada controle tem a sua forma: a imposição de HTTPS, as restrições de acesso e geográficas e a exportação de eventos.
+
+### Imposição de HTTPS
 
 O certificado no workload criptografa cada conexão HTTPS, e a regra da application fecha o outro caminho: uma requisição feita por HTTP simples é redirecionada para HTTPS em vez de ser servida. _Redirect HTTP to HTTPS_ não faz nada a uma requisição já feita por HTTPS, então a regra corresponde a `${uri}` _starts with_ `/`, todo caminho, sem condição sobre o esquema. O comportamento exige HTTPS ativado nas configurações de protocolo do workload.
 
 O **Minimum TLS version** do workload tem TLS 1.3 como padrão. Mantenha-o, ou registre a versão que definir, porque um auditor pergunta pelo piso, não pela versão que uma sessão negociou.
 
-A regra é criada como [Redirecione HTTP para HTTPS](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/redirecionar-http-para-https/) descreve, com estes valores:
+O nome da regra, `audit - redirect to HTTPS`, é um nome que um auditor consegue mapear ao controle de criptografia, e a regra fica antes de qualquer regra da application cujo comportamento encerra o processamento, para que nenhuma requisição HTTP pule o redirecionamento.
 
-- **Nome da regra**: `audit - redirect to HTTPS`, um nome que um auditor consegue mapear ao controle de criptografia.
-- **Critério**: `${uri}` _starts with_ `/`, todo caminho de `www.example.com`.
-- **Comportamento**: _Redirect HTTP to HTTPS_.
-- **Posição**: antes de qualquer regra da application cujo comportamento encerra o processamento, para que nenhuma requisição HTTP pule o redirecionamento.
-
-Toda requisição feita por HTTP é redirecionada para HTTPS, e toda requisição HTTPS continua inalterada. Uma regra nova leva alguns minutos para se propagar.
-
----
-
-## Configure as restrições de acesso e geográficas
+### Restrições de acesso e geográficas
 
 Duas regras de negação restringem o acesso no firewall. A primeira recusa todo cliente cujo país não está em `audit-served-countries`, com o operador _does not match_ do critério _Network_, então um país novo continua recusado até alguém adicioná-lo. A segunda recusa uma requisição a `/admin` de qualquer endereço fora de `audit-team-addresses`, então o caminho de administração responde só à sua equipe. Os seus dois critérios ficam em um bloco unido por _and_: a regra age só onde o caminho e o endereço correspondem.
 
 A resolução de país pode errar para alguns endereços, então a regra de administração lê uma lista `ip_cidr` em vez de um país. Dê a cada entrada de `audit-team-addresses` um comentário que nomeia de quem é a rede, porque um auditor pergunta quem consegue alcançar o caminho.
 
-<Tabs client:visible sharedStore="interface">
-<Fragment slot="tab.console">Console</Fragment>
-<Fragment slot="tab.api">API</Fragment>
-
-<Fragment slot="panel.console">
-
-Para criar as duas listas:
-
-<DocSteps>
-  <DocStep title="Abra a página Network Lists">
-
-  Acesse [Azion Console](https://console.azion.com/) > **Edge Libraries** > **Network Lists** e selecione **Network List**.
-
-  </DocStep>
-  <DocStep title="Crie a lista de países">
-
-  Insira `audit-served-countries` em **Name**, selecione _Countries_, selecione Brazil e United States em **Countries** e selecione **Save**.
-
-  </DocStep>
-  <DocStep title="Crie a lista da equipe">
-
-  Selecione **Network List** de novo, insira `audit-team-addresses`, selecione _IP/CIDR_, insira `203.0.113.0/24 #security team office` em **List** e selecione **Save**.
-
-  </DocStep>
-</DocSteps>
-
-Para criar as duas regras:
-
-<DocSteps>
-  <DocStep title="Abra a aba Rules Engine do firewall">
-
-  Acesse **Firewalls**, selecione o firewall e vá para a aba **Rules Engine**.
-
-  </DocStep>
-  <DocStep title="Crie a regra de país">
-
-  Selecione **Rule** e insira `audit - deny countries not served`. Na seção **Criteria**, selecione _Network_, _does not match_ e `audit-served-countries`. Na seção **Behaviors**, selecione _Deny (403 Forbidden)_ e selecione **Save**.
-
-  </DocStep>
-  <DocStep title="Crie a regra de administração">
-
-  Selecione **Rule** e insira `audit - restrict admin to the team`. Na seção **Criteria**, selecione _Network_, _does not match_ e `audit-team-addresses`. Adicione um critério unido por **And**: `Request Uri` _starts with_ `/admin`. Na seção **Behaviors**, selecione _Deny (403 Forbidden)_ e selecione **Save**.
-
-  </DocStep>
-</DocSteps>
-
-</Fragment>
-
-<Fragment slot="panel.api">
-
-Para criar a lista de países:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/network_lists \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{"name":"audit-served-countries","type":"countries","items":["BR","US"]}'
-```
-
-Para criar a lista da equipe:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/network_lists \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{"name":"audit-team-addresses","type":"ip_cidr","items":["203.0.113.0/24 #security team office"]}'
-```
-
-Cada chamada responde `201` com um `state` igual a `executed` e o `id` da lista. Para criar a regra de país:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/firewalls/<firewall-id>/request_rules \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "name": "audit - deny countries not served",
-  "active": true,
-  "criteria": [
-    [{ "variable": "${network}", "conditional": "if", "operator": "is_not_in_list", "argument": <countries-list-id> }]
-  ],
-  "behaviors": [{ "type": "deny" }]
-}'
-```
-
-Para criar a regra de administração, com os dois critérios em um bloco:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/firewalls/<firewall-id>/request_rules \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "name": "audit - restrict admin to the team",
-  "active": true,
-  "criteria": [
-    [
-      { "variable": "${network}", "conditional": "if", "operator": "is_not_in_list", "argument": <team-list-id> },
-      { "variable": "${request_uri}", "conditional": "and", "operator": "starts_with", "argument": "/admin" }
-    ]
-  ],
-  "behaviors": [{ "type": "deny" }]
-}'
-```
-
-Cada chamada responde `202` com um `state` igual a `pending` e a regra como foi armazenada.
-
-</Fragment>
-</Tabs>
-
-Um cliente de um país fora da lista, e uma requisição a `/admin` de fora da rede da equipe, recebem cada um `403` assim que as regras se propagam, de 6 a 10 minutos depois de salvas.
-
----
-
-## Configure a exportação de eventos
+### Exportação de eventos
 
 O stream lê a fonte de dados _Applications_ com o template _Applications + WAF Event Collector_, `184` na API. Cada linha de log carrega então a requisição, a resposta e o endereço do cliente, com o score do WAF, as regras correspondidas e a action da mesma requisição, então uma linha responde à pergunta de um auditor sobre uma requisição. O stream filtra pelo workload da aplicação em vez de usar amostragem, então toda requisição é exportada e os outros streams da conta continuam ativos.
 
 Real-Time Events guarda cada registro por 7 dias, então a evidência de um período de auditoria vem do destino, que guarda as linhas pelo tempo que a equipe o configurar para guardar.
-
-Crie o stream como [Envie registros de requisições e do WAF a um SIEM](/pt-br/documentacao/guias/plataforma/observabilidade/enviar-registros-de-requisicoes-e-waf-a-um-siem/) descreve, com estes valores:
-
-- **Nome**: `audit-events`.
-- **Filtro de workload**: o workload da aplicação.
-- **Endpoint**: _Apache Kafka_, com `kafka1.example.com:9092` em **Bootstrap Servers**, `azion.audit` em **Kafka Topic** e TLS ativado.
-
-Na API, a entrada de `outputs` é:
-
-```json
-{ "type": "kafka", "attributes": { "bootstrap_servers": "kafka1.example.com:9092", "kafka_topic": "azion.audit", "use_tls": true } }
-```
-
-O stream é ativado de um a dois minutos depois de salvo e envia um lote a cada 60 segundos, ou antes, ao atingir 2.000 linhas de log.
-
----
-
-## Verifique a configuração
-
-Uma regra nova chega ao tráfego de 6 a 10 minutos depois de salva. Repita cada requisição até a resposta se manter.
-
-- **HTTP simples é redirecionado.** Requisite o domínio por HTTP:
-
-  ```bash
-  curl -s -o /dev/null -w '%{redirect_url}\n' http://www.example.com/
-  ```
-
-  O comando imprime `https://www.example.com/`.
-
-- **O caminho de administração responde só à equipe.** A partir de um endereço fora de `203.0.113.0/24`, requisite `/admin`:
-
-  ```bash
-  curl -s -o /dev/null -w '%{http_code}\n' https://www.example.com/admin
-  ```
-
-  O comando imprime `403`. A mesma requisição a partir da rede da equipe alcança a aplicação.
-
-- **Países fora da lista são recusados.** Uma requisição de um cliente resolvido para um país fora de `audit-served-countries` recebe `403`, com a página de erro padrão da Azion, que mostra o endereço do cliente e o request ID.
-
-- **Os padrões de ataque são filtrados.** Envie `https://www.example.com/?q=1%27%20OR%20%271%27%3D%271`. Com a regra de WAF em _Blocking_, a resposta é `400`.
-
-- **Todo envio chega ao destino.** No Real-Time Events, a fonte de dados _Data Stream_ lista cada envio de `audit-events`, e um **Status Code** `200` significa que o destino aceitou o lote. No destino, uma linha carrega chaves como `waf_score` e `waf_match`.
 
 ---
 
@@ -300,5 +133,9 @@ Uma regra nova chega ao tráfego de 6 a 10 minutos depois de salva. Repita cada 
 
 <DocCardGroup cols={2}>
   <DocCard title="Redirecione HTTP para HTTPS" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/redirecionar-http-para-https/" label="Crie a regra da application que redireciona cada requisição HTTP simples para HTTPS." />
+  <DocCard title="Negue requisições de uma lista de países" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/negar-paises/" label="Crie audit-served-countries, e confirme que um cliente de um país fora dela recebe 403." />
+  <DocCard title="Permita somente os endereços de uma lista" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/allowlist/" label="Crie audit-team-addresses e uma regra cujo operador does not match recusa todo cliente fora de uma lista." />
+  <DocCard title="Proteja um caminho com uma network list" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/proteger-um-caminho/" label="Una um critério Request Uri ao critério Network, para que a regra de administração aja só em /admin." />
   <DocCard title="Envie registros de requisições e do WAF a um SIEM" href="/pt-br/documentacao/guias/plataforma/observabilidade/enviar-registros-de-requisicoes-e-waf-a-um-siem/" label="Crie o stream que exporta cada requisição com as suas variáveis do WAF ao destino que guarda a evidência." />
+  <DocCard title="Aplique um rule set a toda requisição" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/aplicar-rule-set/" label="Aplique o WAF rule set a toda requisição, o controle de camada de aplicação que a auditoria pede." />
 </DocCardGroup>

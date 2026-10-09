@@ -16,11 +16,10 @@ Este caso de uso não cobre bibliotecas sob demanda, inserção de anúncios nem
 
 ## Pré-requisitos
 
+- Uma conta Azion. Se você ainda não tem uma, [crie uma conta](https://console.azion.com/signup).
 - Uma aplicação que serve apenas a transmissão, atrás de um workload. Para criar os dois, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
 - Um hostname para a transmissão que aponta para o workload. Para criar o registro, no Edge DNS ou no seu provedor de DNS, consulte [Aponte um domínio para um workload](/pt-br/documentacao/guias/plataforma/migracao/apontar-dominio-para-a-azion/).
 - Um encoder que envia RTMP com autenticação por usuário e senha, e as URLs de ingestão e as credenciais que a Azion fornece para um endpoint primário e um de backup. Para o requisito, consulte [Ingestão](/pt-br/documentacao/plataforma/connectors/live-ingest/ingestao-e-entrega/#ingestao).
-- Um personal token, para o procedimento pela API e as consultas GraphQL. Para criar um, consulte [Personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
-- Os valores do seu evento. Esta página usa `live.example.com` para o hostname da transmissão, `/<stream>.m3u8` para o caminho da playlist dela e `br-east-1` para a região, para um encoder em um local de evento no Brasil. Substitua cada valor pelo seu em todas as etapas.
 
 ---
 
@@ -63,7 +62,7 @@ Leia o diagrama como dois fluxos que se encontram no connector. O fluxo de inges
 5. Enquanto uma cópia em cache é válida, Cache responde todos os espectadores com ela, e apenas uma cópia expirada ou ausente é buscada pelo connector. O player lê a playlist de novo para encontrar os novos segmentos e busca cada um da mesma forma.
 6. Real-Time Metrics conta os usuários conectados da transmissão e as requisições que a aplicação respondeu.
 
-### Componentes
+### Recursos de Plataforma
 
 - **Live Ingest**: o Produto que recebe a transmissão RTMP do encoder em uma região e a converte em HLS. A região é o atributo de um connector do tipo `live_ingest` e decide onde a transmissão entra na Azion, não onde os espectadores se conectam.
 - **aplicação**: o Platform Resource que entrega a transmissão. A regra dela com _Set Connector_ envia as requisições dos espectadores ao connector do Live Ingest, e ela é alcançada pelo hostname de um workload.
@@ -77,27 +76,15 @@ Leia o diagrama como dois fluxos que se encontram no connector. O fluxo de inges
 
 ---
 
-## Configure o connector do Live Ingest
+## Como o design funciona
+
+Esta seção explica as três partes do design que levam a transmissão do encoder aos espectadores: o connector do Live Ingest, a entrega a partir do Live Ingest e o encoder.
+
+### Connector do Live Ingest
 
 O connector do Live Ingest é onde a transmissão entra na Azion. Ele carrega uma configuração, a região, e a região decide para onde o encoder envia a transmissão, não onde os espectadores se conectam. Esta página usa `br-east-1` porque o encoder está em um local de evento no Brasil: a região mais próxima do encoder encurta o caminho que a transmissão percorre antes que a Azion a receba. A região aceita `us-east-1`, `us-east-2`, `br-east-1`, `br-east-2` e `br-east-3`.
 
-Crie o connector como [Entregue uma transmissão ao vivo a partir do Live Ingest](/pt-br/documentacao/guias/midia-e-streaming/streaming/entregar-uma-transmissao-ao-vivo-do-live-ingest/#crie-o-connector-do-live-ingest) descreve, com estes valores:
-
-- **Name**: `live-ingest-br`, que a regra de entrega seleciona.
-- **Type**: _Live Ingest_, `live_ingest` na API.
-- **Region**: `br-east-1`, a região mais próxima do local do evento.
-
-Na API, o corpo de `POST /v4/workspace/connectors` é:
-
-```json
-{"name":"live-ingest-br","type":"live_ingest","attributes":{"region":"br-east-1"}}
-```
-
-A API responde `202` com `"state": "pending"`. O connector existe na sua conta em `br-east-1`, e nenhuma requisição de espectador chega a ele até que uma regra da aplicação o nomeie.
-
----
-
-## Configure a entrega a partir do Live Ingest
+### Entrega a partir do Live Ingest
 
 A regra de entrega envia as requisições dos espectadores ao connector do Live Ingest. A aplicação em `live.example.com` serve apenas a transmissão, então a regra corresponde a todos os caminhos. Quando a regra nomeia um connector do Live Ingest, a Azion adiciona a ela o behavior _Enforce HLS cache_. Esse behavior ignora as cache settings da aplicação e aplica a política de cache que a Azion define para HLS ao vivo: a playlist e os segmentos recebem tempos de cache diferentes, porque um muda e o outro não.
 
@@ -117,73 +104,25 @@ flowchart TD
 3. Um segmento fica em cache por 60 segundos, porque é escrito uma vez e nunca muda.
 4. Quando uma cópia expira, a próxima requisição busca o arquivo pelo connector, e uma cópia volta a responder todos os espectadores.
 
-Crie a regra como [Entregue uma transmissão ao vivo a partir do Live Ingest](/pt-br/documentacao/guias/midia-e-streaming/streaming/entregar-uma-transmissao-ao-vivo-do-live-ingest/#envie-as-requisicoes-dos-espectadores-ao-connector) descreve, com estes valores:
-
-- **Name**: `live - send to Live Ingest`, na Request Phase.
-- **Criterion**: `${uri}` starts with `/`, porque a aplicação em `live.example.com` serve apenas a transmissão.
-- **Behavior**: _Set Connector_, nomeando `live-ingest-br`.
-
-A regra carrega _Set Connector_ e _Enforce HLS cache_. Não adicione _Set Cache Policy_ a ela: _Enforce HLS cache_ ignora as cache settings da aplicação, então uma cache setting nessas requisições não tem efeito. Uma regra nova leva alguns minutos para se propagar.
-
----
-
-## Configure o encoder
+### Encoder
 
 As configurações do encoder decidem quais players podem reproduzir a transmissão e como a saída HLS é cortada em segmentos. Live Ingest recebe a transmissão por RTMP com autenticação por usuário e senha, então apenas um encoder que tem as credenciais publica no endpoint. A transmissão que o encoder envia é a fonte de todo arquivo que os espectadores buscam.
 
-Configure o encoder com estes valores:
+Cada configuração do encoder tem o seu motivo:
 
-| Configuração | Valor | Por quê |
-| --- | --- | --- |
-| Protocolo | RTMP, com autenticação por usuário e senha | O único protocolo que Live Ingest recebe |
-| URL de ingestão e credenciais primárias | As que a Azion fornece para o endpoint primário | O endpoint que recebe a transmissão |
-| URL de ingestão e credenciais de backup | As que a Azion fornece para o endpoint de backup | Ele assume a transmissão se o primário falhar |
-| Codec de vídeo | H.264 | Ampla compatibilidade com players |
-| Codec de áudio | AAC | Ampla reprodução |
-| Intervalo de keyframes | 2 segundos | Adequado à saída HLS que os espectadores recebem |
-| Bitrate | O bitrate que as conexões da sua audiência conseguem sustentar | Ele equilibra a qualidade e os espectadores que conseguem reproduzir a transmissão |
+- **Protocolo**: RTMP, com autenticação por usuário e senha, o único protocolo que Live Ingest recebe.
+- **URL de ingestão e credenciais primárias**: as que a Azion fornece para o endpoint primário, o endpoint que recebe a transmissão.
+- **URL de ingestão e credenciais de backup**: as que a Azion fornece para o endpoint de backup, que assume a transmissão se o primário falhar.
+- **Codec de vídeo**: H.264, para ampla compatibilidade com players.
+- **Codec de áudio**: AAC, para ampla reprodução.
+- **Intervalo de keyframes**: 2 segundos, adequado à saída HLS que os espectadores recebem.
+- **Bitrate**: o bitrate que as conexões da sua audiência conseguem sustentar, que equilibra a qualidade e os espectadores que conseguem reproduzir a transmissão.
+
+Para o raciocínio por trás de cada configuração, consulte [Configure o encoder para a entrega em HLS](/pt-br/documentacao/plataforma/connectors/boas-praticas/#configure-o-encoder-para-a-entrega-em-hls).
 
 A Azion pode exigir um encoder, uma configuração e um endpoint suportados ou aprovados. Confirme com o [suporte da Azion](/pt-br/documentacao/suporte/) que o seu encoder se qualifica antes do evento.
 
-Inicie o encoder. A transmissão entra no Live Ingest em `br-east-1`, e a aplicação em `live.example.com` serve a playlist e os segmentos dela aos espectadores.
-
----
-
-## Verifique a configuração
-
-Cada verificação de cache envia uma requisição com o header `Pragma: azion-debug-cache`, que faz a resposta trazer o header `x-cache`. Para saber como lê-lo, consulte [Verifique o status de cache de uma resposta](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/verificar-tempo-de-cache-da-pagina/). Execute as verificações enquanto o encoder estiver transmitindo.
-
-- **O hostname resolve para o workload.** Consulte o hostname da transmissão:
-
-  ```bash
-  dig +short live.example.com
-  ```
-
-  Quando os resolvers obtêm um registro `CNAME`, a resposta lista o domínio do workload que você inseriu como valor dele.
-
-- **A regra de entrega carrega a política de cache ao vivo.** Abra a regra `live - send to Live Ingest` na aba **Rules Engine**. Os behaviors dela são _Set Connector_, nomeando `live-ingest-br`, e _Enforce HLS cache_.
-
-- **A playlist responde pelo cache.** Requisite a playlist duas vezes em até 5 segundos:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" https://live.example.com/<stream>.m3u8
-  ```
-
-  A segunda resposta traz `x-cache: HIT`. A primeira pode trazer `MISS`, enquanto a aplicação busca a playlist pelo connector.
-
-- **Um segmento responde pelo cache.** Pegue o nome de um segmento no corpo da playlist e requisite-o duas vezes em até 60 segundos:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" https://live.example.com/<segment>.ts
-  ```
-
-  A segunda resposta traz `x-cache: HIT`.
-
-- **Os espectadores conseguem reproduzir a transmissão.** Carregue `https://live.example.com/<stream>.m3u8` em um player HLS, como a configuração do hls.js em [Boas práticas de Connectors](/pt-br/documentacao/plataforma/connectors/boas-praticas/#de-ao-player-um-fallback-para-erros-de-carregamento). O player inicia a transmissão e continua avançando conforme o encoder a envia.
-
-- **A audiência é contada.** Consulte o dataset `connectedUsersMetrics` para `live.example.com`, como [Consulte os usuários conectados do Live Ingest](/pt-br/documentacao/guias/plataforma/observabilidade/query-dados-connected-users-com-graphql/) mostra. A API responde `200`, e `data.connectedUsersMetrics` traz linhas para o tempo em que o player esteve conectado.
-
-Uma regra que parece não ter efeito ainda pode estar se propagando. Quando isso persistir depois de alguns minutos, ative [Debug Rules](/pt-br/documentacao/plataforma/applications/main-settings/#debug-rules) para ver quais regras foram executadas na requisição.
+Quando o encoder inicia, a transmissão entra no Live Ingest em `br-east-1`, e a aplicação em `live.example.com` serve a playlist e os segmentos dela aos espectadores.
 
 ---
 
@@ -212,4 +151,5 @@ Uma regra que parece não ter efeito ainda pode estar se propagando. Quando isso
 <DocCardGroup cols={2}>
   <DocCard title="Entregue uma transmissão ao vivo a partir do Live Ingest" href="/pt-br/documentacao/guias/midia-e-streaming/streaming/entregar-uma-transmissao-ao-vivo-do-live-ingest/" label="Cria o connector live-ingest-br e a regra que envia as requisições dos espectadores a ele." />
   <DocCard title="Aponte um domínio para um workload" href="/pt-br/documentacao/guias/plataforma/migracao/apontar-dominio-para-a-azion/" label="Cria o registro que envia live.example.com ao workload e confirma que o hostname resolve." />
+  <DocCard title="Consulte os usuários conectados do Live Ingest" href="/pt-br/documentacao/guias/plataforma/observabilidade/query-dados-connected-users-com-graphql/" label="Conta as sessões únicas de live.example.com, que confirmam que a audiência é contada." />
 </DocCardGroup>

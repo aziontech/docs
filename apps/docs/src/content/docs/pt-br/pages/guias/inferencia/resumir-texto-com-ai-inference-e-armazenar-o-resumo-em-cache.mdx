@@ -1,0 +1,136 @@
+---
+title: Resuma texto com AI Inference e armazene o resumo em cache
+description: >-
+  Resuma um texto com um modelo do catálogo do AI Inference a partir de uma
+  function e devolva o mesmo resumo da Cache API para o mesmo texto.
+meta_tags: 'resumo, AI Inference, Azion.AI.run, Cache API, SHA-256, functions, Qwen3 30B A3B Instruct, max_tokens'
+namespace: docs_guides_summarize_text_with_ai_inference_and_cache_the_summary
+permalink: /documentacao/guias/ai/inferencia/resumir-texto-com-ai-inference-e-armazenar-o-resumo-em-cache/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Você resume um texto com um modelo do catálogo do AI Inference a partir de uma function e armazena cada resumo com a Cache API sob o SHA-256 do texto, então um texto repetido é respondido sem nenhuma chamada ao modelo. Para chamar um modelo de chat sem cache, consulte [Chame um modelo no AI Inference a partir de uma function](/pt-br/documentacao/guias/ai/inferencia/chamar-um-modelo-no-ai-inference-a-partir-de-uma-function/).
+
+---
+
+## Pré-requisitos
+
+- Uma aplicação com o Application Accelerator ativado, que o behavior **Run Function** exige. Para criar uma, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+- O id do modelo a chamar, copiado da página dele em [Modelos de AI](/pt-br/documentacao/plataforma/ai-inference/modelos/).
+
+A Cache API não é definida no `azion dev`, então teste a function depois que ela estiver em execução na aplicação.
+
+Os exemplos usam `/api/summarize` para a rota, `ai-summarize` para a function e a sua instância e `www.example.com` para o domínio em que a sua aplicação responde. Substitua-os pelos seus valores.
+
+---
+
+## Crie a function de resumo
+
+A function recusa um texto ausente com `400` e um texto com mais de 20.000 caracteres com `413` antes de qualquer chamada ao modelo. Ela procura o SHA-256 do texto no cache `ai-summarize`, chama o modelo quando não encontra e armazena o resumo por um dia.
+
+Crie uma function chamada `ai-summarize` com este código:
+
+```javascript
+const MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8";
+const MAX_CHARS = 20000;
+const CACHE_SECONDS = 86400;
+
+async function sha256(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+    const { text } = await request.json();
+    if (typeof text !== "string" || text.trim() === "") {
+      return Response.json({ error: "text is required" }, { status: 400 });
+    }
+    if (text.length > MAX_CHARS) {
+      return Response.json({ error: `text is longer than ${MAX_CHARS} characters` }, { status: 413 });
+    }
+
+    const cache = await caches.open("ai-summarize");
+    const cacheKey = `https://ai-summarize.cache/${await sha256(text)}`;
+    const hit = await cache.match(cacheKey);
+    if (hit) {
+      return new Response(await hit.text(), {
+        headers: { "Content-Type": "application/json", "x-summary-cache": "hit" }
+      });
+    }
+
+    const modelResponse = await Azion.AI.run(MODEL, {
+      "stream": false,
+      "max_tokens": 300,
+      "messages": [
+        { "role": "system", "content": "Summarize the user's text in at most three sentences. Use only facts the text states." },
+        { "role": "user", "content": text }
+      ]
+    });
+    const summary = modelResponse?.choices?.[0]?.message?.content?.trim();
+    if (!summary) {
+      return Response.json({ error: "the model returned no summary" }, { status: 502 });
+    }
+
+    const body = JSON.stringify({ summary });
+    await cache.put(cacheKey, new Response(body, {
+      headers: { "Content-Type": "application/json", "cache-control": `max-age=${CACHE_SECONDS}` }
+    }));
+    return new Response(body, {
+      headers: { "Content-Type": "application/json", "x-summary-cache": "miss" }
+    });
+  },
+};
+```
+
+Para criar a function e a sua instância, siga [Primeiros passos com Functions](/pt-br/documentacao/plataforma/functions/primeiros-passos/) com o nome `ai-summarize` e dê à instância na sua aplicação o nome `ai-summarize`, sem Args.
+
+A aplicação tem uma instância `ai-summarize` que retorna o resumo de um texto, a partir do cache quando o mesmo texto foi resumido no último dia.
+
+O caso de uso [Adicionar funcionalidades de IA a aplicações existentes](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/adicionar-funcionalidades-de-ia-a-aplicacoes-existentes/) usa os valores deste exemplo.
+
+---
+
+## Execute a function na rota
+
+A regra corresponde exatamente a `/api/summarize`, então nenhum outro caminho da sua aplicação executa a function, e é executada na Request Phase, porque a function produz a resposta inteira.
+
+Crie a regra como mostra [Adicione a regra que executa a função](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/funcoes-serverless/#adicione-a-regra-que-executa-a-funcao), com o nome `ai - summarize`, o critério `${uri}` _is equal_ `/api/summarize` e o behavior **Run Function** selecionando a instância `ai-summarize`.
+
+Um `POST` para `/api/summarize` no seu domínio executa a function, e todos os outros caminhos mantêm as regras que tinham. Uma regra nova leva alguns minutos para se propagar.
+
+---
+
+## Confirme que a rota retorna um resumo
+
+Para enviar um texto à rota:
+
+```bash
+curl -s -i -X POST https://www.example.com/api/summarize \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"<a paragraph of your own content>"}'
+```
+
+A resposta traz `x-summary-cache: miss` e um corpo JSON com `summary`. Envie a mesma requisição de novo: a resposta traz `x-summary-cache: hit` e o mesmo `summary`. Envie `{"text":""}`: a resposta é `400` com `text is required`, que a function retorna antes da chamada ao modelo.
+
+A rota retorna o resumo de um texto e responde o mesmo texto a partir do cache por um dia.
+
+Estas verificações confirmam o caso de uso [Adicionar funcionalidades de IA a aplicações existentes](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/adicionar-funcionalidades-de-ia-a-aplicacoes-existentes/).
+
+No caso de uso [Adicionar funcionalidades de IA a aplicações existentes](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/adicionar-funcionalidades-de-ia-a-aplicacoes-existentes/), espere:
+
+- **A rota é executada apenas no seu caminho.** Qualquer outro caminho da sua aplicação responde como respondia antes de a regra existir.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Armazene em cache a resposta de uma function com a Cache API" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/" label="Monte uma chave de cache para uma requisição e exclua uma entrada depois de uma escrita." />
+  <DocCard title="Adicionar funcionalidades de IA a aplicações existentes" href="/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/adicionar-funcionalidades-de-ia-a-aplicacoes-existentes/" label="O design a que esta function serve: o modelo, o limite de entrada e o tempo de cache, com o motivo de cada um." />
+</DocCardGroup>

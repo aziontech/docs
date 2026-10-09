@@ -16,11 +16,9 @@ This use case does not cover rewriting the application onto functions on Azion. 
 
 ## Prerequisites
 
+- An Azion account. If you do not have one, [create an account](https://console.azion.com/signup).
 - An application that serves the site through a connector to the old origin, a rule that sends every request to that connector, and a workload. To create the application and the workload, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/). To create the connector and the rule, refer to [Connect an application to an origin](/en/documentation/guides/application-development/getting-started/work-with-origins/).
-- A personal token, for the API and the GraphQL queries. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
 - Two origins that hold the same application and answer HTTPS on port `443` for the site's hostname. Every address of a connector receives the same `Host` header, so both origins must answer for the name the visitor requested.
-- A response header that tells the two origins apart, such as the `server` header each one sends, for the checks in Verify the setup.
-- The values of your migration. This page uses `www.example.com` for the site, `old-origin.example.com` and `new-origin.example.com` for the two origins, and `<new-origin-ip>` for the IP address that `new-origin.example.com` resolves to, which the event filters match on. Replace each value with yours in every step.
 
 ---
 
@@ -65,7 +63,7 @@ Read the diagram as two loops. The request loop runs from the visitor through on
 5. While the new origin shows no new errors, the team raises its weight at the next step. When errors appear, the team turns the new address off, and every request returns to the old origin once the change reaches each data center.
 6. When the new origin carries the traffic with no new errors, the team turns the old address off, and every request reaches the new origin.
 
-### Components
+### Platform Resources
 
 - **connector**: the Platform Resource that groups the old and the new origin as addresses. One connector keeps the rule that names it unchanged through the migration, and its single `Host` setting means both origins must answer for the same name.
 - **Load Balancer**: chooses the address of each request. Weights from 1 to 100 set each origin's share under _Round Robin_, the **Active** switch takes an address out of rotation for a rollback or the cutover, and _IP Hash_ keeps a client IP address on one origin when sessions live in one server's memory.
@@ -79,7 +77,11 @@ Read the diagram as two loops. The request loop runs from the visitor through on
 
 ---
 
-## Configure the origin pool
+## How the design works
+
+This section explains how the origin pool, the weight schedule, and the rollback and the cutover move traffic to the new origin without downtime.
+
+### The origin pool
 
 The origin pool is the existing connector, with Load Balancer turned on and the new origin added as a second address. The rule that sends requests to the connector stays as it is, so the migration never touches the application or DNS.
 
@@ -87,31 +89,9 @@ The first step sends about one request in a hundred to the new origin: weight `9
 
 The **Host** becomes `${host}`, the host the visitor requested, because one connector sends the same `Host` header to both addresses. A literal old-origin hostname would reach the new origin under a name it may not answer for. **Max Retries**, **Connection Timeout**, and **Read/Write Timeout** take the values the Console fills in, `3`, `30`, and `60`, so that both interfaces produce the same connector. The API defaults are `0`, `60`, and `120` when the body leaves them out.
 
-The pool is built as [Put both origins on the connector](/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/#put-both-origins-on-the-connector) describes, on the connector that reaches `old-origin.example.com`, with these values:
-
-| Setting | Value |
-| --- | --- |
-| **Host** | `${host}` |
-| **Transport Protocol Policy** | _Force HTTPS_, because both origins answer HTTPS on port `443` |
-| **Method** | _Round Robin_ |
-| **Max Retries**, **Connection Timeout**, **Read/Write Timeout** | `3`, `30`, and `60` |
-| `old-origin.example.com` | **Server Role** _Primary_, **Weight** `99` |
-| `new-origin.example.com` | **Server Role** _Primary_, **Weight** `1` |
-
-The connector holds two active addresses and sends about one request in a hundred to the new origin. A connector change takes several minutes to reach every data center, and until then some requests reach the old origin alone.
-
----
-
-## Configure the weight schedule
+### The weight schedule
 
 The weight schedule moves traffic in steps, and each step changes only the two weights. Hold each step long enough for the new origin to serve the requests that expose its faults, such as a full hour bucket in Real-Time Metrics, before you take the next one.
-
-| Step | Old origin weight | New origin weight | Share on the new origin |
-| --- | --- | --- | --- |
-| 1 | `99` | `1` | About 1 in 100 |
-| 2 | `90` | `10` | About 1 in 10 |
-| 3 | `50` | `50` | About half |
-| 4 | `10` | `90` | About 9 in 10 |
 
 The weights of each step add up to 100, so each weight reads as a percentage. The schedule stops at `10` for the old origin, because a weight cannot be `0`. The last move to the new origin is a change to the **Active** switch, described in the next section.
 
@@ -131,66 +111,14 @@ flowchart TD
 3. When errors appear, roll back by turning the new address off.
 4. After step 4 holds with no new errors, turn the old address off to finish.
 
-Each step is the procedure that [Change the weights](/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/#change-the-weights) describes, with the two weights of the step from the table. In the API, step 2 sends this `addresses` list, and the Load Balancer configuration stays as it is:
-
-```json
-[
-  { "address": "old-origin.example.com", "modules": { "load_balancer": { "server_role": "primary", "weight": 90 } } },
-  { "address": "new-origin.example.com", "modules": { "load_balancer": { "server_role": "primary", "weight": 10 } } }
-]
-```
-
-The new origin receives the share of the step once the change reaches each data center. During the spread, some data centers still apply the previous weights.
-
----
-
-## Configure the rollback and the cutover
+### The rollback and the cutover
 
 Both the rollback and the cutover turn one address off with its **Active** switch. An address that is off stays on the connector with its role and weight, so turning it back on restores the step it left.
 
 - **Rollback** turns `new-origin.example.com` off. Every request then reaches the old origin, and the new origin keeps its weight for the next attempt.
 - **Cutover** turns `old-origin.example.com` off after step 4. Every request then reaches the new origin, and the old address stays on the connector as a way back until you remove it.
 
-The change takes several minutes to spread, and data centers apply it at different times. Keep the origin you turned off answering until no request reaches it, which the event check in Verify the setup shows.
-
-Both moves are the procedure that [Take an origin out of rotation](/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/#take-an-origin-out-of-rotation) describes. A rollback turns off **Active** on `new-origin.example.com`, and a cutover turns it off on `old-origin.example.com`. In the API, the body lists both addresses with the weights of the current step, and `"active": false` on the address that leaves.
-
-After a rollback, the new address receives no request once every data center holds the change. After a cutover, the old address receives none.
-
----
-
-## Verify the setup
-
-- **Both origins answer.** Send the same request several times and read the header that tells the origins apart:
-
-  ```bash
-  curl -s -D - -o /dev/null https://www.example.com/
-  ```
-
-  At step 3, about half of the answers carry the new origin's header. At step 1, most runs show only the old origin's header, because one request in a hundred goes to the new one. The answers come in no fixed order.
-
-- **The new origin receives its share.** Query the requests of one hour grouped by upstream address. Replace the token, the hour, and the hostname:
-
-  ```bash
-  curl -X POST 'https://api.azion.com/v4/metrics/graphql' \
-    -H 'Content-Type: application/json' \
-    -H 'Authorization: Token [TOKEN VALUE]' \
-    -d '{"query":"query OriginShare { workloadBreakdownMetrics(aggregate: { sum: requests }, groupBy: [upstreamAddr], orderBy: [sum_DESC], limit: 10, filter: { tsGte: \"2026-10-05T13:00:00\", tsLt: \"2026-10-05T14:00:00\", hostEq: \"www.example.com\" }) { upstreamAddr total: sum } }"}'
-  ```
-
-  The API answers `200` with one row per upstream address, in the form `{"data":{"workloadBreakdownMetrics":[{"upstreamAddr":"<new-origin-ip>:443","total":<requests>}, …]}}`. The new origin's total against the sum of all rows tracks the share of the step.
-
-- **No new errors on the new origin.** In [Azion Console](https://console.azion.com/) > **Real-Time Events**, select the _HTTP Requests_ data source and a period that covers the step, and enter this filter in **Filter by**:
-
-  ```text
-  upstream_addr like '%<new-origin-ip>%' AND upstream_status='502'
-  ```
-
-  An empty result means that no request to the new origin ended with `502`. Repeat the filter with the other `5xx` codes your origin can return.
-
-- **The rollback holds.** After a rollback, run the filter `upstream_addr like '%<new-origin-ip>%'` over the minutes after the change. The newest records stop once every data center holds the change.
-
-A step that seems to have no effect may still be propagating. Repeat the check after a few minutes before you change the weights again.
+The change takes several minutes to spread, and data centers apply it at different times. Keep the origin you turned off answering until no request reaches it, which the Real-Time Events records of its address show.
 
 ---
 
@@ -217,6 +145,6 @@ A step that seems to have no effect may still be propagating. Repeat the check a
 ## Guides in this use case
 
 <DocCardGroup cols={2}>
-  <DocCard title="Shift traffic between two origins by weight" href="/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/" label="Puts both origins on the connector, changes the weights at each step, and takes an origin out of rotation for the rollback or the cutover." />
+  <DocCard title="Shift traffic between two origins by weight" href="/en/documentation/guides/application-performance/availability/shift-traffic-between-two-origins-by-weight/" label="Puts both origins on the connector, changes the weights at each step, takes an origin out of rotation for the rollback or the cutover, and measures the share and the errors of each origin." />
   <DocCard title="Connect an application to an origin" href="/en/documentation/guides/application-development/getting-started/work-with-origins/" label="Creates the connector to the old origin and the rule that sends every request to it, before the migration starts." />
 </DocCardGroup>

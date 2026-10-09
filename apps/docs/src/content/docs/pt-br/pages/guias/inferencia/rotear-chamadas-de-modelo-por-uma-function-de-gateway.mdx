@@ -1,0 +1,301 @@
+---
+title: Roteie chamadas de modelo por uma function de gateway
+description: >-
+  Coloque uma function na frente do AI Inference e de um provedor de terceiros
+  que autentica equipes, roteia por alias, faz fallback, usa cache e registra.
+meta_tags: 'AI gateway, gateway de modelos, roteamento de LLM, fallback, AI Inference, LLM de terceiros, KV Store, Cache API, functions, variáveis de ambiente'
+namespace: docs_guides_route_model_calls_through_a_gateway_function
+permalink: /documentacao/guias/ai/inferencia/rotear-chamadas-de-modelo-por-uma-function-de-gateway/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Você roteia as chamadas de modelo de várias equipes por uma function: ela lê o registro de cada equipe no KV Store, chama as rotas de um alias de modelo em ordem, primeiro um modelo no AI Inference e um provedor de terceiros quando ele falha, armazena em cache as respostas que quem chama permite e grava uma linha de log por chamada. Para chamar um único modelo a partir de uma function antes, consulte [Chame um modelo no AI Inference a partir de uma function](/pt-br/documentacao/guias/ai/inferencia/chamar-um-modelo-no-ai-inference-a-partir-de-uma-function/).
+
+---
+
+## Pré-requisitos
+
+- Uma aplicação e um workload que servem o domínio do gateway, com o **Application Accelerator** ativado, que o behavior **Run Function** exige. Para criá-los, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
+- KV Store habilitado na conta. O produto está em Preview e não vem habilitado por padrão, então solicite acesso pelo [Technical Support](/pt-br/documentacao/suporte/).
+- Um personal token, para a chamada ao KV Store. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- A [Azion CLI](/pt-br/documentacao/devtools/cli/), instalada e autorizada, para armazenar as variáveis de ambiente.
+- Um provedor de terceiros cujo endpoint de chat aceite o formato de chat completions da OpenAI, com a URL dele, um nome de modelo e uma API key.
+
+A Cache API não é definida no `azion dev`, então teste a function depois do deploy.
+
+Os exemplos usam `ai-gateway` para o namespace do KV Store, a function e o cache, `general` e `long-context` para os dois aliases de modelo que o gateway oferece, `checkout-team` para uma equipe e `gateway.example.com` para o domínio. Substitua-os pelos seus valores.
+
+---
+
+## Crie o namespace
+
+A function abre o namespace `ai-gateway` a cada requisição, então o namespace precisa existir antes que a function seja executada.
+
+Para criar o namespace, envie o nome dele à API do KV Store:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/kv/namespaces \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "ai-gateway"}'
+```
+
+A API responde `201` com o namespace. Um namespace não pode ser renomeado nem excluído, então confira o nome antes de enviá-lo:
+
+```json
+{
+  "name": "ai-gateway",
+  "created_at": "2026-01-01T12:00:00.000000",
+  "last_modified": "2026-01-01T12:00:00.000000"
+}
+```
+
+A conta guarda o namespace `ai-gateway`, vazio.
+
+O caso de uso [Governar o acesso a múltiplos modelos de IA](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/governar-o-acesso-a-multiplos-modelos-de-ia/) usa os valores deste exemplo.
+
+---
+
+## Armazene os valores que a function lê
+
+A chave do provedor e o segredo de administração ficam fora do código, como variáveis de ambiente.
+
+Para armazenar os valores que a function lê, execute estes comandos com a Azion CLI. Uma key que contém `key` ou `secret` é armazenada como secret por padrão:
+
+```bash
+azion create variables --key "PROVIDER_URL" --value "<provider-chat-completions-url>" --secret false
+azion create variables --key "PROVIDER_MODEL" --value "<provider-model-name>" --secret false
+azion create variables --key "PROVIDER_API_KEY" --value "<provider-api-key>"
+azion create variables --key "ADMIN_SECRET" --value "<admin-secret>"
+```
+
+A conta guarda as quatro variáveis que a function de gateway lê com `Azion.env.get()`.
+
+O caso de uso [Governar o acesso a múltiplos modelos de IA](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/governar-o-acesso-a-multiplos-modelos-de-ia/) usa os valores deste exemplo.
+
+---
+
+## Crie a function de gateway
+
+A function responde em `/v1/chat/completions` para as equipes e em `/admin/teams` para o operador, e todos os outros caminhos respondem `404`. O alias `fallback-test` indica um id de modelo que não existe, então toda chamada a ele faz fallback para o provedor.
+
+Crie uma function chamada `ai-gateway` com este código. A chamada ao provedor envia a chave como `Authorization: Bearer`; mude esse header para o que o seu provedor exige:
+
+```javascript
+const ROUTES = {
+  "general": [
+    { kind: "azion", model: "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8" },
+    { kind: "provider" }
+  ],
+  "long-context": [
+    { kind: "azion", model: "gpt-oss-20b" },
+    { kind: "provider" }
+  ],
+  "fallback-test": [
+    { kind: "azion", model: "no-such-model" },
+    { kind: "provider" }
+  ]
+};
+const PROVIDER_TIMEOUT_MS = 30000;
+const CACHE_SECONDS = 3600;
+
+async function sha256(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function callRoute(route, body) {
+  if (route.kind === "azion") {
+    const response = await Azion.AI.run(route.model, body);
+    if (!response?.choices?.length) throw new Error("no choices in the response");
+    return response;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+  try {
+    const response = await fetch(Azion.env.get("PROVIDER_URL"), {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${Azion.env.get("PROVIDER_API_KEY")}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ ...body, model: Azion.env.get("PROVIDER_MODEL") }),
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`provider answered ${response.status}`);
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function putTeam(request, kv) {
+  if (request.method !== "PUT") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+  if (request.headers.get("Authorization") !== `Bearer ${Azion.env.get("ADMIN_SECRET")}`) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  const { key, team, models, status } = await request.json();
+  if (!key || !team || !Array.isArray(models) || !["active", "blocked"].includes(status)) {
+    return Response.json({ error: "key, team, models, and status are required" }, { status: 400 });
+  }
+  await kv.put(`team:${await sha256(key)}`, { team, models, status });
+  return Response.json({ team, models, status });
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const kv = await Azion.KV.open("ai-gateway");
+    if (url.pathname === "/admin/teams") {
+      return putTeam(request, kv);
+    }
+    if (request.method !== "POST" || url.pathname !== "/v1/chat/completions") {
+      return new Response("Not found", { status: 404 });
+    }
+
+    const started = Date.now();
+    const auth = request.headers.get("Authorization") ?? "";
+    const teamKey = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    const team = teamKey ? await kv.get(`team:${await sha256(teamKey)}`, "json") : null;
+    if (!team) {
+      return Response.json({ error: "unknown team key" }, { status: 401 });
+    }
+    if (team.status !== "active") {
+      return Response.json({ error: "team budget reached" }, { status: 429 });
+    }
+
+    const { model: alias, ...body } = await request.json();
+    if (!ROUTES[alias] || !team.models.includes(alias)) {
+      return Response.json({ error: `model ${alias} is not allowed for ${team.team}` }, { status: 403 });
+    }
+    body.stream = false;
+
+    const cacheAllowed = request.headers.get("x-gateway-cache") === "allow";
+    const cache = await caches.open("ai-gateway");
+    const cacheKey = `https://ai-gateway.cache/${await sha256(JSON.stringify({ alias, body }))}`;
+    if (cacheAllowed) {
+      const hit = await cache.match(cacheKey);
+      if (hit) {
+        console.log(JSON.stringify({ event: "model_call", team: team.team, alias, route: null, ok: true, fallback: false, cache: "hit", total_tokens: 0, ms: Date.now() - started }));
+        return new Response(await hit.text(), {
+          headers: { "Content-Type": "application/json", "x-gateway-cache": "hit" }
+        });
+      }
+    }
+
+    let result = null;
+    let answered = null;
+    let attempts = 0;
+    for (const route of ROUTES[alias]) {
+      attempts++;
+      try {
+        result = await callRoute(route, body);
+        answered = route.model ?? "provider";
+        break;
+      } catch (error) {
+        console.log(JSON.stringify({ event: "route_failed", team: team.team, alias, route: route.model ?? "provider", error: String(error?.message ?? error) }));
+      }
+    }
+
+    console.log(JSON.stringify({
+      event: "model_call", team: team.team, alias, route: answered, ok: result !== null,
+      fallback: attempts > 1, cache: cacheAllowed ? "miss" : "off",
+      total_tokens: result?.usage?.total_tokens ?? 0, ms: Date.now() - started
+    }));
+    if (!result) {
+      return Response.json({ error: `every route of ${alias} failed` }, { status: 502 });
+    }
+
+    const text = JSON.stringify(result);
+    if (cacheAllowed) {
+      await cache.put(cacheKey, new Response(text, {
+        headers: { "Content-Type": "application/json", "cache-control": `max-age=${CACHE_SECONDS}` }
+      }));
+    }
+    return new Response(text, {
+      headers: { "Content-Type": "application/json", "x-gateway-route": answered }
+    });
+  },
+};
+```
+
+Para criar a function e a sua instância, siga [Primeiros passos com Functions](/pt-br/documentacao/plataforma/functions/primeiros-passos/) com o nome `ai-gateway` e dê à instância o nome `ai-gateway`, sem Args.
+
+A aplicação tem uma instância `ai-gateway` que autentica uma equipe, roteia a requisição dela por alias e registra a chamada.
+
+O caso de uso [Governar o acesso a múltiplos modelos de IA](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/governar-o-acesso-a-multiplos-modelos-de-ia/) usa os valores deste exemplo.
+
+---
+
+## Execute a function em todos os caminhos
+
+Crie uma regra de Request Phase como mostra [Adicione a regra que executa a função](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/funcoes-serverless/#adicione-a-regra-que-executa-a-funcao), com o nome `gateway - all paths`, o critério `${uri}` _starts with_ `/` e o behavior **Run Function** selecionando a instância `ai-gateway`.
+
+O gateway responde em `/v1/chat/completions` e `/admin/teams`, e todos os outros caminhos respondem `404`. Uma regra nova leva alguns minutos para se propagar.
+
+---
+
+## Adicione um registro de equipe
+
+As keys são gravadas a partir de uma function, e não pela API, então o caminho `/admin/teams` do gateway grava cada registro. Para adicionar uma equipe que pode chamar `general` e `fallback-test`, gere uma chave de equipe aleatória e envie-a com o segredo de administração:
+
+```bash
+curl -X PUT https://gateway.example.com/admin/teams \
+  -H 'Authorization: Bearer <admin-secret>' \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"<checkout-team-key>","team":"checkout-team","models":["general","fallback-test"],"status":"active"}'
+```
+
+O gateway responde com o registro que armazenou, sem a chave:
+
+```json
+{"team":"checkout-team","models":["general","fallback-test"],"status":"active"}
+```
+
+Entregue a chave da equipe à equipe uma única vez, porque o gateway guarda apenas o hash dela. Para bloquear a equipe, envie a mesma requisição com `"status":"blocked"`, e com `"status":"active"` para admiti-la de novo.
+
+O namespace `ai-gateway` guarda o registro de `checkout-team` sob o hash da chave dela.
+
+O caso de uso [Governar o acesso a múltiplos modelos de IA](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/governar-o-acesso-a-multiplos-modelos-de-ia/) usa os valores deste exemplo.
+
+---
+
+## Confirme que o gateway roteia, faz fallback e recusa
+
+Cada verificação envia uma requisição de chat com a chave de equipe de [Adicione um registro de equipe](#adicione-um-registro-de-equipe).
+
+Para enviar uma requisição para `general`:
+
+```bash
+curl -s -i -X POST https://gateway.example.com/v1/chat/completions \
+  -H 'Authorization: Bearer <checkout-team-key>' \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"general","max_tokens":200,"messages":[{"role":"user","content":"Name three European capitals."}]}'
+```
+
+A resposta traz `x-gateway-route: Qwen/Qwen3-30B-A3B-Instruct-2507-FP8` e um objeto `chat.completion` cujo texto gerado fica em `choices[0].message.content`.
+
+Envie a mesma requisição com `"model":"fallback-test"`. A resposta traz `x-gateway-route: provider`, e as linhas de log dessa requisição guardam uma linha `route_failed` para `no-such-model` e depois uma linha `model_call` com `"fallback":true`.
+
+Envie a requisição para `general` duas vezes com o header `x-gateway-cache: allow`. A segunda resposta traz `x-gateway-cache: hit`.
+
+Uma requisição sem o header `Authorization` responde `401`. Uma requisição para `long-context`, que `checkout-team` não pode chamar, responde `403`. Depois que você define o status da equipe como `blocked`, qualquer requisição com a chave dela responde `429`.
+
+O gateway roteia a requisição de cada equipe por alias, faz fallback quando uma rota falha e recusa o que o registro da equipe não permite. Remova o alias `fallback-test` de `ROUTES` e do registro da equipe depois que a verificação de fallback passar.
+
+Estas verificações confirmam o caso de uso [Governar o acesso a múltiplos modelos de IA](/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/governar-o-acesso-a-multiplos-modelos-de-ia/).
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Armazene em cache a resposta de uma function com a Cache API" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/" label="Monte uma chave de cache para uma requisição e exclua uma entrada depois de uma escrita." />
+  <DocCard title="Governar o acesso a múltiplos modelos de IA" href="/pt-br/documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/governar-o-acesso-a-multiplos-modelos-de-ia/" label="O design a que este gateway serve: os aliases, o timeout de fallback, o cache e o modelo de orçamento, com o motivo de cada um." />
+</DocCardGroup>

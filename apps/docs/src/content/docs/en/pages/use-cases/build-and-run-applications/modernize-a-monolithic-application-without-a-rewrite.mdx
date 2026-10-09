@@ -9,8 +9,6 @@ permalink: /documentation/use-cases/build-and-run-applications/modernize-a-monol
 ---
 import DocCardGroup from '@aziontech/webkit/doc-card-group'
 import DocCard from '@aziontech/webkit/doc-card'
-import DocSteps from '@aziontech/webkit/doc-steps'
-import DocStep from '@aziontech/webkit/doc-step'
 
 A platform or application team runs a monolithic application in its own data center or in a cloud region, and cannot afford to rewrite it in one project. The team puts an application on Azion in front of the monolith, so every route keeps reaching the monolith until the team moves it. This page moves one read route to a function on Azion that reads its data from SQL Database, while every other route still reaches the monolith through a connector, and rolls the route back by turning its rule off. The result is measured by the share of requests served without reaching the monolith, the latency of migrated routes, and zero downtime during each cut-over.
 
@@ -18,10 +16,9 @@ This use case does not cover moving the whole application to a new origin in one
 
 ## Prerequisites
 
+- An Azion account. If you do not have one, [create an account](https://console.azion.com/signup).
 - An application that serves the monolith through a connector, a rule that sends every request to that connector, and a workload. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
 - Application Accelerator on that application, which the **Run Function** behavior requires. To turn it on, refer to [Turn on Application Accelerator](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/#turn-on-application-accelerator). A new application has Functions on already.
-- A personal token, for the API calls. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
-- The values of your first route. This page moves `GET /api/stores`, a list of store locations, into a database named `stores-db` with a `stores` table, and uses `www.example.com` for the domain and `<monolith-ip>` for the IP address the monolith answers on. Replace each value with yours in every step.
 
 ---
 
@@ -65,7 +62,7 @@ Read the diagram from the application outward. Every request enters through the 
 5. Real-Time Metrics records the path and the upstream address of each request, where `127.0.0.1:1666` marks Azion Runtime and the monolith's address marks the routes it still serves.
 6. The team moves the next route with a new rule. To roll a route back, the team turns its rule off, and the next requests to that path match only the first rule and reach the monolith.
 
-### Components
+### Platform Resources
 
 - **application**: the Platform Resource that is the entry point for the domain. Every request crosses it, so a route can move without a DNS change or a client change.
 - **Rules Engine**: the Feature of the application that routes per path. A rule for every path names the connector, and one later rule per migrated route runs its function. Matching rules run in order, so the later rule wins for its path.
@@ -82,130 +79,26 @@ Read the diagram from the application outward. Every request enters through the 
 
 ---
 
-## Configure the route's data
+## How the design works
+
+This section explains the data of the migrated route, the function that answers it, and the rule that cuts the route over and rolls it back.
+
+### The route's data
 
 The migrated route reads its data from a table that the team writes through the Azion API. A function opens SQL Database on its read replica, so the route reads there and never writes. This page moves a read route whose data the team now owns in SQL Database: the `stores` table holds every store location, and the monolith no longer serves the list.
 
-Create the database and its table as [Query a database from a function](/en/documentation/guides/application-development/data/retrieve-data-with-functions/#create-the-database-and-the-table) describes, with the route's names and rows:
+### The migrated route
 
-<DocSteps>
-  <DocStep title="Create the database">
+The migrated route is a function that answers `GET /api/stores` with the rows of the `stores` table. The function reads the database through the `Azion.Sql` global, which takes the database name and no token.
 
-  ```bash
-  curl --request POST \
-    --url https://api.azion.com/v4/workspace/sql/databases \
-    --header 'Accept: application/json' \
-    --header 'Authorization: Token [TOKEN VALUE]' \
-    --header 'Content-Type: application/json' \
-    --data '{
-    "name": "stores-db"
-  }'
-  ```
-
-  The API answers `202` with the database, its `id`, and `"status": "creating"`. Keep the `id` for the next call. While the status reads `creating`, the database accepts no queries.
-
-  </DocStep>
-  <DocStep title="Create the table and load the rows">
-
-  Replace `<database-id>` with the `id` from the previous call:
-
-  ```bash
-  curl --request POST \
-    --url https://api.azion.com/v4/workspace/sql/databases/<database-id>/query \
-    --header 'Accept: application/json' \
-    --header 'Authorization: Token [TOKEN VALUE]' \
-    --header 'Content-Type: application/json' \
-    --data '{
-    "statements": [
-      "CREATE TABLE IF NOT EXISTS stores (id INTEGER, name TEXT, city TEXT);",
-      "INSERT INTO stores (id, name, city) VALUES (1, '\''Downtown'\'', '\''Sao Paulo'\''), (2, '\''Harbor'\'', '\''Rio de Janeiro'\'');"
-    ]
-  }'
-  ```
-
-  The API answers `200` with one entry per statement. Read `data[].error` on each entry: a failed statement also returns `200`, with `error` in place of `results`.
-
-  </DocStep>
-</DocSteps>
-
-The `stores` table holds two rows. For more statements, such as a load from the monolith's database, refer to [Import data into SQL Database](/en/documentation/guides/application-development/data/import-data-sql-database/).
-
----
-
-## Configure the migrated route
-
-The migrated route is a function that answers `GET /api/stores` with the rows of the `stores` table. The function reads the database through the `Azion.Sql` global, which takes the database name and no token. It opens the connection and walks the rows as [Query a database from a function](/en/documentation/guides/application-development/data/retrieve-data-with-functions/#write-the-function) describes, with `stores-db` as the database and a JSON array as the response.
-
-Create a function named `stores-route` with this code, and instantiate it on the application as `stores-route`. For the steps in each interface, refer to [Functions quickstart](/en/documentation/platform/functions/quickstart/), which creates a function and instantiates it on an application.
-
-```javascript
-export default {
-  async fetch(request, env, ctx) {
-    const { Database } = Azion.Sql;
-    try {
-      const connection = await Database.open('stores-db');
-      const rows = await connection.query('select id, name, city from stores order by id', []);
-      const stores = [];
-      let row = await rows.next();
-      while (row) {
-        stores.push({ id: row.getValue(0), name: row.getValue(1), city: row.getValue(2) });
-        row = await rows.next();
-      }
-      return new Response(JSON.stringify(stores), {
-        headers: { 'Content-Type': 'application/json' },
-      });
-    } catch (error) {
-      // A failed open or query answers 503, so the client can retry and the error is visible per route.
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-  },
-};
-```
-
-The function reads every row in order and answers with a JSON array. A failure to open or query the database answers `503`, so a fault in the migrated route shows up as a `5xx` on that path alone.
-
----
-
-## Configure the cut-over and the rollback
+### The cut-over and the rollback
 
 The cut-over is a rule that runs the `stores-route` instance for `GET /api/stores`. It comes after the rule that sends every path to the monolith, and the function's response is what the client receives. The rule matches the method as well as the path, so a `POST` to `/api/stores` still reaches the monolith.
 
 The two conditions sit in two criteria groups, because groups join with `and`: a request matches only when its path is `/api/stores` and its method is `GET`.
 
-Create the rule and roll it back as [Run a function on one path, and roll it back](/en/documentation/guides/application-development/functions-and-runtime/run-a-function-on-one-path-and-roll-it-back/) describes, with these values:
-
-- **Rule name**: `strangler - GET /api/stores`.
-- **Criteria**: one group with `${uri}` _is equal_ `/api/stores`, and a second group with `${request_method}` _is equal_ `GET`.
-- **Behavior**: _Run Function_ with the `stores-route` instance, whose ID goes in `attributes.value` in the API.
 - **Position**: after the rule that sends every path to the monolith, where a new rule is created.
 - **Rollback**: the rule's **Active** switch, `"active": false` in the API. Keep the rule's `id` for it.
-
-`GET /api/stores` is answered by the function, and every other request still reaches the monolith. A rule change takes a few minutes to reach every data center, so the cut-over and the rollback each spread over that time, and both versions of the route answer while they do.
-
----
-
-## Verify the setup
-
-- **The migrated route answers from Azion.** Request the route:
-
-  ```bash
-  curl -s https://www.example.com/api/stores
-  ```
-
-  The body holds the rows of the `stores` table:
-
-  ```json
-  [{"id":1,"name":"Downtown","city":"Sao Paulo"},{"id":2,"name":"Harbor","city":"Rio de Janeiro"}]
-  ```
-
-- **Every other route still reaches the monolith.** In [Azion Console](https://console.azion.com/) > **Real-Time Events**, select the _HTTP Requests_ data source, and enter `request_uri like '/api/stores%'` in **Filter by**. The `GET` records carry **Upstream Addr** `127.0.0.1:1666`, which marks Azion Runtime. Change the filter to another path of the site: its records carry the monolith's address, `<monolith-ip>`, with its port.
-
-- **Writes still reach the monolith.** Send a `POST` to `/api/stores`. Its record in Real-Time Events carries the monolith's address, because the cut-over rule matches only `GET`.
-
-- **The rollback holds.** Turn the rule off, wait a few minutes, and request `/api/stores` again. The response comes from the monolith, and new records for the path carry `<monolith-ip>`.
 
 When the function does not answer, turn on [Debug Rules](/en/documentation/platform/applications/main-settings/#debug-rules) to see which rules ran on the request. When **Run Function** is missing from the behaviors list, the application needs Application Accelerator.
 
@@ -235,5 +128,6 @@ When the function does not answer, turn on [Debug Rules](/en/documentation/platf
 
 <DocCardGroup cols={2}>
   <DocCard title="Run a function on one path, and roll it back" href="/en/documentation/guides/application-development/functions-and-runtime/run-a-function-on-one-path-and-roll-it-back/" label="Creates the cut-over rule for GET /api/stores and turns it off to roll the route back." />
-  <DocCard title="Query a database from a function" href="/en/documentation/guides/application-development/data/retrieve-data-with-functions/" label="Creates the stores-db database and its table, and reads its rows from the function on the read replica." />
+  <DocCard title="Query a database from a function" href="/en/documentation/guides/application-development/data/retrieve-data-with-functions/" label="Creates the stores-db database and its table, and holds the stores-route function that returns the rows as JSON from the read replica." />
+  <DocCard title="Import data with the EdgeSQL Shell" href="/en/documentation/guides/application-development/data/import-data-sql-database/" label="Loads more rows into the stores table, such as an export of the monolith's database." />
 </DocCardGroup>

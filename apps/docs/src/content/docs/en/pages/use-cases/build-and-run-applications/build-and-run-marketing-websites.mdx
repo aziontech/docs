@@ -16,11 +16,8 @@ This use case does not cover e-commerce storefronts, which [Build e-commerce sto
 
 ## Prerequisites
 
+- An Azion account. If you do not have one, [create an account](https://console.azion.com/signup).
 - An Azion account connected to your GitHub account through the Azion GitHub App. To connect it, refer to [Manage the Azion GitHub App](/en/documentation/guides/application-development/automation/azion-github-app/).
-- Azion CLI installed and logged in, to create the project and send the purge from the terminal. To set it up, refer to [Azion CLI quickstart](/en/documentation/devtools/cli/quickstart/).
-- Node.js 18 or later, and npm.
-- A personal token, for the purge through the API. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
-- The names this page uses: `example-site` for the repository, the project, and the application, `/about/` for a page of the site, and `www.example.com` for the domain. The deploy returns a `xxxxxxxxxx.map.azionedge.net` domain; to serve the site on your own domain, refer to [Add a custom domain to a workload](/en/documentation/guides/platform/migration/configure-a-domain/). Replace each value with yours in every step.
 
 ---
 
@@ -63,7 +60,7 @@ The diagram carries two flows that meet only at the bucket. The publish flow, at
 5. When Image Processor is on, an image request is resized or converted from the original in the bucket, and Cache keeps each variation.
 6. Once the deploy completes, a wildcard purge removes every page of the domain from Cache, and the next request for each page reads the new build from the bucket.
 
-### Components
+### Platform Resources
 
 - **Azion GitHub App**: the integration that connects the GitHub account to Azion. It deploys every push to a connected repository, so publishing a change is a push and nothing else.
 - **Object Storage**: holds the build output. Each deploy writes its files under its own prefix, which is what keeps an earlier build available for a rollback.
@@ -80,38 +77,15 @@ The diagram carries two flows that meet only at the bucket. The publish flow, at
 
 ---
 
-## Configure deploy on push
+## How the design works
+
+This section explains how the site reaches Azion on every push, and why one purge follows each deploy.
+
+### Deploy on push
 
 The site is an Astro project at the root of the repository, imported in Azion Console so that every push deploys it. Azion runs an Astro site as a static application: the build writes the site to `./dist`, and the deploy uploads that folder to a bucket the application serves. Astro is one of the presets the import form offers; the others are Next.js, Angular, Hexo, React, and Vue. The project must sit at the root of the repository, because the import reads it from there.
 
-To create the project, run `azion init`, select the _Astro_ preset and a template, then build it once so the project carries its configuration file:
-
-```bash
-azion init --name example-site --auto -y
-cd example-site
-azion build
-```
-
-The build ends with these lines, and the folder now holds `azion.config.mjs`, the configuration the preset generated, with the bucket, the cache setting, and the rules of the site:
-
-```text
-[Azion] [IaC] › ✔  success   Manifest generated successfully at <project-dir>/example-site/.edge/manifest.json
-Your Application was built successfully
-```
-
-Push the folder to the `example-site` repository on GitHub. Then import the repository as [Import a project from GitHub](/en/documentation/guides/application-development/automation/import-an-existing-project-from-github/) describes, with these values:
-
-- **Repository**: `example-site`, under the **Git Scope** of your GitHub account.
-- **Application Name**: `example-site`, the name the Console fills in. The storage bucket takes the same name.
-- **Preset**: _Astro_.
-- **Root Directory**: `/`, because the project sits at the root of the repository.
-- **Install Command**: `npm install`.
-
-The deploy page shows the **Deploy Log** while the site builds, then **Successfully created!** and the domain URL. The repository stays connected: every push to it deploys the site again.
-
----
-
-## Configure the purge after each deploy
+### The purge after each deploy
 
 A deploy uploads the new build under a new prefix, and pages already in cache keep the old build until their Max Age ends. One wildcard purge for the whole domain, sent once the deploy completes, makes every page read the new build. A wildcard fits because a build can change any page, and one purge per deploy stays far below the 2,000 wildcard requests Azion accepts in a 24-hour interval. Send it once the deploy of the push completes: a purge sent while the deploy still runs can refill the cache from the old build.
 
@@ -133,33 +107,6 @@ sequenceDiagram
 2. The deploy completes, and the bucket holds the new build.
 3. The team sends the wildcard purge for `www.example.com/*`.
 4. The next request for each page misses the cache and reads the new build from the bucket.
-
-The team sends the wildcard purge as [Purge pages when the origin publishes a change](/en/documentation/guides/application-performance/cache-and-purge/purge-on-publish/#purge-image-variants-when-an-image-changes) describes for a wildcard, from Azion Console, the API, or the Azion CLI, with the site's values:
-
-- **Expression**: `www.example.com/*`, every page of the domain, on the Cache layer. In the API, the body of `POST /v4/workspace/purge/wildcard` is `{"items":["www.example.com/*"]}`. In the CLI, the command is `azion purge --wildcard "www.example.com/*"`.
-- **When**: once per push, after its deploy completes.
-
-Every page of `www.example.com` leaves the cache once the purge propagates, and the next request for each one reads the new build. To confirm a purge completed, find it in the purge history, as [Confirm the purge completed](/en/documentation/guides/application-performance/cache-and-purge/purge-on-publish/#confirm-the-purge-completed) describes.
-
----
-
-## Verify the setup
-
-Each check sends a request with the `Pragma: azion-debug-cache` header, which makes the response carry the `x-cache` header. For how to read it, refer to [Check the cache status of a response](/en/documentation/guides/application-performance/cache-and-purge/check-page-cache-time/).
-
-- **The site answers on its domain.** Open `https://www.example.com/` in a browser. A first deploy that answers with a `404` page reading `There's nothing here yet` has not reached that location yet; wait a few minutes and retry.
-
-- **Pages answer from cache.** Request a page twice:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" https://www.example.com/about/
-  ```
-
-  The second response carries `x-cache: HIT`. The first can carry `MISS`, while Azion reads the page from the bucket.
-
-- **A push reaches the page.** Change the text of the `/about/` page, commit, and push. Wait for the deploy to complete, send the wildcard purge, and request the page again. The response carries `x-cache: MISS` and the new text, and the request after it carries `HIT`.
-
-- **Images are processed**, when Image Processor is on. Request an image with an `ims` query string, such as `https://www.example.com/images/hero.jpg?ims=400x`. The response carries `x-ims: Enabled`.
 
 ---
 
@@ -186,4 +133,7 @@ Each check sends a request with the `Pragma: azion-debug-cache` header, which ma
 <DocCardGroup cols={2}>
   <DocCard title="Purge pages when the origin publishes a change" href="/en/documentation/guides/application-performance/cache-and-purge/purge-on-publish/" label="Sends the wildcard purge after each deploy, and confirms it completed." />
   <DocCard title="Import a project from GitHub" href="/en/documentation/guides/application-development/automation/import-an-existing-project-from-github/" label="Imports the example-site repository with the Astro preset, so every push deploys the site." />
+  <DocCard title="Build with Astro" href="/en/documentation/guides/application-development/frameworks/astro/" label="Creates the example-site project with the Astro preset and builds it once, so it carries azion.config.mjs." />
+  <DocCard title="Check the cache status of a response" href="/en/documentation/guides/application-performance/cache-and-purge/check-page-cache-time/" label="Reads the x-cache header that every check in this use case relies on." />
+  <DocCard title="Configure Image Processor on an application" href="/en/documentation/guides/application-performance/delivery-optimization/process-images/" label="Confirms that each image variant of the site is processed and cached." />
 </DocCardGroup>

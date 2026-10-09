@@ -1,0 +1,233 @@
+---
+title: Serve a REST API from a function backed by SQL Database
+description: >-
+  Deploy one function that serves every endpoint of a REST API, reads SQL
+  Database through a replica, and caches the list response.
+meta_tags: 'rest api, functions, sql database, read replica, database.open, cache api, azion cli, azion deploy, environment variables'
+namespace: docs_guides_serve_a_rest_api_from_a_function_backed_by_sql_database
+permalink: /documentation/guides/application-development/data/serve-a-rest-api-from-a-function-backed-by-sql-database/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import DocSteps from '@aziontech/webkit/doc-steps'
+import DocStep from '@aziontech/webkit/doc-step'
+
+You deploy one function that serves every endpoint of a REST API under `/api/tasks` with the Azion CLI: it reads the rows from SQL Database through a read replica, writes them through the Azion API, and keeps the list response in cache for 60 seconds. To add writes to a function you already run, refer to [Write rows to SQL Database from a function](/en/documentation/guides/application-development/data/write-sql-database-rows-from-a-function/).
+
+## Prerequisites
+
+- SQL Database enabled on your account, and the **Edit SQL Database** permission. The product is in Preview, so request access through [Technical Support](/en/documentation/support/).
+- A database named `tasks-api`, its identifier, and the `tasks` table with two rows. The identifier is the `id` the create response returns. To create them, refer to [Create a database using the API](/en/documentation/guides/application-development/data/manage-sql-database/#create-a-database-using-the-api) and [Create tables and query data](/en/documentation/guides/application-development/data/create-tables-sql-database/).
+- The database identifier and a personal token stored as the environment variables `TASKS_DB_ID` and `TASKS_SQL_TOKEN`, as [Store the database identifier and the token](/en/documentation/guides/application-development/data/write-sql-database-rows-from-a-function/#store-the-database-identifier-and-the-token) shows. A variable reaches the function only after a deploy, so create both before the deploy.
+- Azion CLI installed, with your personal token saved. To set it up, refer to [Azion CLI quickstart](/en/documentation/devtools/cli/quickstart/).
+- Node.js and a package manager, which the CLI uses to build the project.
+
+The function reads a table created with `CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0);`, holding the rows `INSERT INTO tasks (title, completed) VALUES ('Write the API spec', 0);` and `INSERT INTO tasks (title, completed) VALUES ('Deploy the API', 1);` add. `completed` is an integer column, `0` or `1`, because the function reads it as a number. The examples call the API on `api.example.com`. Replace it with the domain the deploy prints, and the names with your own.
+
+---
+
+## Write the API function
+
+The function is one ES Modules handler that implements every endpoint under `/api/tasks`. It reads with the `Database` class of the `Azion.Sql` global, sends each write to the query endpoint of the Azion API with `TASKS_DB_ID` and `TASKS_SQL_TOKEN`, and stores the list response in the cache `tasks-api` under `max-age=60`. Every `POST` and `DELETE` deletes that stored list after its write.
+
+To create the project and add the function:
+
+<DocSteps>
+  <DocStep title="Create the project">
+
+  Run `azion init`, enter `tasks-api` as the name, and select the _Javascript_ preset and the _Hello World_ template, as [Deploy a function with Azion CLI](/en/documentation/guides/application-development/functions-and-runtime/deploy-function-with-cli/) shows. Then go to the project directory.
+
+  </DocStep>
+  <DocStep title="Replace the handler">
+
+  Replace the contents of `index.js`, the entrypoint the build reads, with the code below.
+
+  </DocStep>
+</DocSteps>
+
+```javascript
+const { Database } = Azion.Sql;
+
+const DATABASE_NAME = 'tasks-api';
+const CACHE_NAME = 'tasks-api';
+const LIST_MAX_AGE = 60;
+
+function json(body, status = 200, headers = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...headers },
+  });
+}
+
+// Reads come from a read replica. Integer parameters bind; string parameters are refused.
+async function readTasks(id) {
+  const connection = await Database.open(DATABASE_NAME);
+  const rows = id === undefined
+    ? await connection.query('SELECT id, title, completed FROM tasks ORDER BY id')
+    : await connection.query('SELECT id, title, completed FROM tasks WHERE id = ?', [id]);
+  const tasks = [];
+  let row = await rows.next();
+  while (row) {
+    tasks.push({ id: row.getValue(0), title: row.getValue(1), completed: row.getValue(2) === 1 });
+    row = await rows.next();
+  }
+  return tasks;
+}
+
+// Writes go to the main instance through the Azion API. A failed statement still answers 200.
+async function writeTasks(statement) {
+  const response = await fetch(
+    `https://api.azion.com/v4/workspace/sql/databases/${Azion.env.get('TASKS_DB_ID')}/query`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Token ${Azion.env.get('TASKS_SQL_TOKEN')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ statements: [statement] }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Azion API answered ${response.status}`);
+  }
+  const entry = (await response.json()).data[0];
+  if (entry.error) {
+    throw new Error(entry.error);
+  }
+  return entry.results;
+}
+
+// The query endpoint takes SQL strings, so a text value is quoted and its quotes doubled.
+function sqlText(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const match = url.pathname.match(/^\/api\/tasks(?:\/(\d+))?$/);
+    if (!match) {
+      return json({ error: 'Not found' }, 404);
+    }
+    const id = match[1] === undefined ? undefined : Number(match[1]);
+    const cache = await caches.open(CACHE_NAME);
+    const listKey = `${url.origin}/api/tasks`;
+
+    try {
+      if (request.method === 'GET' && id === undefined) {
+        const cached = await cache.match(listKey);
+        if (cached) {
+          return cached;
+        }
+        const list = json(await readTasks(), 200, {
+          'cache-control': `max-age=${LIST_MAX_AGE}`,
+          'x-tasks-cached-at': new Date().toISOString(),
+        });
+        await cache.put(listKey, list.clone());
+        return list;
+      }
+      if (request.method === 'GET') {
+        const [task] = await readTasks(id);
+        return task ? json(task) : json({ error: 'Task not found' }, 404);
+      }
+      if (request.method === 'POST' && id === undefined) {
+        const { title, completed = false } = await request.json();
+        if (typeof title !== 'string' || title.length === 0) {
+          return json({ error: 'title is required' }, 400);
+        }
+        const results = await writeTasks(
+          `INSERT INTO tasks (title, completed) VALUES (${sqlText(title)}, ${completed ? 1 : 0}) RETURNING id`,
+        );
+        await cache.delete(listKey);
+        return json({ id: results.rows[0][0], title, completed: Boolean(completed) }, 201);
+      }
+      if (request.method === 'DELETE' && id !== undefined) {
+        const results = await writeTasks(`DELETE FROM tasks WHERE id = ${id}`);
+        await cache.delete(listKey);
+        return results.rows_written > 0
+          ? json({ message: 'Task deleted' })
+          : json({ error: 'Task not found' }, 404);
+      }
+      return json({ error: 'Method not allowed' }, 405);
+    } catch (error) {
+      console.log(error.message);
+      return json({ error: 'Internal error' }, 500);
+    }
+  },
+};
+```
+
+The project's `index.js` now holds the API function. A path outside `/api/tasks` answers `404`, a method the function does not handle answers `405`, and a failed write answers `500` and logs its message.
+
+The [Build REST and GraphQL APIs](/en/documentation/use-cases/build-and-run-applications/build-rest-and-graphql-apis/) use case uses the values of this example.
+
+---
+
+## Deploy the API
+
+One function serves every endpoint, so one deploy ships them all together. To deploy the API, run `azion deploy` from the project directory. The command builds the project, creates the application and the function, instantiates the function, and prints the domain that serves it. For the output of the command, refer to [Deploy the project](/en/documentation/guides/application-development/functions-and-runtime/deploy-function-with-cli/#5-deploy-the-project).
+
+The API answers on the domain the deploy printed, every endpoint runs in the function, and the list response is cached for 60 seconds. The first deploy can take several minutes to answer from every location.
+
+The [Build REST and GraphQL APIs](/en/documentation/use-cases/build-and-run-applications/build-rest-and-graphql-apis/) use case uses the values of this example.
+
+---
+
+## Confirm the API answers
+
+Each check calls the API on its domain. A first deploy that does not answer yet is still propagating; wait a few minutes and retry.
+
+- **The list endpoint reads the database.** Request the list:
+
+  ```bash
+  curl -i https://api.example.com/api/tasks
+  ```
+
+  The response carries `200` and the two rows the table holds:
+
+  ```json
+  [{"id":1,"title":"Write the API spec","completed":false},{"id":2,"title":"Deploy the API","completed":true}]
+  ```
+
+- **The list comes from the cached copy.** Repeat the request within 60 seconds. The `x-tasks-cached-at` header carries the same value as in the first response.
+
+- **A write reaches the database.** Create a task:
+
+  ```bash
+  curl -i -X POST https://api.example.com/api/tasks \
+    -H "Content-Type: application/json" \
+    -d '{"title": "Review the logs"}'
+  ```
+
+  The response carries `201` and the ID the database assigned:
+
+  ```json
+  {"id":3,"title":"Review the logs","completed":false}
+  ```
+
+  A `500` here means the write failed. Read the message the function logged, as [Query function console logs](/en/documentation/guides/platform/observability/query-function-console-events/) shows: `Azion API answered 401` points at the `TASKS_SQL_TOKEN` value, and a database error string points at the statement.
+
+- **A write refreshes the list.** Request the list again. The response carries a new `x-tasks-cached-at` value and three tasks.
+
+- **A missing task answers 404.** Delete the same task twice:
+
+  ```bash
+  curl -X DELETE https://api.example.com/api/tasks/3
+  ```
+
+  The first call answers `{"message":"Task deleted"}`, and the second answers `404` with `{"error":"Task not found"}`.
+
+The API reads, writes, and deletes tasks, and serves the list from its cached copy between writes.
+
+These checks confirm the [Build REST and GraphQL APIs](/en/documentation/use-cases/build-and-run-applications/build-rest-and-graphql-apis/) use case.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Cache a function's response with the Cache API" href="/en/documentation/guides/application-development/functions-and-runtime/cache-a-function-response-with-the-cache-api/" label="How the key, the max-age, and the delete after a write keep the list response fresh." />
+  <DocCard title="Build REST and GraphQL APIs" href="/en/documentation/use-cases/build-and-run-applications/build-rest-and-graphql-apis/" label="The design this function implements, with the measurements that show it works." />
+</DocCardGroup>

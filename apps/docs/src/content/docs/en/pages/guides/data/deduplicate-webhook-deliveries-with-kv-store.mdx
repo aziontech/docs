@@ -66,6 +66,20 @@ The API answers `201` with the namespace. The request is synchronous, and there 
 
 The `webhook-events` namespace exists and is empty. For every field and error of the namespace API, refer to [Namespaces](/en/documentation/platform/kv-store/namespaces/).
 
+In the [Build event-driven APIs](/en/documentation/use-cases/build-and-run-applications/build-event-driven-apis/) use case, this section takes these values:
+
+| Setting | Value |
+| --- | --- |
+| Namespace | `events-idempotency` |
+
+A namespace cannot be renamed or deleted, and names are case-sensitive, so create it once, in lowercase. The `events-idempotency` namespace exists and is empty.
+
+In the [Build AI agents](/en/documentation/use-cases/build-and-run-ai-workloads/build-ai-agents/) use case, this section takes these values:
+
+| Setting | Value |
+| --- | --- |
+| KV Store namespace | `agent-state` |
+
 ---
 
 ## Skip a delivery the function already handled
@@ -121,6 +135,75 @@ Each delivery reads one key, and each new event writes one. KV Store includes 10
 
 ---
 
+## Publish each event to Upstash QStash once
+
+When the work an event triggers is a publish to a queue, the key is written only after the queue accepts the message. The route in this section replaces the `POST /webhook` route of the handler that [Build a Stripe webhook handler with Functions](/en/documentation/guides/application-development/functions-and-runtime/stripe-webhooks-functions/) builds, through its step 4, and keeps its `verifyStripeWebhook` middleware. It reads the namespace `events-idempotency`, created as [Create the namespace](#create-the-namespace) shows, and the QStash token and the consumer's domain from the `QSTASH_TOKEN` and `CONSUMER_DOMAIN` environment variables, stored as [Store the token and the destination](/en/documentation/guides/application-development/integrations/publish-a-message-to-upstash-qstash-from-a-function/#store-the-token-and-the-destination) shows.
+
+In the entry file of the project, replace the `app.post("/webhook", ...)` route with this one:
+
+```typescript
+const IDEMPOTENCY_NAMESPACE = "events-idempotency";
+const KEY_TTL_SECONDS = 86400;
+
+app.post("/webhook", verifyStripeWebhook, async (c) => {
+  const event = c.get("stripeEvent");
+  const kv = await Azion.KV.open(IDEMPOTENCY_NAMESPACE);
+
+  // A key for this event means an earlier delivery was already queued.
+  if ((await kv.get(event.id, "text")) !== null) {
+    return c.json({ received: true, duplicate: true });
+  }
+
+  // QStash delivers the message to the consumer's domain.
+  const published = await fetch(`https://qstash.upstash.io/v1/publish/${Azion.env.get("CONSUMER_DOMAIN")}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${Azion.env.get("QSTASH_TOKEN")}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      event_id: event.id,
+      type: event.type,
+      object_id: (event.data.object as { id: string }).id,
+      received_ms: Date.now(),
+    }),
+  });
+  if (!published.ok) {
+    console.error(`QStash answered ${published.status}`);
+    return c.json({ error: "Event not queued" }, 500);
+  }
+
+  // Written only after the publish, so a failed publish is never marked as queued.
+  await kv.put(event.id, "queued", { expirationTtl: KEY_TTL_SECONDS });
+  return c.json({ received: true });
+});
+```
+
+Deploy the project from its directory:
+
+```bash
+azion deploy
+```
+
+Azion CLI builds the project, deploys it, and opens Azion Console on the page that carries the deployment logs. The webhook endpoint registered with the provider stays `https://api.example.com/webhook`. Propagation takes a few minutes.
+
+The route answers the provider as soon as the event is queued. A repeated delivery answers `{"received":true,"duplicate":true}` and publishes nothing, and a publish that QStash does not accept answers `500`, so the provider retries the event.
+
+To confirm the route, send a test event with the Stripe CLI, then read what the function logged:
+
+```bash
+stripe trigger payment_intent.succeeded
+azion logs cells --tail
+```
+
+The handler answers `{ "received": true }`, and the Stripe Dashboard lists the delivery and its response code for the endpoint. The terminal prints the console messages of the last 5 minutes. No `QStash answered` line appears, so QStash accepted every publish.
+
+The [Build event-driven APIs](/en/documentation/use-cases/build-and-run-applications/build-event-driven-apis/) use case uses the values of this example.
+
+These checks confirm the [Build event-driven APIs](/en/documentation/use-cases/build-and-run-applications/build-event-driven-apis/) use case.
+
+---
+
 ## Next steps
 
 <DocCardGroup cols={2}>
@@ -128,4 +211,5 @@ Each delivery reads one key, and each new event writes one. KV Store includes 10
   <DocCard title="KV Store API" href="/en/documentation/devtools/runtime/api-reference/kv-store/" label="Every method, option, and error of the client that reads and writes the keys." />
   <DocCard title="Build event-driven APIs" href="/en/documentation/use-cases/build-and-run-applications/build-event-driven-apis/" label="A webhook producer that filters repeated events before it publishes them to a queue." />
   <DocCard title="Publish a message to Upstash QStash from a function" href="/en/documentation/guides/application-development/integrations/publish-a-message-to-upstash-qstash-from-a-function/" label="Hand each new event to a queue as the work the function does." />
+  <DocCard title="Build AI agents" href="/en/documentation/use-cases/build-and-run-ai-workloads/build-ai-agents/" label="An agent whose state between steps lives in a KV Store namespace." />
 </DocCardGroup>

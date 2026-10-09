@@ -9,9 +9,6 @@ permalink: /documentacao/casos-de-uso/melhorar-performance-e-confiabilidade/acel
 ---
 import DocCardGroup from '@aziontech/webkit/doc-card-group'
 import DocCard from '@aziontech/webkit/doc-card'
-import DocSteps from '@aziontech/webkit/doc-steps'
-import DocStep from '@aziontech/webkit/doc-step'
-import Tabs from '~/components/webkit/Tabs.vue'
 
 Um time de engenharia ou de SRE executa um site e as suas APIs em uma origem que ele opera, em uma região de nuvem ou em um data center. Os usuários longe dessa origem veem páginas lentas, e os picos de tráfego a sobrecarregam. Arquivos estáticos e páginas são os mesmos para todos os usuários, enquanto as chamadas de API são diferentes para cada um e precisam sempre chegar à origem. Esta página configura uma aplicação na frente da origem que cacheia arquivos estáticos e páginas, com Tiered Cache para os arquivos estáticos, repassa as chamadas de API à origem e faz a origem aceitar conexões só da Azion. O resultado é medido pelo time to first byte e pelo tempo de carregamento de página para os usuários, pela parcela das requisições respondidas pelo cache e pela queda nas requisições e nos dados que chegam à origem.
 
@@ -19,11 +16,10 @@ Este caso de uso não cobre a saída do site da sua origem, o failover entre ori
 
 ## Pré-requisitos
 
+- Uma conta Azion. Se você ainda não tem uma, [crie uma conta](https://console.azion.com/signup).
 - Uma aplicação que serve o seu site por meio de um connector e de um workload, com uma regra cujo behavior **Set Connector** envia todas as requisições ao connector. Para criá-los, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
 - Application Accelerator nessa aplicação, que o behavior **Bypass Cache** e os métodos `POST`, `PUT`, `PATCH`, `DELETE` e `OPTIONS` da API exigem. Para ativá-lo, consulte [Ative Application Accelerator](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/cache-settings/#ative-application-accelerator).
-- Um personal token, para os passos pela API e para os purges. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
 - Acesso ao firewall na frente da sua origem, onde fica a allowlist.
-- Os caminhos do seu site. Esta página usa `/static/` para os arquivos CSS, JavaScript, de fonte e de imagem que um deploy publica, `/api/` para a API, todos os outros caminhos para páginas, `site-origin` para o connector da sua origem e `www.example.com` para o domínio. Substitua cada valor pelo seu em todos os passos.
 
 ---
 
@@ -73,7 +69,7 @@ Leia o diagrama como uma cadeia de camadas que tentam responder, cada uma, antes
 5. O connector chega à origem a partir de um endereço da lista `Azion Origin Shield`, e o firewall da origem recusa todas as outras fontes.
 6. Quando um deploy muda arquivos estáticos, um purge por cache key os remove antes que o seu TTL termine, primeiro da camada do Tiered Cache e depois do Cache, e a requisição seguinte busca a nova versão. Um purge por cache key é o único tipo que chega à camada do Tiered Cache.
 
-### Componentes
+### Recursos de Plataforma
 
 - **Edge DNS**: resolve o domínio para o workload. Um subdomínio como `www.example.com` aponta para o domínio do workload com um registro `CNAME`, e o apex com um registro `ANAME`.
 - **aplicação**: o Platform Resource que guarda as cache settings `static-files` e `pages` e as regras que as aplicam, caminho por caminho, ao lado da regra que faz bypass do cache em `/api/`.
@@ -91,116 +87,35 @@ Leia o diagrama como uma cadeia de camadas que tentam responder, cada uma, antes
 
 ---
 
-## Configure o cache para arquivos estáticos e páginas
+## Como o design funciona
+
+Esta seção explica as quatro partes do design que são específicas deste site: o cache para arquivos estáticos e páginas, o repasse da API, Origin Shield no connector e o purge no deploy.
+
+### Cache para arquivos estáticos e páginas
 
 O cache deste site são duas cache settings, uma por tipo de conteúdo, cada uma aplicada pela sua própria regra. Os arquivos estáticos só mudam quando você faz deploy, então ficam em cache por muito tempo e passam pelo Tiered Cache. As páginas mudam entre deploys, então ficam em cache por pouco tempo.
 
-A setting `static-files` usa _Override cache behavior_ com um **Max Age** de `86400` segundos, um dia. O purge configurado abaixo remove um arquivo alterado no momento do deploy, então o dia só limita quanto tempo um arquivo fica desatualizado quando um purge não é enviado. **Tiered Cache** fica ativo, com a região mais próxima como topologia: o Tiered Cache foi projetado para objetos que ficam em cache por muito tempo, e exige _Override cache behavior_. O cache do navegador respeita o `Cache-Control` que a origem envia para cada arquivo.
+A setting `static-files` usa _Override cache behavior_ com um **Max Age** de `86400` segundos, um dia. O purge no deploy remove um arquivo alterado no momento do deploy, então o dia só limita quanto tempo um arquivo fica desatualizado quando um purge não é enviado. **Tiered Cache** fica ativo, com a região mais próxima como topologia: o Tiered Cache foi projetado para objetos que ficam em cache por muito tempo, e exige _Override cache behavior_. O cache do navegador respeita o `Cache-Control` que a origem envia para cada arquivo.
 
 A setting `pages` usa um **Max Age** de `300` segundos, então uma página editada na origem chega aos usuários em até cinco minutos sem purge. O cache do navegador dela é sobrescrito para `0` segundos, porque uma cópia no navegador do usuário não pode ser purgada. Ela não tem Tiered Cache, porque um objeto de cinco minutos ganha pouco com uma segunda camada.
 
 As duas settings mantêm **Stale cache** ativo, como o Azion Console o define para uma nova setting. Uma cópia expirada então responde por até 300 segundos quando a origem retorna um erro `5xx` ou excede o tempo limite.
 
-Crie as duas cache settings como [Crie um cache setting](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/ajustar-cache-settings/) descreve, com estes valores, e guarde o `id` de cada uma para a sua regra:
-
-| Cache setting | Browser Cache | Cache | Max Age | Stale cache | Tiered Cache |
-| --- | --- | --- | --- | --- | --- |
-| `static-files` | _Honor cache policies_ (`honor` na API) | _Override cache behavior_ | `86400` | Ativo | Ativo, região mais próxima (`nearest-region` na API) |
-| `pages` | _Override cache settings_, idade máxima `0` | _Override cache behavior_ | `300` | Ativo | Inativo |
-
-Aplique cada setting com uma regra na Request Phase, como o mesmo guia descreve, com estes valores:
-
-| Regra | Critérios | Behavior |
-| --- | --- | --- |
-| `cdn - static files` | `${uri}` _starts with_ `/static/` | **Set Cache Policy**, `static-files` |
-| `cdn - pages` | `${uri}` _does not start with_ `/static/`, **And** `${uri}` _does not start with_ `/api/` | **Set Cache Policy**, `pages` |
-
-Pela API, os dois critérios da regra `cdn - pages` ficam em um grupo unido por `and`, então uma requisição só corresponde quando o seu caminho não é nem um arquivo estático nem uma chamada de API:
-
-```json
-"criteria": [[
-  { "variable": "${uri}", "conditional": "if", "operator": "does_not_start_with", "argument": "/static/" },
-  { "variable": "${uri}", "conditional": "and", "operator": "does_not_start_with", "argument": "/api/" }
-]]
-```
-
-Os arquivos estáticos ficam em cache por um dia nas duas camadas de cache, e as páginas por cinco minutos. Uma nova regra leva alguns minutos para se propagar.
-
----
-
-## Configure o repasse da API
+### Repasse da API
 
 As respostas da API são diferentes para cada chamador, então o caminho da API faz bypass do cache e todas as chamadas chegam à origem. A regra corresponde a `/api/` e carrega **Bypass Cache**. Application Accelerator, já ativo na aplicação, é o que faz a aplicação aceitar as chamadas `POST`, `PUT`, `PATCH`, `DELETE` e `OPTIONS` da API, além de `GET` e `HEAD`. Uma requisição com bypass mantém as otimizações de protocolo e, quando possível, uma conexão keep-alive com a origem, então cada chamada evita abrir uma nova conexão.
 
-<Tabs client:visible sharedStore="interface">
-<Fragment slot="tab.console">Console</Fragment>
-<Fragment slot="tab.api">API</Fragment>
+O caminho da API não tem cache setting com Tiered Cache, então nenhuma resposta dele vai parar na camada do Tiered Cache: **Bypass Cache** age no cache da Azion, e não nessa camada.
 
-<Fragment slot="panel.console">
-
-Para criar a regra de bypass:
-
-<DocSteps>
-  <DocStep title="Vá para a aba Rules Engine">
-
-  Acesse [Azion Console](https://console.azion.com/) > **Applications** > **a sua aplicação** e vá para a aba **Rules Engine**.
-
-  </DocStep>
-  <DocStep title="Selecione + Rule" />
-  <DocStep title="Nomeie a regra">
-
-  Informe `cdn - api pass-through`.
-
-  </DocStep>
-  <DocStep title="Selecione Request Phase" />
-  <DocStep title="Corresponda ao caminho da API">
-
-  Na seção **Criteria**, defina o critério como `${uri}` _starts with_ `/api/`.
-
-  </DocStep>
-  <DocStep title="Na seção Behaviors, selecione Bypass Cache" />
-  <DocStep title="Selecione Save" />
-</DocSteps>
-
-</Fragment>
-
-<Fragment slot="panel.api">
-
-Para criar a regra de bypass:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "name": "cdn - api pass-through",
-  "active": true,
-  "criteria": [[{ "variable": "${uri}", "conditional": "if", "operator": "starts_with", "argument": "/api/" }]],
-  "behaviors": [{ "type": "bypass_cache" }]
-}'
-```
-
-A API responde `202` com um `state` igual a `pending` e a regra como foi guardada.
-
-</Fragment>
-</Tabs>
-
-Todas as chamadas de `/api/` chegam à origem, e a Azion não guarda nenhuma das suas respostas. O caminho da API não tem cache setting com Tiered Cache, então nenhuma resposta dele vai parar na camada do Tiered Cache: **Bypass Cache** age no cache da Azion, e não nessa camada.
-
----
-
-## Configure Origin Shield no connector
+### Origin Shield no connector
 
 Origin IP ACL faz a origem aceitar conexões só da Azion, então um cliente que descobre o endereço da origem não consegue alcançá-la contornando a aplicação. A verificação tem duas metades. O connector ativa Origin IP ACL, o que disponibiliza a lista de rede `Azion Origin Shield` para a sua conta. O firewall da sua origem então permite os prefixos dessa lista e nega todas as outras fontes. A Azion não aplica a allowlist: o seu firewall aplica.
 
-As duas metades são o procedimento que [Restrinja uma origem à Azion com Origin IP ACL](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/restringir-uma-origem-a-azion-com-origin-ip-acl/) descreve, executado em `site-origin` e no firewall na frente da sua origem. A allowlist guarda os prefixos IPv4 e IPv6 da lista, e a regra de negação só vem depois que todos os prefixos são permitidos.
+As duas metades são executadas em `site-origin` e no firewall na frente da sua origem. A allowlist guarda os prefixos IPv4 e IPv6 da lista, e a regra de negação só vem depois que todos os prefixos são permitidos.
 
 A Azion muda a lista de tempos em tempos e envia um email para a sua conta a cada vez. Os servidores atrás de um prefixo adicionado entram em produção 7 dias depois que a Azion publica a mudança, então um job que lê a lista com uma frequência menor que 7 dias mantém a sua allowlist atualizada.
 
----
-
-## Configure o purge no deploy
+### Purge no deploy
 
 Um deploy que muda arquivos estáticos envia um purge, para que os usuários recebam os novos arquivos sem esperar o **Max Age** de um dia. A setting `static-files` tem o Tiered Cache ativo, e um purge por cache key é o único tipo que chega à camada do Tiered Cache. Por isso, o deploy purga cada arquivo alterado por cache key, primeiro na camada do Tiered Cache e depois no Cache, para que a primeira camada não se reabasteça com uma cópia desatualizada do Tiered Cache.
 
@@ -222,57 +137,9 @@ sequenceDiagram
 3. Ele envia o mesmo purge com `layer` igual a `cache`.
 4. A requisição seguinte por cada arquivo tem miss nas duas camadas, chega à origem e guarda a nova versão.
 
-Uma cache key é o esquema, o host e o caminho, sem separador entre eles. Para o arquivo `https://www.example.com/static/app.css`, o corpo de `POST /v4/workspace/purge/cachekey` para a camada do Tiered Cache é:
+Uma cache key é o esquema, o host e o caminho, sem separador entre eles.
 
-```json
-{"items":["httpswww.example.com/static/app.css"],"layer":"tiered_cache"}
-```
-
-e para o Cache:
-
-```json
-{"items":["httpswww.example.com/static/app.css"],"layer":"cache"}
-```
-
-Cada chamada responde `201` com `state` igual a `executed`. Um purge por cache key aceita até 50 chaves por requisição, então um deploy que muda mais arquivos os divide em várias requisições. Uma página que muda sem deploy não precisa de purge: o seu **Max Age** de cinco minutos a atualiza. Para os outros tipos de purge e para confirmar que um purge terminou, consulte [Purgue páginas quando a origem publica uma mudança](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/purgar-ao-publicar/).
-
----
-
-## Verifique a configuração
-
-Cada verificação envia uma requisição com o header `Pragma: azion-debug-cache`, que faz a resposta carregar os headers `x-cache` e `x-cache-key`. Para saber como lê-los, consulte [Verifique o status de cache de uma resposta](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/verificar-tempo-de-cache-da-pagina/).
-
-- **O domínio resolve para a Azion.** Consulte o hostname:
-
-  ```bash
-  dig +short www.example.com
-  ```
-
-  A resposta lista o domínio do workload, no formato `<id>.map.azionedge.net`.
-
-- **Os arquivos estáticos respondem do cache.** Solicite um arquivo estático duas vezes:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" https://www.example.com/static/app.css
-  ```
-
-  A segunda resposta carrega `x-cache: HIT`. A primeira pode carregar `MISS`, enquanto a Azion busca o arquivo.
-
-- **As páginas respondem do cache.** Solicite a página inicial duas vezes da mesma forma. A segunda resposta carrega `x-cache: HIT`.
-
-- **As chamadas de API chegam à origem.** Solicite um caminho da API:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" https://www.example.com/api/status
-  ```
-
-  A resposta carrega `x-cache: BYPASS`.
-
-- **A origem recusa conexões de qualquer outro lugar.** A partir da sua própria máquina, envie uma requisição direto para o endereço da origem. O firewall da origem recusa a conexão ou a deixa exceder o tempo limite, enquanto as requisições por `www.example.com` continuam respondendo.
-
-- **Um purge chega às duas camadas.** Depois de um deploy e dos seus purges, solicite um arquivo alterado. A resposta carrega `x-cache: MISS`, e a requisição seguinte carrega `HIT` com o novo conteúdo.
-
-Uma regra que parece não ter efeito ainda pode estar se propagando. Quando isso persiste depois de alguns minutos, ative [Debug Rules](/pt-br/documentacao/plataforma/applications/main-settings/#debug-rules) para ver quais regras rodaram na requisição.
+Um purge por cache key aceita até 50 chaves por requisição, então um deploy que muda mais arquivos os divide em várias requisições. Uma página que muda sem deploy não precisa de purge: o seu **Max Age** de cinco minutos a atualiza.
 
 ---
 
@@ -300,4 +167,8 @@ Uma regra que parece não ter efeito ainda pode estar se propagando. Quando isso
 <DocCardGroup cols={2}>
   <DocCard title="Crie um cache setting" href="/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/ajustar-cache-settings/" label="Cria as cache settings static-files e pages, com Tiered Cache nos arquivos estáticos, e as regras que as aplicam." />
   <DocCard title="Restrinja uma origem à Azion com Origin IP ACL" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/restringir-uma-origem-a-azion-com-origin-ip-acl/" label="Ativa Origin IP ACL em site-origin e permite só a lista Azion Origin Shield no firewall da origem." />
+  <DocCard title="Configure políticas de cache para uma aplicação" href="/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/cache-settings/" label="Cria a regra cdn - api pass-through, que faz bypass do cache em /api/, no Azion Console ou pela API." />
+  <DocCard title="Purgue conteúdo em cache" href="/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/purgar-conteudo-em-cache/" label="Envia os purges por cache key de um deploy à camada do Tiered Cache e ao Cache, e os confirma." />
+  <DocCard title="Aponte um domínio para um workload" href="/pt-br/documentacao/guias/plataforma/migracao/apontar-dominio-para-a-azion/" label="Aponta www.example.com para o workload e confirma que o hostname resolve." />
+  <DocCard title="Verifique o status de cache de uma resposta" href="/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/verificar-tempo-de-cache-da-pagina/" label="Lê os headers x-cache e x-cache-key em que as verificações de cache se apoiam." />
 </DocCardGroup>

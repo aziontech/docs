@@ -16,11 +16,10 @@ Este caso de uso não cobre a aceleração de uma única origem nem o failover e
 
 ## Pré-requisitos
 
+- Uma conta Azion. Se você ainda não tem uma, [crie uma conta](https://console.azion.com/signup).
 - Uma aplicação que serve o seu site por meio de um workload. Para criar uma, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
 - Dois connectors, um por região. Para criar um connector, consulte [Primeiros passos com Connectors](/pt-br/documentacao/plataforma/connectors/primeiros-passos/).
 - Uma regra na aplicação cujo behavior **Set Connector** envia todas as requisições, `${uri}` _starts with_ `/`, ao connector da região padrão. É a regra que [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/) cria.
-- Um personal token, para os passos pela API. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
-- Os nomes das suas regiões e origens. Esta página usa `origin-us` para o connector da região padrão, com o endereço `us.origin.example.com`, e `origin-eu` para o connector da região europeia, com o endereço `eu.origin.example.com`. As requisições da Europa precisam ficar em origens europeias. As requisições de qualquer outro lugar podem recorrer à Europa quando a região padrão falha. Cada origem adiciona um header de resposta `X-Origin-Region` com o valor `us` ou `eu`, para que uma resposta nomeie a região que respondeu. O domínio é `www.example.com`. Substitua cada valor pelo seu em todos os passos.
 
 ---
 
@@ -61,7 +60,7 @@ Leia o diagrama a partir das regras. Toda requisição corresponde primeiro à r
 4. `origin-eu` guarda um endereço europeu e nenhum backup, então uma requisição europeia nunca sai da Europa, mesmo quando essa origem falha.
 5. `origin-us` envia todas as outras requisições para `us.origin.example.com`, o seu endereço _Primary_, e para `eu.origin.example.com`, o seu endereço _Backup_, só quando a primária falha.
 
-### Componentes
+### Recursos de Plataforma
 
 - **aplicação**: o Platform Resource que roteia cada requisição a um connector com as suas regras.
 - **Rules Engine**: a Feature que compara as variáveis de geolocalização da requisição. A ordem das suas regras define o padrão: a regra ampla que envia todos os caminhos para `origin-us` primeiro, e a regra regional da Europa depois dela.
@@ -71,27 +70,19 @@ Leia o diagrama a partir das regras. Toda requisição corresponde primeiro à r
 
 ---
 
-## Configure a região de backup do connector padrão
+## Como o design funciona
+
+Esta seção explica as duas partes do design que decidem qual região responde: a região de backup do connector padrão e a regra de geolocalização.
+
+### Região de backup do connector padrão
 
 A região padrão recebe os usuários cujos dados podem sair da sua região, então o connector dela ganha um backup na outra região. Load Balancer em `origin-us` mantém `us.origin.example.com` como endereço _Primary_, que recebe todas as requisições enquanto responde. Ele adiciona `eu.origin.example.com` como endereço _Backup_, que recebe requisições só quando todos os endereços _Primary_ falham.
 
 `origin-eu` não ganha backup fora da Europa, porque as requisições dos seus usuários precisam ficar lá. Ele mantém o seu único endereço e não precisa de mudança.
 
-O backup é adicionado como [Adicione uma origem de backup a um connector](/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/adicionar-uma-origem-de-backup-a-um-connector/) descreve, em `origin-us`, com estes valores:
-
-- **Addresses** `us.origin.example.com` com **Server Role** _Primary_, e `eu.origin.example.com` com _Backup_.
-- **Method** _Round Robin_.
-- **Max Retries** `1`. Uma nova tentativa limita quanto tempo um usuário espera por uma conexão que falha.
-- **Connection Timeout** `10` segundos. Ele impede que uma requisição espere os 60 segundos padrão da API por uma origem que não aceita conexão.
-- **Read/Write Timeout** `60` segundos.
-
-`origin-us` guarda a origem da região padrão e um backup na Europa, e `origin-eu` guarda só a sua origem europeia. Uma mudança de connector chega à infraestrutura distribuída da Azion ao longo de vários minutos.
-
 Os dois endereços de `origin-us` recebem o mesmo header `Host` do connector. Quando a origem europeia responde com outro nome, defina o **Host** do connector como `${host}`, que envia o host que o usuário solicitou.
 
----
-
-## Configure a regra de geolocalização
+### Regra de geolocalização
 
 A regra de geolocalização envia os usuários europeus para `origin-eu`. Ela compara `${geoip_continent_code}`, o código de continente de duas letras do endereço IP do cliente, com `EU`, e o seu behavior **Set Connector** nomeia `origin-eu`.
 
@@ -109,35 +100,6 @@ flowchart LR
 1. Toda requisição corresponde à regra 1, que define `origin-us`.
 2. Uma requisição da Europa também corresponde à regra 2, que define `origin-eu`, e a regra posterior vence.
 3. Qualquer outra requisição mantém `origin-us`.
-
-A regra é criada e mantida depois da regra padrão como [Roteie requisições por país ou continente](/pt-br/documentacao/guias/performance-e-confiabilidade/disponibilidade/rotear-requisicoes-por-pais-ou-continente/) descreve, com estes valores:
-
-- **Nome da regra**: `geo - europe`.
-- **Critério**: `${geoip_continent_code}` _is equal_ `EU`.
-- **Behavior**: **Set Connector** com `origin-eu`, cujo ID vai em `attributes.value` na API.
-- **Posição**: depois da regra padrão que envia todos os caminhos para `origin-us`, então o seu `order` é maior que o da regra padrão.
-
-As requisições da Europa vão para `origin-eu`, e todas as outras para `origin-us`. Uma nova regra leva alguns minutos para se propagar.
-
----
-
-## Verifique a configuração
-
-Cada verificação lê o header `X-Origin-Region` que as suas origens definem. A regra lê a localização do endereço IP do cliente, então cada verificação roda a partir de uma máquina na região que ela testa.
-
-- **Os usuários fora da Europa chegam à região padrão.** A partir de uma máquina fora da Europa, envie várias requisições:
-
-  ```bash
-  curl -s -D - -o /dev/null https://www.example.com/
-  ```
-
-  Todas as respostas carregam `x-origin-region: us`. Em HTTP/2, os nomes dos headers chegam em minúsculas.
-
-- **Os usuários na Europa chegam à região europeia.** A partir de uma máquina na Europa, envie a mesma requisição. Todas as respostas carregam `x-origin-region: eu`.
-- **A localização que a Azion leu corresponde à região que respondeu.** Acesse [Azion Console](https://console.azion.com/) > **Real-Time Events**, selecione a fonte de dados _HTTP Requests_ e informe `host='www.example.com'` em **Filter by**. Cada registro das suas requisições carrega **Geoloc Country Name** e **Upstream Addr**, o endereço da origem que respondeu. Para a sintaxe do filtro, consulte [Filtrar eventos](/pt-br/documentacao/guias/plataforma/observabilidade/adicionar-filtros-events/).
-- **A região padrão recorre ao backup, e a Europa não.** Em uma janela de manutenção, pare o servidor web em `us.origin.example.com` e repita a requisição a partir de fora da Europa. As respostas carregam `x-origin-region: eu`. Inicie-o de novo. Uma falha da origem europeia, por design, mostra aos usuários europeus um erro em vez de uma resposta de outra região.
-
-Uma mudança de regra ou de connector que parece não ter efeito ainda pode estar se propagando. Quando isso persiste depois de alguns minutos, ative [Debug Rules](/pt-br/documentacao/plataforma/applications/main-settings/#debug-rules) para ver quais regras rodaram na requisição.
 
 ---
 

@@ -16,11 +16,10 @@ This use case does not cover data replication between the origins, or the perfor
 
 ## Prerequisites
 
+- An Azion account. If you do not have one, [create an account](https://console.azion.com/signup).
 - An application that serves your site through a workload, with a rule whose **Set Connector** behavior sends its requests to a connector of your primary origin. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
 - A standby origin that holds the same content as the primary and is set up the same way for the application.
 - A second connector that serves your error page at `/errors/503.html` and reaches neither origin, such as a connector of type `storage` that reads an [Object Storage](/en/documentation/platform/object-storage/) bucket. For its fields, refer to [Connector settings](/en/documentation/platform/connectors/settings/#storage).
-- A personal token, for the API steps. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
-- The names of your origins and your domain. This page uses `app-origin` for the connector of the primary origin, `primary.example.com` for the primary origin, `standby.example.com` for the standby, `error-pages` for the connector of the error page, and `www.example.com` for the domain. Each origin adds an `X-Origin-Site` response header with the value `primary` or `standby`, so a response names the origin that answered. Replace each value with yours in every step.
 
 ---
 
@@ -62,7 +61,7 @@ Read the diagram from the application. Cache answers what it already holds, and 
 5. When no origin can be selected or none answers in time, Azion returns `502`, `503`, or `504`, and the custom page set replaces that response with the page the `error-pages` connector serves, outside the pool.
 6. Real-Time Metrics counts the status codes of the domain and, per request, the origin that answered, while traffic moves to the standby and back.
 
-### Components
+### Platform Resources
 
 - **connector**: the Platform Resource that groups the origins. One connector, `app-origin`, holds the primary and the standby, so the rule that names it needs no change when traffic moves between them.
 - **Load Balancer**: assigns each address the _Primary_ or the _Backup_ role. _Primary_ addresses are always preferred, and a _Backup_ address takes requests only when every _Primary_ address fails. **Max Retries**, **Connection Timeout**, and **Read/Write Timeout** decide how long a failing connection holds a request. The _IP Hash_ method refuses _Backup_ addresses.
@@ -78,11 +77,13 @@ Read the diagram from the application. Cache answers what it already holds, and 
 
 ---
 
-## Configure the origin pool
+## How the design works
+
+This section explains the two parts of the design that keep the site answering when an origin fails: the origin pool and the error page when no origin answers.
+
+### The origin pool
 
 The origin pool is the `app-origin` connector with Load Balancer on and two addresses. The primary origin takes the _Primary_ role, so it receives every request while it answers. The standby takes the _Backup_ role, so it stands by out of daily traffic and receives requests only when every _Primary_ address fails.
-
-The pool is the procedure that [Add a backup origin to a connector](/en/documentation/guides/application-performance/availability/add-a-backup-origin-to-a-connector/) describes, run on `app-origin` with these values:
 
 - **Addresses** `primary.example.com` with **Server Role** _Primary_, and `standby.example.com` with _Backup_ and **Active** on.
 - **Method** _Round Robin_. With one _Primary_ address, there is nothing to rotate, and _IP Hash_ refuses _Backup_ addresses with `28005`.
@@ -90,57 +91,15 @@ The pool is the procedure that [Add a backup origin to a connector](/en/document
 - **Connection Timeout** `10` seconds. An origin that accepts no connection within 10 seconds fails the connection, instead of holding the user for the 60-second API default.
 - **Read/Write Timeout** `60` seconds, the value the Console fills in. It bounds the wait for data on an open connection to an origin that has stopped answering.
 
-Load Balancer has no health check: no probe and no interval, so nothing tests either origin between requests. The API default of **Max Retries** is `0`, so an API or CLI body sets every value explicitly, as in this `config`:
-
-```json
-{"method": "round_robin", "max_retries": 1, "connection_timeout": 10, "read_write_timeout": 60}
-```
-
-The connector holds the primary origin and the standby, and the rule that names `app-origin` needs no change. A connector change reaches Azion's distributed infrastructure over several minutes, and data centers apply it at different times.
+Load Balancer has no health check: no probe and no interval, so nothing tests either origin between requests. The API default of **Max Retries** is `0`, so an API or CLI body sets every value explicitly.
 
 Both addresses receive the same `Host` header, path prefix, and protocol from the connector. When the standby answers under another name than the primary, set the connector's **Host** to `${host}`, which sends the host the user requested. For the connection options, refer to [Connector settings](/en/documentation/platform/connectors/settings/#connection-options).
 
----
-
-## Configure the error page when no origin answers
+### The error page when no origin answers
 
 When no origin can answer, Azion returns a status code of its own: `502` when no origin server can be selected or the origin returns an invalid response, and `504` when the origin does not answer in time. Without a custom page, the user receives the page titled `Azion - Default error page`. A custom page set replaces those responses with your page.
 
 The set in this section binds `502`, `503`, and `504` to `/errors/503.html` on the `error-pages` connector, and answers each one with `503`. The `503` status marks a temporary condition, which is what an origin outage is. The page's **Response TTL** is `86400` seconds, one day: an error page is static and rarely changes, and a long TTL keeps requests away from the `error-pages` connector. The page comes from a connector that reaches neither origin, because a page fetched from the failing pool would fail with it.
-
-The set is the one that [Show your own page when no origin answers](/en/documentation/guides/application-performance/availability/show-your-own-page-when-no-origin-answers/) creates and assigns, with these values:
-
-| Field | Value |
-| --- | --- |
-| **Name** | `origin-down` |
-| **Page Code** | `502`, `503`, and `504`, one page each |
-| **Connector** | `error-pages` |
-| **Page Path (URI)** | `/errors/503.html` |
-| **Response TTL** | `86400` |
-| **Response Custom Status Code** | `503` |
-| **Custom Page** of the deployment | `origin-down`, on the workload that serves `www.example.com` |
-
-The workload's deployment names the `origin-down` set. A deployment change takes several minutes to reach Azion's distributed infrastructure, and requests can receive Azion's default page until it does.
-
----
-
-## Verify the setup
-
-Each check reads the `X-Origin-Site` header your origins set. Run the failure checks in a maintenance window, because they take an origin out of service.
-
-- **The primary serves while it answers.** Send several requests:
-
-  ```bash
-  curl -s -D - -o /dev/null https://www.example.com/
-  ```
-
-  Every response carries `x-origin-site: primary`. Under HTTP/2, header names arrive in lower case.
-
-- **The standby takes over when the primary fails.** Stop the web server on `primary.example.com`, or block the connections from Azion at its firewall. Send the request again, several times. The responses carry `x-origin-site: standby`, with no DNS change on your side.
-- **The primary takes the traffic back.** Start the web server on `primary.example.com` again, and send the request several times. The responses carry `x-origin-site: primary` again, because _Primary_ addresses are always preferred over _Backup_ addresses.
-- **Users get your page when no origin answers.** Stop both origins and send the request. The response carries status `503` and the body of `/errors/503.html`, not the page titled `Azion - Default error page`. Start both origins again.
-
-A response from a data center that has not yet received a connector or deployment change can still show the previous behavior. Repeat the request until the answers agree.
 
 ---
 
@@ -156,7 +115,7 @@ A response from a data center that has not yet received a connector or deploymen
 
 ## Best practices
 
-- **Test the standby in every maintenance window.** A _Backup_ address carries no traffic while the primary answers, so nothing exercises it. Run the failure check of this page in each maintenance window, so a standby that drifted from the primary is found before an incident.
+- **Test the standby in every maintenance window.** A _Backup_ address carries no traffic while the primary answers, so nothing exercises it. Run a failure check in each maintenance window, so a standby that drifted from the primary is found before an incident.
 - **Set Max Retries and the timeouts in every API call.** A connector whose Load Balancer configuration is created through the API takes `max_retries` `0`, `connection_timeout` `60`, and `read_write_timeout` `120` for every key the body leaves out. A pool without retries fails a request on the first connection failure.
 - **Never put the error page behind the pool it covers.** A custom page fetches its content from a connector. A page served by `app-origin` fails in the same incident that should show it.
 - **Let Cache answer what it can during the switch.** A request that a valid cached copy answers never reaches either origin. With **Stale cache** on in a cache setting, Azion also serves an expired copy when the origin returns a `5xx` error or times out, for 300 seconds under _Override cache behavior_, and the response reports `STALE`. For when it applies, refer to [Expiration and freshness](/en/documentation/platform/applications/cache/expiration-and-freshness/#stale-cache).
