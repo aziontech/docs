@@ -3,11 +3,14 @@
  * Validates the redirect data. Read-only — never writes files.
  *
  * Checks: valid JSON arrays; every entry has `from` xor `from_regex` and exactly
- * one of `moved`/`found`; conflicting duplicate sources (same `from`, different
- * target); per-language file symmetry; and the 300 KB per-file size budget from
- * Azion's Massive Redirect docs.
+ * one of `moved`/`found`; duplicate sources (same `from`); per-language file
+ * symmetry; and the 300 KB per-file size budget from Azion's Massive Redirect docs.
  *
- * Exits non-zero on a hard error (schema / conflicts) so it can gate CI.
+ * Duplicate sources are warnings, not errors: the files are separate redirect
+ * groups and the engine resolves a repeated source to the LAST file loaded (the
+ * `FILES` order in index.ts).
+ *
+ * Exits non-zero on a hard error (schema) so it can gate CI.
  * Run: `pnpm -F redirects-massive validate`
  */
 import fs from 'fs'
@@ -124,28 +127,29 @@ function scanFiles(files) {
 }
 
 /**
- * Duplicate sources: same normalized `from` with DIFFERENT targets is a hard
- * error; with the SAME target it is a redundant (safe-to-remove) warning.
+ * Duplicate sources: same normalized `from` with DIFFERENT targets is an
+ * overridden source (the last file loaded wins); with the SAME target it is a
+ * redundant (safe-to-remove) one. Both are warnings.
  */
 function checkDuplicates(sourcesByKey) {
-  const errors = []
+  let overriddenCount = 0
   let redundantCount = 0
 
-  for (const [key, occurrences] of sourcesByKey) {
+  for (const occurrences of sourcesByKey.values()) {
     if (occurrences.length < 2) continue
     const distinctTargets = new Set(occurrences.map((o) => normalizeUrl(o.target)))
-    if (distinctTargets.size > 1) {
-      const detail = occurrences.map((o) => `      - ${o.file} -> ${o.target}`).join('\n')
-      errors.push(`conflicting redirect for ${key}:\n${detail}`)
-    } else {
-      redundantCount++
-    }
+    if (distinctTargets.size > 1) overriddenCount++
+    else redundantCount++
   }
 
-  const warnings = redundantCount
-    ? [`${redundantCount} redundant duplicate source(s) (same target) — safe to remove`]
-    : []
-  return { errors, warnings }
+  const warnings = []
+  if (overriddenCount)
+    warnings.push(
+      `${overriddenCount} source(s) listed with different targets — the last file loaded wins`
+    )
+  if (redundantCount)
+    warnings.push(`${redundantCount} redundant duplicate source(s) (same target) — safe to remove`)
+  return { errors: [], warnings }
 }
 
 /** Warns when a group exists for some locales but is missing (unexpectedly) in others. */

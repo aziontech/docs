@@ -2,10 +2,10 @@
  * Redirect engine.
  *
  * Redirects are authored directly in Azion's Massive Redirect JSON schema, one file
- * per language:
+ * per language and group:
  *
- *   en/doc.json     /en/documentation/...
- *   pt-br/doc.json  /pt-br/documentacao/...
+ *   en/doc-00.json, en/doc-01.json        /en/documentation/...
+ *   pt-br/doc-00.json, pt-br/doc-01.json  /pt-br/documentacao/...
  *
  * Each entry is either an EXACT match on `from`, or a pattern match on
  * `from_regex`, paired with a target that chooses the HTTP status:
@@ -19,8 +19,10 @@
  * NEW FILE: create it and add it to the imports + `FILES` list below.
  * `pnpm -F redirects-massive validate` checks the data is consistent.
  */
-import enDoc from './en/doc.json'
-import ptbrDoc from './pt-br/doc.json'
+import enDoc00 from './en/doc-00.json'
+import enDoc01 from './en/doc-01.json'
+import ptbrDoc00 from './pt-br/doc-00.json'
+import ptbrDoc01 from './pt-br/doc-01.json'
 
 /** A raw entry as authored in the JSON files (Azion Massive Redirect schema). */
 export type Redirect = {
@@ -40,7 +42,7 @@ export type ResolvedRedirect = { to: string; status: 301 | 302 }
 type RegexRule = { re: RegExp; template: string; status: 301 | 302 }
 
 // Every redirect file. Add a new file here after creating it.
-const FILES: Redirect[][] = [enDoc, ptbrDoc]
+const FILES: Redirect[][] = [enDoc00, enDoc01, ptbrDoc00, ptbrDoc01]
 
 export const redirects: Redirect[] = FILES.flat() as Redirect[]
 
