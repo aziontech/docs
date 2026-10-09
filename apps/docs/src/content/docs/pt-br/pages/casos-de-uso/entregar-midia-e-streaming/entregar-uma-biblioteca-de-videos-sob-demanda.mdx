@@ -16,12 +16,11 @@ Este caso de uso não cobre a codificação dos vídeos, que acontece antes da e
 
 ## Pré-requisitos
 
+- Uma conta Azion. Se você ainda não tem uma, [crie uma conta](https://console.azion.com/signup).
 - Um bucket para a biblioteca, com **Workloads Access** definido como _Read Only_. Para criar um, consulte [Criar um bucket](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-e-modificar-um-bucket/).
 - Uma aplicação que serve o bucket por um connector do tipo Object Storage com o prefixo `/vod`, e uma regra que envia todos os caminhos a ele. Para criar os dois, consulte [Use um bucket como origem de uma aplicação](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/).
 - Um hostname para a biblioteca que aponta para o workload da aplicação. Para criar o registro, consulte [Aponte um domínio para um workload](/pt-br/documentacao/guias/plataforma/migracao/apontar-dominio-para-a-azion/).
-- Um personal token, para os procedimentos pela API. Para criar um, consulte [Personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
 - Os arquivos HLS codificados de cada título, como o seu packager os escreveu: uma playlist principal, uma playlist por rendition e os segmentos.
-- Os valores da sua biblioteca. Esta página usa `video-library` para o bucket, `videos.example.com` para o hostname e `course-101` para um título, com os arquivos `master.m3u8`, `720p/index.m3u8` e `720p/segment-00001.ts`. Substitua cada valor pelo seu em todas as etapas.
 
 ---
 
@@ -66,7 +65,7 @@ O diagrama traz dois fluxos. O fluxo de upload vai da equipe até o bucket, e s�
 5. Para um título pago, uma função valida o token do espectador e lê o objeto do bucket apenas quando o token é válido.
 6. O player lê a playlist da rendition e busca os segmentos dela da mesma forma, e Real-Time Metrics informa as requisições e os dados que cada camada de cache respondeu.
 
-### Componentes
+### Recursos de Plataforma
 
 - **Object Storage**: guarda a biblioteca, toda playlist e todo segmento sob um prefixo de um bucket. O bucket dá à plataforma acesso somente leitura, e a equipe escreve nele pela API ou pelo protocolo S3.
 - **aplicação**: o Platform Resource que entrega a biblioteca. Um connector para o bucket e uma regra com _Set Connector_ fazem do bucket a fonte dela, e regras por extensão de arquivo aplicam uma cache setting a cada tipo de arquivo.
@@ -81,29 +80,21 @@ O diagrama traz dois fluxos. O fluxo de upload vai da equipe até o bucket, e s�
 
 ---
 
-## Configure o upload da biblioteca
+## Como o design funciona
+
+Esta seção explica as duas partes do design que guardam a biblioteca e a mantêm em cache: o upload da biblioteca e o cache para playlists e segmentos.
+
+### Upload da biblioteca
 
 O upload da biblioteca coloca cada título no bucket sob keys que o connector serve sem alteração. O prefixo do connector é `/vod`, então o objeto `vod/course-101/master.m3u8` responde em `/course-101/master.m3u8`. Envie cada arquivo sob o mesmo caminho relativo que o packager escreveu, para que os caminhos dentro de cada playlist continuem apontando para os arquivos que ela lista.
 
 Cada upload envia `Content-Type`, porque o tipo armazenado é o que esse header carrega, e ele é retornado em toda leitura. Sem o header, a Azion detecta o tipo, o que não é garantido para todo arquivo. Esta página usa `application/vnd.apple.mpegurl` para as playlists, o tipo que a [especificação do HLS](https://datatracker.ietf.org/doc/html/rfc8216#section-4) define para elas, e `video/mp2t` para os segmentos MPEG-2 transport stream.
 
-Envie cada arquivo ao bucket `video-library` como [Upload e download de objetos](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/upload-e-download-de-objetos-do-bucket/#faca-upload-de-um-objeto-pela-api) descreve, com estes valores:
-
-| Arquivo | Key do objeto | `Content-Type` |
-| --- | --- | --- |
-| Playlist principal | `vod/course-101/master.m3u8` | `application/vnd.apple.mpegurl` |
-| Playlist da rendition | `vod/course-101/720p/index.m3u8` | `application/vnd.apple.mpegurl` |
-| Segmento | `vod/course-101/720p/segment-00001.ts` | `video/mp2t` |
-
-A API responde `201` com a key de cada objeto em `object_key`, como `vod/course-101/master.m3u8`. Envie todos os outros segmentos do título da mesma forma. Para uma biblioteca com muitos arquivos, um cliente S3 como o s3cmd os envia com uma credencial limitada a `video-library`, como [Use ferramentas compatíveis com S3 com Object Storage](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/protocolo-s3-para-object-storage/) mostra. Azion Console recusa um único arquivo maior que 300 MB, um limite que a API e o protocolo S3 não têm.
+Para uma biblioteca com muitos arquivos, um cliente S3 como o s3cmd os envia com uma credencial limitada a `video-library`, como [Use ferramentas compatíveis com S3 com Object Storage](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/protocolo-s3-para-object-storage/) mostra. Azion Console recusa um único arquivo maior que 300 MB, um limite que a API e o protocolo S3 não têm.
 
 Quando um título for recodificado, envie-o sob uma nova key, como `vod/course-101-v2/`, em vez de substituir os arquivos no lugar. Um upload para uma key em uso substitui o objeto sem histórico de versões, e uma key que nunca serve um conteúdo diferente é o que permite que os segmentos dela fiquem em cache por muito tempo.
 
-O bucket guarda todos os arquivos de `course-101` sob `vod/course-101/`, e a aplicação pode servi-lo em `https://videos.example.com/course-101/master.m3u8`.
-
----
-
-## Configure o cache para playlists e segmentos
+### Cache para playlists e segmentos
 
 O cache da biblioteca são duas cache settings e duas regras que as aplicam por extensão de arquivo, porque um segmento e uma playlist mudam em ritmos diferentes.
 
@@ -127,47 +118,6 @@ flowchart TD
 3. Qualquer outro caminho fica com as outras regras da aplicação.
 4. Um miss chega ao bucket pelo connector, e a resposta é colocada em cache sob a configuração que o caminho dela recebeu.
 
-Crie as duas cache settings e as duas regras como [Faça cache de uma biblioteca HLS sob demanda por extensão de arquivo](/pt-br/documentacao/guias/midia-e-streaming/streaming/fazer-cache-de-uma-biblioteca-hls-sob-demanda-por-extensao-de-arquivo/) descreve, com estes valores:
-
-| Tipo de arquivo | Cache setting | Max Age | Tiered Cache | Cache do navegador | Regra | Argumento de `${uri}` _matches_ |
-| --- | --- | --- | --- | --- | --- | --- |
-| Segmentos | `vod-segments` | `31536000` | Ativado, `nearest-region` | Override, `0` | `vod - cache segments` | `\.ts$` |
-| Playlists | `vod-playlists` | `3600` | Desativado | Override, `0` | `vod - cache playlists` | `\.m3u8$` |
-
-Em um corpo JSON, para a API ou a CLI, os argumentos são escritos `"\\.ts$"` e `"\\.m3u8$"`.
-
-Os segmentos ficam em cache por 31.536.000 segundos no Cache e na camada do Tiered Cache, e as playlists por 3.600 segundos no Cache. Os navegadores não guardam nenhum dos dois. Uma regra nova leva alguns minutos para se propagar.
-
----
-
-## Verifique a configuração
-
-Cada verificação de cache envia uma requisição com o header `Pragma: azion-debug-cache`, que faz a resposta trazer o header `x-cache`. Para saber como lê-lo, consulte [Verifique o status de cache de uma resposta](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/verificar-tempo-de-cache-da-pagina/).
-
-- **A biblioteca é servida pelo bucket com o tipo dela.** Requisite a playlist principal:
-
-  ```bash
-  curl -sI https://videos.example.com/course-101/master.m3u8
-  ```
-
-  A resposta traz `200` e `content-type: application/vnd.apple.mpegurl`, o tipo armazenado no upload.
-
-- **Os segmentos respondem pelo cache.** Requisite um segmento duas vezes:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" https://videos.example.com/course-101/720p/segment-00001.ts
-  ```
-
-  A segunda resposta traz `x-cache: HIT`. A primeira pode trazer `MISS`, enquanto a aplicação lê o segmento do bucket.
-
-- **As playlists respondem pelo cache.** Requisite a playlist principal duas vezes com o mesmo header. A segunda resposta traz `x-cache: HIT`.
-
-- **Uma playlist reescrita sai do cache.** Envie um purge por URL para `https://videos.example.com/course-101/master.m3u8`, como [Purgue conteúdo em cache](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/purgar-conteudo-em-cache/) mostra. Quando ele aparecer no histórico de purge, a próxima requisição traz `x-cache: MISS`.
-
-- **Os títulos pagos recusam uma requisição sem token.** Quando uma função protege os caminhos pagos, uma requisição sem token recebe HTTP `401`, como [Autentique requisições com Functions](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/camada-autenticacao-object-storage-functions/) mostra.
-
-Uma regra que parece não ter efeito ainda pode estar se propagando. Quando isso persistir depois de alguns minutos, ative [Debug Rules](/pt-br/documentacao/plataforma/applications/main-settings/#debug-rules) para ver quais regras foram executadas na requisição.
-
 ---
 
 ## Medindo resultados
@@ -182,15 +132,7 @@ Uma regra que parece não ter efeito ainda pode estar se propagando. Quando isso
 
 ## Boas práticas
 
-- **Versione um título recodificado em vez de substituí-lo.** Uma key que nunca serve um conteúdo diferente pode ficar em cache pelo **Max Age** completo, e as duas versões existem enquanto os espectadores passam para a nova. Apenas a playlist principal, que o site incorpora, é reescrita no lugar:
-
-  ```text
-  vod/course-101/master.m3u8
-  vod/course-101/720p/segment-00001.ts
-  vod/course-101-v2/720p/segment-00001.ts
-  ```
-
-  O custo é que as keys antigas se acumulam, então remova as que nenhuma playlist referencia.
+- **Versione um título recodificado em vez de substituí-lo.** Uma key que nunca serve um conteúdo diferente pode ficar em cache pelo **Max Age** completo, e as duas versões existem enquanto os espectadores passam para a nova. Apenas a playlist principal, que o site incorpora, é reescrita no lugar, como `vod/course-101/master.m3u8`, enquanto um segmento recodificado recebe uma nova key, como `vod/course-101-v2/720p/segment-00001.ts` ao lado de `vod/course-101/720p/segment-00001.ts`. O custo é que as keys antigas se acumulam, então remova as que nenhuma playlist referencia.
 - **Faça o purge do Tiered Cache primeiro quando retirar um título.** Excluir um objeto do bucket não remove as cópias em cache dele. Faça o purge de cada segmento da camada do Tiered Cache pela cache key, depois do Cache, ou a primeira camada se reabastece a partir da segunda. Para a ordem do purge, consulte [Tiered Cache](/pt-br/documentacao/plataforma/applications/cache/tiered-cache/#purge).
 - **Mantenha os espectadores fora do endpoint S3.** Uma URL pré-assinada entregue a um player envia toda requisição a uma interface de gerenciamento, sem cache, e as requisições que chegam aos objetos sem uma aplicação estão sujeitas a rate limits. Sirva a biblioteca apenas pela aplicação. Para o raciocínio, consulte [Sirva objetos aos usuários finais por meio de uma aplicação](/pt-br/documentacao/plataforma/object-storage/boas-praticas/#sirva-objetos-aos-usuarios-finais-por-meio-de-uma-aplicacao).
 - **Limite a credencial de upload ao bucket da biblioteca.** Uma credencial criada sem `buckets` alcança todos os buckets da conta, e a secret key dela é retornada apenas uma vez. Nomeie `video-library` em `buckets` e conceda apenas as capabilities que o upload usa. Para os campos, consulte [Limite uma credencial S3 aos buckets e às capabilities de que ela precisa](/pt-br/documentacao/plataforma/object-storage/boas-praticas/#limite-uma-credencial-s3-aos-buckets-e-as-capabilities-de-que-ela-precisa).
@@ -202,4 +144,8 @@ Uma regra que parece não ter efeito ainda pode estar se propagando. Quando isso
 <DocCardGroup cols={2}>
   <DocCard title="Faça cache de uma biblioteca HLS sob demanda por extensão de arquivo" href="/pt-br/documentacao/guias/midia-e-streaming/streaming/fazer-cache-de-uma-biblioteca-hls-sob-demanda-por-extensao-de-arquivo/" label="Cria as cache settings vod-segments e vod-playlists e as regras que as aplicam por extensão de arquivo." />
   <DocCard title="Upload e download de objetos" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/upload-e-download-de-objetos-do-bucket/" label="Envia cada playlist e cada segmento de um título a video-library sob o prefixo vod/, com o content type dele." />
+  <DocCard title="Use ferramentas compatíveis com S3 com o Object Storage" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/protocolo-s3-para-object-storage/" label="Envia uma biblioteca de muitos arquivos com o s3cmd e uma credencial limitada a video-library." />
+  <DocCard title="Use um bucket como origem de uma aplicação" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/" label="Confirma que a aplicação serve um título pelo bucket com o content type armazenado no upload." />
+  <DocCard title="Purgue conteúdo em cache" href="/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/purgar-conteudo-em-cache/" label="Envia o purge por URL de uma playlist reescrita e o confirma no histórico de purge." />
+  <DocCard title="Autentique requisições com Functions" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/camada-autenticacao-object-storage-functions/" label="Protege os títulos pagos com uma função que recusa uma requisição sem token." />
 </DocCardGroup>

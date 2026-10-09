@@ -16,10 +16,9 @@ Este caso de uso não cobre aplicações cujo backend também é executado na Az
 
 ## Pré-requisitos
 
+- Uma conta Azion. Se você ainda não tem uma, [crie uma conta](https://console.azion.com/signup).
 - Uma single-page application implantada na Azion com Azion CLI e o preset do framework dela, a partir de uma pasta de projeto que contém o arquivo `azion.config.cjs`. O deploy cria o bucket, a aplicação e o workload que servem a interface. Para o caminho com React, consulte [Desenvolva com React](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/react/). Vue e Angular seguem o mesmo caminho com o próprio preset.
-- A [Azion CLI](/pt-br/documentacao/devtools/cli/primeiros-passos/), instalada e autenticada, nessa pasta de projeto.
 - Um backend que responde HTTPS na porta `443` sob o próprio hostname.
-- Os valores da sua interface. Esta página usa `api.example.com` para o backend, `/api/` para o prefixo de caminho de toda chamada de API que a interface faz, `/api/health` para um caminho do backend que as verificações requisitam e `<workload-domain>` para o domínio que o deploy exibiu. Substitua cada valor pelo seu em todas as etapas.
 
 ---
 
@@ -63,7 +62,7 @@ O diagrama traz dois fluxos. O fluxo de publicação vai do repositório até o 
 5. Uma requisição de um arquivo do build, como um script ou uma folha de estilo, é respondida pelo Cache. Em um miss, a aplicação lê o arquivo do bucket e faz cache dele.
 6. Uma requisição de uma rota do lado do cliente, como `/orders/42`, é reescrita para `/index.html`, e o roteador no navegador renderiza essa rota.
 
-### Componentes
+### Recursos de Plataforma
 
 - **Object Storage**: guarda a interface compilada em um bucket que os workloads só podem ler. A interface não tem servidor próprio, então o bucket é a origem dela.
 - **Cache**: mantém os arquivos do build perto dos navegadores que os requisitam, então carregamentos repetidos de página leem os arquivos do Cache em vez do bucket.
@@ -79,63 +78,25 @@ O diagrama traz dois fluxos. O fluxo de publicação vai do repositório até o 
 
 ---
 
-## Configure a rota de API
+## Como o design funciona
+
+Esta seção explica como a rota de API chega ao backend e por que ela roda antes de todas as outras regras.
+
+### Rota de API
 
 A rota de API é um connector para o backend e uma regra que envia toda requisição `/api/` a ele. Os dois ficam no `azion.config.cjs` do projeto, o arquivo que o `azion deploy` aplica à aplicação, então a rota é enviada com cada deploy da interface.
 
 A regra é a primeira entrada das regras de requisição e encerra a request phase. A regra `Redirect to index.html` do preset reescreve as requisições de rotas para `/index.html`, e toda regra da fase que corresponde é executada, em ordem. Sem uma parada, uma regra posterior poderia reescrever o caminho de uma chamada de API ou aplicar a ela a cache setting dos arquivos da interface. **Finish Request Phase** encerra a fase, então as regras depois dela nunca veem uma chamada de API.
 
-O `azion.config.cjs` do projeto declara a rota como [Roteie um caminho de API para um backend pelo azion.config](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/rotear-um-caminho-de-api-para-um-backend/) descreve, com estes valores, e o `azion deploy` na pasta do projeto a aplica:
+Cada entrada da rota tem o valor dela por um motivo:
 
-| Entrada | Valor | Por quê |
-| --- | --- | --- |
-| `name` do connector | `api-backend` | O nome que o behavior `set_connector` da regra nomeia. O connector fica ao lado do connector de storage que o preset declarou |
-| Endereço do connector | `api.example.com` | O próprio hostname do backend |
-| `connectionOptions.transportPolicy` | `force_https` | O backend responde HTTPS apenas na porta `443` |
-| `connectionOptions.host` | `api.example.com` | O `${host}` padrão enviaria o domínio da interface, pelo qual um backend que roteia requisições por nome pode não responder |
-| Posição da regra | A primeira entrada de `rules.request`, antes das regras que o preset gerou | Para que a regra `Redirect to index.html` do preset nunca veja uma chamada de API |
-| Critério da regra | `${uri}` `starts_with` `/api/` | Toda chamada de API que a interface faz |
-| Behaviors da regra | `set_connector` com `api-backend`, depois `finish_request_phase` | O backend recebe a chamada, e nenhuma regra posterior a reescreve nem faz cache dela |
-
-As requisições sob `/api/` chegam a `api.example.com` com o próprio caminho, e todas as outras requisições mantêm o comportamento do preset. Uma regra nova leva alguns minutos para chegar a todos os data centers.
-
----
-
-## Verifique a configuração
-
-- **A interface carrega.** Requisite a raiz do domínio:
-
-  ```bash
-  curl -s -D - -o /dev/null https://<workload-domain>/
-  ```
-
-  A resposta traz `200`. Até que o deploy chegue a uma localidade, o domínio responde `404` com uma página que diz `There's nothing here yet`. Espere e requisite de novo.
-
-- **Uma rota do lado do cliente carrega a interface.** Requisite uma rota que a interface trata, como `/orders/42`:
-
-  ```bash
-  curl -s https://<workload-domain>/orders/42
-  ```
-
-  O corpo é o mesmo HTML de entrada que `/` retorna. O roteador no navegador então renderiza a rota.
-
-- **Os arquivos da interface vêm do cache.** Requisite um script do build duas vezes, com o header de debug. Pegue o caminho dele de uma tag `<script>` do HTML de entrada:
-
-  ```bash
-  curl -sI -H "Pragma: azion-debug-cache" https://<workload-domain>/<script-path>
-  ```
-
-  A segunda resposta traz `x-cache: HIT`. Para saber como ler o header, consulte [Verifique o status de cache de uma resposta](/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/verificar-tempo-de-cache-da-pagina/).
-
-- **As chamadas de API chegam ao backend.** Requisite um caminho do backend:
-
-  ```bash
-  curl -s -D - https://<workload-domain>/api/health
-  ```
-
-  A resposta é a do próprio backend para `/api/health`, não o HTML de entrada. Quando for o HTML de entrada, a regra de API não é a primeira regra de requisição, ou ainda não se propagou.
-
-Para ver quais regras foram executadas em uma requisição, ative [Debug Rules](/pt-br/documentacao/plataforma/applications/main-settings/#debug-rules).
+- **`name` do connector**: `api-backend`, o nome que o behavior `set_connector` da regra nomeia. O connector fica ao lado do connector de storage que o preset declarou.
+- **Endereço do connector**: `api.example.com`, o próprio hostname do backend.
+- **`connectionOptions.transportPolicy`**: `force_https`, porque o backend responde HTTPS apenas na porta `443`.
+- **`connectionOptions.host`**: `api.example.com`, porque o `${host}` padrão enviaria o domínio da interface, pelo qual um backend que roteia requisições por nome pode não responder.
+- **Posição da regra**: a primeira entrada de `rules.request`, antes das regras que o preset gerou, para que a regra `Redirect to index.html` do preset nunca veja uma chamada de API.
+- **Critério da regra**: `${uri}` `starts_with` `/api/`, toda chamada de API que a interface faz.
+- **Behaviors da regra**: `set_connector` com `api-backend`, depois `finish_request_phase`, então o backend recebe a chamada, e nenhuma regra posterior a reescreve nem faz cache dela.
 
 ---
 
@@ -163,4 +124,5 @@ Para ver quais regras foram executadas em uma requisição, ative [Debug Rules](
 <DocCardGroup cols={2}>
   <DocCard title="Roteie um caminho de API para um backend pelo azion.config" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/rotear-um-caminho-de-api-para-um-backend/" label="Declara o connector api-backend e a primeira regra de requisição, que envia toda chamada /api/ ao backend." />
   <DocCard title="Desenvolva com React" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/react/" label="Implanta a interface com azion deploy e o preset React, que cria o bucket, a aplicação e a regra Redirect to index.html." />
+  <DocCard title="Verifique o status de cache de uma resposta" href="/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/verificar-tempo-de-cache-da-pagina/" label="Lê o header x-cache que mostra que os arquivos da interface vêm do cache." />
 </DocCardGroup>

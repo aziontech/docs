@@ -9,9 +9,6 @@ permalink: /documentacao/casos-de-uso/construir-e-executar-workloads-de-ai/adici
 ---
 import DocCardGroup from '@aziontech/webkit/doc-card-group'
 import DocCard from '@aziontech/webkit/doc-card'
-import DocSteps from '@aziontech/webkit/doc-steps'
-import DocStep from '@aziontech/webkit/doc-step'
-import Tabs from '~/components/webkit/Tabs.vue'
 
 Uma equipe de produto quer funcionalidades de IA, como resumo, classificação, moderação ou compreensão de imagens, em uma aplicação que ela já executa, sem operar infraestrutura de GPU. A aplicação já fica atrás da Azion, e a equipe quer mais uma rota de API que possa chamar a partir do seu código como qualquer outra. Esta página adiciona uma rota de resumo a essa aplicação: uma function valida a requisição, chama um modelo do catálogo do AI Inference, armazena o resultado em cache para textos idênticos e retorna o resumo. O resultado é medido pela latência de inferência por requisição, pelo consumo a cada mil requisições e pela precisão da tarefa em um conjunto de teste.
 
@@ -19,9 +16,8 @@ Este caso de uso não cobre assistentes conversacionais fundamentados em conteú
 
 ## Pré-requisitos
 
+- Uma conta Azion. Se você ainda não tem uma, [crie uma conta](https://console.azion.com/signup).
 - Uma aplicação e um workload que já servem a sua aplicação, com o **Application Accelerator** ativado, que o behavior **Run Function** exige. Para criá-los, consulte [Primeiros passos com Applications](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
-- Um personal token, para as etapas de API. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
-- Os valores da sua própria configuração. Esta página usa `/api/summarize` para a rota, `ai-summarize` para a function e a sua instância e `www.example.com` para o domínio em que a sua aplicação responde. Substitua cada valor pelo seu em todas as etapas.
 
 ---
 
@@ -65,7 +61,7 @@ Leia o diagrama a partir da function. As setas que chegam à function vêm de um
 5. A function armazena o resumo no cache sob o hash, por um dia.
 6. A function retorna o resumo e se ele veio do cache.
 
-### Componentes
+### Recursos de Plataforma
 
 - **aplicação**: o Platform Resource que encaminha `/api/summarize` para a function. A rota é uma regra na aplicação que já serve o seu tráfego, então o domínio, o certificado TLS e qualquer autenticação na frente dela são os que a aplicação já tem. A Azion não emite credencial para uma chamada de modelo, então uma rota sem verificação própria responde a qualquer um que a alcance.
 - **Functions**: trata cada requisição. A function `ai-summarize` guarda o prompt, o id do modelo, os limites de entrada e o formato da resposta, então cada decisão sobre o que o modelo recebe é código que a sua equipe controla.
@@ -79,7 +75,11 @@ Leia o diagrama a partir da function. As setas que chegam à function vêm de um
 
 ---
 
-## Configure a function de resumo
+## Como o design funciona
+
+Esta seção explica a function de resumo e a rota que a executa, e o motivo de cada escolha.
+
+### Function de resumo
 
 A function é a funcionalidade inteira: ela decide o que é pedido ao modelo, o que ele pode receber e o que quem chama recebe de volta.
 
@@ -89,157 +89,9 @@ A function é a funcionalidade inteira: ela decide o que é pedido ao modelo, o 
 - **Um resultado fica em cache por um dia sob o SHA-256 do texto.** O mesmo texto gera um resumo que quem chama pode reutilizar, então um texto repetido não custa nenhuma chamada ao modelo. A function armazena em cache como [Armazene em cache a resposta de uma function com a Cache API](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/) descreve, com o cache `ai-summarize`, a key `https://ai-summarize.cache/<sha-256 of the text>` e `max-age=86400`.
 - **O texto do modelo é lido com optional chaining.** Uma resposta sem um dos níveis gera um resumo vazio, que a function informa como `502`, em vez de uma exceção.
 
-Crie uma function chamada `ai-summarize` com este código:
-
-```javascript
-const MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8";
-const MAX_CHARS = 20000;
-const CACHE_SECONDS = 86400;
-
-async function sha256(text) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export default {
-  async fetch(request, env, ctx) {
-    if (request.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
-    }
-    const { text } = await request.json();
-    if (typeof text !== "string" || text.trim() === "") {
-      return Response.json({ error: "text is required" }, { status: 400 });
-    }
-    if (text.length > MAX_CHARS) {
-      return Response.json({ error: `text is longer than ${MAX_CHARS} characters` }, { status: 413 });
-    }
-
-    const cache = await caches.open("ai-summarize");
-    const cacheKey = `https://ai-summarize.cache/${await sha256(text)}`;
-    const hit = await cache.match(cacheKey);
-    if (hit) {
-      return new Response(await hit.text(), {
-        headers: { "Content-Type": "application/json", "x-summary-cache": "hit" }
-      });
-    }
-
-    const modelResponse = await Azion.AI.run(MODEL, {
-      "stream": false,
-      "max_tokens": 300,
-      "messages": [
-        { "role": "system", "content": "Summarize the user's text in at most three sentences. Use only facts the text states." },
-        { "role": "user", "content": text }
-      ]
-    });
-    const summary = modelResponse?.choices?.[0]?.message?.content?.trim();
-    if (!summary) {
-      return Response.json({ error: "the model returned no summary" }, { status: 502 });
-    }
-
-    const body = JSON.stringify({ summary });
-    await cache.put(cacheKey, new Response(body, {
-      headers: { "Content-Type": "application/json", "cache-control": `max-age=${CACHE_SECONDS}` }
-    }));
-    return new Response(body, {
-      headers: { "Content-Type": "application/json", "x-summary-cache": "miss" }
-    });
-  },
-};
-```
-
-Para criar a function e a sua instância, siga [Primeiros passos com Functions](/pt-br/documentacao/plataforma/functions/primeiros-passos/) com o nome `ai-summarize` e dê à instância na sua aplicação o nome `ai-summarize`, sem Args. A Cache API não é definida no `azion dev`, então teste a function depois que ela estiver em execução na aplicação.
-
-A aplicação tem uma instância `ai-summarize` que retorna o resumo de um texto, a partir do cache quando o mesmo texto foi resumido no último dia.
-
----
-
-## Configure a rota de API
+### Rota de API
 
 A rota é uma regra na aplicação que já serve a sua aplicação. Ela corresponde exatamente a `/api/summarize`, então nenhum outro caminho da sua aplicação executa a function, e é executada na Request Phase, porque a function produz a resposta inteira.
-
-<Tabs client:visible sharedStore="interface">
-<Fragment slot="tab.console">Console</Fragment>
-<Fragment slot="tab.api">API</Fragment>
-
-<Fragment slot="panel.console">
-
-Para criar a regra:
-
-<DocSteps>
-  <DocStep title="Abra a aplicação">
-
-  Acesse [Azion Console](https://console.azion.com/) > **Applications** > **sua aplicação**.
-
-  </DocStep>
-  <DocStep title="Na aba Rules Engine, selecione + Rule" />
-  <DocStep title="Dê um nome à regra">
-
-  Digite `ai - summarize`.
-
-  </DocStep>
-  <DocStep title="Selecione Request Phase" />
-  <DocStep title="Faça a correspondência com a rota">
-
-  Na seção **Criteria**, selecione a variável `${uri}`, o operador _is equal_ e `/api/summarize` como argumento.
-
-  </DocStep>
-  <DocStep title="Na seção Behaviors, selecione Run Function" />
-  <DocStep title="Selecione a instância ai-summarize" />
-  <DocStep title="Selecione Save" />
-</DocSteps>
-
-</Fragment>
-
-<Fragment slot="panel.api">
-
-Para criar a regra, envie-a às request rules da aplicação, com o ID da instância `ai-summarize`:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/applications/<application-id>/request_rules \
-  --header 'Accept: application/json' \
-  --header 'Authorization: Token [TOKEN VALUE]' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "name": "ai - summarize",
-  "active": true,
-  "criteria": [
-    [
-      { "variable": "${uri}", "conditional": "if", "operator": "is_equal", "argument": "/api/summarize" }
-    ]
-  ],
-  "behaviors": [{ "type": "run_function", "attributes": { "value": <function-instance-id> } }]
-}'
-```
-
-A API responde com um `state` de `pending` e a regra como foi armazenada.
-
-</Fragment>
-</Tabs>
-
-Um `POST` para `/api/summarize` no seu domínio executa a function, e todos os outros caminhos mantêm as regras que tinham. Uma regra nova leva alguns minutos para se propagar.
-
----
-
-## Verifique a configuração
-
-- **A rota retorna um resumo.** Envie um texto:
-
-  ```bash
-  curl -s -i -X POST https://www.example.com/api/summarize \
-    -H 'Content-Type: application/json' \
-    -d '{"text":"<a paragraph of your own content>"}'
-  ```
-
-  A resposta traz `x-summary-cache: miss` e um corpo JSON com `summary`.
-
-- **O mesmo texto é respondido a partir do cache.** Envie a mesma requisição de novo. A resposta traz `x-summary-cache: hit` e o mesmo `summary`.
-
-- **Uma entrada inválida nunca chega ao modelo.** Envie `{"text":""}`. A resposta é `400` com `text is required`, que a function retorna antes da chamada ao modelo.
-
-- **A rota é executada apenas no seu caminho.** Faça uma requisição a qualquer outro caminho da sua aplicação. Ele responde como respondia antes de a regra existir.
-
-Quando a rota responde com a página da sua própria aplicação em vez de JSON, a regra ainda pode estar se propagando. Quando isso persistir depois de alguns minutos, leia as linhas de log da function na fonte de dados **Functions Console** do [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/primeiros-passos/).
 
 ---
 
@@ -266,6 +118,8 @@ Quando a rota responde com a página da sua própria aplicação em vez de JSON,
 ## Guias deste caso de uso
 
 <DocCardGroup cols={2}>
+  <DocCard title="Resuma texto com AI Inference e armazene o resumo em cache" href="/pt-br/documentacao/guias/ai/inferencia/resumir-texto-com-ai-inference-e-armazenar-o-resumo-em-cache/" label="Guarda o código da function ai-summarize, cria a sua instância e executa as verificações deste caso de uso." />
+  <DocCard title="Execute uma função em uma aplicação" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/funcoes-serverless/" label="Cria a regra que executa a function em /api/summarize, no Azion Console ou pela API." />
   <DocCard title="Armazene em cache a resposta de uma function com a Cache API" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/armazenar-em-cache-a-resposta-de-uma-function-com-a-cache-api/" label="Armazena cada resumo sob o hash do seu texto e o retorna para o mesmo texto." />
   <DocCard title="Chame um modelo no AI Inference a partir de uma function" href="/pt-br/documentacao/guias/ai/inferencia/chamar-um-modelo-no-ai-inference-a-partir-de-uma-function/" label="Envia o texto ao modelo do catálogo com Azion.AI.run e lê o resumo na resposta." />
 </DocCardGroup>

@@ -206,6 +206,19 @@ Updated Connector with ID <connector-id>
 
 The connector holds two active addresses and sends about one request in ten to the new origin. A connector change reaches Azion's distributed infrastructure over several minutes, and until every data center holds it, some requests reach the current origin alone.
 
+In the [Migrate an application to a new origin without downtime](/en/documentation/use-cases/build-and-run-applications/migrate-an-application-to-a-new-origin-without-downtime/) use case, this section takes these values:
+
+| Setting | Value |
+| --- | --- |
+| **Host** | `${host}` |
+| **Transport Protocol Policy** | _Force HTTPS_, because both origins answer HTTPS on port `443` |
+| **Method** | _Round Robin_ |
+| **Max Retries**, **Connection Timeout**, **Read/Write Timeout** | `3`, `30`, and `60` |
+| `old-origin.example.com` | **Server Role** _Primary_, **Weight** `99` |
+| `new-origin.example.com` | **Server Role** _Primary_, **Weight** `1` |
+
+The connector holds two active addresses and sends about one request in a hundred to the new origin. A connector change takes several minutes to reach every data center, and until then some requests reach the old origin alone.
+
 ---
 
 ## Change the weights
@@ -293,6 +306,17 @@ Updated Connector with ID <connector-id>
 
 The new origin receives the share of the new weights once the change reaches each data center. During the spread, some data centers still apply the previous weights, so judge a step only after it has spread.
 
+In the [Migrate an application to a new origin without downtime](/en/documentation/use-cases/build-and-run-applications/migrate-an-application-to-a-new-origin-without-downtime/) use case, this section takes these values:
+
+| Step | Old origin weight | New origin weight | Share on the new origin |
+| --- | --- | --- | --- |
+| 1 | `99` | `1` | About 1 in 100 |
+| 2 | `90` | `10` | About 1 in 10 |
+| 3 | `50` | `50` | About half |
+| 4 | `10` | `90` | About 9 in 10 |
+
+The new origin receives the share of the step once the change reaches each data center. During the spread, some data centers still apply the previous weights.
+
 ---
 
 ## Take an origin out of rotation
@@ -377,6 +401,47 @@ To cut over instead, move `"active": false` to the current origin's address.
 </Tabs>
 
 The address that is off receives no request once every data center holds the change. The change takes several minutes to spread, so keep the origin you turned off answering until no request reaches it.
+
+The [Migrate an application to a new origin without downtime](/en/documentation/use-cases/build-and-run-applications/migrate-an-application-to-a-new-origin-without-downtime/) use case uses the values of this example.
+
+---
+
+## Measure the share and the errors of each origin
+
+Each step is judged on what each origin received and how it answered. The checks below read a response header that tells the two origins apart, such as the `server` header each one sends, the requests of one hour grouped by upstream address in Real-Time Metrics, and the failing requests of the new origin in Real-Time Events. The examples use `www.example.com` for the site and `<new-origin-ip>` for the IP address that `new-origin.example.com` resolves to, which the event filters match on.
+
+- **Both origins answer.** Send the same request several times and read the header that tells the origins apart:
+
+  ```bash
+  curl -s -D - -o /dev/null https://www.example.com/
+  ```
+
+  At equal weights, about half of the answers carry the new origin's header. At weights of `99` and `1`, most runs show only the old origin's header, because one request in a hundred goes to the new one. The answers come in no fixed order.
+
+- **The new origin receives its share.** Query the requests of one hour grouped by upstream address. Replace the token, the hour, and the hostname:
+
+  ```bash
+  curl -X POST 'https://api.azion.com/v4/metrics/graphql' \
+    -H 'Content-Type: application/json' \
+    -H 'Authorization: Token [TOKEN VALUE]' \
+    -d '{"query":"query OriginShare { workloadBreakdownMetrics(aggregate: { sum: requests }, groupBy: [upstreamAddr], orderBy: [sum_DESC], limit: 10, filter: { tsGte: \"2026-10-05T13:00:00\", tsLt: \"2026-10-05T14:00:00\", hostEq: \"www.example.com\" }) { upstreamAddr total: sum } }"}'
+  ```
+
+  The API answers `200` with one row per upstream address, in the form `{"data":{"workloadBreakdownMetrics":[{"upstreamAddr":"<new-origin-ip>:443","total":<requests>}, …]}}`. The new origin's total against the sum of all rows tracks the share of the weights.
+
+- **No new errors on the new origin.** In [Azion Console](https://console.azion.com/) > **Real-Time Events**, select the _HTTP Requests_ data source and a period that covers the step, and enter this filter in **Filter by**:
+
+  ```text
+  upstream_addr like '%<new-origin-ip>%' AND upstream_status='502'
+  ```
+
+  An empty result means that no request to the new origin ended with `502`. Repeat the filter with the other `5xx` codes your origin can return.
+
+- **The rollback holds.** After a rollback, run the filter `upstream_addr like '%<new-origin-ip>%'` over the minutes after the change. The newest records stop once every data center holds the change.
+
+A step that seems to have no effect may still be propagating. Repeat the check after a few minutes before you change the weights again.
+
+These checks confirm the [Migrate an application to a new origin without downtime](/en/documentation/use-cases/build-and-run-applications/migrate-an-application-to-a-new-origin-without-downtime/) use case.
 
 ---
 

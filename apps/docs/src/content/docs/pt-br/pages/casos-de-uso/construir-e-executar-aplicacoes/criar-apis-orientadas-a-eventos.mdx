@@ -16,11 +16,10 @@ Esta página não cobre a function consumidora que recebe cada entrega do QStash
 
 ## Pré-requisitos
 
+- Uma conta Azion. Se você ainda não tem uma, [crie uma conta](https://console.azion.com/signup).
 - O handler de webhooks do Stripe que [Construa um handler de webhooks do Stripe com Functions](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/webhooks-stripe-functions/) constrói, até o passo 4: o projeto Hono, o middleware `verifyStripeWebhook` e as duas variáveis do Stripe. Esta página substitui a rota de webhook dele e o implanta.
 - Uma conta Upstash e o **QStash Token** dela, da aba **QStash** do Upstash Console, como [Use o template QStash Function Scheduler](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/qstash-function-scheduler/) mostra. O uso do QStash é cobrado pela Upstash.
-- O domínio do consumidor que recebe cada evento do QStash. Esta página usa `events-consumer.example.com`.
-- Um personal token para a chamada de API que cria o namespace. Para criar um, consulte [Personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
-- Os nomes e valores que esta página usa: `events-idempotency` para o namespace do KV Store, `QSTASH_TOKEN` e `CONSUMER_DOMAIN` para as variáveis de ambiente da function, `/webhook` para a rota produtora e `api.example.com` para o domínio que o deploy serve. Substitua cada valor pelo seu em todos os passos.
+- O domínio do consumidor que recebe cada evento do QStash.
 
 ---
 
@@ -59,7 +58,7 @@ Leia o diagrama como dois fluxos ligados pela fila. O fluxo de requisição term
 4. O QStash guarda a mensagem e a entrega no domínio do consumidor, com novas tentativas para uma entrega que não tem sucesso.
 5. A function consumidora processa a mensagem e grava o resultado no SQL Database, indexado pelo evento, então uma mensagem entregue duas vezes deixa um único registro. Esta página não configura a function consumidora.
 
-### Componentes
+### Recursos de Plataforma
 
 - **Functions**: executam o endpoint produtor, que aceita e enfileira cada evento, e o handler consumidor, que processa cada entrega. Separar os dois é o que faz a resposta ao chamador deixar de depender do processamento. Esta página constrói o produtor.
 - **Upstash QStash**: a integração que guarda cada mensagem e a entrega ao consumidor com novas tentativas. A entrega e as novas tentativas saem da function produtora, então um consumidor lento ou com falhas não chega ao chamador.
@@ -73,53 +72,19 @@ Leia o diagrama como dois fluxos ligados pela fila. O fluxo de requisição term
 
 ---
 
-## Configure o namespace de idempotência
+## Como o design funciona
+
+Esta seção explica como a function produtora filtra eventos repetidos, como ela chega ao QStash e como decide se enfileira cada evento.
+
+### Namespace de idempotência
 
 A function produtora guarda uma chave por evento enfileirado no namespace `events-idempotency` do KV Store, uma verificação rápida que ela executa antes de publicar. A verificação filtra repetições; ela não garante uma única publicação, como as boas práticas deste caso de uso explicam.
 
-Para criar o namespace:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/kv/namespaces \
-  --header 'Accept: application/json' \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{"name": "events-idempotency"}'
-```
-
-A API responde `201` com o namespace. A requisição é síncrona, e não há estado de provisionamento para consultar:
-
-```json
-{"name":"events-idempotency","created_at":"...","last_modified":"..."}
-```
-
-Um namespace não pode ser renomeado nem apagado, e os nomes diferenciam maiúsculas de minúsculas, então crie-o uma única vez, em letras minúsculas. O namespace `events-idempotency` existe e está vazio.
-
----
-
-## Configure as credenciais da fila
+### Credenciais da fila
 
 A function produtora se autentica no QStash com o token do QStash e publica no domínio do consumidor. Os dois valores são variáveis de ambiente da conta, então nenhum deles entra no código, e o destino muda sem uma edição de código.
 
-Para criá-las:
-
-```bash
-azion create variables --key QSTASH_TOKEN --value <qstash-token> --secret true
-azion create variables --key CONSUMER_DOMAIN --value events-consumer.example.com --secret false
-```
-
-Cada comando exibe o UUID da variável que criou:
-
-```text
-Created variable with UUID 00000000-0000-0000-0000-000000000005
-```
-
-A function lê os dois valores com `Azion.env.get()`. Uma mudança em uma variável só chega à function depois que ela é implantada de novo, o que a configuração da rota produtora faz. Para os limites das variáveis, consulte [Variáveis de ambiente](/pt-br/documentacao/plataforma/functions/environment-variables/).
-
----
-
-## Configure a rota produtora
+### Rota produtora
 
 A rota produtora substitui a rota `POST /webhook` do handler de webhooks do Stripe. Ela mantém o middleware `verifyStripeWebhook`, então só um evento cuja assinatura confere chega a ela. Depois, ela decide, evento a evento, se o enfileira:
 
@@ -140,82 +105,7 @@ flowchart TD
 3. Uma publicação que o QStash não aceita responde `500`. O provedor reenvia um evento que o endpoint não confirma, então o evento volta.
 4. Uma publicação que o QStash aceita grava a chave e responde `200`.
 
-No arquivo de entrada do projeto, substitua a rota `app.post("/webhook", ...)` por esta:
-
-```typescript
-const IDEMPOTENCY_NAMESPACE = "events-idempotency";
-const KEY_TTL_SECONDS = 86400;
-
-app.post("/webhook", verifyStripeWebhook, async (c) => {
-  const event = c.get("stripeEvent");
-  const kv = await Azion.KV.open(IDEMPOTENCY_NAMESPACE);
-
-  // A key for this event means an earlier delivery was already queued.
-  if ((await kv.get(event.id, "text")) !== null) {
-    return c.json({ received: true, duplicate: true });
-  }
-
-  // QStash delivers the message to the consumer's domain.
-  const published = await fetch(`https://qstash.upstash.io/v1/publish/${Azion.env.get("CONSUMER_DOMAIN")}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${Azion.env.get("QSTASH_TOKEN")}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      event_id: event.id,
-      type: event.type,
-      object_id: (event.data.object as { id: string }).id,
-      received_ms: Date.now(),
-    }),
-  });
-  if (!published.ok) {
-    console.error(`QStash answered ${published.status}`);
-    return c.json({ error: "Event not queued" }, 500);
-  }
-
-  // Written only after the publish, so a failed publish is never marked as queued.
-  await kv.put(event.id, "queued", { expirationTtl: KEY_TTL_SECONDS });
-  return c.json({ received: true });
-});
-```
-
-A rota publica como [Publique uma mensagem no Upstash QStash a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/publicar-uma-mensagem-no-upstash-qstash-a-partir-de-uma-function/) descreve e filtra repetições como [Deduplique entregas de webhook com KV Store](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/deduplicar-entregas-de-webhook-com-kv-store/) descreve, com estes valores:
-
-- **Publicação**: o destino de `CONSUMER_DOMAIN`, o token de `QSTASH_TOKEN` e um corpo com `event_id`, `type`, `object_id` e `received_ms`.
-- **Filtro**: o namespace `events-idempotency`, o ID do evento do Stripe como chave, o valor `queued` e `expirationTtl` definido como `86400` segundos, um dia. Uma repetição que chega depois disso esbarra na chave primária da tabela.
-
-Implante o projeto a partir do diretório dele:
-
-```bash
-azion deploy
-```
-
-A Azion CLI constrói o projeto, implanta-o e abre o Azion Console na página que traz os logs do deployment. O endpoint de webhook registrado no provedor continua sendo `https://api.example.com/webhook`. A propagação leva alguns minutos.
-
-A function produtora responde ao provedor assim que o evento é enfileirado, seja o que for que o consumidor faça depois.
-
----
-
-## Verifique a configuração
-
-Cada verificação roda contra a function implantada. Um primeiro deploy que ainda não responde ainda está se propagando; espere alguns minutos e tente de novo.
-
-- **Um webhook é confirmado na hora.** Envie um evento de teste com a Stripe CLI:
-
-  ```bash
-  stripe trigger payment_intent.succeeded
-  ```
-
-  O handler responde `{ "received": true }`, e o Stripe Dashboard lista a entrega e o código de resposta dela para o endpoint.
-
-- **Todo evento é enfileirado.** Leia o que a function registrou no log:
-
-  ```bash
-  azion logs cells --tail
-  ```
-
-  O terminal exibe as mensagens de console dos últimos 5 minutos. Nenhuma linha `QStash answered` aparece, então o QStash aceitou todas as publicações.
+Cada chave expira depois de `86400` segundos, um dia, então uma repetição que chega depois disso esbarra na chave primária da tabela.
 
 ---
 
@@ -243,4 +133,5 @@ Cada verificação roda contra a function implantada. Um primeiro deploy que ain
 <DocCardGroup cols={2}>
   <DocCard title="Publique uma mensagem no Upstash QStash a partir de uma function" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/publicar-uma-mensagem-no-upstash-qstash-a-partir-de-uma-function/" label="Envia a requisição de publicação que a rota produtora faz para cada novo evento." />
   <DocCard title="Deduplique entregas de webhook com KV Store" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/deduplicar-entregas-de-webhook-com-kv-store/" label="Lê e grava a chave por ID de evento que impede uma entrega repetida de ser enfileirada de novo." />
+  <DocCard title="Construa um handler de webhooks do Stripe com Functions" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/webhooks-stripe-functions/" label="Constrói o projeto Hono e o middleware verifyStripeWebhook que a rota produtora mantém, e verifica o handler com a Stripe CLI." />
 </DocCardGroup>

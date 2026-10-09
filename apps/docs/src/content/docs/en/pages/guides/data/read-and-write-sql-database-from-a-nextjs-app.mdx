@@ -1,0 +1,187 @@
+---
+title: Read and write SQL Database from a Next.js app
+description: >-
+  Render a Next.js page from SQL Database rows and add rows from a route
+  handler, in an application that Azion deploys from GitHub.
+meta_tags: 'sql database, next.js, app router, route handler, server-side rendering, force-dynamic, read replica, azion api, functions'
+namespace: docs_guides_read_and_write_sql_database_from_a_nextjs_app
+permalink: /documentation/guides/application-development/data/read-and-write-sql-database-from-a-nextjs-app/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+You render a page of a Next.js App Router project from the rows of a SQL Database table, and add rows from a route handler, in an application that Azion builds from your GitHub repository. Both files run in the function the build deploys. To write rows from a function you write yourself, refer to [Write rows to SQL Database from a function](/en/documentation/guides/application-development/data/write-sql-database-rows-from-a-function/).
+
+The page reads through a read replica, which refuses a statement that writes with ``attempt to write a readonly database``. The route handler therefore writes through the Azion API, with the database identifier and a personal token it reads from environment variables.
+
+---
+
+## Prerequisites
+
+- SQL Database enabled on your account, and the **Edit SQL Database** permission. The product is in Preview, so request access through [Technical Support](/en/documentation/support/).
+- A database and a table for the app to read. The examples use a database named `portal-app` whose `projects` table is created with `CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL);` and holds one row, `Customer portal`. To create them, refer to [Create a database using the API](/en/documentation/guides/application-development/data/manage-sql-database/#create-a-database-using-the-api), [Create a table using the API](/en/documentation/guides/application-development/data/create-tables-sql-database/#create-a-table-using-the-api), and [Insert rows](/en/documentation/guides/application-development/data/create-tables-sql-database/#insert-rows).
+- The database identifier and a personal token stored as the environment variables `PORTAL_DB_ID` and `PORTAL_SQL_TOKEN`, as [Store the database identifier and the token](/en/documentation/guides/application-development/data/write-sql-database-rows-from-a-function/#store-the-database-identifier-and-the-token) shows. A variable reaches the function only after the next deploy, so create both before the repository is imported.
+- A GitHub repository with a Next.js project at its root, on a version Azion supports, imported with the _Next.js_ preset. For the versions, refer to [Next.js versions](/en/documentation/devtools/runtime/frameworks/nextjs-compatibility/). To import the repository, refer to [Import a project from GitHub](/en/documentation/guides/application-development/automation/import-an-existing-project-from-github/).
+
+The examples use `app.example.com` for the application's domain. Replace it, and the names above, with your own values.
+
+---
+
+## Render a page from the database rows
+
+The page and the route handler both export `dynamic = 'force-dynamic'`, so Next.js renders them on each request instead of once at build time, when the database is out of reach.
+
+Add the page as `app/page.js`. It reads the rows through a read replica, with the `Database` class of the `Azion.Sql` global:
+
+```javascript
+export const dynamic = 'force-dynamic';
+
+async function readProjects() {
+  const { Database } = globalThis.Azion.Sql;
+  const connection = await Database.open('portal-app');
+  const rows = await connection.query('SELECT id, name FROM projects ORDER BY id');
+  const projects = [];
+  let row = await rows.next();
+  while (row) {
+    projects.push({ id: row.getValue(0), name: row.getValue(1) });
+    row = await rows.next();
+  }
+  return projects;
+}
+
+export default async function Page() {
+  const projects = await readProjects();
+  return (
+    <main>
+      <h1>Projects</h1>
+      <ul>
+        {projects.map((project) => (
+          <li key={project.id}>{project.name}</li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+```
+
+`Database.open` takes the database name and no token. Once the file is deployed, the page lists the rows of `projects` on every request.
+
+The [Deploy full-stack applications globally](/en/documentation/use-cases/build-and-run-applications/deploy-full-stack-applications-globally/) use case uses the values of this example.
+
+---
+
+## Add rows from a route handler
+
+Add the route handler as `app/api/projects/route.js`. It sends the insert as [Write rows to SQL Database from a function](/en/documentation/guides/application-development/data/write-sql-database-rows-from-a-function/) describes, with `PORTAL_DB_ID` and `PORTAL_SQL_TOKEN`, and answers `500` on a failed request or a failed statement:
+
+```javascript
+export const dynamic = 'force-dynamic';
+
+function json(body, status) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+// The query endpoint takes SQL strings, so a text value is quoted and its quotes doubled.
+function sqlText(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+export async function POST(request) {
+  const { name } = await request.json();
+  if (typeof name !== 'string' || name.length === 0) {
+    return json({ error: 'name is required' }, 400);
+  }
+  const env = globalThis.Azion.env;
+  const response = await fetch(
+    `https://api.azion.com/v4/workspace/sql/databases/${env.get('PORTAL_DB_ID')}/query`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Token ${env.get('PORTAL_SQL_TOKEN')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        statements: [`INSERT INTO projects (name) VALUES (${sqlText(name)}) RETURNING id`],
+      }),
+    },
+  );
+  if (!response.ok) {
+    console.log(`Azion API answered ${response.status}`);
+    return json({ error: 'Internal error' }, 500);
+  }
+  const entry = (await response.json()).data[0];
+  if (entry.error) {
+    console.log(entry.error);
+    return json({ error: 'Internal error' }, 500);
+  }
+  return json({ id: entry.results.rows[0][0], name }, 201);
+}
+```
+
+Commit both files to the repository's default branch. The page lists the projects of `portal-app` on every request, and `POST /api/projects` adds one.
+
+The [Deploy full-stack applications globally](/en/documentation/use-cases/build-and-run-applications/deploy-full-stack-applications-globally/) use case uses the values of this example.
+
+---
+
+## Confirm the page reads and the route writes
+
+Each check requests the application on its domain. A location that does not have the application yet answers a `404` page that reads `There's nothing here yet`; wait a few minutes and retry.
+
+- **The page renders from the database.** Request the home page:
+
+  ```bash
+  curl -s https://app.example.com/
+  ```
+
+  The HTML carries the row the table holds, in the list the page renders:
+
+  ```text
+  <h1>Projects</h1><ul><li>Customer portal</li></ul>
+  ```
+
+- **Build assets come from the bucket.** Copy a URL under `/_next/static/` from the page's HTML and request it:
+
+  ```bash
+  curl -sI https://app.example.com/_next/static/<path-from-the-page>
+  ```
+
+  The response carries `200`, without the request reaching the function.
+
+- **A route writes to the database.** Create a project:
+
+  ```bash
+  curl -i -X POST https://app.example.com/api/projects \
+    -H "Content-Type: application/json" \
+    -d '{"name": "Billing dashboard"}'
+  ```
+
+  The response carries `201` and the ID the database assigned:
+
+  ```json
+  {"id":2,"name":"Billing dashboard"}
+  ```
+
+  A `500` means the write failed. Read the line the route logged, as [Troubleshoot function execution and logs](/en/documentation/platform/functions/troubleshooting/) shows: `Azion API answered 401` points at the `PORTAL_SQL_TOKEN` value, and a database error string points at the statement.
+
+- **The page shows the write.** Request the home page again. The list carries both projects.
+
+- **A push deploys.** Change the `<h1>` text, commit, and push to the default branch. Request the home page after the deploy propagates. The HTML carries the new heading.
+
+The page reads the table through a read replica, and the route handler writes to it through the Azion API.
+
+These checks confirm the [Deploy full-stack applications globally](/en/documentation/use-cases/build-and-run-applications/deploy-full-stack-applications-globally/) use case.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Write rows to SQL Database from a function" href="/en/documentation/guides/application-development/data/write-sql-database-rows-from-a-function/" label="The query endpoint, the two places a write fails, and how to read the rows back." />
+  <DocCard title="Deploy full-stack applications globally" href="/en/documentation/use-cases/build-and-run-applications/deploy-full-stack-applications-globally/" label="The design this app belongs to: build assets in a bucket, pages in a function, data in SQL Database." />
+</DocCardGroup>

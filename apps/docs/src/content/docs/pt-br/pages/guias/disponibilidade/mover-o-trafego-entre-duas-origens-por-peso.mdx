@@ -206,6 +206,19 @@ Updated Connector with ID <connector-id>
 
 O connector guarda dois endereços ativos e envia cerca de uma requisição em dez para a nova origem. Uma alteração de connector chega à infraestrutura distribuída da Azion em vários minutos e, até que todos os data centers a recebam, algumas requisições chegam só à origem atual.
 
+No caso de uso [Migrar uma aplicação para uma nova origem sem downtime](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/migrar-uma-aplicacao-para-uma-nova-origem-sem-downtime/), esta seção usa estes valores:
+
+| Configuração | Valor |
+| --- | --- |
+| **Host** | `${host}` |
+| **Transport Protocol Policy** | _Force HTTPS_, porque as duas origens respondem HTTPS na porta `443` |
+| **Method** | _Round Robin_ |
+| **Max Retries**, **Connection Timeout**, **Read/Write Timeout** | `3`, `30` e `60` |
+| `old-origin.example.com` | **Server Role** _Primary_, **Weight** `99` |
+| `new-origin.example.com` | **Server Role** _Primary_, **Weight** `1` |
+
+O connector guarda dois endereços ativos e envia cerca de uma requisição em cem para a nova origem. Uma mudança no connector leva vários minutos para chegar a todos os data centers, e até lá algumas requisições chegam apenas à origem antiga.
+
 ---
 
 ## Altere os pesos
@@ -293,6 +306,17 @@ Updated Connector with ID <connector-id>
 
 A nova origem recebe a parte dos novos pesos quando a alteração chega a cada data center. Durante a propagação, alguns data centers ainda aplicam os pesos anteriores, então avalie uma etapa só depois que ela se propagou.
 
+No caso de uso [Migrar uma aplicação para uma nova origem sem downtime](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/migrar-uma-aplicacao-para-uma-nova-origem-sem-downtime/), esta seção usa estes valores:
+
+| Etapa | Peso da origem antiga | Peso da nova origem | Parcela na nova origem |
+| --- | --- | --- | --- |
+| 1 | `99` | `1` | Cerca de 1 em 100 |
+| 2 | `90` | `10` | Cerca de 1 em 10 |
+| 3 | `50` | `50` | Cerca de metade |
+| 4 | `10` | `90` | Cerca de 9 em 10 |
+
+A nova origem recebe a parcela da etapa quando a mudança chega a cada data center. Durante a propagação, alguns data centers ainda aplicam os pesos anteriores.
+
 ---
 
 ## Tire uma origem da rotação
@@ -377,6 +401,47 @@ Para fazer o cutover, mova `"active": false` para o endereço da origem atual.
 </Tabs>
 
 O endereço desativado não recebe nenhuma requisição quando todos os data centers recebem a alteração. A alteração leva vários minutos para se propagar, então mantenha a origem que você desativou respondendo até que nenhuma requisição chegue a ela.
+
+O caso de uso [Migrar uma aplicação para uma nova origem sem downtime](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/migrar-uma-aplicacao-para-uma-nova-origem-sem-downtime/) usa os valores deste exemplo.
+
+---
+
+## Acompanhe a parcela e os erros de cada origem
+
+Cada etapa é avaliada pelo que cada origem recebeu e por como ela respondeu. As verificações abaixo leem um header de resposta que diferencia as duas origens, como o header `server` que cada uma envia, as requisições de uma hora agrupadas por endereço de upstream no Real-Time Metrics e as requisições com falha da nova origem no Real-Time Events. Os exemplos usam `www.example.com` para o site e `<new-origin-ip>` para o endereço IP para o qual `new-origin.example.com` resolve, que os filtros de eventos usam.
+
+- **As duas origens respondem.** Envie a mesma requisição várias vezes e leia o header que diferencia as origens:
+
+  ```bash
+  curl -s -D - -o /dev/null https://www.example.com/
+  ```
+
+  Com pesos iguais, cerca de metade das respostas traz o header da nova origem. Com os pesos `99` e `1`, a maioria das execuções mostra apenas o header da origem antiga, porque uma requisição em cem vai para a nova. As respostas não vêm em uma ordem fixa.
+
+- **A nova origem recebe a parcela dela.** Consulte as requisições de uma hora agrupadas por endereço de upstream. Substitua o token, a hora e o hostname:
+
+  ```bash
+  curl -X POST 'https://api.azion.com/v4/metrics/graphql' \
+    -H 'Content-Type: application/json' \
+    -H 'Authorization: Token [TOKEN VALUE]' \
+    -d '{"query":"query OriginShare { workloadBreakdownMetrics(aggregate: { sum: requests }, groupBy: [upstreamAddr], orderBy: [sum_DESC], limit: 10, filter: { tsGte: \"2026-10-05T13:00:00\", tsLt: \"2026-10-05T14:00:00\", hostEq: \"www.example.com\" }) { upstreamAddr total: sum } }"}'
+  ```
+
+  A API responde `200` com uma linha por endereço de upstream, no formato `{"data":{"workloadBreakdownMetrics":[{"upstreamAddr":"<new-origin-ip>:443","total":<requests>}, …]}}`. O total da nova origem em relação à soma de todas as linhas acompanha a parcela dos pesos.
+
+- **Nenhum erro novo na nova origem.** Em [Azion Console](https://console.azion.com/) > **Real-Time Events**, selecione a fonte de dados _HTTP Requests_ e um período que cubra a etapa, e insira este filtro em **Filter by**:
+
+  ```text
+  upstream_addr like '%<new-origin-ip>%' AND upstream_status='502'
+  ```
+
+  Um resultado vazio significa que nenhuma requisição à nova origem terminou com `502`. Repita o filtro com os outros códigos `5xx` que a sua origem pode retornar.
+
+- **A reversão se mantém.** Depois de uma reversão, execute o filtro `upstream_addr like '%<new-origin-ip>%'` sobre os minutos depois da mudança. Os registros mais recentes param quando todos os data centers têm a mudança.
+
+Uma etapa que parece não ter efeito ainda pode estar se propagando. Repita a verificação depois de alguns minutos antes de alterar os pesos de novo.
+
+Estas verificações confirmam o caso de uso [Migrar uma aplicação para uma nova origem sem downtime](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/migrar-uma-aplicacao-para-uma-nova-origem-sem-downtime/).
 
 ---
 

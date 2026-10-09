@@ -16,12 +16,10 @@ Este caso de uso não cobre a criação dos agentes que chamam os servidores. Pa
 
 ## Pré-requisitos
 
-- A [Azion CLI](/pt-br/documentacao/devtools/cli/), instalada e com login feito, e Node.js com npm. A CLI cria o projeto e faz o deploy dele, como mostra [Execute um MCP server na Azion](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/executar-mcp-server/).
+- Uma conta Azion. Se você ainda não tem uma, [crie uma conta](https://console.azion.com/signup).
 - Um firewall com WAF ativado nas suas configurações principais, vinculado ao workload que o `azion deploy` cria. Para ativar o WAF, consulte [Defina as configurações principais de um firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/firewall-definir-main-settings/). Para vincular o firewall, consulte [Vincule um firewall a um workload](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/proteja-seu-dominio/).
 - Um rule set do WAF chamado `mcp-waf`, com todas as famílias de ameaças em sensibilidade média. Para criá-lo, consulte [Crie um rule set em sensibilidade média](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/rule-set-medio/).
-- Um personal token, para as etapas de API. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
 - Um endpoint HTTPS da sua plataforma de logs que aceite requisições `POST`, para os logs das tool calls.
-- Os valores da sua própria API. Esta página mapeia um serviço de pedidos em `https://api.example.com`, que responde a `GET /v1/orders/{id}` e `GET /v1/orders?customer_id={id}&limit={n}` e espera `Authorization: Bearer <backend-token>`. Ela usa `my-mcp-server` para o projeto e `<your-domain>` para o domínio que o `azion deploy` mostra. Substitua cada valor pelo seu em todas as etapas.
 
 ---
 
@@ -66,7 +64,7 @@ Leia o diagrama da function até a API existente. Cada tool call passa por essa 
 5. A function retorna os campos de que o agente precisa como resultado da ferramenta, ou uma mensagem que diz o que falhou quando a API responde com um erro ou não responde a tempo.
 6. A function grava uma linha de log por tool call, e o Data Stream envia as linhas para a sua plataforma de logs.
 
-### Componentes
+### Recursos de Plataforma
 
 - **Functions**: executa a tradução de MCP para API. O servidor é criado com o MCP SDK sobre o transporte streamable HTTP, registra uma ferramenta por operação da API e chama a API com `fetch()`. Toda decisão de schema fica aqui: quais operações viram ferramentas, como os argumentos se mapeiam para uma requisição e quais campos da resposta chegam ao agente.
 - **API de backend**: a integração que é o serviço existente, aqui o serviço de pedidos em `https://api.example.com`. Ela mantém a sua própria lógica, os seus dados e as suas credenciais, e cada tool call chega a ela, então a latência e os erros dela são a latência e os erros da ferramenta.
@@ -82,9 +80,13 @@ Leia o diagrama da function até a API existente. Cada tool call passa por essa 
 
 ---
 
-## Configure os mapeamentos de ferramentas
+## Como o design funciona
 
-Os mapeamentos de ferramentas são o `src/index.ts` do servidor: uma ferramenta registrada por operação da API. Comece pelo projeto Hono que [Execute um MCP server na Azion](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/executar-mcp-server/) cria com `azion init --name my-mcp-server`, com `@modelcontextprotocol/sdk` e `zod@3` instalados. A rota, o transporte e o tratamento de erros ficam como o guia os escreve. Só `getServer()` muda.
+Esta seção explica como o servidor mapeia ferramentas para a API, como o firewall filtra o tráfego de agentes e como as tool calls chegam à sua plataforma de logs.
+
+### Mapeamentos de ferramentas
+
+Os mapeamentos de ferramentas são o `src/index.ts` do servidor: uma ferramenta registrada por operação da API.
 
 As decisões de mapeamento, cada uma tomada uma vez aqui:
 
@@ -94,174 +96,17 @@ As decisões de mapeamento, cada uma tomada uma vez aqui:
 - **Uma falha é uma mensagem, não uma exceção.** Um status de erro ou uma chamada que passa de 8 segundos vira um resultado de ferramenta que diz o que falhou. Oito segundos deixam ao agente tempo para tentar de novo dentro do seu próprio timeout, e o limite de tempo de execução da function é de 5 minutos.
 - **O token do backend fica fora do código.** A function o lê da variável de ambiente `BACKEND_API_TOKEN`.
 
-Para armazenar o token do backend, execute:
-
-```bash
-azion create variables --key "BACKEND_API_TOKEN" --value "<backend-token>"
-```
-
-Uma key que contém `token` é armazenada como secret por padrão. Substitua `getServer()` em `src/index.ts` por este código e adicione a linha `declare` e os dois helpers acima dela:
-
-```typescript
-declare const Azion: { env: { get(key: string): string | undefined } }
-
-const API_BASE = 'https://api.example.com/v1'
-const TIMEOUT_MS = 8000
-
-function pickOrder(order: any) {
-  return { id: order.id, status: order.status, total: order.total, created_at: order.created_at }
-}
-
-async function callApi(tool: string, path: string) {
-  const started = Date.now()
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  try {
-    const response = await fetch(`${API_BASE}${path}`, {
-      headers: { Authorization: `Bearer ${Azion.env.get('BACKEND_API_TOKEN')}` },
-      signal: controller.signal
-    })
-    console.log(JSON.stringify({ event: 'tool_call', tool, status: response.status, ok: response.ok, ms: Date.now() - started }))
-    if (!response.ok) {
-      return { error: `The order service answered ${response.status} for ${path}.` }
-    }
-    return { data: await response.json() }
-  } catch (error) {
-    console.log(JSON.stringify({ event: 'tool_call', tool, status: 0, ok: false, ms: Date.now() - started }))
-    return { error: `The order service did not answer within ${TIMEOUT_MS / 1000} seconds.` }
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-function getServer() {
-  const server = new McpServer({ name: 'orders-mcp-server', version: '1.0.0' })
-
-  server.registerTool('get_order',
-    {
-      title: 'Get order',
-      description: 'Get one order by its ID. Use it when the user names a specific order.',
-      inputSchema: { order_id: z.string().min(1) }
-    },
-    async ({ order_id }) => {
-      const result = await callApi('get_order', `/orders/${encodeURIComponent(order_id)}`)
-      const text = result.error ?? JSON.stringify(pickOrder(result.data))
-      return { content: [{ type: 'text', text }] }
-    }
-  )
-
-  server.registerTool('list_customer_orders',
-    {
-      title: 'List customer orders',
-      description: 'List the most recent orders of one customer. Use it to find an order when the user does not know its ID.',
-      inputSchema: { customer_id: z.string().min(1), limit: z.number().int().min(1).max(20) }
-    },
-    async ({ customer_id, limit }) => {
-      const query = `customer_id=${encodeURIComponent(customer_id)}&limit=${limit}`
-      const result = await callApi('list_customer_orders', `/orders?${query}`)
-      const text = result.error ?? JSON.stringify(result.data.map(pickOrder))
-      return { content: [{ type: 'text', text }] }
-    }
-  )
-
-  return server
-}
-```
-
-Remova o import de `ResourceTemplate`, que o servidor do guia usa e este não usa. Depois, faça o deploy a partir da pasta do projeto:
-
-```bash
-azion deploy
-```
-
-A CLI mostra a URL do domínio do projeto, no formato `https://xxxxxxxxxx.map.azionedge.net`, e o servidor responde em `https://<your-domain>/mcp`. O primeiro deploy pode levar vários minutos para responder de todas as localizações.
-
-`list_customer_orders` supõe que a API retorna um array JSON. Mapeie os nomes de campo em `pickOrder` e o formato da resposta para os que a sua API retorna.
-
----
-
-## Configure o firewall para o tráfego de agentes
+### Firewall para o tráfego de agentes
 
 Uma regra de firewall carrega as duas proteções, porque **Set WAF** é um dos dois behaviors que outro behavior pode seguir. O critério é `${request_uri}` _starts with_ `/mcp`. Toda requisição MCP é um `POST` cujo payload fica no corpo, e um critério na query string a ignoraria.
 
 O rate limit conta por endereço IP do cliente: uma média de `10` requisições por segundo com um burst de `20`. Um agente abre uma conexão com `initialize`, `notifications/initialized` e `tools/list` em sequência rápida e depois envia uma requisição por tool call. O burst admite essa abertura, e a média para um agente preso em um loop antes que ele sobrecarregue a API atrás das ferramentas.
 
-Crie a regra como [Aplique WAF e um rate limit a um caminho](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/aplicar-waf-e-rate-limit-a-um-caminho/) descreve, com estes valores:
-
-- **Nome**: `mcp - waf and rate limit`.
-- **Critério**: `Request Uri` _starts with_ `/mcp`.
-- **Set WAF**: o rule set `mcp-waf` em modo _Blocking_.
-- **Set Rate Limit**: _Req/s_, _Client IP address_, um **Average Rate Limit** de `10` e um **Maximum Burst Size** de `20`.
-
-Na API, os dois behaviors vão nesta ordem:
-
-```json
-[
-  { "type": "set_waf", "attributes": { "waf_id": <waf-rule-set-id>, "mode": "blocking" } },
-  { "type": "set_rate_limit", "attributes": { "type": "second", "limit_by": "client_ip", "average_rate_limit": 10, "maximum_burst_size": 20 } }
-]
-```
-
-Cada requisição para `/mcp` é pontuada pelo `mcp-waf` e contada contra a taxa antes de chegar à function. Uma requisição que o rule set bloqueia responde `400` com a página padrão Bad Request, e uma requisição acima da taxa responde `429` com a página padrão Too Many Requests. Nenhuma das respostas traz um header que indique o firewall ou um tempo para tentar de novo.
-
----
-
-## Configure o stream de logs das tool calls
+### Stream de logs das tool calls
 
 A function grava uma linha JSON por tool call, com o nome da ferramenta, o status da API, se ela teve sucesso e o tempo que levou. O Data Stream envia essas linhas da fonte de dados *Functions* para a sua plataforma de logs, onde a taxa de erro e a latência são calculadas por ferramenta.
 
-Crie o stream como [Envie logs para um endpoint HTTP](/pt-br/documentacao/guias/plataforma/observabilidade/conector-standard-https-post/) mostra, com estes valores:
-
-- **Data Source**: _Functions_. Na API, `functions_console`.
-- **Template**: _Functions Event Collector_, cuja variável `$log_message` carrega cada linha que a function grava.
-- **Opção**: _Filter Workloads_, com o workload que o `azion deploy` criou como o único workload escolhido. Um filtro impede que este stream desative os outros streams da conta, o que salvar um stream ativo com amostragem faz.
-- **Connector**: _Standard HTTP/HTTPS POST_, com a URL da sua plataforma de logs e o header que ela exige para aceitar a requisição.
-
-O stream fica ativo de um a dois minutos depois de salvo. A sua plataforma de logs passa a receber uma linha por tool call, cada uma com o `$request_id` da requisição que a gerou.
-
----
-
-## Verifique a configuração
-
-- **O servidor responde ao handshake MCP.** Envie uma requisição `initialize`:
-
-  ```bash
-  curl -s -i -X POST https://<your-domain>/mcp \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: application/json, text/event-stream' \
-    --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"1.0.0"}}}'
-  ```
-
-  O servidor responde `200` com `content-type: text/event-stream` e um evento cujos dados indicam `orders-mcp-server`.
-
-- **As duas ferramentas são listadas.** Envie `tools/list` para a mesma URL com o corpo `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`. O resultado lista `get_order` e `list_customer_orders`, cada uma com o schema de entrada que o código declara.
-
-- **Uma ferramenta chega à API.** Chame `get_order` com o ID de um pedido que existe:
-
-  ```bash
-  curl -s -X POST https://<your-domain>/mcp \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: application/json, text/event-stream' \
-    --data '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_order","arguments":{"order_id":"<order-id>"}}}'
-  ```
-
-  O `result.content` do evento guarda um item `text` com `id`, `status`, `total` e `created_at` do pedido, e nenhum outro campo. Um ID que não existe retorna um texto que indica o status que a API respondeu.
-
-- **O rate limit recusa um loop.** Envie 60 requisições `tools/list`, 30 de cada vez, para que cheguem mais rápido que 10 por segundo:
-
-  ```bash
-  seq 1 60 | xargs -P 30 -I {} curl -s -o /dev/null -w '%{http_code}\n' \
-    -X POST https://<your-domain>/mcp \
-    -H 'Content-Type: application/json' \
-    -H 'Accept: application/json, text/event-stream' \
-    --data '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | sort | uniq -c
-  ```
-
-  A contagem mostra `200` e `429`: a taxa e o burst admitem algumas das requisições, e o firewall recusa as outras.
-
-- **Cada tool call é registrada.** Depois da chamada a `get_order`, a sua plataforma de logs recebe uma linha cuja mensagem guarda `"event":"tool_call"` e `"tool":"get_order"`.
-
-Uma regra de firewall nova leva alguns minutos para se propagar. Quando uma verificação falhar depois disso, leia as linhas de log da function na fonte de dados **Functions Console** do [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/primeiros-passos/).
+Um filtro impede que este stream desative os outros streams da conta, o que salvar um stream ativo com amostragem faz.
 
 ---
 
@@ -288,5 +133,6 @@ Uma regra de firewall nova leva alguns minutos para se propagar. Quando uma veri
 
 <DocCardGroup cols={2}>
   <DocCard title="Aplique WAF e um rate limit a um caminho" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/aplicar-waf-e-rate-limit-a-um-caminho/" label="Cria a regra em /mcp que carrega o WAF e o rate limit." />
-  <DocCard title="Execute um MCP server na Azion" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/executar-mcp-server/" label="Cria e faz o deploy do projeto Hono com o MCP SDK de onde partem os mapeamentos de ferramentas." />
+  <DocCard title="Execute um MCP server na Azion" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/executar-mcp-server/" label="Cria e faz o deploy do projeto Hono com o MCP SDK, mapeia as duas ferramentas para o serviço de pedidos e executa as verificações MCP deste caso de uso." />
+  <DocCard title="Depure functions com o Data Stream" href="/pt-br/documentacao/guias/plataforma/observabilidade/debugging-functions-data-stream/" label="Cria o stream da fonte de dados Functions com um filtro de workload e confirma a entrega." />
 </DocCardGroup>

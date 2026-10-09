@@ -9,8 +9,6 @@ permalink: /documentation/use-cases/build-and-run-applications/run-multi-tenant-
 ---
 import DocCardGroup from '@aziontech/webkit/doc-card-group'
 import DocCard from '@aziontech/webkit/doc-card'
-import DocSteps from '@aziontech/webkit/doc-steps'
-import DocStep from '@aziontech/webkit/doc-step'
 
 A SaaS product team serves many customers, each on its own hostname, and must onboard tenants without a deployment per tenant. Every tenant shares one deployment, so a tenant's configuration and data must never reach another tenant's visitors. This page runs the product as one function that resolves the tenant from the hostname of each request, reads the tenant's configuration from KV Store, and reads only that tenant's rows from SQL Database. Tenants live on subdomains of the product's domain, under one Let's Encrypt wildcard certificate, so onboarding a tenant is a data change and a domain change. The result is measured by the time to onboard a tenant with its hostname, zero cross-tenant data exposure, and response time per tenant.
 
@@ -18,12 +16,11 @@ This use case does not cover running code supplied by tenants.
 
 ## Prerequisites
 
-- An application with Application Accelerator on, served by a workload on the production infrastructure. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/), and to turn on Application Accelerator, refer to [Turn on Application Accelerator](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/#turn-on-application-accelerator). The rule on this page answers every path with the function.
+- An Azion account. If you do not have one, [create an account](https://console.azion.com/signup).
+- An application with Application Accelerator on, served by a workload on the production infrastructure. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/), and to turn on Application Accelerator, refer to [Turn on Application Accelerator](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/#turn-on-application-accelerator). The rule of this design answers every path with the function.
 - The product's domain as an active zone in [Edge DNS](/en/documentation/platform/edge-dns/), which the wildcard certificate needs for automatic issuance.
 - A KV Store namespace for tenant configuration. To create one, refer to [Namespaces](/en/documentation/platform/kv-store/namespaces/#create-a-namespace).
 - A SQL Database database for tenant data. To create one, refer to [Databases and queries](/en/documentation/platform/sql-database/databases-and-queries/#create-a-database).
-- A personal token, for the API calls. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
-- The values of your product. This page uses `example.com` for the zone, `*.app.example.com` for the tenant hostnames, `acme.app.example.com` and `globex.app.example.com` for two tenants with the IDs `1` and `2`, `saas-tenants` for the namespace, `saas-data` for the database, and a `projects` table as the tenant data. Replace each value with yours in every step.
 
 ---
 
@@ -69,7 +66,7 @@ Read the diagram from the visitor down. Every tenant reaches the same workload, 
 5. The function answers with the tenant's data. A cached response is keyed by the request, which carries the hostname, so it never answers another tenant.
 6. Onboarding a tenant writes its rows and its key, adds its hostname to the workload, and points the hostname at the workload. The tenant answers once the change propagates, with no deployment.
 
-### Components
+### Platform Resources
 
 - **workload**: the Platform Resource that carries the tenant domains. Every tenant hostname is listed on it in full, because a workload refuses a wildcard entry, and its one deployment sends all of them to the same application.
 - **Certificate Manager**: the Platform Resource that issues and renews the Let's Encrypt certificates for the tenant hostnames. A wildcard certificate for the tenants' parent domain, validated through DNS-01 in Edge DNS, covers a new tenant hostname with no new certificate.
@@ -85,209 +82,29 @@ Read the diagram from the visitor down. Every tenant reaches the same workload, 
 
 ---
 
-## Configure the tenant certificate
+## How the design works
+
+This section explains the certificate that covers every tenant, the function that resolves each one, and what onboarding a tenant changes.
+
+### The tenant certificate
 
 Every tenant hostname is a subdomain of `app.example.com`, so one wildcard certificate covers all of them, and a new tenant needs no certificate of its own. Azion issues a wildcard certificate only through the DNS-01 challenge, and it inserts the challenge record itself when the zone is active in Edge DNS. A workload's form requests certificates only for the hostnames it lists, and it cannot list a wildcard, so the request goes through the API.
 
-The certificate is requested, checked, and bound as [Request a wildcard certificate](/en/documentation/guides/application-security/tls-and-certificates/how-to-generate-a-lets-encrypt-certificate-via-api/#request-a-wildcard-certificate) describes, with these values:
-
 - **Request body**: the zone `example.com` is active in Edge DNS, so the DNS-01 challenge needs no record from you.
-
-  ```json
-  {"name":"tenants-wildcard","authority":"lets_encrypt","challenge":"dns","common_name":"*.app.example.com","alternative_names":[]}
-  ```
-
 - **Binding**: `tenants-wildcard`, selected under **My certificates** in the **Digital Certificate** field of the workload that serves the application.
 - **Workload domains**: each tenant hostname, such as `acme.app.example.com`, listed in full, because a workload refuses a wildcard entry. A workload lists up to 50 domains unless Azion raises the bound.
 
-The Console shows "Your workload has been updated". Once the binding propagates, the certificate reads `active`, and it covers every hostname under `app.example.com` that the workload lists. Azion renews it before it expires, as long as the zone stays in Edge DNS.
-
----
-
-## Configure the tenant application
+### The tenant application
 
 The tenant application is one function, `tenant-app`, that runs on every path. It does two jobs. On a tenant hostname, it resolves the tenant and answers with that tenant's projects. On `PUT /_admin/tenants/<hostname>`, it writes a tenant's configuration, which is how onboarding reaches KV Store: a key is written only from a function. The admin path checks a token held in an environment variable, so the token never enters the code.
 
-To create the token first, run this command with a value of your own. A function reads a variable's new value only after it is deployed again, so the variable exists before the function does:
-
-```bash
-azion create variables --key TENANT_ADMIN_TOKEN --value <admin-token> --secret true
-```
-
-The command prints the UUID of the variable:
-
-```text
-Created variable with UUID <variable-uuid>
-```
-
-Create a function named `tenant-app` with this code, and instantiate it on the application. For the steps in each interface, refer to [Functions quickstart](/en/documentation/platform/functions/quickstart/), which creates a function and instantiates it on an application.
-
-```javascript
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const kv = await Azion.KV.open('saas-tenants');
-
-    // Onboarding: write one tenant's configuration, keyed by its hostname.
-    if (url.pathname.startsWith('/_admin/tenants/') && request.method === 'PUT') {
-      if (request.headers.get('authorization') !== `Bearer ${Azion.env.get('TENANT_ADMIN_TOKEN')}`) {
-        return new Response('Unauthorized', { status: 401 });
-      }
-      const hostname = url.pathname.slice('/_admin/tenants/'.length);
-      const tenant = await request.json();
-      if (!Number.isInteger(tenant.id)) {
-        return new Response('The tenant id must be an integer', { status: 400 });
-      }
-      await kv.put(`tenant:${hostname}`, tenant);
-      return new Response('Tenant stored', { status: 201 });
-    }
-
-    // Every other request: resolve the tenant from the hostname.
-    const tenant = await kv.get(`tenant:${url.hostname}`, 'json');
-    if (tenant === null) {
-      return new Response('Unknown tenant', { status: 404 });
-    }
-
-    // Bind the integer tenant ID, so the query returns this tenant's rows only.
-    const { Database } = Azion.Sql;
-    const connection = await Database.open('saas-data');
-    const rows = await connection.query('select id, name from projects where tenant_id = ? order by id', [tenant.id]);
-    const projects = [];
-    let row = await rows.next();
-    while (row) {
-      projects.push({ id: row.getValue(0), name: row.getValue(1) });
-      row = await rows.next();
-    }
-    return new Response(JSON.stringify({ tenant: tenant.name, projects }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
-  },
-};
-```
+A function reads a variable's new value only after it is deployed again, so the variable exists before the function does.
 
 The tenant ID must be an integer, because a query refuses a JavaScript string as a parameter. The lookup key is the hostname, which the request always carries, because KV Store has no operation that lists keys.
 
-Then add the rule that runs the instance on every path, as [Run a function on an application](/en/documentation/guides/application-development/functions-and-runtime/serverless-functions/) describes, with these values:
+### Tenant onboarding
 
-- **Name**: `tenants - run tenant-app`.
-- **Phase**: _Request Phase_.
-- **Criterion**: `${uri}` _starts with_ `/`, so every path of every tenant hostname runs the function.
-- **Behavior**: _Run Function_ with the `tenant-app` instance.
-
-In the API, the body of `POST /v4/workspace/applications/<application-id>/request_rules` carries the ID of the `tenant-app` instance in `attributes.value`:
-
-```json
-{
-  "name": "tenants - run tenant-app",
-  "active": true,
-  "criteria": [[{ "variable": "${uri}", "conditional": "if", "operator": "starts_with", "argument": "/" }]],
-  "behaviors": [{ "type": "run_function", "attributes": { "value": <function-instance-id> } }]
-}
-```
-
-Every request to the workload runs `tenant-app`. A new rule takes a few minutes to reach every data center.
-
----
-
-## Configure tenant onboarding
-
-Onboarding a tenant is four changes, and none of them is a deployment: the tenant's rows, its configuration key, its hostname on the workload, and its DNS record. This section onboards `acme.app.example.com` with the tenant ID `1`.
-
-<DocSteps>
-  <DocStep title="Write the tenant's rows">
-
-  Replace `<database-id>` with the ID of `saas-data`. The first statement creates the table on the first onboarding and does nothing afterward:
-
-  ```bash
-  curl --request POST \
-    --url https://api.azion.com/v4/workspace/sql/databases/<database-id>/query \
-    --header 'Accept: application/json' \
-    --header 'Authorization: Token [TOKEN VALUE]' \
-    --header 'Content-Type: application/json' \
-    --data '{
-    "statements": [
-      "CREATE TABLE IF NOT EXISTS projects (tenant_id INTEGER, id INTEGER, name TEXT);",
-      "INSERT INTO projects (tenant_id, id, name) VALUES (1, 1, '\''Website relaunch'\'');"
-    ]
-  }'
-  ```
-
-  The API answers `200` with one entry per statement. Read `data[].error` on each entry, because a failed statement also returns `200`.
-
-  </DocStep>
-  <DocStep title="Write the tenant's configuration">
-
-  Send the configuration to the admin path of the tenant application, on the workload domain, with your token:
-
-  ```bash
-  curl --request PUT \
-    --url https://<workload-domain>/_admin/tenants/acme.app.example.com \
-    --header 'Authorization: Bearer <admin-token>' \
-    --header 'Content-Type: application/json' \
-    --data '{"id": 1, "name": "Acme"}'
-  ```
-
-  The function answers `201` with `Tenant stored`. A request without the token answers `401`.
-
-  </DocStep>
-  <DocStep title="List the hostname on the workload">
-
-  Send every hostname the workload answers, the new one included, because `domains` replaces the list:
-
-  ```bash
-  curl --request PATCH \
-    --url https://api.azion.com/v4/workspace/workloads/<workload-id> \
-    --header 'Accept: application/json' \
-    --header 'Authorization: Token [TOKEN VALUE]' \
-    --header 'Content-Type: application/json' \
-    --data '{
-    "domains": ["acme.app.example.com", "globex.app.example.com"]
-  }'
-  ```
-
-  The API accepts the update, and the workload lists the hostname in `domains`.
-
-  </DocStep>
-  <DocStep title="Point the hostname at the workload">
-
-  In the `example.com` zone of Edge DNS, add a `CNAME` record named `acme.app` whose value is the workload domain. For the steps, refer to [Add, edit, or delete a record](/en/documentation/guides/application-security/dns/add-records/).
-
-  </DocStep>
-</DocSteps>
-
-The tenant answers on `acme.app.example.com` once the workload change propagates, which takes several minutes. KV Store makes a new key visible everywhere within 60 seconds, so a tenant can answer `404` in some locations during its first minute.
-
----
-
-## Verify the setup
-
-- **A tenant sees its own data.** Request each tenant hostname:
-
-  ```bash
-  curl -s https://acme.app.example.com/
-  ```
-
-  The body names the tenant and holds only its rows:
-
-  ```json
-  {"tenant":"Acme","projects":[{"id":1,"name":"Website relaunch"}]}
-  ```
-
-  The same request to `globex.app.example.com` names `Globex` and holds none of Acme's projects.
-
-- **An unknown hostname gets nothing.** Request the workload domain, which has no tenant key:
-
-  ```bash
-  curl -s -o /dev/null -w '%{http_code}\n' https://<workload-domain>/
-  ```
-
-  The command prints `404`.
-
-- **The admin path refuses a request without the token.** Send the `PUT` from Configure tenant onboarding without the `Authorization` header. The function answers `401`.
-
-- **The certificate covers the tenant.** Send `GET https://api.azion.com/v4/workspace/tls/certificates/<certificate-id>`. The certificate reads `active`, because the workload uses it, and an HTTPS request to each tenant hostname completes its handshake.
-
-A tenant that answers Azion's placeholder `404` page instead of `Unknown tenant` is still waiting for the workload change to propagate. When the function does not answer at all, turn on [Debug Rules](/en/documentation/platform/applications/main-settings/#debug-rules) to see which rules ran.
+Onboarding a tenant is four changes, and none of them is a deployment: the tenant's rows, its configuration key, its hostname on the workload, and its DNS record.
 
 ---
 
@@ -315,5 +132,6 @@ A tenant that answers Azion's placeholder `404` page instead of `Unknown tenant`
 
 <DocCardGroup cols={2}>
   <DocCard title="Request a Let's Encrypt certificate with the API" href="/en/documentation/guides/application-security/tls-and-certificates/how-to-generate-a-lets-encrypt-certificate-via-api/" label="Requests the wildcard certificate for the tenant hostnames through the DNS-01 challenge and binds it to the workload." />
+  <DocCard title="Resolve tenants by hostname in a function" href="/en/documentation/guides/application-development/functions-and-runtime/resolve-tenants-by-hostname-in-a-function/" label="Stores the admin token, creates the tenant-app function, onboards a tenant, and runs the checks of this use case." />
   <DocCard title="Run a function on an application" href="/en/documentation/guides/application-development/functions-and-runtime/serverless-functions/" label="Adds the rule that runs the tenant-app instance on every path of every tenant hostname." />
 </DocCardGroup>

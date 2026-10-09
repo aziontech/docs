@@ -9,9 +9,6 @@ permalink: /documentation/use-cases/secure-applications-and-networks/screen-file
 ---
 import DocCardGroup from '@aziontech/webkit/doc-card-group'
 import DocCard from '@aziontech/webkit/doc-card'
-import DocSteps from '@aziontech/webkit/doc-steps'
-import DocStep from '@aziontech/webkit/doc-step'
-import Tabs from '~/components/webkit/Tabs.vue'
 
 An application team accepts documents from users, such as PDFs in onboarding, claims, or support flows. A file can carry a malicious payload, or text written to manipulate the AI systems that read it later, and a rule that reads only the request's envelope sees none of it. This page configures a function on the firewall that sends each upload to a model on AI Inference and denies the files the model flags, a network list that blocks their senders, and the stream that carries each verdict to the SIEM. The result is measured by the malicious uploads blocked before the application, the latency added per upload, and the false-positive rate.
 
@@ -19,11 +16,10 @@ This use case does not cover antivirus scanning of stored files, or general WAF 
 
 ## Prerequisites
 
+- An Azion account. If you do not have one, [create an account](https://console.azion.com/signup).
 - An application that serves the upload route through a connector and a workload. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
 - A firewall bound to that workload's deployment, with Functions and Network Shield turned on in **Main Settings** › **Modules**. To bind it, refer to [Bind a firewall to a workload](/en/documentation/guides/application-security/firewall-and-waf/firewall-protect-your-domain/).
 - Mistral 3 Small, whose id is `casperhansen-mistral-small-24b-instruct-2501-awq`, available to the account. For the models AI Inference runs, refer to [AI models](/en/documentation/platform/ai-inference/models/).
-- A personal token, for the API tab. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
-- The values of your application. This page uses `www.example.com` for the domain, `/upload` for the route that receives files, `198.51.100.42` for the address of a sender the model flagged, and `upload` as the prefix of every object it creates. Replace each value with yours in every step.
 
 ---
 
@@ -68,7 +64,7 @@ Read the diagram at the function. The rules before it are ordinary firewall deci
 5. Data Stream sends the function's lines to the SIEM.
 6. A verdict's request ID leads to the sender's address, which is then added to `upload-senders`, the list the first rule reads.
 
-### Components
+### Platform Resources
 
 - **firewall**: the Platform Resource that routes uploads to the function. One rule runs the function on the upload route, and another denies the senders in the network list on every route.
 - **Functions**: runs the inspection function in the `firewall` execution environment. It extracts the content from the request, calls the model, and applies the verdict in the same request, so a refused file stays outside the application.
@@ -80,204 +76,27 @@ Read the diagram at the function. The rules before it are ordinary firewall deci
 
 ---
 
-## Configure the inspection function
+## How the design works
+
+This section explains why the inspection function, the rule that runs it on the upload route, and the sender blocklist take their shape.
+
+### The inspection function
 
 The function registers a `firewall` handler, so it runs on the firewall, before the request reaches the application. It reads the body as text and sends it to the model as the user message, with the prompt from the instance's arguments as the system message. `temperature` is `0` and `max_tokens` is `1024`, the values the scan-uploads guide runs: the verdict is one word, so the call asks for no variation. The function compares the answer with the string `true`, so the prompt tells the model to answer with `true` or `false` alone.
 
 The function handles three cases by itself. A `Content-Type` that starts with `image/` continues with no model call. A `Content-Type` that names base64 is decoded before the call. Any error, in the call or in the parsing, writes an error line and lets the request continue, so the route keeps working when the model does not answer.
 
-Create the function as [Scan file uploads with an AI Inference firewall function](/en/documentation/guides/ai/inference/scan-uploads-with-ai-inference/#create-the-firewall-function) describes, with these values:
+`action` names the event method the function calls on a malicious file: `deny` answers `403`, and `drop` would close the request with no answer.
 
-- **Name**: `upload-inspection`, which the instance on the upload route selects.
-- **Code**: the function in the guide, unchanged. It reads `model`, `action`, and `prompt` from the arguments.
-- **Arguments**: the model, the action, and the prompt:
+### The function on the upload route
 
-  ```json
-  {
-    "model": "casperhansen-mistral-small-24b-instruct-2501-awq",
-    "prompt": "You are a security assistant specialized in detecting malicious PDF files. Analyze the provided content carefully and return 'true' only if you identify malicious content, such as embedded scripts, suspicious patterns, or known vulnerabilities. Do not classify a file as malicious based solely on its structure or the presence of a PDF header. If the content is safe or does not contain clear malicious indicators, return 'false'. Do not provide any additional explanation or output.",
-    "action": "deny"
-  }
-  ```
+The function runs only where a rule runs its instance, so the rule matches `${request_uri}` _starts with_ `/upload`. Every other route skips the model call, which keeps the latency and the AI Inference usage on the uploads alone. Create this rule after the sender blocklist's rule, or move it below that rule, so a listed sender is refused before the model reads its file.
 
-The function is saved and available to instance on a firewall. `action` names the event method the function calls on a malicious file: `deny` answers `403`, and `drop` would close the request with no answer. For every field `Azion.AI.run` accepts, refer to [Model invocation](/en/documentation/platform/ai-inference/model-invocation/).
+### The sender blocklist
 
----
-
-## Configure the function on the upload route
-
-The function runs only where a rule runs its instance, so the rule matches `${request_uri}` _starts with_ `/upload`. Every other route skips the model call, which keeps the latency and the AI Inference usage on the uploads alone. Create this rule after the sender rule in the next section, or move it below that rule, so a listed sender is refused before the model reads its file.
-
-To instance the function and run it:
-
-<DocSteps>
-  <DocStep title="Open the Functions Instances tab">
-
-  Access [Azion Console](https://console.azion.com/) > **Firewalls**, select the firewall, then go to the **Functions Instances** tab.
-
-  </DocStep>
-  <DocStep title="Select + Function Instance" />
-  <DocStep title="Name the instance">
-
-  Enter `upload-inspection`, and select the `upload-inspection` function.
-
-  </DocStep>
-  <DocStep title="Select Save" />
-  <DocStep title="Go to the Rules Engine tab and select + Rule" />
-  <DocStep title="Name the rule">
-
-  Enter `upload - inspect files`.
-
-  </DocStep>
-  <DocStep title="Match the upload route">
-
-  In the **Criteria** section, select `Request Uri`, _starts with_, and `/upload`.
-
-  </DocStep>
-  <DocStep title="Add the Run Function behavior">
-
-  In the **Behaviors** section, select **Run Function**, then the `upload-inspection` instance.
-
-  </DocStep>
-  <DocStep title="Select Save" />
-</DocSteps>
-
-Every request whose URI starts with `/upload` is read by the model before the application receives it. A new rule reaches traffic 6 to 10 minutes after it is saved.
-
----
-
-## Configure the sender blocklist
-
-A sender whose file the model flagged is refused on every route of the workload, `/upload` included, by a deny rule that reads the `upload-senders` list. The function logs the verdict, not the address. In Data Stream, each line of the _Functions_ data source carries the request's `$request_id`, and the _Applications_ data source carries `$remote_addr` for the same `$request_id`. A person or the SIEM joins the two and adds the address to the list.
+A sender whose file the model flagged is refused on every route of the workload, `/upload` included, by a deny rule that reads the `upload-senders` list. The function logs the verdict, not the address. In Data Stream, each line of the _Functions_ data source carries the request's `$request_id`, and the _Applications_ data source carries `$remote_addr` for the same `$request_id`. A person or the SIEM joins the two and adds the address to the list. To let the SIEM write the list, refer to [Block attackers automatically from SIEM detections](/en/documentation/use-cases/secure-applications-and-networks/block-attackers-automatically-from-siem-detections/).
 
 Each entry carries a due date and a comment. The due date, 7 days after the upload, ends the block for an address that a different user may hold later. The comment names the request ID, so an analyst finds the verdict behind the block. A due date takes effect only at the next write of the list's items, as [Block addresses until a date](/en/documentation/guides/application-security/bots-and-network/temporary-block/) explains.
-
-<Tabs client:visible sharedStore="interface">
-<Fragment slot="tab.console">Console</Fragment>
-<Fragment slot="tab.api">API</Fragment>
-
-<Fragment slot="panel.console">
-
-To create the list:
-
-<DocSteps>
-  <DocStep title="Open the Network Lists page">
-
-  Access [Azion Console](https://console.azion.com/) > **Edge Libraries** > **Network Lists**, and select **Network List**.
-
-  </DocStep>
-  <DocStep title="Name the list and select the IP/CIDR type">
-
-  Enter `upload-senders` as the **Name**, and select _IP/CIDR_ in the **Network List Settings** section.
-
-  </DocStep>
-  <DocStep title="Enter the flagged sender">
-
-  In the **List** field, enter `198.51.100.42 --LT2030-01-01T00:00:00Z #<request-id>`, with the date 7 days after the upload in place of `2030-01-01T00:00:00Z`.
-
-  </DocStep>
-  <DocStep title="Select Save" />
-</DocSteps>
-
-To create the rule that reads it:
-
-<DocSteps>
-  <DocStep title="Open the firewall's Rules Engine tab">
-
-  Access **Firewalls**, select the firewall, go to the **Rules Engine** tab, and select **Rule**.
-
-  </DocStep>
-  <DocStep title="Name the rule">
-
-  Enter `upload - deny flagged senders`.
-
-  </DocStep>
-  <DocStep title="Match the list">
-
-  In the **Criteria** section, select the _Network_ variable and the _matches_ operator, then `upload-senders` in **Select a Network**.
-
-  </DocStep>
-  <DocStep title="In the Behaviors section, select Deny (403 Forbidden)" />
-  <DocStep title="Select Save" />
-</DocSteps>
-
-</Fragment>
-
-<Fragment slot="panel.api">
-
-To create the list with the first flagged sender, with the date 7 days after the upload in place of `2030-01-01T00:00:00Z`:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/network_lists \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{"name":"upload-senders","type":"ip_cidr","items":["198.51.100.42 --LT2030-01-01T00:00:00Z #<request-id>"]}'
-```
-
-The API answers `201` with a `state` of `executed`. Keep the list's `id`:
-
-```json
-{"state":"executed","data":{"id":<network-list-id>,"name":"upload-senders","type":"ip_cidr","items":["198.51.100.42 --LT2030-01-01T00:00:00Z #<request-id>"],...}}
-```
-
-To create the rule that reads it:
-
-```bash
-curl --request POST \
-  --url https://api.azion.com/v4/workspace/firewalls/<firewall-id>/request_rules \
-  --header 'Authorization: Token <personal-token>' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "name": "upload - deny flagged senders",
-  "active": true,
-  "criteria": [
-    [{ "variable": "${network}", "conditional": "if", "operator": "is_in_list", "argument": <network-list-id> }]
-  ],
-  "behaviors": [{ "type": "deny" }]
-}'
-```
-
-The API answers `202` with a `state` of `pending`. To add a later sender, read `upload-senders` and write it back with the new entry, as [Update a network list from an automation](/en/documentation/guides/application-security/bots-and-network/update-network-list-from-automation/#add-an-entry-to-the-list) describes. The new entry is `<sender-address> --LT<upload-date-plus-7-days> #<request-id>`.
-
-</Fragment>
-</Tabs>
-
-A listed sender receives `403` on every route of the workload. A later change to the items reaches traffic in about 100 seconds, with no change to the rule. To let the SIEM write the list, refer to [Block attackers automatically from SIEM detections](/en/documentation/use-cases/secure-applications-and-networks/block-attackers-automatically-from-siem-detections/).
-
----
-
-## Verify the setup
-
-A new rule reaches traffic 6 to 10 minutes after it is saved, and a change to a list's items in about 100 seconds. Repeat each request until the answer holds.
-
-- **A clean file reaches the application.** Upload a document you know is safe:
-
-  ```bash
-  curl -s -o /dev/null -w '%{http_code}\n' -X POST --data-binary @safe.pdf -H "Content-Type: application/pdf" https://www.example.com/upload
-  ```
-
-  The command prints the status your application answers for an upload.
-
-- **A malicious file is denied.** Upload a test file built to carry a malicious indicator, such as an embedded script:
-
-  ```bash
-  curl -s -o /dev/null -w '%{http_code}\n' -X POST --data-binary @test-malicious.pdf -H "Content-Type: application/pdf" https://www.example.com/upload
-  ```
-
-  When the model answers `true`, the command prints `403`, and the `functionConsoleEvents` dataset of Real-Time Events holds a warning line that reads `[AI] true`.
-
-- **Other routes skip the model.** Request a page outside `/upload`. No line from `upload-inspection` appears for it.
-
-- **A flagged sender is refused everywhere.** From an address in `upload-senders`, request the home page:
-
-  ```bash
-  curl -s -o /dev/null -w '%{http_code}\n' https://www.example.com/
-  ```
-
-  The command prints `403`.
-
-- **Verdicts reach the SIEM.** In Real-Time Events, the _Data Stream_ data source lists each send of the _Functions_ stream, and a **Status Code** of `200` means the SIEM's endpoint accepted the batch.
 
 ---
 
@@ -304,6 +123,10 @@ A new rule reaches traffic 6 to 10 minutes after it is saved, and a change to a 
 ## Guides in this use case
 
 <DocCardGroup cols={2}>
+  <DocCard title="Block addresses until a date" href="/en/documentation/guides/application-security/bots-and-network/temporary-block/" label="Create upload-senders with a dated entry, and the rule that denies every sender in it." />
+  <DocCard title="Change the order of firewall rules" href="/en/documentation/guides/application-security/bots-and-network/change-the-order-of-firewall-rules/" label="Keep the sender rule above the rule that runs the inspection function." />
+  <DocCard title="Block requests by IP, ASN, or country" href="/en/documentation/guides/application-security/bots-and-network/blocklists-ip-addresses-edge/" label="Confirm that a listed sender receives 403 on every route." />
   <DocCard title="Update a network list from an automation" href="/en/documentation/guides/application-security/bots-and-network/update-network-list-from-automation/" label="Add each later flagged sender to the list from a script or a SIEM playbook." />
   <DocCard title="Scan file uploads with an AI Inference firewall function" href="/en/documentation/guides/ai/inference/scan-uploads-with-ai-inference/" label="Create the upload-inspection function that sends each upload to the model, and the rule that runs it on the upload route." />
+  <DocCard title="Debug functions with Data Stream" href="/en/documentation/guides/platform/observability/debugging-functions-data-stream/" label="Stream the Functions data source, which carries each verdict line, to the SIEM, and confirm that its endpoint accepts each batch." />
 </DocCardGroup>

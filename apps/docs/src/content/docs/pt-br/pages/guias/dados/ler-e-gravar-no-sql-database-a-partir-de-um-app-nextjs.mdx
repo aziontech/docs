@@ -1,0 +1,187 @@
+---
+title: Leia e grave no SQL Database a partir de um app Next.js
+description: >-
+  Renderize uma página Next.js a partir de linhas do SQL Database e adicione
+  linhas por um route handler, em uma aplicação que a Azion implanta do GitHub.
+meta_tags: 'sql database, next.js, app router, route handler, server-side rendering, force-dynamic, read replica, azion api, functions'
+namespace: docs_guides_read_and_write_sql_database_from_a_nextjs_app
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/dados/ler-e-gravar-no-sql-database-a-partir-de-um-app-nextjs/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Você renderiza uma página de um projeto Next.js com App Router a partir das linhas de uma tabela do SQL Database e adiciona linhas por um route handler, em uma aplicação que a Azion constrói a partir do seu repositório do GitHub. Os dois arquivos rodam na function que o build implanta. Para gravar linhas a partir de uma function que você mesmo escreve, consulte [Grave linhas no SQL Database a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/).
+
+A página lê por uma read replica, que recusa um statement que grava com ``attempt to write a readonly database``. Por isso, o route handler grava pela Azion API, com o identificador do banco de dados e um personal token que ele lê de variáveis de ambiente.
+
+---
+
+## Pré-requisitos
+
+- SQL Database habilitado na sua conta e a permissão **Edit SQL Database**. O produto está em Preview, então solicite acesso pelo [Technical Support](/pt-br/documentacao/suporte/).
+- Um banco de dados e uma tabela para o app ler. Os exemplos usam um banco de dados chamado `portal-app` cuja tabela `projects` é criada com `CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL);` e guarda uma linha, `Customer portal`. Para criá-los, consulte [Crie um banco de dados usando a API](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gerenciar-bancos-dados-edge-sql/#crie-um-banco-de-dados-usando-a-api), [Crie uma tabela pela API](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-tabelas-edge-sql/#crie-uma-tabela-pela-api) e [Insira linhas](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/criar-tabelas-edge-sql/#insira-linhas).
+- O identificador do banco de dados e um personal token armazenados como as variáveis de ambiente `PORTAL_DB_ID` e `PORTAL_SQL_TOKEN`, como [Armazene o identificador do banco de dados e o token](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/#armazene-o-identificador-do-banco-de-dados-e-o-token) mostra. Uma variável só chega à function depois do deploy seguinte, então crie as duas antes de importar o repositório.
+- Um repositório do GitHub com um projeto Next.js na raiz, em uma versão que a Azion suporta, importado com o preset _Next.js_. Para as versões, consulte [Versões do Next.js](/pt-br/documentacao/devtools/runtime/frameworks/nextjs-compatibility/). Para importar o repositório, consulte [Importe um projeto do GitHub](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/importar-um-projeto-existente-do-github/).
+
+Os exemplos usam `app.example.com` para o domínio da aplicação. Substitua-o, e os nomes acima, pelos seus valores.
+
+---
+
+## Renderize uma página a partir das linhas do banco de dados
+
+A página e o route handler exportam `dynamic = 'force-dynamic'`, para que o Next.js os renderize a cada requisição em vez de uma única vez no momento do build, quando o banco de dados está fora de alcance.
+
+Adicione a página como `app/page.js`. Ela lê as linhas por uma read replica, com a classe `Database` do global `Azion.Sql`:
+
+```javascript
+export const dynamic = 'force-dynamic';
+
+async function readProjects() {
+  const { Database } = globalThis.Azion.Sql;
+  const connection = await Database.open('portal-app');
+  const rows = await connection.query('SELECT id, name FROM projects ORDER BY id');
+  const projects = [];
+  let row = await rows.next();
+  while (row) {
+    projects.push({ id: row.getValue(0), name: row.getValue(1) });
+    row = await rows.next();
+  }
+  return projects;
+}
+
+export default async function Page() {
+  const projects = await readProjects();
+  return (
+    <main>
+      <h1>Projects</h1>
+      <ul>
+        {projects.map((project) => (
+          <li key={project.id}>{project.name}</li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+```
+
+`Database.open` recebe o nome do banco de dados e nenhum token. Depois do deploy do arquivo, a página lista as linhas de `projects` a cada requisição.
+
+O caso de uso [Implantar aplicações full-stack globalmente](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/implantar-aplicacoes-full-stack-globalmente/) usa os valores deste exemplo.
+
+---
+
+## Adicione linhas por um route handler
+
+Adicione o route handler como `app/api/projects/route.js`. Ele envia o insert como [Grave linhas no SQL Database a partir de uma function](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/) descreve, com `PORTAL_DB_ID` e `PORTAL_SQL_TOKEN`, e responde `500` quando a requisição ou o statement falha:
+
+```javascript
+export const dynamic = 'force-dynamic';
+
+function json(body, status) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+// The query endpoint takes SQL strings, so a text value is quoted and its quotes doubled.
+function sqlText(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+export async function POST(request) {
+  const { name } = await request.json();
+  if (typeof name !== 'string' || name.length === 0) {
+    return json({ error: 'name is required' }, 400);
+  }
+  const env = globalThis.Azion.env;
+  const response = await fetch(
+    `https://api.azion.com/v4/workspace/sql/databases/${env.get('PORTAL_DB_ID')}/query`,
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Token ${env.get('PORTAL_SQL_TOKEN')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        statements: [`INSERT INTO projects (name) VALUES (${sqlText(name)}) RETURNING id`],
+      }),
+    },
+  );
+  if (!response.ok) {
+    console.log(`Azion API answered ${response.status}`);
+    return json({ error: 'Internal error' }, 500);
+  }
+  const entry = (await response.json()).data[0];
+  if (entry.error) {
+    console.log(entry.error);
+    return json({ error: 'Internal error' }, 500);
+  }
+  return json({ id: entry.results.rows[0][0], name }, 201);
+}
+```
+
+Faça o commit dos dois arquivos na branch padrão do repositório. A página lista os projetos de `portal-app` a cada requisição, e `POST /api/projects` adiciona um projeto.
+
+O caso de uso [Implantar aplicações full-stack globalmente](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/implantar-aplicacoes-full-stack-globalmente/) usa os valores deste exemplo.
+
+---
+
+## Confirme que a página lê e que a rota grava
+
+Cada verificação requisita a aplicação no domínio dela. Uma localidade que ainda não tem a aplicação responde com uma página `404` com o texto `There's nothing here yet`; espere alguns minutos e tente de novo.
+
+- **A página é renderizada a partir do banco de dados.** Requisite a página inicial:
+
+  ```bash
+  curl -s https://app.example.com/
+  ```
+
+  O HTML traz a linha que a tabela guarda, na lista que a página renderiza:
+
+  ```text
+  <h1>Projects</h1><ul><li>Customer portal</li></ul>
+  ```
+
+- **Os assets do build vêm do bucket.** Copie uma URL sob `/_next/static/` do HTML da página e requisite-a:
+
+  ```bash
+  curl -sI https://app.example.com/_next/static/<path-from-the-page>
+  ```
+
+  A resposta traz `200`, sem que a requisição chegue à function.
+
+- **Uma rota grava no banco de dados.** Crie um projeto:
+
+  ```bash
+  curl -i -X POST https://app.example.com/api/projects \
+    -H "Content-Type: application/json" \
+    -d '{"name": "Billing dashboard"}'
+  ```
+
+  A resposta traz `201` e o ID que o banco de dados atribuiu:
+
+  ```json
+  {"id":2,"name":"Billing dashboard"}
+  ```
+
+  Um `500` significa que a gravação falhou. Leia a linha que a rota registrou no log, como [Solução de problemas de execução e logs de funções](/pt-br/documentacao/plataforma/functions/solucao-de-problemas/) mostra: `Azion API answered 401` aponta para o valor de `PORTAL_SQL_TOKEN`, e uma mensagem de erro do banco de dados aponta para o statement.
+
+- **A página mostra a gravação.** Requisite a página inicial de novo. A lista traz os dois projetos.
+
+- **Um push implanta.** Mude o texto do `<h1>`, faça o commit e o push na branch padrão. Requisite a página inicial depois que o deploy se propagar. O HTML traz o novo título.
+
+A página lê a tabela por uma read replica, e o route handler grava nela pela Azion API.
+
+Estas verificações confirmam o caso de uso [Implantar aplicações full-stack globalmente](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/implantar-aplicacoes-full-stack-globalmente/).
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Grave linhas no SQL Database a partir de uma function" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gravar-linhas-no-sql-database-a-partir-de-uma-function/" label="O endpoint de query, os dois lugares onde uma gravação falha e como ler as linhas de volta." />
+  <DocCard title="Implantar aplicações full-stack globalmente" href="/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/implantar-aplicacoes-full-stack-globalmente/" label="O design de que este app faz parte: assets do build em um bucket, páginas em uma function e dados no SQL Database." />
+</DocCardGroup>

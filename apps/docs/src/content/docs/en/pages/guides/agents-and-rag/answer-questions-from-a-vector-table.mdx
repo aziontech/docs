@@ -1,0 +1,297 @@
+---
+title: Answer questions from a vector table
+description: >-
+  Answer a question from a function with the nearest passages of a SQL Database
+  vector table and a chat model on AI Inference that cites them.
+meta_tags: 'retrieval-augmented generation, RAG, vector search, vector_top_k, embeddings, AI Inference, Azion.AI.run, SQL Database, citations, functions'
+namespace: docs_guides_answer_questions_from_a_vector_table
+permalink: /documentation/guides/ai/agents-and-rag/answer-questions-from-a-vector-table/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+You answer a question from a function: it embeds the question with a model on AI Inference, retrieves the nearest passages of a SQL Database vector table with `vector_top_k`, and asks a chat model to answer from them and cite them. The passages come from documents in an Object Storage bucket, which a second function on the same application ingests. For the general ingestion pattern, refer to [Embed documents into a vector table with AI Inference](/en/documentation/guides/ai/agents-and-rag/embed-documents-into-a-vector-table/).
+
+---
+
+## Prerequisites
+
+- An application and a workload that serve your domain, with **Application Accelerator** turned on, which the **Run Function** behavior requires. To create them, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
+- SQL Database enabled on the account. The product is in Preview and is not enabled by default, so request access through [Technical Support](/en/documentation/support/).
+- A `passages` table with a `passages_idx` vector index for 1,024-dimension vectors. To create them, refer to [Create the vector table](/en/documentation/guides/ai/agents-and-rag/embed-documents-into-a-vector-table/#create-the-vector-table).
+- An Object Storage bucket with `workloads_access` set to `read_only`, holding the documents as UTF-8 text or Markdown files. To create the bucket and upload the files, refer to [Object Storage quickstart](/en/documentation/platform/object-storage/quickstart/).
+- A personal token with the **Edit SQL Database** permission, for the database calls. To create one, refer to [Personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
+- The [Azion CLI](/en/documentation/devtools/cli/), installed and authorized, to store the environment variables.
+
+The examples use `support-docs` for the bucket, `support-kb` for the database, `returns-policy.md` for one document in it, `/admin/ingest` and `/api/ask` for the two paths, and `www.example.com` for the domain. Replace them with your values.
+
+---
+
+## Ingest the documents from a bucket
+
+The ingestion function turns one document into rows of `passages`: it reads the document from the bucket, splits it into passages of up to 1,500 characters, embeds all of them in one call, and writes them through the Azion API, because the runtime connection to a database is read-only. The route writes to the database, so it refuses a request without the ingestion secret.
+
+To store the four values the function reads, run these commands with the Azion CLI. A key that contains `token` or `secret` is stored as a secret by default:
+
+```bash
+azion create variables --key "AZION_TOKEN" --value "[TOKEN VALUE]"
+azion create variables --key "INGEST_SECRET" --value "<ingest-secret>"
+azion create variables --key "SQL_DATABASE_ID" --value "<database-id>" --secret false
+azion create variables --key "DOCS_BUCKET" --value "support-docs" --secret false
+```
+
+Create the variables before the function: a function that is already running does not read a changed value until it is redeployed.
+
+Create a function named `support-ingest` with this code:
+
+```javascript
+import Storage from "azion:storage";
+
+const EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-4B";
+const DIMENSIONS = 1024;
+const MAX_PASSAGE = 1500;
+const MAX_PASSAGES = 99;
+
+function split(text) {
+  const passages = [];
+  let current = "";
+  for (const paragraph of text.split(/\n\s*\n/)) {
+    const p = paragraph.trim();
+    if (!p) continue;
+    if (current && current.length + p.length > MAX_PASSAGE) {
+      passages.push(current);
+      current = "";
+    }
+    current = current ? current + "\n\n" + p : p;
+  }
+  if (current) passages.push(current);
+  return passages;
+}
+
+const quote = (value) => "'" + value.replaceAll("'", "''") + "'";
+
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+    if (request.headers.get("Authorization") !== `Bearer ${Azion.env.get("INGEST_SECRET")}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const key = new URL(request.url).searchParams.get("key");
+    if (!key) {
+      return Response.json({ error: "key is required" }, { status: 400 });
+    }
+
+    const object = await new Storage(Azion.env.get("DOCS_BUCKET")).get(key);
+    const passages = split(new TextDecoder().decode(await object.arrayBuffer()));
+    if (passages.length === 0 || passages.length > MAX_PASSAGES) {
+      return Response.json({ error: `${passages.length} passages; split the document` }, { status: 413 });
+    }
+
+    const embedded = await Azion.AI.run(EMBEDDING_MODEL, {
+      "input": passages,
+      "encoding_format": "float",
+      "dimensions": DIMENSIONS
+    });
+
+    const statements = [`DELETE FROM passages WHERE source = ${quote(key)};`];
+    for (const item of embedded.data) {
+      statements.push(
+        `INSERT INTO passages (source, content, embedding) VALUES (${quote(key)}, ${quote(passages[item.index])}, vector('[${item.embedding.join(",")}]'));`
+      );
+    }
+
+    const result = await fetch(
+      `https://api.azion.com/v4/workspace/sql/databases/${Azion.env.get("SQL_DATABASE_ID")}/query`,
+      {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Token ${Azion.env.get("AZION_TOKEN")}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ statements })
+      }
+    );
+    const body = await result.json();
+    const failed = (body.data ?? []).find((entry) => entry.error);
+    if (!result.ok || failed) {
+      return Response.json({ error: failed?.error ?? `SQL API answered ${result.status}` }, { status: 502 });
+    }
+    return Response.json({ key, passages: passages.length });
+  },
+};
+```
+
+Run the function on its path with these values, following [Functions quickstart](/en/documentation/platform/functions/quickstart/):
+
+- **Function instance**: `support-ingest`, with no Args.
+- **Rule**: a Request Phase rule named `support - ingest`, with the criterion `${uri}` _starts with_ `/admin/ingest` and the **Run Function** behavior selecting the `support-ingest` instance.
+
+To create the rule in Azion Console or with the API, refer to [Add the rule that runs the function](/en/documentation/guides/application-development/functions-and-runtime/serverless-functions/#add-the-rule-that-runs-the-function).
+
+A `POST` to `/admin/ingest` with the secret and a document key replaces that document's passages in `passages`, and answers with the number it stored. The `DELETE` makes a second ingestion of the same key replace its rows instead of duplicating them.
+
+To ingest the example document:
+
+```bash
+curl -X POST 'https://www.example.com/admin/ingest?key=returns-policy.md' \
+  -H 'Authorization: Bearer <ingest-secret>'
+```
+
+The function answers with the key and the number of passages it stored, such as `{"key":"returns-policy.md","passages":3}`. A request without the `Authorization` header answers `401`. To count the rows of the document through the SQL Database API:
+
+```bash
+curl --request POST \
+  --url https://api.azion.com/v4/workspace/sql/databases/<database-id>/query \
+  --header 'Accept: application/json' \
+  --header 'Authorization: Token [TOKEN VALUE]' \
+  --header 'Content-Type: application/json' \
+  --data '{"statements":["SELECT COUNT(*) FROM passages WHERE source = '\''returns-policy.md'\'' AND embedding IS NOT NULL;"]}'
+```
+
+The single entry in `data` carries `results`, whose one row holds the same number the ingestion returned.
+
+The [Build and run customer support AI assistants](/en/documentation/use-cases/build-and-run-ai-workloads/build-and-run-customer-support-ai-assistants/) use case uses the values of this example.
+
+These checks confirm the [Build and run customer support AI assistants](/en/documentation/use-cases/build-and-run-ai-workloads/build-and-run-customer-support-ai-assistants/) use case.
+
+---
+
+## Store the database name
+
+The function opens the database by name, through a read replica.
+
+To store the database name the function opens, run:
+
+```bash
+azion create variables --key "SQL_DATABASE_NAME" --value "support-kb" --secret false
+```
+
+The account holds the `SQL_DATABASE_NAME` variable that the function reads with `Azion.env.get()`.
+
+The [Build and run customer support AI assistants](/en/documentation/use-cases/build-and-run-ai-workloads/build-and-run-customer-support-ai-assistants/) use case uses the values of this example.
+
+---
+
+## Create the assistant function
+
+The function embeds the question with the same model and width as the passages, retrieves the four nearest passages, and sends them with the last six messages of `history` and the question to the chat model. It writes one `"event":"answer"` log line per answer, recording whether the answer cites a passage.
+
+Create a function named `support-assistant` with this code:
+
+```javascript
+const EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-4B";
+const CHAT_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8";
+const DIMENSIONS = 1024;
+const TOP_K = 4;
+
+const SYSTEM_PROMPT =
+  "You answer customer questions using only the numbered passages in the user message. " +
+  "Cite every passage you use as [n]. If the passages do not contain the answer, " +
+  "say that you do not know and suggest contacting support.";
+
+async function retrieve(question) {
+  const embedded = await Azion.AI.run(EMBEDDING_MODEL, {
+    "input": question,
+    "encoding_format": "float",
+    "dimensions": DIMENSIONS
+  });
+  const vector = embedded.data[0].embedding.join(",");
+
+  const { Database } = Azion.Sql;
+  const connection = await Database.open(Azion.env.get("SQL_DATABASE_NAME"));
+  const rows = await connection.query(
+    `SELECT passages.source, passages.content FROM vector_top_k('passages_idx', vector('[${vector}]'), ${TOP_K}) JOIN passages ON passages.rowid = id;`
+  );
+
+  const passages = [];
+  let row = await rows.next();
+  while (row) {
+    passages.push({ source: row.getString(0), content: row.getString(1) });
+    row = await rows.next();
+  }
+  return passages;
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+    const { question, history = [] } = await request.json();
+    if (typeof question !== "string" || question.trim() === "") {
+      return Response.json({ error: "question is required" }, { status: 400 });
+    }
+
+    const passages = await retrieve(question);
+    const context = passages
+      .map((p, i) => `[${i + 1}] (${p.source})\n${p.content}`)
+      .join("\n\n");
+
+    const modelResponse = await Azion.AI.run(CHAT_MODEL, {
+      "stream": false,
+      "max_tokens": 800,
+      "messages": [
+        { "role": "system", "content": SYSTEM_PROMPT },
+        ...history.slice(-6),
+        { "role": "user", "content": `Passages:\n${context}\n\nQuestion: ${question}` }
+      ]
+    });
+
+    const answer = modelResponse?.choices?.[0]?.message?.content ?? "";
+    const cited = /\[\d+\]/.test(answer);
+    console.log(JSON.stringify({ event: "answer", cited, passages: passages.length }));
+
+    return Response.json({
+      answer,
+      sources: passages.map((p, i) => ({ n: i + 1, source: p.source }))
+    });
+  },
+};
+```
+
+To create the function and its instance, follow [Functions quickstart](/en/documentation/platform/functions/quickstart/) with the name `support-assistant`, and name the instance `support-assistant`, with no Args.
+
+The application carries a `support-assistant` instance that answers a question from the passages nearest to it.
+
+The [Build and run customer support AI assistants](/en/documentation/use-cases/build-and-run-ai-workloads/build-and-run-customer-support-ai-assistants/) use case uses the values of this example.
+
+---
+
+## Run the function on the path
+
+Create a Request Phase rule as [Add the rule that runs the function](/en/documentation/guides/application-development/functions-and-runtime/serverless-functions/#add-the-rule-that-runs-the-function) shows, with the name `support - ask`, the criterion `${uri}` _is equal_ `/api/ask`, and the **Run Function** behavior selecting the `support-assistant` instance.
+
+A `POST` to `/api/ask` with a question answers with the model's answer, which cites passages as `[n]`, and with the document each cited passage came from. A new rule takes a few minutes to propagate.
+
+---
+
+## Confirm the answers cite the documents
+
+To ask a question the document answers:
+
+```bash
+curl -X POST https://www.example.com/api/ask \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"How many days do I have to return an item?"}'
+```
+
+The response carries `answer`, with at least one `[n]` citation, and `sources`, whose entries name `returns-policy.md`.
+
+Ask a question no document covers, such as `What is the capital of France?`. The answer says that the assistant does not know, and it carries no citation.
+
+The function answers from the passages of the table, and only from them.
+
+These checks confirm the [Build and run customer support AI assistants](/en/documentation/use-cases/build-and-run-ai-workloads/build-and-run-customer-support-ai-assistants/) use case.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Vector search" href="/en/documentation/platform/sql-database/vector-search/" label="The vector_top_k function, the distance functions, and the bounds of a vector index." />
+  <DocCard title="Build and run customer support AI assistants" href="/en/documentation/use-cases/build-and-run-ai-workloads/build-and-run-customer-support-ai-assistants/" label="The design this function serves: the passage size, the number retrieved, and the answer cap, with the reason for each." />
+</DocCardGroup>
