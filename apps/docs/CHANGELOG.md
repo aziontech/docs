@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.2](https://github.com/aziontech/docs/compare/docs-v2.0.1...docs-v2.0.2) (2026-10-09)
+
+
+### Bug Fixes
+
+* **nav:** serve the navigation JSON from under the docs scope ([#2451](https://github.com/aziontech/docs/issues/2451)) ([7544f59](https://github.com/aziontech/docs/commit/7544f592078b8e72b3ccdd132efa8c74fbb7faa2))
+
+
+### Continuous Integration
+
+* **release:** purge the www.azion.com docs cache after the production deploy ([#2454](https://github.com/aziontech/docs/issues/2454)) ([211d736](https://github.com/aziontech/docs/commit/211d7361a90b6042b233f25019cab4e085c11ccc))
+* **release:** reindex Algolia at the end of the production deploy ([#2444](https://github.com/aziontech/docs/issues/2444)) ([8a0ac1d](https://github.com/aziontech/docs/commit/8a0ac1db7cc8b3ccbbb2198ce71721eba6170db5))
+
 ## [2.0.1](https://github.com/aziontech/docs/compare/docs-v2.0.0...docs-v2.0.1) (2026-10-08)
 
 
