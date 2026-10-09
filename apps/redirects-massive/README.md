@@ -8,14 +8,16 @@ A **single** edge function that serves the permanent redirects of the Azion docs
 
 ## Structure
 
-Redirects are grouped by **language**, one JSON file each:
+Redirects are grouped by **language**, split across numbered JSON files:
 
 ```
 apps/redirects-massive/src/redirects/
   index.ts             # engine: loads every file, builds the lookup Map
   validate.mjs         # read-only data checks (pnpm -F redirects-massive validate)
-  en/doc.json          # /en/documentation/...
-  pt-br/doc.json       # /pt-br/documentacao/...
+  en/doc-00.json       # /en/documentation/...
+  en/doc-01.json       # /en/documentation/...
+  pt-br/doc-00.json    # /pt-br/documentacao/...
+  pt-br/doc-01.json    # /pt-br/documentacao/...
 ```
 
 > **Wiring**: `index.ts` imports each file explicitly into a `FILES` list. After

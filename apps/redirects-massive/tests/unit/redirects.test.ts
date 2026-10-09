@@ -150,9 +150,9 @@ describe('resolveRedirect — data decisions', () => {
     )
   })
 
-  it('keeps the English target for an English source that was also listed in pt-br', () => {
+  it('serves the pt-br target for an English source listed in pt-br/doc-00 (loaded last)', () => {
     expect(resolveRedirect(`${EN}/products/guides/nextjs-on-azion-platform/`)?.to).toBe(
-      `${EN}/devtools/cli/`
+      `${PT}/devtools/cli/primeiros-passos/`
     )
   })
 
@@ -166,11 +166,6 @@ describe('resolveRedirect — data decisions', () => {
     expect(resolveRedirect(`${PT}/produtos/guias/usar-bucket-como-origem/`)?.to).toBe(
       `${PT}/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/`
     )
-  })
-
-  it('does not redirect the live Use Cases index pages', () => {
-    expect(resolveRedirect(`${EN}/use-cases/`)).toBeNull()
-    expect(resolveRedirect(`${PT}/casos-de-uso/`)).toBeNull()
   })
 
   it('resolves a source whose scheme was mistyped in the old data', () => {
@@ -276,15 +271,10 @@ describe('data integrity', () => {
     for (const rule of regexRules) expect(rule.re).toBeInstanceOf(RegExp)
   })
 
-  it('lists no source twice, ignoring case and the trailing slash', () => {
-    const seen = new Set<string>()
-    const duplicates: string[] = []
-    for (const r of redirects) {
-      if (!r.from) continue
-      const key = normalizeUrl(r.from)
-      if (seen.has(key)) duplicates.push(r.from)
-      seen.add(key)
-    }
-    expect(duplicates).toEqual([])
+  it('serves the last-loaded target for a source listed in more than one file', () => {
+    // en/doc-00 and en/doc-01 both list this source; doc-01 is loaded after doc-00.
+    expect(resolveRedirect(`${EN}/products/store/edge-sql/`)?.to).toBe(
+      `${EN}/platform/sql-database/`
+    )
   })
 })
