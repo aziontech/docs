@@ -98,6 +98,9 @@ export interface WalkEntry {
 
 export const DOCS_BASE: Record<Lang, string> = { en: 'documentation', 'pt-br': 'documentacao' };
 
+/** The navigation JSON lives under the docs scope so the edge routes and purges it with the docs. */
+export const sidebarTreesHref = (lang: Lang) => `/${lang}/${DOCS_BASE[lang]}/sidebar-trees.json`;
+
 /** The label of the index row a dropdown that is itself a page gets: the page opens the dropdown. */
 const OVERVIEW: Record<Lang, string> = { en: 'Overview', 'pt-br': 'Visão geral' };
 
