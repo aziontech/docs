@@ -296,7 +296,7 @@ export const ptBr: DocsHomeContent = {
 					icon: 'pi pi-users',
 					title: 'Equipe de Resposta de Segurança',
 					href: '/pt-br/documentacao/servicos/security-response-team/',
-					body: 'A Azion mitiga em seu nome durante um ataque.',
+					body: 'Especialistas de segurança da Azion para analisar ameaças e investigar ataques.',
 				},
 			],
 			footer: {
