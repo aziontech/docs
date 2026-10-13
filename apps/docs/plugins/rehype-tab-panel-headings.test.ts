@@ -49,19 +49,19 @@ describe('rehypeTabPanelHeadings', () => {
 	test('links the opening heading to its section with its interface, and drops it from the outline', () => {
 		const { opener, ids } = run('interface');
 		expect(href(opener)).toBe('?interface=api#create-a-database');
-		expect(opener.properties.dataTabPanelHeading).toBe('');
+		expect(opener.properties?.dataTabPanelHeading).toBe('');
 		expect(ids).toEqual(['api']);
 	});
 
 	test('leaves a heading further down the panel as an ordinary heading', () => {
 		const { nested } = run('interface');
-		expect(nested.properties.dataTabPanelHeading).toBeUndefined();
+		expect(nested.properties?.dataTabPanelHeading).toBeUndefined();
 		expect(nested.children).toEqual([{ type: 'text', value: 'Troubleshooting' }]);
 	});
 
 	test('ignores panels of any other store', () => {
 		const { opener, ids } = run('pricing-tabs');
-		expect(opener.properties.dataTabPanelHeading).toBeUndefined();
+		expect(opener.properties?.dataTabPanelHeading).toBeUndefined();
 		expect(ids).toBeUndefined();
 	});
 });
