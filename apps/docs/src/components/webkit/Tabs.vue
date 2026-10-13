@@ -123,7 +123,10 @@ const seed = (storeKey: string) => {
 	if (fromUrl) writeStorage(storeKey, fromUrl);
 };
 
-/** A panel heading link's destination: this URL with the link's interface and section, other parameters kept. */
+/** Panel heading links, and any link an author writes as `?interface=<key>#<section>`. */
+const PANEL_ANCHOR = 'a[data-tab-panel-anchor], a[href^="?interface="]';
+
+/** Its destination: this URL with the link's interface and section, other parameters kept. */
 const panelUrl = (anchor: HTMLAnchorElement): URL | undefined => {
 	const target = new URL(anchor.href);
 	const key = target.searchParams.get('interface');
@@ -136,9 +139,12 @@ const panelUrl = (anchor: HTMLAnchorElement): URL | undefined => {
 
 /** Copied and modified-click links carry the merged destination too. */
 const resolvePanelAnchors = () => {
-	for (const anchor of document.querySelectorAll<HTMLAnchorElement>('a[data-tab-panel-anchor]')) {
+	for (const anchor of document.querySelectorAll<HTMLAnchorElement>(PANEL_ANCHOR)) {
 		const url = panelUrl(anchor);
-		if (url) anchor.setAttribute('href', url.search + url.hash);
+		if (!url) continue;
+		// The rewritten href no longer starts with `?interface=`, so mark it to stay matched.
+		anchor.setAttribute('data-tab-panel-anchor', '');
+		anchor.setAttribute('href', url.search + url.hash);
 	}
 };
 
@@ -152,7 +158,7 @@ const wirePanelAnchors = (fallback: string) => {
 	panelAnchorsWired = true;
 	history.replaceState({ ...history.state, [HISTORY_KEY]: state.interface?.curr ?? fallback }, '');
 	document.addEventListener('click', (event) => {
-		const anchor = (event.target as Element | null)?.closest?.('a[data-tab-panel-anchor]');
+		const anchor = (event.target as Element | null)?.closest?.(PANEL_ANCHOR);
 		if (!(anchor instanceof HTMLAnchorElement) || event.defaultPrevented) return;
 		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 		const url = panelUrl(anchor);
