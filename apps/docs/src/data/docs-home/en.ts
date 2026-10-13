@@ -24,7 +24,7 @@ export const en: DocsHomeContent = {
 	hero: {
 		title: 'Welcome to Azion Docs',
 		description:
-			'We make every application fast and reliable. Deploy on a global network, with enterprise-grade security and no cold starts.',
+			'We make every application fast and reliable. Deploy on a global network with enterprise-grade security and no cold starts.',
 		buttonLabel: 'Get started',
 		buttonLink: '/en/documentation/fundamentals/first-deploy/',
 		note: 'The prompt hands your coding agent the CLI, live docs over MCP, and this project linked.',

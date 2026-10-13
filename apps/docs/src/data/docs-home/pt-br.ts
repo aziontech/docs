@@ -23,7 +23,7 @@ export const ptBr: DocsHomeContent = {
 	hero: {
 		title: 'Bem-vindo à Documentação Azion',
 		description:
-			'Tornamos toda aplicação rápida e confiável. Faça o deploy em uma rede global, com segurança de nível corporativo e sem cold starts.',
+			'Tornamos toda aplicação rápida e confiável. Faça o deploy em uma rede global com segurança de nível corporativo e sem cold starts.',
 		buttonLabel: 'Começar',
 		buttonLink: '/pt-br/documentacao/fundamentos/primeiro-deploy/',
 		note: 'O prompt entrega ao seu agente de código a CLI, a documentação ao vivo via MCP e este projeto vinculado.',
