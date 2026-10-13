@@ -33,7 +33,11 @@ export default function rehypeTabPanelHeadings() {
 			const href = `?interface=${key}${section ? `#${section}` : ''}`;
 			Object.assign(heading.properties, autoLinks.headingProperties(heading));
 			heading.children = [
-				h('a', { ...autoLinks.properties, href, dataTabPanelAnchor: '' }, autoLinks.content(heading)),
+				h(
+					'a',
+					{ ...autoLinks.properties, href, dataTabPanelAnchor: '' },
+					autoLinks.content(heading)
+				),
 			];
 		};
 
@@ -53,7 +57,8 @@ export default function rehypeTabPanelHeadings() {
 					if (opener && isHeading(opener)) label(opener, slot.slice(6));
 				}
 			}
-			if (!panel && isHeading(node) && typeof node.properties?.id === 'string') section = node.properties.id;
+			if (!panel && isHeading(node) && typeof node.properties?.id === 'string')
+				section = node.properties.id;
 			for (const child of node.children ?? []) walk(child as JsxNode, tabs, panel);
 		};
 		walk(tree as unknown as JsxNode, false, false);

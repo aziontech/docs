@@ -160,7 +160,8 @@ const wirePanelAnchors = (fallback: string) => {
 	document.addEventListener('click', (event) => {
 		const anchor = (event.target as Element | null)?.closest?.(PANEL_ANCHOR);
 		if (!(anchor instanceof HTMLAnchorElement) || event.defaultPrevented) return;
-		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+			return;
 		const url = panelUrl(anchor);
 		const key = url?.searchParams.get('interface');
 		if (!url || !key) return;
