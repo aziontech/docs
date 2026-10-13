@@ -220,7 +220,9 @@ export const handlers: Record<string, Handler> = {
 			const key = slot.slice(6);
 			const shared = store ? ctx.tabLabels.get(`${store}:${key}`) : undefined;
 			const title = own.get(key) ?? shared ?? TAB_LABELS[key] ?? key;
-			out.push(label(title), ...asBlocks(await ctx.transform(fragment.children ?? [])));
+			const body = asBlocks(await ctx.transform(fragment.children ?? []));
+			const named = body[0]?.type === 'heading' && plainText(body[0]) === title;
+			out.push(...(named ? [] : [label(title)]), ...body);
 		}
 		return out;
 	},
