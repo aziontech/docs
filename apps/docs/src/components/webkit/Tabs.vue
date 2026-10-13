@@ -27,8 +27,8 @@
 				v-show="curr === panel.key"
 				:class="
 					tabs.length
-						? 'pt-(--spacing-md) [&>astro-slot>h3[data-tab-panel-heading]]:pt-0'
-						: '[&>astro-slot>h3[data-tab-panel-heading]]:pt-(--spacing-md)'
+						? 'pt-(--spacing-md) [&>astro-slot>:is(h2,h3,h4,h5)[data-tab-panel-heading]]:pt-0'
+						: '[&>astro-slot>:is(h2,h3,h4,h5)[data-tab-panel-heading]]:pt-(--spacing-md)'
 				"
 				:role="tabs.length ? 'tabpanel' : undefined"
 				:aria-labelledby="panel.labelledBy"
