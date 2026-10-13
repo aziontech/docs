@@ -1,17 +1,18 @@
 <template>
 	<!-- Clips the entering panel's offset, which would otherwise widen the document. The
 	     spacing is chrome for the strip, so a block without one sits flush in the prose. -->
-	<div :class="['relative overflow-hidden', tabs.length ? 'py-(--spacing-md)' : '']">
+	<div ref="root" :class="['relative overflow-hidden', strip.length ? 'py-(--spacing-md)' : '']">
 		<!-- Composed, not standalone: the List slides one indicator and owns the keyboard model. -->
-		<TabViewRoot v-if="tabs.length" :value="curr" :data-testid="uid" @update:value="onValueChange">
+		<TabViewRoot v-if="strip.length" :value="curr" :data-testid="uid" @update:value="onValueChange">
 			<TabViewList data-doc-chrome>
 				<TabViewItem
-					v-for="tab in tabs"
+					v-for="tab in strip"
 					:key="tab.key"
 					:value="tab.key"
 					:data-testid="tabTestId(tab.key)"
 				>
-					<slot :name="tab.slot" />
+					<slot v-if="tab.slot" :name="tab.slot" />
+					<template v-else>{{ tab.label }}</template>
 				</TabViewItem>
 			</TabViewList>
 		</TabViewRoot>
@@ -25,13 +26,13 @@
 		>
 			<div
 				v-show="curr === panel.key"
+				:data-panel-key="panel.key"
 				:class="
-					tabs.length
+					strip.length
 						? 'pt-(--spacing-md) [&>astro-slot>:is(h2,h3,h4,h5)[data-tab-panel-heading]]:pt-0'
 						: '[&>astro-slot>:is(h2,h3,h4,h5)[data-tab-panel-heading]]:pt-(--spacing-md)'
 				"
-				:role="tabs.length ? 'tabpanel' : undefined"
-				:aria-labelledby="panel.labelledBy"
+				:role="strip.length ? 'tabpanel' : undefined"
 			>
 				<slot :name="panel.slot" />
 			</div>
@@ -227,7 +228,7 @@ export function useTabState(
 
 <script setup lang="ts">
 import TabView from '@aziontech/webkit/tab-view';
-import { computed, useId, useSlots, watch } from 'vue';
+import { computed, nextTick, useId, useSlots, watch } from 'vue';
 
 const TabViewRoot = TabView.Root;
 const TabViewList = TabView.List;
@@ -252,25 +253,42 @@ const slotsNamed = (prefix: string) =>
 
 const tabs = computed(() => slotsNamed(TAB_PREFIX));
 
+/**
+ * The strip this block renders: its own `tab.*` slots, or, for a panel-only block of the
+ * interface store, one built from its panel keys — so the reader switches at any section,
+ * not only where the page declares the tabs.
+ */
+const INTERFACE_LABELS: Record<string, string> = {
+	console: 'Console',
+	api: 'API',
+	cli: 'CLI',
+	github: 'GitHub',
+	playground: 'GraphiQL',
+};
+
+const strip = computed(() => {
+	if (tabs.value.length) return tabs.value.map((tab) => ({ ...tab, label: '' }));
+	const panelSlots = slotsNamed(PANEL_PREFIX);
+	if (props.sharedStore !== 'interface' || panelSlots.length < 2) return [];
+	return panelSlots.map(({ key }) => ({ key, slot: '', label: INTERFACE_LABELS[key] ?? key }));
+});
+
 const panels = computed(() => {
 	const remaining = new Map(slotsNamed(PANEL_PREFIX).map((panel) => [panel.key, panel]));
 
-	const paired = tabs.value.flatMap(({ key }) => {
+	const paired = strip.value.flatMap(({ key }) => {
 		const panel = remaining.get(key);
 		if (!panel) return [];
 		remaining.delete(key);
-		return [{ ...panel, labelledBy: tabTestId(key) + '__tab' }];
+		return [panel];
 	});
 
-	return [
-		...paired,
-		...[...remaining.values()].map((panel) => ({ ...panel, labelledBy: undefined })),
-	];
+	return [...paired, ...remaining.values()];
 });
 
-/** A block with no `tab.*` slots renders panels alone, so one strip at the top drives the page. */
+/** A block whose keys the strip cannot name still follows the store through its panels. */
 const ownKeys = computed(() =>
-	(tabs.value.length ? tabs.value : panels.value).map(({ key }) => key)
+	(strip.value.length ? strip.value : panels.value).map(({ key }) => key)
 );
 
 const { curr, setCurr } = useTabState(
@@ -279,14 +297,50 @@ const { curr, setCurr } = useTabState(
 	() => ownKeys.value
 );
 
+const root = ref<HTMLElement | null>(null);
+
+/**
+ * TabView builds its tab and panel ids from an id it generates internally, so the pairing
+ * can only be read off the rendered strip. Each panel then takes the id its tab points at
+ * and names that tab back.
+ */
+const pairIds = () => {
+	for (const panel of root.value?.querySelectorAll<HTMLElement>('[data-panel-key]') ?? []) {
+		const tab = root.value?.querySelector(
+			`[data-testid="${tabTestId(panel.dataset.panelKey ?? '')}"]`
+		);
+		if (!tab) continue;
+		const controls = tab.getAttribute('aria-controls');
+		if (controls) panel.id = controls;
+		if (tab.id) panel.setAttribute('aria-labelledby', tab.id);
+	}
+};
+
+watch(strip, () => void nextTick(pairIds), { immediate: true });
+
 const uid = useId();
 function tabTestId(key: string) {
 	return `${uid}-${key}`;
 }
 
-/** The Root is controlled by the store; clicks and arrow keys both arrive here. */
+/**
+ * The Root is controlled by the store; clicks and arrow keys both arrive here.
+ * Every block switches at once, so a panel above this one changing height would slide
+ * the strip out from under the pointer: the scroll follows it instead.
+ */
 const onValueChange = (next: string | number | null) => {
-	if (next !== null) setCurr(String(next));
+	if (next === null) return;
+	const before = root.value?.getBoundingClientRect().top;
+	setCurr(String(next));
+	if (before === undefined) return;
+	// Each pass measures against the same mark, so whichever runs first makes the next a no-op.
+	const hold = () => {
+		const after = root.value?.getBoundingClientRect().top;
+		if (after === undefined || after === before) return;
+		window.scrollBy({ top: after - before, behavior: 'instant' });
+	};
+	void nextTick(hold);
+	if (typeof requestAnimationFrame === 'function') requestAnimationFrame(hold);
 };
 
 /** The side a panel enters from, by direction of travel. Pre-flush, so it is set before the enter. */
