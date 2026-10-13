@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.4](https://github.com/aziontech/docs/compare/docs-v2.0.3...docs-v2.0.4) (2026-10-13)
+
+
+### Bug Fixes
+
+* **docs:** drop the accepted-value rows from the WAF limits table ([#2464](https://github.com/aziontech/docs/issues/2464)) ([bf3819e](https://github.com/aziontech/docs/commit/bf3819e2f926aa4da41ddeb3e969f01c9143d6b0))
+
 ## [2.0.3](https://github.com/aziontech/docs/compare/docs-v2.0.2...docs-v2.0.3) (2026-10-09)
 
 
