@@ -25,7 +25,11 @@
 		>
 			<div
 				v-show="curr === panel.key"
-				:class="tabs.length ? 'pt-(--spacing-md)' : ''"
+				:class="
+					tabs.length
+						? 'pt-(--spacing-md) [&>astro-slot>:is(h2,h3,h4,h5)[data-tab-panel-heading]]:pt-0'
+						: '[&>astro-slot>:is(h2,h3,h4,h5)[data-tab-panel-heading]]:pt-(--spacing-md)'
+				"
 				:role="tabs.length ? 'tabpanel' : undefined"
 				:aria-labelledby="panel.labelledBy"
 			>
@@ -53,9 +57,11 @@ const PERSISTED_STORES = new Set(['interface']);
 const STORAGE_PREFIX = 'docs-tabs-';
 const KEY_PATTERN = /^[a-z0-9]+$/;
 
-/** `#interface=cli`; heading ids from rehype-slug never contain `=`, so they parse to null. */
-const readHash = (storeKey: string): string | undefined => {
-	const value = new URLSearchParams(window.location.hash.slice(1)).get(storeKey);
+/** `?interface=cli`, which leaves the fragment to a section; links to `#interface=cli` still read. */
+const readUrl = (storeKey: string): string | undefined => {
+	const value =
+		new URLSearchParams(window.location.search).get(storeKey) ??
+		new URLSearchParams(window.location.hash.slice(1)).get(storeKey);
 	return value && KEY_PATTERN.test(value) ? value : undefined;
 };
 
@@ -75,10 +81,13 @@ const writeStorage = (storeKey: string, value: string) => {
 	}
 };
 
-/** A fragment-only URL keeps path and query; replaceState neither scrolls nor adds history. */
-const writeHash = (storeKey: string, value: string) => {
+/** Keeps a section fragment; replaceState neither scrolls nor adds history. */
+const writeUrl = (storeKey: string, value: string) => {
 	try {
-		history.replaceState(history.state, '', `#${storeKey}=${value}`);
+		const url = new URL(window.location.href);
+		url.searchParams.set(storeKey, value);
+		if (new URLSearchParams(url.hash.slice(1)).has(storeKey)) url.hash = '';
+		history.replaceState(history.state, '', url);
 	} catch {
 		// sandboxed document
 	}
@@ -94,24 +103,80 @@ const subscribe = (listener: () => void) => {
 };
 
 /** A selection: updates memory, mirrors a persisted store to its carriers, notifies. */
-const setKey = (key: string, value: TabStore[string]) => {
+const setKey = (key: string, value: TabStore[string], { url = true } = {}) => {
 	if (state[key]?.curr === value.curr) return;
 	state = { ...state, [key]: value };
 	if (PERSISTED_STORES.has(key) && typeof window !== 'undefined') {
 		writeStorage(key, value.curr);
-		writeHash(key, value.curr);
+		if (url) writeUrl(key, value.curr);
 	}
 	for (const listener of [...listeners]) listener();
 };
 
-/** Fragment beats storage, both beat the first tab. Never writes the URL: a heading hash survives. */
+/** The URL beats storage, both beat the first tab. Never writes the URL: a heading hash survives. */
 const seed = (storeKey: string) => {
 	if (!PERSISTED_STORES.has(storeKey) || state[storeKey]) return;
-	const fromHash = readHash(storeKey);
-	const curr = fromHash ?? readStorage(storeKey);
+	const fromUrl = readUrl(storeKey);
+	const curr = fromUrl ?? readStorage(storeKey);
 	if (!curr) return;
 	state = { ...state, [storeKey]: { curr } };
-	if (fromHash) writeStorage(storeKey, fromHash);
+	if (fromUrl) writeStorage(storeKey, fromUrl);
+};
+
+/** Panel heading links, and any link an author writes as `?interface=<key>#<section>`. */
+const PANEL_ANCHOR = 'a[data-tab-panel-anchor], a[href^="?interface="]';
+
+/** Its destination: this URL with the link's interface and section, other parameters kept. */
+const panelUrl = (anchor: HTMLAnchorElement): URL | undefined => {
+	const target = new URL(anchor.href);
+	const key = target.searchParams.get('interface');
+	if (target.pathname !== window.location.pathname || !key || !KEY_PATTERN.test(key)) return;
+	const url = new URL(window.location.href);
+	url.searchParams.set('interface', key);
+	url.hash = target.hash;
+	return url;
+};
+
+/** Copied and modified-click links carry the merged destination too. */
+const resolvePanelAnchors = () => {
+	for (const anchor of document.querySelectorAll<HTMLAnchorElement>(PANEL_ANCHOR)) {
+		const url = panelUrl(anchor);
+		if (!url) continue;
+		// The rewritten href no longer starts with `?interface=`, so mark it to stay matched.
+		anchor.setAttribute('data-tab-panel-anchor', '');
+		anchor.setAttribute('href', url.search + url.hash);
+	}
+};
+
+/** Each history entry remembers its selection, so Back restores one whose URL names none. */
+const HISTORY_KEY = 'docsTabsInterface';
+
+let panelAnchorsWired = false;
+const wirePanelAnchors = (fallback: string) => {
+	resolvePanelAnchors();
+	if (panelAnchorsWired) return;
+	panelAnchorsWired = true;
+	history.replaceState({ ...history.state, [HISTORY_KEY]: state.interface?.curr ?? fallback }, '');
+	document.addEventListener('click', (event) => {
+		const anchor = (event.target as Element | null)?.closest?.(PANEL_ANCHOR);
+		if (!(anchor instanceof HTMLAnchorElement) || event.defaultPrevented) return;
+		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+			return;
+		const url = panelUrl(anchor);
+		const key = url?.searchParams.get('interface');
+		if (!url || !key) return;
+		event.preventDefault();
+		setKey('interface', { curr: key }, { url: false });
+		if (url.href !== window.location.href)
+			history.pushState({ ...history.state, [HISTORY_KEY]: key }, '', url);
+		document.getElementById(decodeURIComponent(url.hash.slice(1)))?.scrollIntoView();
+	});
+	window.addEventListener('popstate', (event) => {
+		const key = readUrl('interface') ?? event.state?.[HISTORY_KEY];
+		if (typeof key === 'string' && KEY_PATTERN.test(key))
+			setKey('interface', { curr: key }, { url: false });
+		resolvePanelAnchors();
+	});
 };
 
 /** A shared value this block does not offer falls back locally, leaving the store alone. */
@@ -127,6 +192,7 @@ export function useSharedTab(
 	onMounted(() => {
 		if (!storeKey) return;
 		seed(storeKey);
+		if (storeKey === 'interface') wirePanelAnchors(fallback);
 		unsubscribe = subscribe(() => {
 			const next = state[storeKey]?.curr;
 			if (!next) return;

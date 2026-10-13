@@ -65,6 +65,48 @@ describe('mdxToMarkdown', () => {
 		expect(await convert('Intro.\n\n    Indented prose.')).toBe('Intro.\n\nIndented prose.\n');
 	});
 
+	test('lets a panel that opens with a heading name itself', async () => {
+		const out = await convert(
+			[
+				'<Tabs client:visible sharedStore="interface">',
+				'<Fragment slot="tab.console">Console</Fragment>',
+				'<Fragment slot="tab.api">API</Fragment>',
+				'',
+				'<Fragment slot="panel.console">',
+				'',
+				'### Console',
+				'',
+				'Use the Console.',
+				'',
+				'</Fragment>',
+				'',
+				'<Fragment slot="panel.api">',
+				'',
+				'### Send the request',
+				'',
+				'Use the API.',
+				'',
+				'</Fragment>',
+				'',
+				'</Tabs>',
+			].join('\n')
+		);
+		expect(out).toBe(
+			[
+				'### Console',
+				'',
+				'Use the Console.',
+				'',
+				'**API**',
+				'',
+				'### Send the request',
+				'',
+				'Use the API.',
+				'',
+			].join('\n')
+		);
+	});
+
 	test('labels each tab panel, drops a strip-only block, and reads labels from the page strip', async () => {
 		const out = await convert(
 			[

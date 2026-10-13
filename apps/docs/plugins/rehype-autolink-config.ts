@@ -23,6 +23,7 @@ export const headingClass = 'scroll-mt-20';
 /** Configuration for the `rehype-autolink-headings` plugin. */
 export const autoLinks = {
 	behavior: 'wrap' as const,
+	test: (heading: Element) => !('dataTabPanelHeading' in (heading.properties ?? {})),
 	headingProperties: (heading: Element): Properties => ({
 		'data-doc-heading': heading.tagName.slice(1),
 		className: [
