@@ -93,6 +93,11 @@ export const navTree = z.object({
 	path: localized,
 	root: z.string().min(1).optional(),
 	inline: z.boolean().optional(),
+	/**
+	 * Whether the section's name goes in the `<title>` suffix: `Glossary - Azion KV Store docs`.
+	 * False where page names are already unique site-wide and the suffix only spends characters.
+	 */
+	titleSuffix: z.boolean().optional().default(true),
 	groups: z.array(navGroup).min(1),
 });
 
