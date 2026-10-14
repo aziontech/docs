@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.6](https://github.com/aziontech/docs/compare/docs-v2.0.5...docs-v2.0.6) (2026-10-14)
+
+
+### Bug Fixes
+
+* **tabs:** hold the clicked section still and give every interface strip one order ([#2471](https://github.com/aziontech/docs/issues/2471)) ([e88da04](https://github.com/aziontech/docs/commit/e88da04a29abcc91d40d3ae3be35e7785f1e4d41))
+
 ## [2.0.5](https://github.com/aziontech/docs/compare/docs-v2.0.4...docs-v2.0.5) (2026-10-14)
 
 
