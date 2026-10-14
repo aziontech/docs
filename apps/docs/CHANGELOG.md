@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.5](https://github.com/aziontech/docs/compare/docs-v2.0.4...docs-v2.0.5) (2026-10-14)
+
+
+### Bug Fixes
+
+* **docs:** general technical fixes ([#2469](https://github.com/aziontech/docs/issues/2469)) ([49068c0](https://github.com/aziontech/docs/commit/49068c079e60293e46d38ab92d9a0f3200dc9ca1))
+
+
+### Documentation
+
+* **tabs:** name the interface in every panel and give each page one strip ([#2467](https://github.com/aziontech/docs/issues/2467)) ([2a54903](https://github.com/aziontech/docs/commit/2a5490339370f0e5c9ebe63cc0781743bc28244e))
+
 ## [2.0.4](https://github.com/aziontech/docs/compare/docs-v2.0.3...docs-v2.0.4) (2026-10-13)
 
 
