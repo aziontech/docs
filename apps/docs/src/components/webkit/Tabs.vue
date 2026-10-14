@@ -267,11 +267,24 @@ const INTERFACE_LABELS: Record<string, string> = {
 	playground: 'GraphiQL',
 };
 
+/** One order on every page: the interfaces a reader picks first, whatever order the MDX declares. */
+const INTERFACE_ORDER = ['console', 'playground', 'cli', 'github', 'api'];
+const byInterface = <T extends { key: string }>(tabs: T[]) =>
+	[...tabs].sort(
+		(a, b) =>
+			(INTERFACE_ORDER.indexOf(a.key) + 1 || Infinity) -
+			(INTERFACE_ORDER.indexOf(b.key) + 1 || Infinity)
+	);
+
 const strip = computed(() => {
-	if (tabs.value.length) return tabs.value.map((tab) => ({ ...tab, label: '' }));
+	const own = tabs.value.map((tab) => ({ ...tab, label: '' }));
+	if (props.sharedStore !== 'interface') return own;
+	if (own.length) return byInterface(own);
 	const panelSlots = slotsNamed(PANEL_PREFIX);
-	if (props.sharedStore !== 'interface' || panelSlots.length < 2) return [];
-	return panelSlots.map(({ key }) => ({ key, slot: '', label: INTERFACE_LABELS[key] ?? key }));
+	if (panelSlots.length < 2) return [];
+	return byInterface(
+		panelSlots.map(({ key }) => ({ key, slot: '', label: INTERFACE_LABELS[key] ?? key }))
+	);
 });
 
 const panels = computed(() => {
