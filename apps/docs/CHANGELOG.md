@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/aziontech/docs/compare/docs-v2.1.0...docs-v2.1.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **docs:** general semrush issues ([#2480](https://github.com/aziontech/docs/issues/2480)) ([089aa13](https://github.com/aziontech/docs/commit/089aa13c8b03f85d6ef53f21978678d7ddbfb6a8))
+
 ## [2.1.0](https://github.com/aziontech/docs/compare/docs-v2.0.7...docs-v2.1.0) (2026-10-14)
 
 
