@@ -5,6 +5,9 @@ export default {
 	'navbar.a11yTitle': 'Top',
 	// Site settings
 	'site.title': 'Azion Documentation',
+	// The <title> suffix for a page that belongs to a section. `{section}` is the
+	// section's nav title with any leading "Azion " removed, so the brand appears once.
+	'site.sectionTitle': 'Azion {section} docs',
 	'site.description': 'Build faster websites with less client-side JavaScript.',
 	'site.og.imageSrc': '/default-og-image.png?v=1',
 	'site.og.imageAlt':
