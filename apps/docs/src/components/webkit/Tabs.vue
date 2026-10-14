@@ -23,6 +23,7 @@
 			:key="panel.key"
 			:enter-from-class="enterFrom"
 			enter-active-class="transition duration-moderate-02 ease-productive-entrance motion-reduce:transition-none"
+			leave-active-class="hidden"
 		>
 			<div
 				v-show="curr === panel.key"
