@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0](https://github.com/aziontech/docs/compare/docs-v2.0.7...docs-v2.1.0) (2026-10-14)
+
+
+### Features
+
+* **changelog:** announce the Azion MCP Servers GA ([#2461](https://github.com/aziontech/docs/issues/2461)) ([37379da](https://github.com/aziontech/docs/commit/37379daa432d8df4151fda8362dae0c43e08d31d))
+
+
+### Bug Fixes
+
+* **docs:** general support fixes ([#2478](https://github.com/aziontech/docs/issues/2478)) ([c4aeb57](https://github.com/aziontech/docs/commit/c4aeb5767bb0e93b5f712deb9e100cdaf63a87f3))
+
 ## [2.0.7](https://github.com/aziontech/docs/compare/docs-v2.0.6...docs-v2.0.7) (2026-10-14)
 
 
