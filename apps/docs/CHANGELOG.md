@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.7](https://github.com/aziontech/docs/compare/docs-v2.0.6...docs-v2.0.7) (2026-10-14)
+
+
+### Bug Fixes
+
+* **docs:** restore the cross-firewall Set WAF warning ([#2474](https://github.com/aziontech/docs/issues/2474)) ([1db1047](https://github.com/aziontech/docs/commit/1db1047ffc79293f05e95bb3c6022b6803de3efa))
+
 ## [2.0.6](https://github.com/aziontech/docs/compare/docs-v2.0.5...docs-v2.0.6) (2026-10-14)
 
 
