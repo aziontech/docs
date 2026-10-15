@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.3](https://github.com/aziontech/docs/compare/docs-v2.1.2...docs-v2.1.3) (2026-10-15)
+
+
+### Bug Fixes
+
+* **seo:** stop minting parameter URLs, break a redirect loop, and repair the edit links ([#2487](https://github.com/aziontech/docs/issues/2487)) ([5a71d66](https://github.com/aziontech/docs/commit/5a71d66c1ad8903c4745940c48a8f8fd08818d14))
+
 ## [2.1.2](https://github.com/aziontech/docs/compare/docs-v2.1.1...docs-v2.1.2) (2026-10-15)
 
 
