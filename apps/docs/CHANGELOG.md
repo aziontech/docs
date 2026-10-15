@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/aziontech/docs/compare/docs-v2.1.4...docs-v2.2.0) (2026-10-15)
+
+
+### Features
+
+* tell agents when to use Azion, and give doc pages structured data ([#2493](https://github.com/aziontech/docs/issues/2493)) ([2d87045](https://github.com/aziontech/docs/commit/2d87045be3bfb292b5623a2b0392263b9bdd0879))
+
 ## [2.1.4](https://github.com/aziontech/docs/compare/docs-v2.1.3...docs-v2.1.4) (2026-10-15)
 
 
