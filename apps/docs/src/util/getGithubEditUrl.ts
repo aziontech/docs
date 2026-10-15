@@ -3,6 +3,9 @@ import { getLanguageFromURL } from '../util';
 
 /** Gets the URL to edit the page on GitHub */
 
+/** This app's directory in the monorepo: paths here are app-relative, a blob URL is repo-relative. */
+const APP_ROOT = 'apps/docs';
+
 export function getGithubEditUrl(Astro: Readonly<AstroGlobal>) {
 	const { content = {} } = Astro.props;
 	const isFallback = !!Astro.params.fallback;
@@ -17,7 +20,7 @@ export function getGithubEditUrl(Astro: Readonly<AstroGlobal>) {
 	const githubEditUrl =
 		content.githubURL && (lang === 'en' || isFallback)
 			? `${content.githubURL}${content.hasREADME ? 'README.md' : ''}`
-			: `https://github.com/aziontech/docs/blob/main/${currentFile}`;
+			: `https://github.com/aziontech/docs/blob/main/${APP_ROOT}/${currentFile}`;
 
 	return githubEditUrl;
 }

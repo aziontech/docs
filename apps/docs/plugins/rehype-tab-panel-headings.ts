@@ -32,10 +32,12 @@ export default function rehypeTabPanelHeadings() {
 			if (typeof heading.properties.id === 'string') ids.push(heading.properties.id);
 			const href = `?interface=${key}${section ? `#${section}` : ''}`;
 			Object.assign(heading.properties, autoLinks.headingProperties(heading));
+			// nofollow so a crawler does not mint one parameter URL per interface per section.
+			// The reader still gets a shareable link, and the clean URL stays the canonical one.
 			heading.children = [
 				h(
 					'a',
-					{ ...autoLinks.properties, href, dataTabPanelAnchor: '' },
+					{ ...autoLinks.properties, href, rel: 'nofollow', dataTabPanelAnchor: '' },
 					autoLinks.content(heading)
 				),
 			];

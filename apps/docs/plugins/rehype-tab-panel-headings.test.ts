@@ -53,6 +53,12 @@ describe('rehypeTabPanelHeadings', () => {
 		expect(ids).toEqual(['api']);
 	});
 
+	test('marks the panel anchor nofollow so a crawler mints no parameter URLs', () => {
+		const { opener } = run('interface');
+		// hast models `rel` as a space-separated list, so it serializes to rel="nofollow".
+		expect((opener.children[0] as Element).properties?.rel).toEqual(['nofollow']);
+	});
+
 	test('leaves a heading further down the panel as an ordinary heading', () => {
 		const { nested } = run('interface');
 		expect(nested.properties?.dataTabPanelHeading).toBeUndefined();
