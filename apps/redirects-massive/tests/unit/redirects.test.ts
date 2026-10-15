@@ -278,3 +278,45 @@ describe('data integrity', () => {
     )
   })
 })
+
+/**
+ * These read the AUTHORED entries, not `redirectMap`. `flattenChains` drops a cycle and
+ * only warns, so a cycle never reaches the compiled table — the assertions above would
+ * pass while production, which consumes this JSON through Azion's Massive Redirect
+ * function without that guard, served an infinite loop. Assert on the data instead.
+ */
+describe('authored entries', () => {
+  const graph = (): Map<string, string> => {
+    const edges = new Map<string, string>()
+    for (const entry of redirects) {
+      const to = entry.moved ?? entry.found
+      if (entry.from && to) edges.set(normalizeUrl(entry.from), normalizeUrl(to))
+    }
+    return edges
+  }
+
+  it('has no redirect cycles', () => {
+    const edges = graph()
+    const cycles: string[] = []
+    const settled = new Set<string>()
+    for (const start of edges.keys()) {
+      if (settled.has(start)) continue
+      const seenAt = new Map<string, number>()
+      const path: string[] = []
+      let node: string | undefined = start
+      while (node !== undefined && edges.has(node) && !seenAt.has(node)) {
+        seenAt.set(node, path.length)
+        path.push(node)
+        node = edges.get(node)
+      }
+      const openedAt = node === undefined ? undefined : seenAt.get(node)
+      if (openedAt !== undefined) cycles.push(path.slice(openedAt).join(' -> '))
+      for (const visited of path) settled.add(visited)
+    }
+    expect(cycles).toEqual([])
+  })
+
+  it('never redirects a URL onto itself', () => {
+    for (const [from, to] of graph()) expect(to).not.toBe(from)
+  })
+})
