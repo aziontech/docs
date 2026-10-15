@@ -20,6 +20,7 @@
 | Read the documentation | [azion.com/en/documentation](https://azion.com/en/documentation/) |
 | Report an error, request a page, or ask a question | [Issue forms](https://github.com/aziontech/docs/issues/new/choose) |
 | Make a change | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
+| Point an AI coding agent at this repo | [AGENTS.md](AGENTS.md) |
 | Understand the rules | [GOVERNANCE.md](.github/GOVERNANCE.md) |
 | Find out who reviews what | [CODEOWNERS](.github/CODEOWNERS) |
 | Get help with an Azion product | [Azion Support](https://tickets.azion.com/en/support/login/new) |
@@ -33,7 +34,7 @@ The repository is a pnpm workspace with two apps:
 
 English is the source of truth. Portuguese mirrors it, and divergence is tracked in an `i18n` issue rather than left silent.
 
-We treat these pages as an API. People read them, but so do agents and crawlers through llms.txt, context7, and MCP. That makes frontmatter schema, heading structure, and working links contract requirements rather than style preferences.
+We treat these pages as an API. People read them, but so do agents and crawlers through llms.txt, context7, and MCP. That makes frontmatter schema, heading structure, and working links contract requirements rather than style preferences. [AGENTS.md](AGENTS.md) is the entry point for AI coding agents working in this repository.
 
 ## Run it locally
 
