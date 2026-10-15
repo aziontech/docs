@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.2](https://github.com/aziontech/docs/compare/docs-v2.1.1...docs-v2.1.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* **docs:** give the v3 reader a path through the guides that lost one ([#2483](https://github.com/aziontech/docs/issues/2483)) ([81f1fe9](https://github.com/aziontech/docs/commit/81f1fe902c0f4db34ee9d711a90133921bc31731))
+* **docs:** name the WAF exception reference page for the settings it holds ([#2485](https://github.com/aziontech/docs/issues/2485)) ([170a295](https://github.com/aziontech/docs/commit/170a2957d3786222bab45f0c6263bc927054249a))
+
 ## [2.1.1](https://github.com/aziontech/docs/compare/docs-v2.1.0...docs-v2.1.1) (2026-10-14)
 
 
