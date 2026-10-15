@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.4](https://github.com/aziontech/docs/compare/docs-v2.1.3...docs-v2.1.4) (2026-10-15)
+
+
+### Documentation
+
+* stop documenting workload deployment, and break up the Azion Lib Applications page ([#2490](https://github.com/aziontech/docs/issues/2490)) ([f1f6dcc](https://github.com/aziontech/docs/commit/f1f6dccdda6372764fc1002c7975f64f75cd1da5))
+
 ## [2.1.3](https://github.com/aziontech/docs/compare/docs-v2.1.2...docs-v2.1.3) (2026-10-15)
 
 
