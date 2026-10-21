@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.3.0](https://github.com/aziontech/docs/compare/docs-v2.2.1...docs-v2.3.0) (2026-10-21)
+
+
+### Features
+
+* **redirects:** publish the docs Massive Redirect args on production deploy ([#2500](https://github.com/aziontech/docs/issues/2500)) ([99114ba](https://github.com/aziontech/docs/commit/99114baf5c874c9786e388056d44a308020748db))
+
+
+### Documentation
+
+* **accounts:** document the MFA reset from MFA Management ([#2502](https://github.com/aziontech/docs/issues/2502)) ([b809d01](https://github.com/aziontech/docs/commit/b809d013aa7d57d55c99902cfe89e7dad6e17b9e))
+
 ## [2.2.1](https://github.com/aziontech/docs/compare/docs-v2.2.0...docs-v2.2.1) (2026-10-21)
 
 
