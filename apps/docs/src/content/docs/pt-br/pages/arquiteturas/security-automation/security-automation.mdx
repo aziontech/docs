@@ -1,80 +1,68 @@
 ---
-title: "Proteja seu negócio com automação de segurança"
+title: Loop de mitigação no firewall orientado pelo SIEM
 description: >-
-  A automação de segurança permite que as organizações agilizem tarefas repetitivas e demoradas, gerenciem sua postura de segurança e escalem suas operações.
+  Envie os eventos do firewall a um SIEM e deixe um playbook adicionar cada
+  atacante a uma network list que uma regra de firewall já nega.
 permalink: /documentacao/casos-de-uso/proteger-aplicacoes-e-redes/automacao-da-seguranca-com-edge-computing/
-meta_tags: >-
-  Edge Computing, Firewall, Automação de Segurança, DDoS Protection, Edge
-  Functions, Rules Engine, Network Shield
+meta_tags: 'reference architecture, security automation, siem, soar, playbook, data stream, waf events, network shield, network list, firewall, api, terraform provider, expiry'
 namespace: docs_arch_security_automation_with_edge
 ---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
 
-À medida que as ameaças cibernéticas se tornam mais sofisticadas, a [automação de segurança](https://www.azion.com/pt-br/solucoes/automacao-de-seguranca/) se tornou essencial para que as organizações agilizem tarefas repetitivas e demoradas, gerenciem sua postura de segurança e escalem suas operações de forma eficaz.
+Este design atende equipes de SOC que detectam ameaças em um SIEM mas bloqueiam à mão, então os atacantes continuam alcançando as aplicações entre a detecção e o bloqueio. [Data Stream](/pt-br/documentacao/plataforma/data-stream/) envia os eventos do [firewall](/pt-br/documentacao/plataforma/firewall/) e do seu [WAF](/pt-br/documentacao/plataforma/firewall/#waf) ao SIEM, onde uma detecção inicia um playbook de SOAR. O playbook adiciona o endereço do atacante a uma network list do [Network Shield](/pt-br/documentacao/plataforma/firewall/#network-shield) pela [Azion API](https://api.azion.com/) ou pelo [Terraform Provider](/pt-br/documentacao/devtools/terraform/). Regras de firewall que referenciam a lista bloqueiam as próximas requisições, e um job de expiração remove os itens vencidos. O design implementa o caso de uso [Bloquear atacantes automaticamente a partir de detecções do SIEM](/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/bloquear-atacantes-automaticamente-a-partir-de-deteccoes-do-siem/).
 
-Nesse contexto, sistemas autônomos operam com mínima ou nenhuma intervenção humana, utilizando inteligência artificial (IA) e automação de segurança para detectar, prevenir e responder a ameaças. A implementação desses sistemas oferece os seguintes benefícios:
+## Diagrama de arquitetura
 
-- Detecção de ameaças em tempo real por meio de algoritmos avançados de IA.
-- Aprimoramento e aprendizado contínuos por IA e sistemas automatizados.
-- Escalabilidade melhorada para lidar eficientemente com grandes volumes de dados e eventos.
-- Respostas automatizadas com base em comportamentos e regras predefinidos para mitigar ameaças.
-- Análise preditiva para antecipar e abordar riscos de segurança potenciais.
-- Eficiência operacional aprimorada com mínima intervenção, reduzindo erros humanos.
-- Proteção contra ameaças cada vez mais sofisticadas, como phishing, malware, injeção de prompt, manipulação adversarial e vazamentos de dados em aplicações modernas.
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Attacker["Atacante"] -->|"requisições"| FW["firewall: regra de negação em siem-blocklist, depois WAF"]
+  FW -->|"WAF Events"| DS["Data Stream"]
+  DS --> SIEM["SIEM: detecção"]
+  SIEM --> SOAR["playbook de SOAR"]
+  SOAR -->|"PATCH com um item datado"| API["API da Azion"]
+  API --> List["siem-blocklist"]
+  List -->|"lida pela regra de negação"| FW
+  Job["job de expiração, agendado"] -->|"gravação dos mesmos itens"| API
+```
 
----
+O diagrama desenha um loop que começa e termina no firewall. Os eventos saem pelo Data Stream, o SIEM decide, e a decisão volta pela API como um item em `siem-blocklist`. A regra de negação lê essa lista antes que o WAF rode, então um item novo altera o que o firewall bloqueia sem alterar nenhuma regra. De forma agendada, o job de expiração grava os mesmos itens de volta, e cada gravação descarta os itens cuja data de vencimento passou.
 
-## Diagrama de Arquitetura de Automação de Segurança
+### Fluxo de dados
 
-![Diagrama de Arquitetura de Automação de Segurança da Azion](/assets/docs/images/uploads/diagram-security-automation.png?v=2)
+1. As requisições de um atacante chegam ao firewall. WAF as pontua, e Data Stream envia os eventos do WAF ao endpoint que o SIEM lê.
+2. Uma detecção no SIEM inicia um playbook de SOAR. O playbook lê `siem-blocklist`, adiciona o endereço com uma data de vencimento e um comentário e grava a lista inteira de volta pela API.
+3. A regra de negação já lê `siem-blocklist`, então as próximas requisições desse endereço recebem `403` assim que a alteração chega ao tráfego, em cerca de 100 segundos.
+4. Regras em vários firewalls podem ler a mesma lista, então uma gravação bloqueia o endereço em toda aplicação que esses firewalls protegem.
+5. Um job de expiração grava os itens da lista de volta de forma agendada. Cada gravação descarta os itens cuja data de vencimento passou, o que encerra esses bloqueios.
 
-### Fluxo de Dados da Automação de Segurança
+## Componentes
 
-1. Uma requisição chega à Azion Web Platform e é redirecionada para o edge node mais saudável.
-2. No edge node, o Firewall processa o pedido e executa as configurações de segurança:
-  - O DDoS Protection verifica possíveis ataques DDoS ou DoS, bloqueando ou permitindo o pedido conforme necessário. Está automaticamente habilitado em todas as contas.
-  - O Firewall Rules Engine identifica se há regras do WAF e do Network Shield e executa os comportamentos correspondentes.
-  - Qualquer function configurada e instanciada é executada. Leia mais sobre como [automatizar a segurança com Functions da Azion](/pt-br/documentacao/guias/).
-  - O Bot Manager também analisa o pedido usando aprendizado de máquina, análise comportamental baseada em intenção e algoritmos avançados.
-3. Se a requisição não corresponder a uma regra do Firewall e não for bloqueada, a requisição continua o fluxo para o Applications.
-  - O Application Rules Engine identifica se há regras relacionadas a cache, otimização de imagens, cookies e redirecionamentos, entre outros.
-4. A requisição só chega à origem caso o edge node não contenha a resposta necessária, após passar por todas as políticas de segurança implementadas.
-5. O sistema responde à requisição adequadamente.
-6. Os clientes podem monitorar o tráfego e refinar configurações, regras e automações através das interfaces da Azion: Console, API ou CLI.
-
-### Componentes
-
-- Interfaces da Azion: [Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/como-acessar-o-azion-console/), [API](https://api.azion.com/) ou [CLI](/pt-br/documentacao/devtools/cli/). 
-- [Firewall](/pt-br/documentacao/plataforma/firewall/) fornece as principais configurações para configurar sua instância, permitindo que você a associe a domínios e ative módulos para proteger usuários, aplicações e redes.
-  - [DDoS Protection](/pt-br/documentacao/plataforma/workloads/#ddos-protection) detecta e mitiga ataques DDoS e DoS.
-  - [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/) permite que você defina as condições (Critéria) e omportamentos (behaviors) para suas regras. Se os critérios forem atendidos, os comportamentos serão executados.
-  - [Functions no Firewall](/pt-br/documentacao/plataforma/firewall/functions/) são funções JavaScript que são executadas na borda da rede, próximas aos usuários, e ajudam a proteger suas aplicações aplicando a lógica que seu negócio requer.
-  - [Bot Manager](/pt-br/documentacao/plataforma/firewall/#bot-manager) identifica e classifica o pedido de acordo com a análise comportamental baseada em intenção. Este add-on é a solução abrangente da Azion para gerenciamento de bots. Uma [versão lite](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/bot-manager-lite/) também está disponível no Marketplace.
-
----
+- **Data Stream**: exporta os eventos do WAF do firewall ao endpoint que o SIEM lê. O loop começa ali.
+- **SIEM ou SOAR**: a integração que guarda a lógica de detecção e executa o playbook. O playbook transforma uma detecção em uma gravação na lista, e a lógica de detecção fica no SIEM da equipe.
+- **API e Terraform Provider**: as interfaces pelas quais a automação altera a lista. Um `PATCH` que envia `items` substitui o array inteiro, então o playbook lê a lista antes de gravá-la. O Terraform Provider gerencia uma network list como o recurso `azion_network_list`.
+- **Network Shield**: adiciona o critério _Network_, que compara cada endereço de cliente com uma network list. Um item `ip_cidr` pode carregar uma data de vencimento e um comentário, que registram quando o bloqueio termina e por que o endereço está na lista.
+- **firewall**: o Platform Resource que aplica o bloqueio. A sua regra de negação na lista ocupa a primeira posição, então um endereço listado é recusado antes que o WAF o pontue. Uma alteração em uma lista chega ao tráfego em cerca de 100 segundos, e uma regra nova em 6 a 10 minutos. Por isso o loop altera dados, nunca regras.
+- **WAF**: a fonte dos eventos. Os seus scores, as regras correspondidas e as actions são o que as detecções do SIEM leem.
 
 ## Implementação
 
-1. Crie uma [aplicação](/pt-br/documentacao/plataforma/applications/primeiros-passos/).
-2. Configure um [firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/firewall-definir-main-settings/).
-3. Defina todas as suas regras e configurações:
-  - [Rules Engine rules](/pt-br/documentacao/plataforma/firewall/rules-engine/), usando critérios e comportamentos para definir como a requisição é tratada. Inclui regras relacionadas a network lists, WAF Rules, Custom Allowed Rules, rate limits, respostas personalizadas, bloqueio e drop de requisições e execução de funções.
-  - [Functions](/pt-br/documentacao/plataforma/firewall/functions/), criando seu próprio código ou usando [integrações de Firewall do Marketplace](/pt-br/documentacao/plataforma/marketplace/integracoes/#onde-uma-integracao-e-executada).
-4. Habilite o Bot Manager:
-- Entre em contato com a [equipe de vendas](https://www.azion.com/pt-br/contato/) para mais detalhes sobre a subscrição do Bot Manager.
-- Configure o [Bot Manager Lite](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/integracoes/bot-manager-lite/) se você decidiu usar esta versão.
-
-Quando salvas, as configurações são replicadas em todos os edge nodes da rede. Sempre que uma requisição chega à plataforma da Azion, as regras e configurações são executadas, e o sistema processa a requisição conforme necessário. Você pode usar produtos Observe para monitorar e rastrear o tráfego.
-
-:::tip
-Você também pode usar o [Azion Terraform provider](/pt-br/documentacao/guias/) para tarefas de automação de segurança.
-:::
-
----
+- [Bloquear atacantes automaticamente a partir de detecções do SIEM](/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/bloquear-atacantes-automaticamente-a-partir-de-deteccoes-do-siem/) - constrói este design de ponta a ponta, com a lista, a regra de negação, a leitura e a gravação do playbook, o job de expiração e as verificações de cada um.
+- [Primeiros passos com WAF](/pt-br/documentacao/plataforma/firewall/waf/primeiros-passos/) - aplica um WAF rule set ao firewall, a fonte dos eventos que o SIEM lê.
+- [Envie eventos do WAF para um SIEM](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/integrar-siems/) - cria o stream de eventos do WAF que as detecções leem e confirma que o endpoint do SIEM o aceita.
+- [Bloqueie endereços até uma data](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/bloqueio-temporario/) - cria a network list com o seu primeiro item e a regra que nega todo endereço nela.
+- [Altere a ordem das regras de firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/alterar-a-ordem-das-regras-de-firewall/) - move a regra de negação para cima da regra que aplica o WAF.
+- [Atualize uma network list a partir de uma automação](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/atualizar-network-list-a-partir-de-automacao/) - envia a leitura e a gravação que adicionam um item datado, e a gravação agendada que descarta os expirados.
 
 ## Recursos relacionados
-- [Implemente um perímetro de segurança em torno do seu API Gateway](/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/proteger-apis-publicas-contra-abuso/)
-- [Proteja suas aplicações com uma solução de gerenciamento de bots](/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/proteja-edge-applications-com-bot-management/)
-- [Reforce a segurança cibernética com a solução avançada de WAAP da Azion](/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/proteger-aplicacoes-web-contra-ataques-do-owasp-top-10-e-zero-day/)
-- [Proteja sua aplicação](/pt-br/documentacao/plataforma/firewall/)
-- [Proteja sua infraestrutura](/pt-br/documentacao/plataforma/firewall/#network-shield)
-- [Proteja seu DNS](/pt-br/documentacao/plataforma/edge-dns/)
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Network Lists" href="/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/">Os tipos de lista, a data de vencimento e o comentário de um item, e os erros que uma gravação pode retornar.</DocItem>
+  <DocItem title="Recursos de segurança" href="/pt-br/documentacao/devtools/terraform/security/">Os argumentos de `azion_network_list`, para uma lista que o Terraform Provider gerencia.</DocItem>
+  <DocItem title="Fontes de dados de Real-Time Events" href="/pt-br/documentacao/plataforma/real-time-events/fontes-de-dados/#http-requests">A fonte de dados HTTP Requests, onde o primeiro `403` para um endereço listado mostra quanto tempo o loop levou.</DocItem>
+  <DocItem title="Perímetro de pontuação de bots para fluxos de autenticação" href="/pt-br/documentacao/casos-de-uso/proteger-aplicacoes-e-redes/prevencao-fraudes-online/">Um design cujas decisões do Bot Manager em login, cadastro e checkout também chegam ao SIEM.</DocItem>
+</ItemList>
+</FrameBox>

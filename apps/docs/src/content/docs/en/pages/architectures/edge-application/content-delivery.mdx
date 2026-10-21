@@ -1,77 +1,79 @@
 ---
-title: "Boost Content Delivery Speed at the Edge"
+title: Caching reverse proxy in front of an origin
 description: >-
-  Explore how Azion Web Platform enhances content delivery with optimized cache
-  policies, dynamic content handling, and improved user experiences.
+  Cache an origin's responses near users, add Tiered Cache to cut origin
+  requests, purge what changes, and let the origin accept only Azion.
 permalink: /documentation/use-cases/improve-performance-and-reliability/content-delivery/
-meta_tags: >-
-  Edge Computing, Application, Content Delivery, Performance Optimization,
-  Dynamic Content, Cache Policies, Azion Web Platform, Scalable Applications,
-  User Experience, Core Web Vitals
+meta_tags: 'reference architecture, cdn, reverse proxy, cache, tiered cache, edge dns, connector, origin shield, origin ip acl, real-time purge, real-time metrics'
 namespace: docs_arch_content_delivery
 ---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
 
-[Edge-native content delivery architectures](https://www.azion.com/en/solutions/content-delivery/) empower developers to replace legacy CDNs and leverage the speed and reliability of the edge network while reducing costs. Azion Web Platform minimizes latency and enables dynamic content and advanced features, processing requests at the edge closest to end-users. This comprehensive approach allows developers to build and deploy high-performance, scalable applications that enhance user experience and improve Core Web Vitals scores, surpassing the limitations of traditional CDN solutions.
+This design serves teams whose content is mostly cacheable and lives on an origin they run, in a cloud region or a data center. Users far from that origin get slow pages, and traffic peaks overload it. Edge DNS points the domain to an application that caches responses by rule, and Tiered Cache cuts origin requests further. The application fetches each miss through a connector. Origin Shield lets the origin accept traffic from Azion only, and Real-Time Purge removes content when it changes. The design decisions are the cache keys, the TTLs, and the invalidation. The design implements the use case [Accelerate websites and APIs with a CDN](/en/documentation/use-cases/improve-performance-and-reliability/accelerate-websites-and-apis-with-a-cdn/).
 
-This solution is ideal for organizations looking to modernize their content delivery strategy, reduce infrastructure costs, and deliver exceptional digital experiences to their users.
+## Architecture diagram
 
----
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  User["User"] -->|"DNS lookup"| DNS["Edge DNS"]
+  DNS -->|"resolves to the workload"| User
+  User -->|"HTTPS request"| App["application rules"]
+  App -->|"/static/"| Static["static-files cache setting"]
+  App -->|"pages"| Pages["pages cache setting"]
+  App -->|"/api/: Bypass Cache"| Conn["site-origin connector"]
+  Static -->|"miss"| Tiered["Tiered Cache"]
+  Tiered -->|"miss"| Conn
+  Pages -->|"miss"| Conn
+  Conn -->|"Azion addresses only"| Origin["origin"]
+  Purge["Real-Time Purge"] -->|"removes changed files"| Static
+```
 
-## Content Delivery Architecture Diagram
+The diagram stacks the layers that a request tries in turn. The application's rules pick a cache setting by path, and the cache of the data center answers first. A static file that misses there tries the Tiered Cache layer next, and only a miss in every layer reaches the connector. Calls under `/api/` skip every layer and go straight to the connector. The origin allows Azion addresses only, so the connector is the single way in. Real-Time Purge acts on the cache from outside the request flow, and removes changed files before their TTL ends.
 
-![Overview of a request/response through Applications](/assets/docs/images/uploads/content-delivery-arch.png)
+### Dataflow
 
-### Content Delivery Dataflow
-
-1. A client sends an HTTP or HTTPS request to a domain associated with an application.
-2. At the edge node, the Rules Engine processes the request, enabling cache policies and image optimization behavior during the request phase.
-3. The request is then evaluated by the cache layer. If a cache key exists for the requested object, a match is found, and the object is delivered from the cache.
-4. If configured, Image Optimization retrieves the image from Origin and executes image processing algorithms. Edge Node cache the optimized image.
-5. If a cache key doesn't exist for the object, the request is forwarded to the origin server.
-6. The origin server responds with the content, which is then cached at the edge node. A cache key for the object is generated and included in the X-Cache-Key HTTP header of the response.
-7. Before the object is returned to the client, any additional policies and directives applicable to the object are processed and enforced by the Rules Engine.
-8. Finally, the content is delivered to the user.
-
----
+1. Edge DNS resolves the domain to the workload, and the user's request reaches the application in a nearby data center.
+2. The application's rules read the path in the Request Phase and apply a cache setting. A valid copy in the cache of that data center answers the request, and the origin is not asked.
+3. On a miss for a static file, the data center asks the Tiered Cache layer, which every data center shares, before it asks the origin.
+4. A miss in every layer reaches the origin through the connector, and the response is stored for the next request. A call on a bypassed path, such as `/api/`, always reaches the origin, and its response is never stored.
+5. The connector reaches the origin from an address on the `Azion Origin Shield` list, and the firewall of the origin refuses every other source.
+6. When content changes, a cache key purge removes it from the Tiered Cache layer first and from Cache second. The next request then fetches the new version from the origin.
 
 ## Components
 
-- [Applications](/en/documentation/platform/applications/quickstart/): set up an application to configure delivery and cache policies, create rules to automate cache policy assignments based on content type, and determine how content is cached.
-    - [Cache](/en/documentation/platform/applications/#cache): keeps copies of content close to your users on Azion's distributed infrastructure.
-    - [Application Accelerator](/en/documentation/platform/applications/#application-accelerator): used to customize cache optimization rules and cache keys and cookies based on established patterns.
-    - [Rules Engine](/en/documentation/platform/applications/rules-engine/): a tool to configure the scenarios in which a specific cache policy is enforced.
-    - [Image Processor](/en/documentation/platform/applications/#image-processor): that allows image manipulation through the request line.
-
----
+- **Edge DNS**: resolves the domain to the workload. A subdomain points at the workload domain with a `CNAME` record, and the apex points at it with an `ANAME` record.
+- **application**: the Platform Resource that holds the cache rules. Each rule matches a set of paths and applies a cache setting. A rule with the **Bypass Cache** behavior keeps a path out of the cache, and that behavior requires Application Accelerator on the application.
+- **Cache**: stores each response in the data center that fetched it, for the TTL of its cache setting, and answers repeated requests from that copy. The cache key is the scheme, the host, and the path, plus the variations a cache setting adds. A request that carries `Pragma: azion-debug-cache` receives the key in the `x-cache-key` header. For static files, the design keeps the TTL at 15 days (`1296000` seconds) or less, the default maximum of the [Static Cache template](/en/documentation/guides/application-development/frameworks/static-cache-template/).
+- **Tiered Cache**: the Feature that adds a second cache layer between Cache and the origin, shared by every data center, in the region its topology names. It requires _Override cache behavior_ and a **Max Age** of at least 3 seconds.
+- **connector**: the Platform Resource that reaches the origin on a miss in every cache layer, and on every call to a bypassed path.
+- **Origin Shield**: with Origin IP ACL on the connector, the origin's firewall allows the prefixes of the `Azion Origin Shield` list and refuses every other source. Azion does not enforce the allowlist, and the list carries IPv4 and IPv6 prefixes that the allowlist needs together.
+- **Real-Time Purge**: the Platform Resource that removes changed content before its TTL ends. A cache key purge takes up to 50 keys per request, and it is the only purge type that reaches the Tiered Cache layer.
+- **Real-Time Metrics**: shows the share of requests and data answered from cache, the misses that reached the origin, and the misses the Tiered Cache layer absorbed.
 
 ## Implementation
 
-1. Create an application: you must first create the content delivery application layer at the edge of the network.
-    - On Console, create an application using the **+ Create** button on the homepage.
-    - Use the Azion API to create an application.
-    - Use the Azion CLI to create and deploy an application.
-    - Choose the Dynamic and Static File Optimization template.
-2. Create a domain and associate it with the application: 
-    - On Console, create a domain using the **+ Create** button on the homepage.
-    - Use the Azion API to create a domain.
-    - If you created an application through a template, the domain is created for you.
-3. Set up cache policies: configure cache policies for different types of content. The recommended setup is:
-    - Static files: configure cache policies for static assets. The recommended setup is to cache at the edge for at most *15 days (432000 seconds)*.
-    - Images: define cache settings for image files to optimize delivery. For images, it's recommended to keep them cached at the edge for longer periods, such as *1 year (31536000 seconds)*.
-4. Enforce cache policies in specific scenarios: use Rules Engine to enforce specific policies based on various conditions. Create two rules:
-    - Static files: for static files such as music, video, or executables, apply the appropriate cache policy.
-    - Images: for image files, apply the appropriate cache policy.
-5. Point domain to Azion: update your DNS settings to point your domain's CNAME record to the Azion endpoint provided for your domain.
-6. Test and monitor: after configuring your content delivery, thoroughly test the content delivery to ensure it's functioning as expected and monitor incoming access.
-7. Make adjustments to caching policies, rules, or other configurations as needed based on performance metrics and user feedback.
-
----
+- [Accelerate websites and APIs with a CDN](/en/documentation/use-cases/improve-performance-and-reliability/accelerate-websites-and-apis-with-a-cdn/) - builds this design end to end: two cache settings, Tiered Cache on static files, the API pass-through, Origin IP ACL, and purge on deploy.
+- [Point a domain to a workload](/en/documentation/guides/platform/migration/point-domain-to-azion/) - points a subdomain at the workload with a `CNAME` record and checks that the hostname resolves.
+- [Point an apex domain with ANAME](/en/documentation/guides/application-security/dns/access-root-domain/) - points the apex of the domain at the workload.
+- [Create a cache setting](/en/documentation/guides/application-performance/cache-and-purge/tune-cache-settings/) - creates a cache setting for static files with Tiered Cache, one for pages, and the rules that apply them.
+- [Configure cache policies for an application](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/) - creates the rule that bypasses the cache on `/api/`, in Azion Console or with the API.
+- [Configure Advanced Cache Key for an application](/en/documentation/guides/application-performance/cache-and-purge/advanced-cache-key/) - varies a cached object by a query string argument or by a cookie.
+- [Restrict an origin to Azion with Origin IP ACL](/en/documentation/guides/application-security/bots-and-network/restrict-an-origin-to-azion-with-origin-ip-acl/) - turns on Origin IP ACL on the connector and allows only the `Azion Origin Shield` list at the firewall of the origin.
+- [Purge cached content](/en/documentation/guides/application-performance/cache-and-purge/purge-cached-content/) - sends cache key purges to the Tiered Cache layer and to Cache, and confirms them.
+- [Check the cache status of a response](/en/documentation/guides/application-performance/cache-and-purge/check-page-cache-time/) - reads the `x-cache` and `x-cache-key` headers of a response.
+- [Measure cache offload for a domain](/en/documentation/guides/platform/observability/measure-cache-offload/) - reads the requests and the data answered from cache, and the misses that reached the origin.
+- [Deploy the File Optimization Template](/en/documentation/guides/application-development/frameworks/dynamic-and-static-file-optimization-template/) - creates an application with standard cache policies by file extension, in front of the origin you name.
 
 ## Related resources
-- [Application Accelerator](/en/documentation/platform/applications/#application-accelerator).
-- [Cache](/en/documentation/platform/applications/#cache).
-- [Image Processor](/en/documentation/platform/applications/#image-processor).
-- [Rules Engine for Applications](/en/documentation/platform/applications/rules-engine/).
-- [How to configure cache policies for Applications](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/).
-- [How to configure Advanced Cache Key for Applications](/en/documentation/guides/application-performance/cache-and-purge/advanced-cache-key/).
-- [Real-Time Metrics](/en/documentation/platform/real-time-metrics/).
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Cache keys" href="/en/documentation/platform/applications/cache/cache-keys/">How Azion builds a cache key from a request, and what each variation appends to it.</DocItem>
+  <DocItem title="Expiration and freshness" href="/en/documentation/platform/applications/cache/expiration-and-freshness/">How a TTL decides when a cached copy expires, and when an expired copy still answers.</DocItem>
+  <DocItem title="Tiered Cache" href="/en/documentation/platform/applications/cache/tiered-cache/">The topologies of the second cache layer, and the settings it requires.</DocItem>
+  <DocItem title="Real-Time Purge" href="/en/documentation/platform/applications/cache/real-time-purge/">The purge types, and which cache layers each one reaches.</DocItem>
+</ItemList>
+</FrameBox>

@@ -1,85 +1,67 @@
 ---
-title: Application Accelerator in the application request path
+title: Accelerating reverse proxy for dynamic APIs
 description: >-
-  Follow a request through an application that varies its cache key, from the
-  Rules Engine rule to the cached object or the origin.
+  Bypass the cache on the dynamic paths of a site, send every API call to the
+  origin, including POST, and keep cache rules on the other paths.
 permalink: /documentation/use-cases/improve-performance-and-reliability/application-acceleration/
-meta_tags: >-
-  application accelerator, architecture, cache key, dynamic content, api
-  acceleration, rules engine, cache
+meta_tags: 'reference architecture, accelerating reverse proxy, dynamic api, bypass cache, application accelerator, rules engine, connector, cache, real-time metrics'
 namespace: docs_arch_application_acceleration
 ---
-
 import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
 
-This design serves an application whose responses depend on more than the URL: an API that answers differently per query string, a catalog that differs per device, a page that varies per session. [Application Accelerator](/en/documentation/platform/applications/#application-accelerator) puts those inputs into the cache key, so the cache can tell two correct responses apart instead of serving one of them to everyone or caching neither.
+This design serves teams whose API responses are personalized or transactional and cannot be cached. The application bypasses the cache on those paths, so every call reaches the origin through a connector. Application Accelerator unlocks that bypass and the `OPTIONS`, `POST`, `PUT`, `PATCH`, and `DELETE` methods an API needs. The cacheable paths of the same site keep their cache rules. The design implements the use case [Accelerate websites and APIs with a CDN](/en/documentation/use-cases/improve-performance-and-reliability/accelerate-websites-and-apis-with-a-cdn/).
 
-It suits teams whose dynamic paths reach the origin on every request because a URL-keyed cache cannot represent what makes those requests different.
-
----
-
-## The request path
+## Architecture diagram
 
 ```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
 flowchart TD
-  Client["Client request to the application domain"] --> App["Application on Azion's distributed infrastructure"]
-  App --> Rules["Rules Engine evaluates the rules for the request phase"]
-  Rules --> Policy["Set Cache Policy applies a cache setting"]
-  Rules --> Bypass["Bypass Cache sends the request to the origin"]
-  Policy --> Key["The cache key is built: URL, plus each variation the setting names"]
-  Key --> Lookup{"Is that key in the cache?"}
-  Lookup -->|Yes| Hit["The stored object is returned"]
-  Lookup -->|No| Origin["The origin answers"]
-  Bypass --> Origin
-  Origin --> Store["The response is stored under that key"]
-  Store --> Client
-  Hit --> Client
+  Client["Client"] -->|"request"| App["application rules"]
+  AA["Application Accelerator"] -->|"unlocks Bypass Cache and the methods beyond GET and HEAD"| App
+  App -->|"dynamic path: Bypass Cache"| Conn["connector"]
+  App -->|"cacheable path: Set Cache Policy"| Cache["Cache"]
+  Cache -->|"miss"| Conn
+  Conn -->|"every dynamic request, on a keep-alive connection where possible"| Origin["origin"]
+  App -.->|"request time and cache status"| RTM["Real-Time Metrics"]
 ```
 
-1. A client requests a domain associated with the application. [Workloads](/en/documentation/platform/workloads/) registers that domain with Azion.
-2. The application receives the request in the nearest data center and [Rules Engine](/en/documentation/platform/applications/rules-engine/) evaluates its request-phase rules.
-3. A rule decides what happens to the cache. **Set Cache Policy** applies a cache setting; **Bypass Cache** sends the request to the origin and caches nothing.
-4. The cache key is built from the URL plus every variation the cache setting names: the allowed query string arguments, the named cookies, the device group, and, for a cached `POST` or `OPTIONS`, the MD5 hash of the request body.
-5. A key already in the cache is answered from the stored object. A key that is not reaches the origin, and the response is stored under that key for the TTL the cache setting carries.
-6. A request carrying the `Pragma: azion-debug-cache` header gets the key back in the `X-Cache-Key` response header, which is how you confirm the variation is the one you configured.
+The diagram splits one site at the rules of the application. A request on a dynamic path skips the cache and reaches the origin through the connector. The origin's response time is therefore part of every response on that path. A request on a cacheable path tries Cache first and reaches the same connector only on a miss. Nothing on a dynamic path is stored, so that path has no TTL to set and nothing to purge. It also has no copy to serve when the origin fails, so [Keep an application online when an origin fails](/en/documentation/use-cases/improve-performance-and-reliability/keep-an-application-online-when-an-origin-fails/) adds a standby origin behind the same connector to keep those paths answering. The decisions are which paths bypass the cache and how the connector reaches the origin.
 
-Two behaviors change the shape of this path rather than its steps. A **Max Age** of 0 seconds keeps the request on the cache path while collapsing simultaneous requests into one origin request, where **Bypass Cache** leaves the cache path entirely. For that difference, and for what each variation costs, refer to [Cache variation](/en/documentation/platform/applications/application-accelerator/cache-variation/).
+### Dataflow
 
----
+1. A client sends a request to the domain of a workload, and the workload's deployment names the application.
+2. The application runs its Request Phase rules in order. A rule that matches a dynamic path, such as `/api/`, carries the **Bypass Cache** behavior.
+3. **Bypass Cache** sends the request to the origin through the connector that a **Set Connector** rule names, and Azion stores no copy of the response. A response to a request sent with `Pragma: azion-debug-cache` reports `BYPASS` in its `x-cache` header.
+4. The connector reaches the origin with the protocol its settings decide. Where possible, the bypassed request travels on a keep-alive connection to the origin.
+5. A request on a cacheable path takes the cache setting that a **Set Cache Policy** rule applies. Cache answers from a valid copy, and a miss reaches the origin through the same connector.
+6. Real-Time Metrics records every request to the domain. On a dynamic path, the request time always includes the time the origin takes to answer.
 
 ## Components
 
-- **[Applications](/en/documentation/platform/applications/)** holds the delivery configuration, the cache settings, and the rules, and is where the Application Accelerator module is turned on.
-- **[Cache](/en/documentation/platform/applications/#cache)** holds the objects and owns the cache key format that every variation appends to.
-- **[Rules Engine](/en/documentation/platform/applications/rules-engine/)** decides which requests a cache setting covers, and carries the behaviors this module unlocks.
-- **[Application Accelerator](/en/documentation/platform/applications/#application-accelerator)** supplies the cache variation, the caching of `POST` and `OPTIONS` responses, and the cache TTL below 60 seconds.
-- **[Workloads](/en/documentation/platform/workloads/)** registers the domain that serves the application.
-
----
+- **application**: the Platform Resource that holds the per-path rules. A Request Phase rule with **Bypass Cache** matches each dynamic path, and **Set Cache Policy** rules apply cache settings to the other paths. A **Max Age** of `0` does not replace the bypass. It merges parallel requests for one object into one origin request, so two simultaneous callers receive the same answer.
+- **Application Accelerator**: the Product that lets the application accept `OPTIONS`, `POST`, `PUT`, `PATCH`, and `DELETE`, beyond the `GET` and `HEAD` it accepts natively. It also unlocks **Bypass Cache**. A request that **Bypass Cache** sends to the origin keeps protocol optimizations and, where possible, a keep-alive connection to it. Its switch belongs to the application and is off on a new one.
+- **connector**: the Platform Resource that carries the origin's address and shapes each request to it, for every dynamic request and every cache miss. Its **Transport Protocol Policy** sets the protocol to the origin: forcing HTTPS protects that leg and costs a TLS handshake on every new connection. Without Load Balancer, the connection's timeouts follow platform defaults and are not settings.
+- **Cache**: stores the responses of the paths that stay cacheable, under the cache setting each path's rule applies. **Bypass Cache** does not reach the Tiered Cache layer. An application whose cache settings have Tiered Cache on keeps caching objects there for the minimum TTL.
+- **Real-Time Metrics**: shows how long the application takes to answer a request, filtered to the domain. The **Requests** dashboard charts **Average Request Time**, and a filter on **Upstream Cache Status** set to `BYPASS` keeps only the bypassed requests. In the GraphQL API, the `upstreamResponseTime` field of [`workloadMetrics`](/en/documentation/devtools/graphql/gql-real-time-metrics-fields/#workloadmetrics) sums the time Azion takes to receive the origin's responses.
 
 ## Implementation
 
-1. Create an application, in [Azion Console](https://console.azion.com), through the [Azion API](https://api.azion.com/), or with [Azion CLI](/en/documentation/devtools/cli/). For the steps, refer to [Applications quickstart](/en/documentation/platform/applications/quickstart/).
-2. Register the domain that serves it. For the steps, refer to [Add a custom domain to a workload](/en/documentation/guides/platform/migration/configure-a-domain/).
-3. Turn on Application Accelerator and create a cache setting that varies by the attribute your responses depend on. For a query string or a cookie, refer to [Configure Advanced Cache Key for an application](/en/documentation/guides/application-performance/cache-and-purge/advanced-cache-key/). For a `POST` response, refer to [Cache POST and OPTIONS responses](/en/documentation/guides/application-performance/cache-and-purge/cache-post-and-options-responses/).
-4. Apply the cache setting with a Rules Engine rule, and add any bypass or cookie-forwarding rule the design needs. For the steps, refer to [Configure cache policies for an application](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/).
-5. Point your domain's CNAME record at the Azion endpoint for that domain.
-6. Confirm the variation with the `Pragma: azion-debug-cache` header, then watch the cache status over real traffic and adjust the variation rather than the TTL when the cached object count grows faster than the content.
-
-Plan the purge alongside the variation. A URL purge does not reach objects that vary by cookie or device group, so those need a cache key purge or a wildcard purge. For the purge types, refer to [Real-Time Purge](/en/documentation/platform/applications/cache/real-time-purge/#purge-content-that-varies).
-
----
+- [Accelerate websites and APIs with a CDN](/en/documentation/use-cases/improve-performance-and-reliability/accelerate-websites-and-apis-with-a-cdn/) - builds the caching reverse proxy for a site and its API, bypasses the cache on `/api/`, and compares that design with this one.
+- [Configure cache policies for an application](/en/documentation/guides/application-performance/cache-and-purge/cache-settings/) - turns on Application Accelerator, then bypasses the cache for one path or for several paths and a session cookie.
+- [Create a cache setting](/en/documentation/guides/application-performance/cache-and-purge/tune-cache-settings/) - creates the cache setting of the cacheable paths and the rule that applies it.
+- [Applications quickstart](/en/documentation/platform/applications/quickstart/) - creates the connector to your origin, the application, the rule that sends every request to the connector, and the workload that serves it.
+- [Add a custom domain to a workload](/en/documentation/guides/platform/migration/configure-a-domain/) - lists your domain on the workload and points the domain at it.
+- [Check the cache status of a response](/en/documentation/guides/application-performance/cache-and-purge/check-page-cache-time/) - reads the `x-cache` header, which reports `BYPASS` on a dynamic path and the cache status on the other paths.
 
 ## Related resources
 
 <FrameBox>
 <ItemList>
-  <DocItem title="Application Accelerator" href="/en/documentation/platform/applications/#application-accelerator">What the module is, what it unlocks, and where its boundaries are.</DocItem>
-  <DocItem title="Cache variation" href="/en/documentation/platform/applications/application-accelerator/cache-variation/">What each variation appends to the cache key, and what a variation costs.</DocItem>
-  <DocItem title="Application Accelerator settings" href="/en/documentation/platform/applications/application-accelerator/settings/">The field, enum, and default behind every choice this design makes.</DocItem>
-  <DocItem title="Application Accelerator quickstart" href="/en/documentation/platform/applications/application-accelerator/quickstart/">Build a smaller version of this design in one sitting.</DocItem>
-  <DocItem title="Cache" href="/en/documentation/platform/applications/#cache">The cache key format, the cache statuses, and the limits on a cached object.</DocItem>
+  <DocItem title="Cache variation" href="/en/documentation/platform/applications/application-accelerator/cache-variation/#bypass-cache-and-a-ttl-of-0">How Bypass Cache differs from a Max Age of 0, and what each one costs the origin.</DocItem>
+  <DocItem title="Application Accelerator settings" href="/en/documentation/platform/applications/application-accelerator/settings/#http-methods">The methods and the Rules Engine behaviors that Application Accelerator adds to an application.</DocItem>
+  <DocItem title="How Connectors works" href="/en/documentation/platform/connectors/how-it-works/#connection-reuse-and-timeouts">The timeout and idle defaults of the connection from Azion to the origin, and when they become settings.</DocItem>
+  <DocItem title="Build dashboards" href="/en/documentation/platform/real-time-metrics/build-dashboards/#requests">What Average Request Time and the other charts of the Requests dashboard measure.</DocItem>
 </ItemList>
 </FrameBox>
