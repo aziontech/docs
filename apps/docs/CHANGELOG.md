@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/aziontech/docs/compare/docs-v2.2.0...docs-v2.2.1) (2026-10-21)
+
+
+### Documentation
+
+* **use-cases:** name the Reference Architecture pages after the use-case catalog ([#2497](https://github.com/aziontech/docs/issues/2497)) ([fabebad](https://github.com/aziontech/docs/commit/fabebad72ae41ecf8071a95d4e749b065e27ac65))
+
 ## [2.2.0](https://github.com/aziontech/docs/compare/docs-v2.1.4...docs-v2.2.0) (2026-10-15)
 
 
