@@ -294,7 +294,7 @@ export const en: DocsHomeContent = {
 					icon: 'pi pi-users',
 					title: 'Security Response Team',
 					href: '/en/documentation/services/security-response-team/',
-					body: 'Azion mitigates on your behalf during an attack.',
+					body: 'Azion security specialists to analyze threats and investigate attacks.',
 				},
 			],
 			footer: {
