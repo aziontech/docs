@@ -1,77 +1,67 @@
 ---
-title: Implemente uma arquitetura serverless com a Azion
+title: API de serviço único sobre o SQL Database
 description: >-
-  Descubra como utilizar o Applications da Azion para implementações
-  serverless. Aproveite Functions, Cache e SQL Database para otimizar
-  entrega e performance.
+  Execute todos os endpoints de uma API em uma única function que lê e grava no
+  SQL Database, com Cache para as respostas que o permitem.
 permalink: /documentacao/casos-de-uso/construir-e-executar-aplicacoes/serverless-applications/
-meta_tags: >-
-  Azion, Edge Computing, Applications, serverless, Functions, Cache,
-  Application Acceleration, SQL Database, configurar domínio, arquitetura
-  serverless
+meta_tags: 'arquitetura de referência, api, api rest, serviço único, functions, sql database, read replica, kv store, cache, real-time metrics'
 namespace: docs_arch_serverless_apps
 ---
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
 
-A [computação serverless](https://www.azion.com/pt-br/solucoes/aplicacoes-serverless/) permite que você construa e execute aplicações sem se preocupar com a infraestrutura subjacente. Com a Platforma Web da Azion, você pode focar mais em criar produtos de qualidade e menos em gerenciar servidores.
+Este design atende times que entregam a sua API como uma única unidade implantável. A aplicação encaminha os caminhos da API para uma única function que implementa todos os endpoints e lê e grava no SQL Database, com KV Store para sessões ou configurações, e Cache guarda as respostas que o permitem. O design implementa o caso de uso [Criar APIs REST e GraphQL](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-rest-e-graphql/).
 
-Os benefícios do serverless são numerosos: oferece escalabilidade, eficiência de custo e velocidade. Ao aproveitar as Functions da Azion, você pode implementar sua lógica de negócios mais perto do usuário final, resultando em aplicações ultra-rápidas e responsivas. Mergulhe neste guia para explorar a arquitetura e implementação de aplicações serverless na Azion.
+## Diagrama de arquitetura
 
----
+```mermaid
+%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+flowchart TD
+  Client["Cliente da API"] -->|"requisição HTTPS"| App["aplicação"]
+  App -->|"Rules Engine: Run Function"| Fn["function da API, todos os endpoints"]
+  Fn -->|"resposta compartilhável"| Cache["Cache"]
+  Fn -->|"leitura"| Replica["read replica do SQL Database"]
+  Fn -->|"gravação, pela Azion API"| Main["instância principal do SQL Database"]
+  Main -->|"copia os dados"| Replica
+  Fn -->|"sessão ou configuração, opcional"| KV["KV Store"]
+  App -->|"tempo de requisição e status codes"| RTM["Real-Time Metrics"]
+```
 
-## Arquitetura
+Leia o diagrama da function para fora. Toda requisição que a aplicação recebe executa a mesma function, então a function é o único lugar que conhece todos os endpoints. A partir dela, os caminhos se dividem pelo que o endpoint faz: uma resposta que todo cliente pode compartilhar vai ao Cache, uma leitura vai para uma réplica do banco de dados e uma gravação vai para a instância principal. KV Store fica ao lado do banco de dados para valores lidos por chave, como uma sessão, e o design funciona sem ele. Real-Time Metrics lê o que a aplicação registra e não muda nada no caminho da requisição.
 
-![Visão geral de uma requisição/resposta através da aplicação](/assets/docs/images/uploads/serverless-apps.png?v=2)
+### Fluxo de dados
 
-
-### Fluxo de Dados
-
-1. O usuário acessa o **Domínio** relacionado à **Applications** que está sendo acessada. Esta requisição vai para o **Azion Traffic Router**, que escolhe o **Edge Node** ideal para receber a requisição e a direciona para este node.
-
-2. A requisição passa pelo **Firewall** e é analisada. Se não for uma requisição maliciosa, segue em frente e alcança a **Applications**.
-
-3. A requisição chega à **Applications** e, baseada em sua configuração do **Rules Engine**, acessa o conteúdo solicitado. Se configurado, **Image Processor**, **Cache**, **Application Acceleration** e **Functions** serão executadas.
-
-4. O conteúdo, se estático, será armazenado no **Object Storage**. Assim, o conteúdo será requisitado e retornado como resposta.
-
-5. Operações que requerem transações de banco de dados podem ser realizadas com **SQL Database**.
-
-Após todo esse processo, o conteúdo é entregue ao cliente.
-
----
+1. A requisição de um cliente chega à aplicação no domínio da API, e uma regra da aplicação executa a function da API.
+2. A function associa o método e o caminho a um endpoint e responde com um erro a um caminho que ela não atende.
+3. Uma leitura abre uma conexão com uma read replica do banco de dados, que recebe o nome do banco de dados e nenhum token, então os dados de que uma leitura precisa ficam dentro da Azion.
+4. Uma gravação vai para a instância principal pela Azion API, porque a instância principal é a única que aplica gravações. As réplicas passam a ter a mudança em seguida.
+5. Uma resposta que todo cliente pode compartilhar é guardada no Cache, e as requisições seguintes por ela são respondidas pela cópia guardada até que ela expire ou a function a remova.
+6. Uma function e um banco de dados servem a API inteira, então um deploy, um rollback ou uma mudança de schema chega a todos os endpoints no mesmo momento.
 
 ## Componentes
 
-- **Applications**: permite que você configure uma aplicação para definir políticas de entrega e cache, criar regras para automatizar a atribuição de políticas de cache com base no tipo de conteúdo e determinar como o conteúdo é armazenado em cache.
-- **Cache**: módulo global para armazenar conteúdo no edge.
-- **Functions**: permite que você crie aplicações serverless orientadas a eventos, no edge, mais próximas dos usuários.
-- **Rules Engine**: uma ferramenta para configurar os cenários em que uma política de cache específica é aplicada.
-- **Tiered Cache**: módulo que cria uma camada de cache adicional entre o edge e seus servidores de origem, reduzindo a latência e os custos de infraestrutura.
-- **Load Balancer**: módulo projetado para balancear o tráfego entre suas origens, data centers ou provedores de nuvem, mitigando a congestão da rede e a sobrecarga do servidor.
-- **Object Storage**: um serviço de armazenamento escalável e seguro projetado para integrar armazenamento de objetos com a Azion Web Platform, usando o padrão S3 para operações de objetos.
-- **Origins**: permite que você personalize o endereço de origem do conteúdo da sua aplicação, o cabeçalho Host da sua aplicação, o caminho e as credenciais de autenticação HMAC para serviços protegidos.
-- **Workloads**: registre um domínio personalizado com a Azion para entregar sua aplicação.
-
----
+- **aplicação**: o Platform Resource que recebe as requisições da API no domínio dela e as encaminha para a function com uma regra do Rules Engine.
+- **Functions**: uma function implementa todos os endpoints. Um deploy substitui o código de todos os endpoints juntos, e é isso que faz da API uma unidade.
+- **SQL Database**: guarda os dados relacionais da API. Uma function lê por uma read replica sem token, e as gravações vão para a instância principal pela Azion API com um personal token.
+- **KV Store**: guarda sessões e configurações lidas por chave, uma opção de design. Ele tem consistência eventual e não tem compare-and-set, então carrega valores que toleram um atraso curto, não os registros da API.
+- **Cache**: guarda as respostas que todo cliente pode compartilhar, como uma lista ou uma consulta, para que uma chamada repetida pule a leitura no banco de dados.
+- **Real-Time Metrics**: reporta o tempo de requisição e os status codes da API por domínio, e o número de vezes que a function foi executada.
 
 ## Implementação
 
-1. Crie uma aplicação:
-    - No [Console](https://console.azion.com), crie uma aplicação usando o botão **+ Create** na homepage.
-    - Use a [Azion API](https://api.azion.com/#9c1cc0df-16a2-488e-8cfe-3f1238f47aeb) para criar uma aplicação.
-    - Use [Azion CLI] para criar e implantar uma aplicação.
-2. Crie um domínio e associe-o à aplicação: 
-    - No Console, [crie um domínio](/pt-br/documentacao/guias/plataforma/migracao/configurar-dominio/) usando o botão **+ Create** na homepage.
-    - Use a [API Azion](https://api.azion.com/#a258eabc-b419-47e6-be68-45c2ce0150dd) para criar um domínio.
-       - Se você criou uma aplicação através de um template, o domínio é criado para você.
-> A aplicação é acessível através do domínio fornecido pela Azion, que se parece com: `xxxxxxxxxx.map.azionedge.net` 
-3. Teste e monitore: após configurar sua entrega de conteúdo, teste completamente a entrega de conteúdo para garantir que está funcionando como esperado e monitore os acessos recebidos.
-4. Faça ajustes nas políticas de cache, regras ou outras configurações conforme necessário com base nas métricas de desempenho e feedback do usuário.
+- [Criar APIs REST e GraphQL](/pt-br/documentacao/casos-de-uso/construir-e-executar-aplicacoes/criar-apis-rest-e-graphql/) - constrói este design de ponta a ponta: o banco de dados, as credenciais de gravação da function, a function da API com a sua lista em cache e as verificações de cada um.
+- [Crie uma API RESTful de tarefas com Functions e SQL Database](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/api-restful-edge-functions-edge-sql/) - implementa os endpoints da function com o roteador Hono.
+- [Faça o deploy de uma function com a Azion CLI](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/deploy-function-with-cli/) - cria o projeto, a aplicação e a instância de function que servem a API.
+- [Crie e gerencie bancos de dados](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/gerenciar-bancos-dados-edge-sql/) - cria o banco de dados que a function lê e grava.
 
----
+## Recursos relacionados
 
-## Documentos relacionados
-
-- [Azion Marketplace](/pt-br/documentacao/plataforma/marketplace/)
-- [Compatibilidade com as APIs Web no Azion Runtime](/pt-br/documentacao/devtools/runtime/frameworks/compatibilidade-frameworks/)
-- [Compatibilidade com o Node.js no Azion Runtime](/pt-br/documentacao/devtools/runtime/node/)
-
+<FrameBox>
+<ItemList>
+  <DocItem title="Como o SQL Database funciona" href="/pt-br/documentacao/plataforma/sql-database/como-funciona/">Por que as leituras vêm de réplicas e toda gravação chega a uma única instância principal.</DocItem>
+  <DocItem title="SQL Database API" href="/pt-br/documentacao/devtools/runtime/api-reference/sql-database/">Como uma function abre uma read replica, vincula parâmetros e lê linhas.</DocItem>
+  <DocItem title="Como Functions funciona" href="/pt-br/documentacao/plataforma/functions/como-funciona/">A function, a instância dela e a regra que a executa em uma requisição.</DocItem>
+  <DocItem title="Cache API" href="/pt-br/documentacao/devtools/runtime/api-reference/cache/">Como uma function guarda uma resposta e a encontra em uma requisição posterior.</DocItem>
+</ItemList>
+</FrameBox>
