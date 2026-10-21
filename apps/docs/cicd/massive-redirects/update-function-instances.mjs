@@ -1,6 +1,6 @@
 import { appendFileSync } from 'node:fs';
 import process from 'node:process';
-import { en00, en01, ptbr00, ptbr01 } from '../../redirects/index.js';
+import { en, pt } from '../../redirects/index.js';
 
 const MASSIVE_REDIRECT_FUNCTION_ID = 12;
 const SIZE_LIMIT_BYTES = 300 * 1024;
@@ -8,24 +8,24 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_ATTEMPTS = 4;
 
 const TARGETS = [
-	{ instanceId: 8728, name: 'Doc | en | Massive 301 Redirect', file: 'en/00.json', entries: en00 },
+	{ instanceId: 8728, name: 'Doc | en | Massive 301 Redirect', file: 'en/00.json', entries: en['00'] },
 	{
 		instanceId: 50612,
 		name: 'Doc | en | Massive 301 Redirect 02',
 		file: 'en/01.json',
-		entries: en01,
+		entries: en['01'],
 	},
 	{
 		instanceId: 15172,
 		name: 'Doc | pt-br | Massive 301 Redirect',
 		file: 'pt-br/00.json',
-		entries: ptbr00,
+		entries: pt['00'],
 	},
 	{
 		instanceId: 50611,
 		name: 'Doc | pt-br | Massive 301 Redirect 02',
 		file: 'pt-br/01.json',
-		entries: ptbr01,
+		entries: pt['01'],
 	},
 ];
 
