@@ -8,7 +8,12 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_ATTEMPTS = 4;
 
 const TARGETS = [
-	{ instanceId: 8728, name: 'Doc | en | Massive 301 Redirect', file: 'en/00.json', entries: en['00'] },
+	{
+		instanceId: 8728,
+		name: 'Doc | en | Massive 301 Redirect',
+		file: 'en/00.json',
+		entries: en['00'],
+	},
 	{
 		instanceId: 50612,
 		name: 'Doc | en | Massive 301 Redirect 02',
