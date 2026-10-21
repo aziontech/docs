@@ -1,10 +1,6 @@
-import { appendFileSync, readFileSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { appendFileSync } from 'node:fs';
 import process from 'node:process';
-
-const docsRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const redirectsDir = join(docsRoot, 'redirects');
+import { en00, en01, ptbr00, ptbr01 } from '../../redirects/index.js';
 
 const MASSIVE_REDIRECT_FUNCTION_ID = 12;
 const SIZE_LIMIT_BYTES = 300 * 1024;
@@ -12,10 +8,25 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_ATTEMPTS = 4;
 
 const TARGETS = [
-	{ instanceId: 8728, name: 'Doc | en | Massive 301 Redirect', file: 'en/00.json' },
-	{ instanceId: 50612, name: 'Doc | en | Massive 301 Redirect 02', file: 'en/01.json' },
-	{ instanceId: 15172, name: 'Doc | pt-br | Massive 301 Redirect', file: 'pt-br/00.json' },
-	{ instanceId: 50611, name: 'Doc | pt-br | Massive 301 Redirect 02', file: 'pt-br/01.json' },
+	{ instanceId: 8728, name: 'Doc | en | Massive 301 Redirect', file: 'en/00.json', entries: en00 },
+	{
+		instanceId: 50612,
+		name: 'Doc | en | Massive 301 Redirect 02',
+		file: 'en/01.json',
+		entries: en01,
+	},
+	{
+		instanceId: 15172,
+		name: 'Doc | pt-br | Massive 301 Redirect',
+		file: 'pt-br/00.json',
+		entries: ptbr00,
+	},
+	{
+		instanceId: 50611,
+		name: 'Doc | pt-br | Massive 301 Redirect 02',
+		file: 'pt-br/01.json',
+		entries: ptbr01,
+	},
 ];
 
 const dryRun = process.argv.includes('--dry-run');
@@ -41,27 +52,17 @@ const canonical = (value) =>
 
 const sourceOf = (entry) => entry.from ?? `regex:${entry.from_regex}`;
 
-function loadRedirects(file) {
-	const path = join(redirectsDir, file);
-	const raw = readFileSync(path, 'utf-8');
-	const location = relative(process.cwd(), path);
+function validateRedirects(location, entries) {
 	const errors = [];
-
-	const bytes = Buffer.byteLength(raw);
+	const bytes = Buffer.byteLength(JSON.stringify(entries));
 	if (bytes > SIZE_LIMIT_BYTES) {
 		errors.push(
 			`${location} is ${(bytes / 1024).toFixed(1)} KB, over the 300 KB Massive Redirect limit`
 		);
 	}
 
-	let entries;
-	try {
-		entries = JSON.parse(raw);
-	} catch (err) {
-		return { errors: [`${location}: invalid JSON (${err.message})`] };
-	}
 	if (!Array.isArray(entries) || entries.length === 0) {
-		return { errors: [`${location}: expected a non-empty array of redirects`] };
+		return { errors: [`${location}: expected a non-empty array of redirects`], bytes };
 	}
 
 	entries.forEach((entry, index) => {
@@ -75,7 +76,7 @@ function loadRedirects(file) {
 			errors.push(`${location}[${index}]: needs exactly one of "moved" / "found"`);
 	});
 
-	return { errors, entries, bytes };
+	return { errors, bytes };
 }
 
 async function request(method, path, body) {
@@ -136,8 +137,8 @@ async function main() {
 	const plan = [];
 	const errors = [];
 	for (const target of TARGETS) {
-		const loaded = loadRedirects(target.file);
-		errors.push(...loaded.errors);
+		const validated = validateRedirects(target.file, target.entries);
+		errors.push(...validated.errors);
 
 		let instance;
 		try {
@@ -156,7 +157,7 @@ async function main() {
 				`instance ${target.instanceId} runs function ${instance.edge_function_id}, expected Massive Redirect (${MASSIVE_REDIRECT_FUNCTION_ID})`
 			);
 		}
-		plan.push({ ...target, entries: loaded.entries, bytes: loaded.bytes, current: instance.args });
+		plan.push({ ...target, bytes: validated.bytes, current: instance.args });
 	}
 
 	if (errors.length) {
