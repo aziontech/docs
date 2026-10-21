@@ -11,7 +11,7 @@
  * `FILES` order in index.ts).
  *
  * Exits non-zero on a hard error (schema) so it can gate CI.
- * Run: `pnpm -F redirects-massive validate`
+ * Run: `node apps/docs/redirects/validate.mjs`
  */
 import fs from 'fs'
 import path from 'path'
