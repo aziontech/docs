@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.3.1](https://github.com/aziontech/docs/compare/docs-v2.3.0...docs-v2.3.1) (2026-10-22)
+
+
+### Documentation
+
+* **devtools:** document Azion CLI 4.24.0, Bundler 1.2.0, and config 1.1.0 ([#2505](https://github.com/aziontech/docs/issues/2505)) ([f3003af](https://github.com/aziontech/docs/commit/f3003afc019f36495d26593492d0c91100117d6d))
+* **terraform:** document Terraform Provider 2.10.0 and fix the Edge DNS schema ([#2507](https://github.com/aziontech/docs/issues/2507)) ([a36bc2c](https://github.com/aziontech/docs/commit/a36bc2cb904d211eeda5ce31e882ed1e435d3bb4))
+
 ## [2.3.0](https://github.com/aziontech/docs/compare/docs-v2.2.1...docs-v2.3.0) (2026-10-21)
 
 
