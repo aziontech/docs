@@ -37,22 +37,29 @@ This page does not cover the consumer function that receives each delivery from 
 This page builds the producer side of the *Queue-backed asynchronous API*: a producer function answers the caller at once and hands each event to Upstash QStash, which delivers it to a consumer function.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Caller["caller or webhook provider"] -->|"HTTPS request"| App["application"]
-  App -->|"producer route"| Producer["producer function"]
-  Producer -->|"idempotency key"| KV["KV Store"]
-  Producer -->|"publish"| Queue["Upstash QStash"]
-  Producer -->|"answer at once"| Caller
-  Queue -->|"delivery with retries to the consumer domain"| Consumer["consumer function"]
-  Consumer -->|"processed state"| SQL["SQL Database"]
+  Caller(["caller or webhook provider"])
+  App["application: producer function"]
+  KV[("KV Store")]
+  Queue[["Upstash QStash"]]
+  Consumer["consumer function"]
+  SQL[("SQL Database")]
+  Caller -->|"1. signed webhook"| App
+  App -->|"2. read, 3. write key"| KV
+  App -->|"3. publish"| Queue
+  KV -.->|"2. key or none"| App
+  Queue -.->|"3. accepted or not"| App
+  App -.->|"1, 2, 3. 400, 200, or 500"| Caller
+  Queue ==>|"4. delivery, retries"| Consumer
+  Consumer ==>|"5. processed state"| SQL
 ```
 
-Read the diagram as two flows joined by the queue. The request flow ends at the producer, which answers the caller as soon as the message is queued. The processing flow starts at Upstash QStash, which calls the consumer at the domain the producer names as the destination, so the caller never waits for it. Duplicate handling sits on both sides of the queue: the producer's key in KV Store filters a repeated request, and the consumer's write to SQL Database is the record that decides whether an event was processed.
+Read the diagram as two flows joined by the queue. Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the processing flow, which runs apart from the caller's request. Each label starts with the number of the dataflow step it belongs to. The application does nothing but run the producer function on the producer route, so the diagram draws the two as one node. The request flow ends at that node: the producer reads the event ID in KV Store and publishes a new event to Upstash QStash, and both reply to it. Every answer starts at that node and goes straight to the caller. For a new event, the answer leaves as soon as the message is queued. The processing flow starts at Upstash QStash, which calls the consumer at the domain the producer names as the destination, so the caller never waits for it. Duplicate handling sits on both sides of the queue: the producer's key in KV Store filters a repeated request, and the consumer's write to SQL Database is the record that decides whether an event was processed.
 
 ### Dataflow
 
-1. The payment provider sends a signed webhook to the producer route, `POST /webhook`, and the `verifyStripeWebhook` middleware rejects a request whose signature does not match.
+1. The payment provider sends a signed webhook to the producer route, `POST /webhook`, and the `verifyStripeWebhook` middleware rejects a request whose signature does not match. It answers `400`, and the event is never queued.
 2. The producer reads the event ID in KV Store. A key that exists means an earlier delivery was queued, so the producer answers `200` and publishes nothing.
 3. Otherwise the producer publishes a message with the event to Upstash QStash, writes the event ID to KV Store, and answers `200`, before any processing starts. When the publish fails, it answers `500`, and the provider retries the event.
 4. QStash holds the message and delivers it to the consumer's domain, retrying a delivery that does not succeed.
@@ -89,7 +96,7 @@ The producer authenticates to QStash with the QStash token and publishes to the 
 The producer route replaces the `POST /webhook` route of the Stripe webhook handler. It keeps the `verifyStripeWebhook` middleware, so only an event whose signature matches reaches it. It then decides, per event, whether to queue it:
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
   Req["Stripe webhook"] --> Sig{"Signature matches?"}
   Sig -->|"no"| Reject["400, never queued"]

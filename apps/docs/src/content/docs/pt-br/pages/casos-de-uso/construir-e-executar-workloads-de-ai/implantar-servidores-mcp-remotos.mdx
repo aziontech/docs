@@ -40,28 +40,33 @@ Este caso de uso não cobre a criação dos agentes que chamam os servidores. Pa
 Esta página constrói o *MCP gateway over existing APIs*: cada ferramenta encaminha para a API que já executa o serviço, então nenhuma lógica de negócio passa para a function.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Agent["Cliente MCP do agente de IA"] -->|"POST /mcp, JSON-RPC"| FW["firewall: Set WAF e Set Rate Limit"]
-  FW -->|"bloqueada: 400, ou acima da taxa: 429"| Agent
-  FW -->|"permitida"| App["aplicação: Run Function em todos os caminhos"]
-  App --> Fn["function do servidor MCP"]
-  Fn -->|"tools/call: GET com o token do backend"| API["API existente em api.example.com"]
-  API -->|"JSON ou um status de erro"| Fn
-  Fn -->|"resultado da ferramenta como texto"| Agent
-  Fn -->|"uma linha de log por tool call"| DS["Data Stream: fonte de dados Functions"]
-  DS --> Logs["sua plataforma de logs"]
+  Agent(["Cliente MCP do agente de IA"])
+  FW["firewall: Set WAF e Set Rate Limit"]
+  Fn["aplicação: function do servidor MCP"]
+  API[["API existente em api.example.com"]]
+  DS["Data Stream: fonte de dados Functions"]
+  Logs[["sua plataforma de logs"]]
+  Agent -->|"1. POST /mcp, JSON-RPC"| FW
+  FW -->|"3. permitida"| Fn
+  Fn -->|"4. tools/call: GET"| API
+  FW -.->|"2. 400 ou 429"| Agent
+  API -.->|"4. JSON ou status de erro"| Fn
+  Fn -.->|"3, 5. ferramentas ou resultado"| Agent
+  Fn ==>|"6. uma linha por tool call"| DS
+  DS ==>|"6. linhas de log"| Logs
 ```
 
-Leia o diagrama da function até a API existente. Cada tool call passa por essa seta, então a API está no fluxo de requisição de cada chamada e no seu fluxo de falha: uma API lenta ou com falha é uma ferramenta lenta ou com falha. Cada lado da seta fala o seu próprio schema. Um agente vê o nome de uma ferramenta, uma descrição e um schema de entrada tipado. A API vê um método, um caminho e os seus próprios campos. A function traduz entre os dois, e esse mapeamento é a principal decisão de design. O firewall na frente decide quais requisições chegam à function.
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam os logs das tool calls, que rodam separados de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence. O firewall na frente decide quais requisições chegam à function. Uma requisição que ele recusa recebe a resposta direto do firewall, então nunca chega à aplicação. Uma requisição permitida chega à aplicação, que executa a function do servidor MCP. Cada tool call passa pela seta da function até a API existente, então a API está no fluxo de requisição de cada chamada e no seu fluxo de falha. Uma API lenta ou com falha é uma ferramenta lenta ou com falha. Cada lado dessa seta fala o seu próprio schema. Um agente vê o nome de uma ferramenta, uma descrição e um schema de entrada tipado. A API vê um método, um caminho e os seus próprios campos. A function traduz entre os dois, e esse mapeamento é a principal decisão de design. A resposta da API volta para a function, e toda resposta que a function monta volta pela aplicação, que a entrega ao agente.
 
 ### Fluxo de dados
 
 1. O cliente MCP de um agente envia uma requisição JSON-RPC como um `POST` para `/mcp` no domínio do workload.
-2. O firewall aplica o rule set `mcp-waf` e o rate limit. Uma requisição que o rule set bloqueia responde `400`, e uma requisição acima da taxa responde `429`.
-3. Uma requisição permitida chega à aplicação, cuja regra executa a function do servidor MCP. A function responde `initialize` e `tools/list` ela mesma, a partir das ferramentas que registra.
-4. Em `tools/call`, a function valida os argumentos contra o schema de entrada da ferramenta, monta a requisição à API a partir do método, do caminho e da query e chama a API existente com o token do backend. A chamada é limitada por um timeout.
-5. A function retorna os campos de que o agente precisa como resultado da ferramenta, ou uma mensagem que diz o que falhou quando a API responde com um erro ou não responde a tempo.
+2. O firewall aplica o rule set `mcp-waf` e o rate limit e responde direto ao agente uma requisição que ele recusa. Uma requisição que o rule set bloqueia recebe `400`. Uma requisição acima da taxa entra em fila e é liberada na taxa, e só uma requisição além do burst recebe `429`.
+3. Uma requisição permitida chega à aplicação, cuja regra executa a function do servidor MCP. A function responde `initialize` e `tools/list` ela mesma, a partir das ferramentas que registra, e a aplicação entrega essa resposta ao agente.
+4. Em `tools/call`, a function valida os argumentos contra o schema de entrada da ferramenta, monta a requisição à API a partir do método, do caminho e da query e chama a API existente com o token do backend. A chamada é limitada por um timeout, e a API responde à function com JSON ou um status de erro.
+5. A function retorna os campos de que o agente precisa como resultado da ferramenta, ou uma mensagem que diz o que falhou quando a API responde com um erro ou não responde a tempo. A aplicação entrega esse resultado ao agente.
 6. A function grava uma linha de log por tool call, e o Data Stream envia as linhas para a sua plataforma de logs.
 
 ### Recursos de Plataforma

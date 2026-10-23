@@ -38,29 +38,40 @@ This use case does not cover protecting login and checkout against bots. For tha
 This page builds the *Origin-hosted commerce platform storefront*: an application in front of a store that keeps rendering every page.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Visitor["Visitor"] -->|"HTTPS request"| App["application"]
-  App -->|"Rules Engine: catalog path, no session"| Cache["Cache"]
-  App -->|"Rules Engine: cart, checkout, or session cookie"| Connector["connector"]
-  App -->|"image path"| IP["Image Processor"]
-  Cache -->|"miss"| Connector
-  IP --> Connector
-  Connector --> Store["commerce platform"]
-  Store -->|"catalog update"| Purge["Real-Time Purge"]
-  Purge -->|"invalidates product pages"| Cache
+  Visitor(["Visitor"])
+  App["application"]
+  Cache["Cache"]
+  Conn["connector"]
+  Store[["commerce platform"]]
+  IP["Image Processor"]
+  Purge["Real-Time Purge"]
+  Visitor -->|"1. request"| App
+  App -->|"2. catalog, 4. image"| Cache
+  App -->|"3. per-visitor page"| Conn
+  Cache -->|"2, 4, 6. miss"| Conn
+  Conn -->|"2, 3, 4. fetch"| Store
+  Store -.->|"2, 6. page, stored"| Cache
+  Store -.->|"4. source image"| IP
+  IP -.->|"4. derived, stored"| Cache
+  Store -.->|"3. page, not stored"| App
+  Cache -.->|"2, 4. cached copy"| App
+  App -.->|"2, 3, 4. response"| Visitor
+  Store ==>|"5. purge call"| Purge
+  Purge ==>|"5. removes pages"| Cache
 ```
 
-Read the diagram from the application outward. Every request passes through its rules, which split it into three paths: catalog pages that Cache can answer, per-visitor pages that must reach the store, and images that Image Processor transforms. All three paths end at the same connector, because the commerce platform remains the only origin. The loop from the store back to Cache is the purge, which keeps cached pages in step with the catalog.
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the purge, which runs apart from any request. Each label starts with the number of the dataflow step it belongs to. Read the request from the application down. Its rules split every request into three paths. Catalog pages and images go to Cache, which answers whatever it holds. Per-visitor pages go straight to the connector, because they must reach the store. A miss ends at the same connector, because the commerce platform remains the only origin. Read the response from where it starts. Cache answers a hit, and the store answers everything else. On the way back, Cache stores catalog pages and the images that Image Processor derives, while a per-visitor page passes without being stored. Every response returns through the application, which delivers it to the visitor. The purge keeps cached pages in step with the catalog.
 
 ### Dataflow
 
 1. A visitor's request reaches the workload on the store's domain, which hands it to the application, and Rules Engine reads its path and its `session_id` cookie in the Request Phase.
-2. A catalog or product page requested without a session cookie is served from Cache. On a miss, the application fetches it from the store through the connector and caches it.
-3. A cart, checkout, or account request, or any request that carries the session cookie, bypasses the cache and goes to the store through the connector.
-4. An image request goes through Image Processor, which resizes or converts the original fetched from the store, and Cache keeps each variation.
+2. A catalog or product page requested without a session cookie goes to Cache. On a hit, Cache answers with its copy, and the store is not asked. On a miss, the connector fetches the page from the store, and Cache stores it on the way back.
+3. A cart, checkout, or account request, or any request that carries the session cookie, bypasses the cache and goes to the store through the connector. The page the store returns reaches the visitor, and nothing is stored.
+4. An image request goes to Cache first, which keeps each variation. On a miss, the connector fetches the source image from the store, Image Processor resizes or converts it, and Cache stores the derived image on the way back.
 5. When a product changes, the commerce platform calls the Real-Time Purge API, which removes the affected product pages from Cache before their TTL ends.
-6. The next request for a purged page reaches the store, and the new version is cached.
+6. The next request for a purged page is a miss, so it reaches the store, and Cache stores the new version on the way back.
 
 ### Platform Resources
 
@@ -94,7 +105,7 @@ The cache setting uses two values. **Max Age** is `600` seconds: the purge confi
 The bypass rule sends every per-visitor request to the store. It matches the cart, checkout, and account paths, and any request that carries the session cookie, so a visitor who added an item to the cart also bypasses the cache on catalog pages. The rule carries **Forward Cookies** as well, so the session cookie the store sets reaches the visitor. Nothing this rule matches is cached, so no visitor can receive another visitor's cookie.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
   Req["Request"] --> Cookie{"session_id cookie?"}
   Cookie -->|"yes"| Bypass["Bypass Cache and Forward Cookies"]
@@ -116,7 +127,7 @@ flowchart TD
 A changed product page is refreshed by a purge that the commerce platform sends when the product is saved. The call goes in the code the platform runs when a product is saved, and it authenticates with the personal token.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 sequenceDiagram
   participant Store as commerce platform
   participant Purge as Purge API
@@ -128,7 +139,8 @@ sequenceDiagram
   Purge->>Cache: Removes the pages
   Visitor->>Cache: Product page
   Cache->>Store: Miss, fetch
-  Store-->>Visitor: New price
+  Store-->>Cache: New page, stored
+  Cache-->>Visitor: New price
 ```
 
 1. An admin saves a product, and the platform runs its save code.

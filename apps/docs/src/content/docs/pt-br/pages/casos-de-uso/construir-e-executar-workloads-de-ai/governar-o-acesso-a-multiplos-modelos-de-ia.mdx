@@ -43,29 +43,42 @@ Este caso de uso não cobre a criação das aplicações ou dos agentes que cham
 Esta página constrói o *Multi-model AI gateway*: uma function na frente de todos os modelos, com a política, as chaves e o log em um único lugar.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Client["Aplicação da equipe"] -->|"POST /v1/chat/completions com a chave da equipe"| Fn["function de gateway"]
-  Fn -->|"leitura do registro da equipe"| KV["KV Store: ai-gateway"]
-  Fn -->|"cache permitido: correspondência"| Cache["Cache API"]
-  Fn -->|"primeira rota do alias"| AI["Modelo do AI Inference"]
-  Fn -->|"próxima rota em caso de falha"| Provider["provedor de terceiros"]
-  Fn -->|"uma linha de log por chamada"| DS["Data Stream: fonte de dados Functions"]
-  DS --> Analytics["sua plataforma de analytics"]
-  Fn -->|"linhas de log por requisição"| RTE["Real-Time Events"]
-  Fn -->|"resposta"| Client
+  Client(["Aplicação da equipe"])
+  Fn["aplicação: function de gateway"]
+  KV[("KV Store: ai-gateway")]
+  Cache["Cache API"]
+  AI["Modelo do AI Inference"]
+  Provider[["provedor de terceiros"]]
+  DS["Data Stream"]
+  Analytics[["sua plataforma de analytics"]]
+  RTE["Real-Time Events"]
+  Client -->|"1. POST /v1/chat/completions"| Fn
+  Fn -->|"2. leitura"| KV
+  Fn -->|"3, 6. consulta, armazena"| Cache
+  Fn -->|"4. primeira rota"| AI
+  Fn -->|"4. em caso de falha"| Provider
+  KV -.->|"2. registro da equipe"| Fn
+  Cache -.->|"3. hit"| Fn
+  AI -.->|"4. resposta"| Fn
+  Provider -.->|"4. resposta"| Fn
+  Fn -.->|"2, 3, 6. recusa ou resposta"| Client
+  Fn ==>|"5. linha de log"| DS
+  DS ==>|"5. linhas de log"| Analytics
+  Fn ==>|"5. linhas de log"| RTE
 ```
 
-Leia o diagrama a partir da function. Cada chamada de modelo passa por ela, então ela é o único lugar em que uma equipe é identificada, um modelo é escolhido e uma chamada é registrada. As setas para os modelos são ordenadas: a política indica uma primeira rota e as rotas depois dela, e a function passa para a próxima apenas quando uma chamada falha. As setas para o KV Store e a Cache API são leituras que vêm antes de qualquer chamada de modelo, então uma equipe recusada ou uma resposta armazenada não custa nenhuma chamada de modelo.
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam as linhas de log, que rodam separadas de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence. Cada chamada de modelo passa pela function de gateway, que a aplicação executa em todos os caminhos, então ela é o único lugar em que uma equipe é identificada, um modelo é escolhido e uma chamada é registrada. As setas para o KV Store e a Cache API são leituras que vêm antes de qualquer chamada de modelo, então uma equipe recusada ou uma resposta armazenada não custa nenhuma chamada de modelo. As setas para os modelos são ordenadas: a política indica uma primeira rota e as rotas depois dela, e a function passa para a próxima apenas quando uma chamada falha. Leia a resposta a partir de onde ela começa. A function responde ela mesma a uma equipe recusada, a Cache API retorna uma resposta armazenada, e a rota que responde retorna uma nova. Toda resposta volta pela aplicação, que a entrega à aplicação da equipe.
 
 ### Fluxo de dados
 
 1. Uma aplicação de equipe envia uma requisição compatível com a OpenAI para `/v1/chat/completions`, com a sua chave de equipe como bearer token e um alias de modelo em `model`, em vez de um id de modelo.
-2. O gateway calcula o hash da chave e lê o registro da equipe no KV Store. Uma chave desconhecida responde `401`, uma equipe acima do orçamento responde `429`, e um alias que a equipe não pode chamar responde `403`.
-3. Quando quem chama permite cache, o gateway procura a requisição no cache e retorna uma resposta armazenada quando há correspondência.
-4. Caso contrário, o gateway chama as rotas do alias em ordem: primeiro um modelo do AI Inference, depois o provedor de terceiros quando a primeira chamada falha.
+2. O gateway calcula o hash da chave e lê o registro da equipe no KV Store, que retorna o registro quando ele existe. O gateway recusa uma chave desconhecida com `401`, uma equipe acima do orçamento com `429` e um alias que a equipe não pode chamar com `403`, e a aplicação retorna a recusa à aplicação da equipe.
+3. Quando quem chama permite cache, o gateway procura a requisição no cache. Quando há correspondência, a Cache API retorna a resposta armazenada, e o gateway a retorna pela aplicação sem chamar nenhum modelo.
+4. Caso contrário, o gateway chama as rotas do alias em ordem: primeiro um modelo do AI Inference, depois o provedor de terceiros quando a primeira chamada falha. A rota que responde retorna a resposta dela ao gateway.
 5. O gateway grava uma linha de log com a equipe, o alias, o modelo que respondeu, se houve fallback, o resultado do cache e os tokens usados. O Data Stream a envia para a sua plataforma de analytics, e o Real-Time Events guarda as linhas de cada requisição para investigação.
-6. O gateway retorna a resposta do modelo e a armazena no cache quando quem chama permitiu.
+6. O gateway retorna a resposta do modelo pela aplicação à aplicação da equipe e a armazena no cache quando quem chama permitiu.
 
 ### Recursos de Plataforma
 

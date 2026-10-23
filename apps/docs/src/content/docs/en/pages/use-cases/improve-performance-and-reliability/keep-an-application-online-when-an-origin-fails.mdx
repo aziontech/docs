@@ -39,26 +39,43 @@ This use case does not cover data replication between the origins, or the perfor
 This page builds the *Active-passive origin pool*: one connector that groups a primary origin and a standby, with the standby serving only when the primary fails.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  User["User"] -->|"HTTPS request"| App["application"]
-  App -->|"cached copy"| Cache["Cache"]
-  App -->|"Set Connector"| Pool["app-origin connector with Load Balancer"]
-  Pool -->|"Primary role: every request"| Primary["primary.example.com"]
-  Pool -->|"Backup role: only when every primary fails"| Standby["standby.example.com"]
-  Pool -->|"no origin answers: 502, 503, or 504"| Pages["custom page set"]
-  Pages -->|"fetches the page"| Errors["error-pages connector"]
+  User(["User"])
+  App["application"]
+  Cache["Cache"]
+  Pool["app-origin connector with Load Balancer"]
+  Primary[["primary.example.com"]]
+  Standby[["standby.example.com"]]
+  Pages["custom page set"]
+  Errors["error-pages connector"]
+  RTM["Real-Time Metrics"]
+  User -->|"1. request"| App
+  App -->|"1. cache lookup"| Cache
+  Cache -->|"2. miss, Set Connector"| Pool
+  Pool -->|"3. Primary role"| Primary
+  Pool -->|"4. Backup role"| Standby
+  Pages -->|"5. fetch page"| Errors
+  Cache -.->|"1. cached or stale copy"| App
+  Primary -.->|"3. response"| App
+  Standby -.->|"4. response"| App
+  Pool -.->|"1. origin failed"| Cache
+  Pool -.->|"5. 502 or 504"| Pages
+  Errors -.->|"5. page, cached"| Pages
+  Pages -.->|"5. page, as 503"| App
+  App -.->|"1, 3, 4, 5. response"| User
+  App ==>|"6. status codes"| RTM
 ```
 
-Read the diagram from the application. Cache answers what it already holds, and every other request reaches one connector, which holds both origins. Inside the connector, the role of each address decides who serves: the primary in normal operation, the standby only after the primary fails. The custom page set sits at the end of the failure path, for the moment when neither origin can answer.
+Solid arrows carry the request, dotted arrows carry the response, and the thick arrow carries the metrics, which run apart from any request. Each label starts with the number of the dataflow step it belongs to. Read the request from the application down. Cache answers what it already holds, and every other request reaches one connector, which holds both origins. Inside the connector, the role of each address decides who serves: the primary in normal operation, the standby only after the primary fails. Read the response from where it starts. Cache answers a valid copy, and the origin that served the request answers everything else. With **Stale cache** on, Cache can also answer with an expired copy when the origin fails. The custom page set sits at the end of the failure path, for the moment when neither origin can answer: it replaces the connector's `502` or `504` with the page from `error-pages`. Every response returns through the application, which delivers it to the user.
 
 ### Dataflow
 
-1. A user's request reaches the application, and a valid copy that Cache holds answers it without reaching either origin.
+1. A user's request reaches the application, and a valid copy that Cache holds answers it without reaching either origin. With **Stale cache** on, Cache also answers with an expired copy when the origin returns a `5xx` error or times out, and the response reports `STALE`.
 2. Any other request goes to the `app-origin` connector through the application's **Set Connector** rule.
-3. Load Balancer sends the request to `primary.example.com`, the only _Primary_ address. The standby receives nothing while the primary answers, so only one origin writes data at a time.
-4. When every _Primary_ address fails, as detected from failed and timed-out connections, Load Balancer sends the request to `standby.example.com`, the _Backup_ address. The switch to the standby needs no DNS change.
-5. When no origin can be selected or none answers in time, Azion returns `502`, `503`, or `504`, and the custom page set replaces that response with the page the `error-pages` connector serves, outside the pool.
+3. Load Balancer sends the request to `primary.example.com`, the only _Primary_ address. The standby receives nothing while the primary answers, so only one origin writes data at a time. The primary's response returns to the user through the application.
+4. When every _Primary_ address fails, as detected from failed and timed-out connections, Load Balancer sends the request to `standby.example.com`, the _Backup_ address. The user receives the standby's response, and the switch to the standby needs no DNS change.
+5. When no origin can be selected or none answers in time, Azion returns `502` or `504`. The custom page set replaces that response with the page the `error-pages` connector serves, outside the pool, and Azion keeps the page in cache for its TTL. The user receives the page with status `503`.
 6. Real-Time Metrics counts the status codes of the domain and, per request, the origin that answered, while traffic moves to the standby and back.
 
 ### Platform Resources

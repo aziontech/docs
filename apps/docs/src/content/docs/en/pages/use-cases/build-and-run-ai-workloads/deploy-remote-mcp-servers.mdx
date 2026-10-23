@@ -40,28 +40,33 @@ This use case does not cover building the agents that call the servers. For that
 This page builds the *MCP gateway over existing APIs*: every tool forwards to the API that already runs the service, so no business logic moves into the function.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Agent["AI agent's MCP client"] -->|"POST /mcp, JSON-RPC"| FW["firewall: Set WAF and Set Rate Limit"]
-  FW -->|"blocked: 400, or over the rate: 429"| Agent
-  FW -->|"allowed"| App["application: Run Function on every path"]
-  App --> Fn["MCP server function"]
-  Fn -->|"tools/call: GET with the backend token"| API["existing API at api.example.com"]
-  API -->|"JSON, or an error status"| Fn
-  Fn -->|"tool result as text"| Agent
-  Fn -->|"one log line per tool call"| DS["Data Stream: Functions data source"]
-  DS --> Logs["your log platform"]
+  Agent(["AI agent's MCP client"])
+  FW["firewall: Set WAF and Set Rate Limit"]
+  Fn["application: MCP server function"]
+  API[["existing API at api.example.com"]]
+  DS["Data Stream: Functions data source"]
+  Logs[["your log platform"]]
+  Agent -->|"1. POST /mcp, JSON-RPC"| FW
+  FW -->|"3. allowed"| Fn
+  Fn -->|"4. tools/call: GET"| API
+  FW -.->|"2. 400 or 429"| Agent
+  API -.->|"4. JSON or error status"| Fn
+  Fn -.->|"3, 5. tool list or result"| Agent
+  Fn ==>|"6. one line per tool call"| DS
+  DS ==>|"6. log lines"| Logs
 ```
 
-Read the diagram from the function to the existing API. Every tool call crosses that arrow, so the API is in the request flow of every call and in its failure flow: a slow or failing API is a slow or failing tool. Each side of the arrow speaks its own schema. An agent sees a tool name, a description, and a typed input schema. The API sees a method, a path, and its own fields. The function translates between the two, and that mapping is the main design decision. The firewall in front decides which requests reach the function at all.
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the tool-call logs, which run apart from any request. Each label starts with the number of the dataflow step it belongs to. The firewall in front decides which requests reach the function at all. A request it refuses receives its answer straight from the firewall, so it never reaches the application. An allowed request reaches the application, which runs the MCP server function. Every tool call crosses the arrow from the function to the existing API, so the API is in the request flow of every call and in its failure flow. A slow or failing API is a slow or failing tool. Each side of that arrow speaks its own schema. An agent sees a tool name, a description, and a typed input schema. The API sees a method, a path, and its own fields. The function translates between the two, and that mapping is the main design decision. The API's answer returns to the function, and every answer the function builds returns through the application, which delivers it to the agent.
 
 ### Dataflow
 
 1. An agent's MCP client sends a JSON-RPC request as a `POST` to `/mcp` on the workload's domain.
-2. The firewall applies the `mcp-waf` rule set and the rate limit. A request the rule set blocks answers `400`, and a request over the rate answers `429`.
-3. An allowed request reaches the application, whose rule runs the MCP server function. The function answers `initialize` and `tools/list` itself, from the tools it registers.
-4. For `tools/call`, the function validates the arguments against the tool's input schema, builds the API request from the method, the path, and the query, and calls the existing API with the backend token. The call is bounded by a timeout.
-5. The function returns the fields the agent needs as the tool result, or a message saying what failed when the API answers with an error or does not answer in time.
+2. The firewall applies the `mcp-waf` rule set and the rate limit, and answers a request it refuses straight to the agent. A request the rule set blocks receives `400`. A request over the rate is queued and released at the rate, and only a request beyond the burst receives `429`.
+3. An allowed request reaches the application, whose rule runs the MCP server function. The function answers `initialize` and `tools/list` itself, from the tools it registers, and the application delivers that answer to the agent.
+4. For `tools/call`, the function validates the arguments against the tool's input schema, builds the API request from the method, the path, and the query, and calls the existing API with the backend token. The call is bounded by a timeout, and the API answers the function with JSON or an error status.
+5. The function returns the fields the agent needs as the tool result, or a message saying what failed when the API answers with an error or does not answer in time. The application delivers that result to the agent.
 6. The function writes one log line per tool call, and Data Stream sends the lines to your log platform.
 
 ### Platform Resources

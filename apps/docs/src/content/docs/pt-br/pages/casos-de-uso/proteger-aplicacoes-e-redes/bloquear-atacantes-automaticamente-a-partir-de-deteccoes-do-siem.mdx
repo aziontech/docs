@@ -39,25 +39,39 @@ Este caso de uso não cobre a lógica de detecção em si, que fica no SIEM da e
 Esta página constrói o *loop de mitigação no firewall orientado pelo SIEM*: os eventos saem do firewall para o SIEM, e uma detecção volta como um item em uma network list que uma regra de firewall já aplica.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Attacker["Atacante"] -->|"requisições"| FW["firewall: regra de negação em siem-blocklist, depois WAF"]
-  FW -->|"WAF Events"| DS["Data Stream"]
-  DS --> SIEM["SIEM: detecção"]
-  SIEM --> SOAR["playbook de SOAR"]
-  SOAR -->|"PATCH com um item datado"| API["API da Azion"]
-  API --> List["siem-blocklist"]
-  List -->|"lida pela regra de negação"| FW
-  Job["job de expiração, agendado"] -->|"gravação dos mesmos itens"| API
+  Attacker(["Atacante"])
+  FW["firewall: regra de negação em siem-blocklist"]
+  WAF["WAF"]
+  App["aplicação"]
+  List["siem-blocklist"]
+  DS["Data Stream"]
+  SIEM[["SIEM: detecção"]]
+  SOAR[["playbook de SOAR"]]
+  API["API da Azion"]
+  Job[["job de expiração, agendado"]]
+  Attacker -->|"1. requisições"| FW
+  FW -->|"3, 4. lê a lista"| List
+  FW -->|"1. não listado"| WAF
+  WAF -->|"1. pontuada"| App
+  App -.->|"1. resposta"| Attacker
+  FW -.->|"3. 403"| Attacker
+  WAF ==>|"1. WAF Events"| DS
+  DS ==>|"1. WAF Events"| SIEM
+  SIEM ==>|"2. detecção"| SOAR
+  SOAR ==>|"2. PATCH, item datado"| API
+  Job ==>|"5. mesmos itens"| API
+  API ==>|"2, 5. itens gravados"| List
 ```
 
-Leia o diagrama como um loop que começa e termina no firewall. Os eventos saem dele pelo Data Stream, a decisão é tomada no SIEM, e a decisão volta como dado, um item em `siem-blocklist`, nunca como uma regra nova. A regra que lê a lista existe antes de qualquer detecção, então o loop altera o que o firewall corresponde sem alterar a sua configuração. O job de expiração fecha o loop pelo outro lado, encerrando cada bloqueio quando o seu prazo passa.
+As setas contínuas levam as requisições do atacante e a verificação de cada uma na lista pela regra de negação. As setas pontilhadas levam as respostas, e as setas grossas levam o loop, que roda separado de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence. O loop começa no firewall e termina em `siem-blocklist`, a lista que a regra de negação do firewall lê a cada requisição. Os eventos saem do firewall pelo Data Stream, a decisão é tomada no SIEM, e a decisão volta como dado, um item em `siem-blocklist`, nunca como uma regra nova. A regra que lê a lista existe antes de qualquer detecção, então o loop altera o que o firewall corresponde sem alterar a sua configuração. O job de expiração fecha o loop pelo outro lado, encerrando cada bloqueio quando o seu prazo passa. Leia as respostas a partir de onde elas começam. Antes de uma detecção, as requisições do atacante chegam à aplicação, que as responde. Depois que o endereço entra na lista, a regra de negação responde `403` direto do firewall, e a aplicação nunca recebe a requisição.
 
 ### Fluxo de dados
 
-1. As requisições do atacante chegam ao firewall. O WAF as pontua, e o Data Stream envia os eventos do WAF ao SIEM.
+1. As requisições do atacante chegam ao firewall. O WAF as pontua, e o Data Stream envia os eventos do WAF ao SIEM. Até o endereço entrar na lista, as requisições que nenhuma regra para chegam à aplicação, que as responde.
 2. Uma detecção no SIEM inicia um playbook de SOAR, que lê `siem-blocklist`, adiciona o endereço do atacante com uma data de vencimento e grava a lista de volta pela API.
-3. A regra de negação já lê `siem-blocklist`, então as próximas requisições desse endereço recebem `403` assim que a alteração chega ao tráfego, em cerca de 100 segundos.
+3. A regra de negação já lê `siem-blocklist`, então as próximas requisições desse endereço recebem `403` do firewall assim que a alteração chega ao tráfego, em cerca de 100 segundos. A regra roda antes do WAF, então o WAF não pontua essas requisições, e a aplicação nunca as recebe.
 4. Uma lista pode ser lida por regras em vários firewalls, então uma gravação bloqueia o endereço em toda aplicação que esses firewalls protegem.
 5. Um job agendado grava os itens da lista de volta, e a plataforma descarta todo item cuja data de vencimento passou, o que encerra esse bloqueio.
 
@@ -91,7 +105,7 @@ O playbook envia duas chamadas para cada detecção: ele lê a lista e depois a 
 Cada item novo carrega duas anotações. A data de vencimento, `--LT` seguido de uma data e hora UTC em segundos inteiros, marca quando o bloqueio termina, e esta página usa 24 horas depois da detecção. O comentário, `#` seguido do ID da detecção, diz a um analista por que o endereço está ali.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 sequenceDiagram
   participant SIEM as SIEM
   participant SOAR as playbook de SOAR

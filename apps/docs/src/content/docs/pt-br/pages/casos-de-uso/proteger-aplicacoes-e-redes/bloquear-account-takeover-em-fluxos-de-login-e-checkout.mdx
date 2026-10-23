@@ -42,30 +42,47 @@ Este caso de uso não cobre o abuso geral de APIs, que [Proteger APIs públicas 
 Esta página constrói o *perímetro de pontuação de bots para fluxos de autenticação*: regras de firewall que restringem o Bot Manager aos caminhos de login, cadastro e checkout, onde o score decide se uma requisição passa, é desafiada ou é negada.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Client["Cliente"] --> ALTCHA["regra ALTCHA: verifica um desafio resolvido"]
-  ALTCHA --> WAF["WAF rule set nos três caminhos"]
-  WAF --> Path{"Caminho"}
-  Path -->|"/login ou /signup"| Login["instância auth-login-challenge"]
-  Path -->|"/checkout"| Checkout["instância auth-checkout-deny"]
-  Path -->|"qualquer outro caminho"| App["application"]
-  Login -->|"score abaixo do threshold"| App
-  Login -->|"score no threshold"| Verify["redirecionamento para /az-request-verify"]
-  Checkout -->|"score abaixo do threshold"| App
-  Checkout -->|"score no threshold"| Deny["403"]
-  App --> Origin["sistema de identidade ou fluxo de pagamento"]
+  Client(["Cliente"])
+  ALTCHA["firewall: regra ALTCHA"]
+  WAF["firewall: WAF rule set"]
+  Login["firewall: Bot Manager, auth-login-challenge"]
+  Checkout["firewall: Bot Manager, auth-checkout-deny"]
+  App["application"]
+  Conn["connector"]
+  Origin[["sistema de identidade ou fluxo de pagamento"]]
+  DS["Data Stream"]
+  Team[["ferramentas da equipe de fraude"]]
+  Client -->|"1. requisição"| ALTCHA
+  ALTCHA -->|"2. passa"| WAF
+  WAF -->|"3. /login, /signup"| Login
+  WAF -->|"4. /checkout"| Checkout
+  WAF -->|"5. outros caminhos"| App
+  Login -->|"5. abaixo do threshold"| App
+  Checkout -->|"5. abaixo do threshold"| App
+  App -->|"5. requisição"| Conn
+  Conn -->|"5. busca"| Origin
+  Origin -.->|"5. resposta"| App
+  App -.->|"5. resposta"| Client
+  ALTCHA -.->|"3. página de desafio"| Client
+  WAF -.->|"2. 400 em Blocking"| Client
+  Login -.->|"3. redirecionamento"| Client
+  Checkout -.->|"4. 403"| Client
+  Login ==>|"6. linhas de report"| DS
+  Checkout ==>|"6. linhas de report"| DS
+  DS ==>|"6. linhas de report"| Team
 ```
 
-Leia o diagrama na divisão por caminho. As regras do firewall entregam ao WAF e ao Bot Manager só os três caminhos sensíveis, então toda outra página é servida sem score. Em `/login`, `/signup` e `/checkout`, o score da instância que aquele caminho executa envia cada requisição por um de três caminhos: direto para a application, para o desafio ALTCHA que uma pessoa consegue resolver ou para uma recusa. Uma instância por tipo de caminho permite que cada um execute o seu próprio threshold e a sua própria action.
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam as linhas de report, que saem separadas de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence. Leia a requisição do cliente para baixo, pelas regras do firewall na sua ordem. As regras entregam ao WAF e ao Bot Manager só os três caminhos sensíveis, então toda outra página chega à application sem score. Em `/login`, `/signup` e `/checkout`, o score da instância que aquele caminho executa envia cada requisição por um de três caminhos: direto para a application, para o desafio ALTCHA que uma pessoa consegue resolver ou para uma recusa. Uma instância por tipo de caminho permite que cada um execute o seu próprio threshold e a sua própria action. Leia a resposta a partir de onde ela começa. Toda recusa, todo redirecionamento e toda página de desafio saem da regra do firewall que os produz. Eles vão direto ao cliente, porque a application nunca recebe essa requisição. Uma requisição que passa recebe a resposta do sistema de identidade ou do fluxo de pagamento, que volta pela application.
 
 ### Fluxo de dados
 
 1. Uma requisição chega ao firewall vinculado ao workload. A regra ALTCHA roda primeiro, então um cliente que já resolveu um desafio carrega uma sessão que o ALTCHA valida.
-2. A regra de WAF pontua as requisições aos três caminhos em busca de payloads de ataque, como uma injeção em um campo de formulário.
-3. Em `/login` e `/signup`, a instância `auth-login-challenge` pontua a requisição. Um score no seu threshold redireciona o cliente ao desafio ALTCHA. Uma pessoa que o resolve continua, e as requisições seguintes passam sem um novo desafio.
-4. Em `/checkout`, a instância `auth-checkout-deny` pontua a requisição. Um score no seu threshold recebe `403`, porque uma requisição de checkout que um script envia não tem uma pessoa para responder a um desafio.
-5. Uma requisição abaixo do threshold chega à application, e dela ao sistema de identidade ou ao fluxo de pagamento.
+2. A regra de WAF pontua as requisições aos três caminhos em busca de payloads de ataque, como uma injeção em um campo de formulário. Em _Blocking_, uma requisição cujo score atinge um threshold recebe `400` do firewall. Em _Logging_, onde a regra começa, a mesma requisição segue.
+3. Em `/login` e `/signup`, a instância `auth-login-challenge` pontua a requisição. Um score no seu threshold recebe um redirecionamento para o desafio ALTCHA. A requisição redirecionada volta pelo firewall, onde a regra ALTCHA responde com a página de desafio. Uma pessoa que o resolve recebe um cookie de sessão e continua, e as requisições seguintes passam sem um novo desafio.
+4. Em `/checkout`, a instância `auth-checkout-deny` pontua a requisição. Um score no seu threshold recebe `403` do firewall, porque uma requisição de checkout que um script envia não tem uma pessoa para responder a um desafio.
+5. Uma requisição abaixo do threshold, ou a qualquer outro caminho, chega à application, que a encaminha pelo connector ao sistema de identidade ou ao fluxo de pagamento. A resposta deles volta pela application, que a entrega ao cliente.
 6. Cada instância grava uma linha de report por requisição, que o Real-Time Events guarda e o Data Stream envia às ferramentas da equipe de fraude.
 
 ### Recursos de Plataforma

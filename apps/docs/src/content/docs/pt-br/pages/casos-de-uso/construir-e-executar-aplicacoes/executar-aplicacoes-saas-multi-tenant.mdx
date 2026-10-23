@@ -41,30 +41,42 @@ Este caso de uso não cobre a execução de código fornecido pelos tenants.
 Esta página monta a *Aplicação multi-tenant compartilhada*: todo hostname de tenant chega ao mesmo workload e à mesma função, e o isolamento fica no código e nas keys dos dados.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true, "cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Visitor["Visitante do tenant"] -->|"HTTPS: hostname do tenant"| Workload["workload: domínios dos tenants"]
-  Cert["Certificate Manager: Let's Encrypt"] -->|"certificado TLS"| Workload
-  Workload --> App["aplicação: Run Function em todos os caminhos"]
-  App --> Fn["Functions: resolução do tenant e lógica"]
-  Fn -->|"key a partir do hostname"| KV["KV Store: configuração dos tenants"]
-  Fn -->|"ID do tenant vinculado na consulta"| SQL["SQL Database: dados dos tenants"]
-  Fn -->|"entradas indexadas pela requisição"| Cache["Cache"]
-  Ops["onboarding"] -->|"linhas, key, hostname"| SQL
-  Ops --> KV
-  Ops --> Workload
+  Visitor(["Visitante do tenant"])
+  Cert["Certificate Manager"]
+  Ops[["onboarding"]]
+  Workload["workload: domínios dos tenants"]
+  App["aplicação: tenant-app"]
+  Cache["Cache"]
+  KV[("KV Store: configuração dos tenants")]
+  SQL[("SQL Database: dados dos tenants")]
+  Visitor -->|"1. hostname do tenant"| Workload
+  Workload -->|"2. todos os caminhos"| App
+  App -->|"3. key a partir do hostname"| KV
+  App -->|"4. ID do tenant vinculado"| SQL
+  App -->|"5. Cache API"| Cache
+  KV -.->|"3. configuração"| App
+  SQL -.->|"4. linhas do tenant"| App
+  Cache -.->|"5. resposta em cache"| App
+  App -.->|"3, 5. resposta"| Visitor
+  Cert ==>|"1. certificado wildcard"| Workload
+  Ops ==>|"6. linhas"| SQL
+  Ops ==>|"6. key, PUT de admin"| App
+  App ==>|"6. grava a key"| KV
+  Ops ==>|"6. hostname"| Workload
 ```
 
-Leia o diagrama do visitante para baixo. Todo tenant chega ao mesmo workload, à mesma aplicação e à mesma função, então nada no caminho da requisição nomeia um tenant até que a função leia o hostname. A partir daí, o isolamento é uma cadeia de keys: o hostname seleciona a configuração no KV Store, a configuração carrega o ID do tenant, e o ID do tenant é vinculado em toda consulta ao SQL Database. O onboarding, na parte de baixo, escreve dados e um domínio, e não toca em código nem em deployment.
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam o certificado e as escritas do onboarding, que rodam separadas de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence. A aplicação e a função `tenant-app` são um só nó, porque a regra da aplicação não faz nada além de executar essa função em todos os caminhos. Leia a requisição do visitante para baixo. Todo tenant chega ao mesmo workload, à mesma aplicação e à mesma função, então nada no caminho da requisição nomeia um tenant até que a função leia o hostname. A partir daí, o isolamento é uma cadeia de keys: o hostname seleciona a configuração no KV Store, a configuração carrega o ID do tenant, e o ID do tenant é vinculado em toda consulta ao SQL Database. Leia a resposta a partir da função. Ela monta cada resposta a partir da configuração e das linhas do tenant, ou devolve a resposta que guardou pela Cache API para a mesma requisição. Um hostname sem key recebe `404`. A aplicação entrega cada resposta ao visitante. O onboarding escreve dados e um domínio, e não toca em código nem em deployment. A key dele chega ao KV Store pela função, porque uma key só é escrita a partir de uma função.
 
 ### Fluxo de dados
 
 1. Um visitante requisita um hostname de tenant, e o workload conclui o handshake TLS com o certificado wildcard que Certificate Manager emitiu para ele.
 2. A regra da aplicação executa a função `tenant-app` em todos os caminhos.
-3. A função lê o hostname da requisição e busca a key `tenant:<hostname>` no namespace `saas-tenants`. Um hostname sem key responde `404`.
+3. A função lê o hostname da requisição e busca a key `tenant:<hostname>` no namespace `saas-tenants`. KV Store retorna a configuração do tenant, e um hostname sem key responde `404`.
 4. A configuração do tenant carrega o ID inteiro dele, e a função vincula esse ID na consulta a `saas-data`, então o resultado traz apenas as linhas desse tenant.
-5. A função responde com os dados do tenant. Uma resposta em cache é indexada pela requisição, que carrega o hostname, então ela nunca responde outro tenant.
-6. Fazer o onboarding de um tenant escreve as linhas e a key dele, adiciona o hostname dele ao workload e aponta o hostname para o workload. O tenant responde quando a mudança se propaga, sem deployment.
+5. A função responde com os dados do tenant, e a aplicação entrega a resposta ao visitante. Uma resposta que a função guardou com a Cache API é indexada pela requisição, que carrega o hostname, então ela nunca responde outro tenant.
+6. Fazer o onboarding de um tenant escreve as linhas dele, escreve a key dele pelo caminho de administração da função, adiciona o hostname dele ao workload e aponta o hostname para o workload. O tenant responde quando a mudança se propaga, sem deployment.
 
 ### Recursos de Plataforma
 

@@ -41,28 +41,45 @@ This use case does not cover encoding the videos, which happens before delivery.
 This page builds the *Object storage-hosted video library*: the encoded library moves to Object Storage, and an application serves it through Cache and Tiered Cache.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true, "cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Team["Encoded renditions"] -->|"upload through the API or the S3 protocol"| Bucket["Object Storage bucket"]
-  Viewer["Viewer's player"] -->|"HTTPS request"| App["application"]
-  App -->|"free title"| Cache["Cache"]
-  App -->|"paid title"| Fn["Functions: token validation"]
-  Fn -->|"valid token"| Bucket
-  Cache -->|"miss"| Tiered["Tiered Cache"]
-  Tiered -->|"miss"| Connector["connector of type Object Storage"]
-  Connector --> Bucket
-  App -->|"traffic"| RTM["Real-Time Metrics"]
+  Viewer(["Viewer's player"])
+  App["application"]
+  Cache["Cache"]
+  Fn["Functions: token validation"]
+  Tiered["Tiered Cache"]
+  Conn["connector of type Object Storage"]
+  Bucket[("Object Storage bucket")]
+  Team[["Encoded renditions"]]
+  RTM["Real-Time Metrics"]
+  Viewer -->|"2, 6. request"| App
+  App -->|"3, 4. free title"| Cache
+  App -->|"5. paid title"| Fn
+  Cache -->|"3, 4. segment miss"| Tiered
+  Cache -->|"4. playlist miss"| Conn
+  Tiered -->|"4. miss"| Conn
+  Conn -->|"4. read"| Bucket
+  Fn -->|"5. valid token"| Bucket
+  Bucket -.->|"4. segment, kept"| Tiered
+  Tiered -.->|"4. segment, stored"| Cache
+  Bucket -.->|"4. playlist, stored"| Cache
+  Cache -.->|"4. cached copy"| App
+  Bucket -.->|"5. object"| Fn
+  Fn -.->|"5. object or 401"| App
+  App -.->|"4, 5, 6. response"| Viewer
+  Team ==>|"1. upload"| Bucket
+  App ==>|"6. traffic"| RTM
 ```
 
-The diagram carries two flows. The upload flow runs from the team to the bucket, and it moves only when a title is added or re-encoded: the library lives on Azion, so the control flow carries this step instead of a customer origin. The request flow runs from the viewer's player through the application, where the cache layers answer most requests, and only a miss in both layers reads the bucket. A paid title takes the function's path, which reads the bucket only for a request with a valid token.
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the upload and the traffic reports, which run apart from any request. Each label starts with the number of the dataflow step it belongs to. The upload moves only when a title is added or re-encoded: the library lives on Azion, so the upload takes the place of a customer origin. Read the request from the player down. The application sends a free title to Cache and a paid title to the function. A segment missing in Cache goes to the Tiered Cache layer, while a playlist missing in Cache goes straight to the connector, because Tiered Cache is off for playlists. Only a miss in every layer that applies reads the bucket. Read the response from where it starts. Cache answers a hit, the Tiered Cache layer answers a segment it holds, and the bucket answers a miss. On the way back, the Tiered Cache layer keeps a segment it read from the bucket, and Cache stores the file for the next viewer. The function reads the bucket only for a valid token, and answers `401` itself to a request without one. Every response returns through the application, which delivers it to the player.
 
 ### Dataflow
 
 1. The team uploads the encoded playlists and segments of each title to the bucket, under the `vod/` prefix, with the content type of each file.
 2. A viewer's player requests a title's main playlist from the workload on `videos.example.com`, which hands the request to the application.
 3. A rule matches the file extension and applies a cache setting: a long Max Age with Tiered Cache for segments, a shorter one for playlists.
-4. Cache answers from its copy. A segment missing in Cache is asked of the Tiered Cache layer, and only a miss in every layer is read from the bucket through the connector and cached for the next viewer.
-5. For a paid title, a function validates the viewer's token and reads the object from the bucket only when the token is valid.
+4. On a hit, Cache answers with its copy, and the bucket is not read. A segment missing in Cache is asked of the Tiered Cache layer, and a copy there answers it. A playlist missing in Cache, or a segment missing in both layers, is read from the bucket through the connector. On the way back, the Tiered Cache layer keeps the segment, and Cache stores the file for the next viewer.
+5. For a paid title, a function validates the viewer's token and reads the object from the bucket only when the token is valid. The function returns the object, or `401` for a missing or invalid token, and the application delivers that response to the player.
 6. The player reads the rendition playlist and fetches its segments the same way, and Real-Time Metrics reports the requests and the data that each cache layer answered.
 
 ### Platform Resources
@@ -103,7 +120,7 @@ The library cache is two cache settings and two rules that apply them by file ex
 - **Both**: the browser cache is overridden to `0` seconds. A copy in the viewer's browser cannot be purged, so a withdrawn title would stay playable there until it expired.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
   Req["Request on videos.example.com"] --> Ext{"Path ends in"}
   Ext -->|".ts"| Seg["vod-segments: Max Age 31536000, Tiered Cache on"]

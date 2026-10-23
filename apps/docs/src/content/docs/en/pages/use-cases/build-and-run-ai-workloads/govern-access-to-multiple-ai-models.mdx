@@ -43,29 +43,42 @@ This use case does not cover building the applications or agents that call the m
 This page builds the *Multi-model AI gateway*: one function in front of every model, with the policy, the keys, and the log in one place.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Client["Team application"] -->|"POST /v1/chat/completions with the team key"| Fn["gateway function"]
-  Fn -->|"read team record"| KV["KV Store: ai-gateway"]
-  Fn -->|"cache allowed: match"| Cache["Cache API"]
-  Fn -->|"first route of the alias"| AI["AI Inference model"]
-  Fn -->|"next route on failure"| Provider["third-party provider"]
-  Fn -->|"one log line per call"| DS["Data Stream: Functions data source"]
-  DS --> Analytics["your analytics platform"]
-  Fn -->|"log lines by request"| RTE["Real-Time Events"]
-  Fn -->|"response"| Client
+  Client(["Team application"])
+  Fn["application: gateway function"]
+  KV[("KV Store: ai-gateway")]
+  Cache["Cache API"]
+  AI["AI Inference model"]
+  Provider[["third-party provider"]]
+  DS["Data Stream"]
+  Analytics[["your analytics platform"]]
+  RTE["Real-Time Events"]
+  Client -->|"1. POST /v1/chat/completions"| Fn
+  Fn -->|"2. read"| KV
+  Fn -->|"3, 6. lookup, store"| Cache
+  Fn -->|"4. first route"| AI
+  Fn -->|"4. on failure"| Provider
+  KV -.->|"2. team record"| Fn
+  Cache -.->|"3. hit"| Fn
+  AI -.->|"4. answer"| Fn
+  Provider -.->|"4. answer"| Fn
+  Fn -.->|"2, 3, 6. refusal or response"| Client
+  Fn ==>|"5. log line"| DS
+  DS ==>|"5. log lines"| Analytics
+  Fn ==>|"5. log lines"| RTE
 ```
 
-Read the diagram from the function outward. Every model call passes through it, so it is the one place where a team is identified, a model is chosen, and a call is recorded. The arrows to the models are ordered: the policy names a first route and the routes after it, and the function moves to the next one only when a call fails. The arrows to KV Store and the Cache API are reads that come before any model call, so a refused team or a stored answer costs no model call at all.
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the log lines, which run apart from any request. Each label starts with the number of the dataflow step it belongs to. Every model call passes through the gateway function, which the application runs on every path, so it is the one place where a team is identified, a model is chosen, and a call is recorded. The arrows to KV Store and the Cache API are reads that come before any model call, so a refused team or a stored answer costs no model call at all. The arrows to the models are ordered: the policy names a first route and the routes after it, and the function moves to the next one only when a call fails. Read the response from where it starts. The function answers a refused team itself, the Cache API returns a stored response, and the route that answers returns a new one. Every response returns through the application, which delivers it to the team application.
 
 ### Dataflow
 
 1. A team application sends an OpenAI-compatible request to `/v1/chat/completions`, with its team key as a bearer token and a model alias in `model` rather than a model id.
-2. The gateway hashes the key and reads the team's record from KV Store. An unknown key answers `401`, a team over budget answers `429`, and an alias the team may not call answers `403`.
-3. When the caller allows caching, the gateway looks the request up in the cache and returns a stored response on a match.
-4. Otherwise the gateway calls the routes of the alias in order: a model on AI Inference first, then the third-party provider when the first call fails.
+2. The gateway hashes the key and reads the team's record from KV Store, which returns the record when one exists. The gateway refuses an unknown key with `401`, a team over budget with `429`, and an alias the team may not call with `403`, and the application returns the refusal to the team application.
+3. When the caller allows caching, the gateway looks the request up in the cache. On a match, the Cache API returns the stored response, and the gateway returns it through the application with no model call.
+4. Otherwise the gateway calls the routes of the alias in order: a model on AI Inference first, then the third-party provider when the first call fails. The route that answers returns its response to the gateway.
 5. The gateway writes one log line with the team, the alias, the model that answered, whether it fell back, the cache result, and the tokens used. Data Stream sends it to your analytics platform, and Real-Time Events holds the lines of each request for investigation.
-6. The gateway returns the model's response, and stores it in the cache when the caller allowed it.
+6. The gateway returns the model's response through the application to the team application, and stores it in the cache when the caller allowed it.
 
 ### Platform Resources
 

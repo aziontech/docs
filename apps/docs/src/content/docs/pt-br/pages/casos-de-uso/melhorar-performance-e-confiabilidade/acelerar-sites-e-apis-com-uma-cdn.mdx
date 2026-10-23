@@ -43,29 +43,43 @@ Apontar o domínio para a Azion é igual para todos os sites, então não tem se
 Esta página constrói o *Proxy reverso com cache na frente de uma origem*: uma aplicação que responde do cache tudo o que pode e só chega à origem em um miss.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true, "cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  User["Usuário"] -->|"consulta DNS"| DNS["Edge DNS"]
-  DNS -->|"resolve para o workload"| User
-  User -->|"Requisição HTTPS"| App["regras da aplicação"]
-  App -->|"/static/"| Static["cache setting static-files"]
-  App -->|"páginas"| Pages["cache setting pages"]
-  App -->|"/api/: Bypass Cache"| Conn["connector site-origin"]
-  Static -->|"miss"| Tiered["Tiered Cache"]
-  Tiered -->|"miss"| Conn
-  Pages -->|"miss"| Conn
-  Conn -->|"só endereços da Azion"| Origin["origem"]
-  Purge["Real-Time Purge"] -->|"remove os arquivos alterados"| Static
+  User(["Usuário"])
+  DNS["Edge DNS"]
+  App["aplicação"]
+  Cache["Cache"]
+  Purge["Real-Time Purge"]
+  Tiered["Tiered Cache"]
+  Conn["connector site-origin"]
+  Origin[["origem"]]
+  User -->|"1. consulta"| DNS
+  User -->|"1. requisição"| App
+  App -->|"4. /api/, Bypass Cache"| Conn
+  App -->|"2. static-files, pages"| Cache
+  Cache -->|"3. miss em /static/"| Tiered
+  Cache -->|"4. miss de página"| Conn
+  Tiered -->|"4. miss"| Conn
+  Conn -->|"4, 5. só endereços da Azion"| Origin
+  DNS -.->|"1. endereço do workload"| User
+  Origin -.->|"4. estático, mantido"| Tiered
+  Origin -.->|"4. página, guardada"| Cache
+  Tiered -.->|"3, 4. estático, guardado"| Cache
+  Origin -.->|"4. API, não guardada"| App
+  Cache -.->|"2, 3, 4. cópia em cache"| App
+  App -.->|"2, 3, 4. resposta"| User
+  Purge ==>|"6. primeiro, cache key"| Tiered
+  Purge ==>|"6. depois, cache key"| Cache
 ```
 
-Leia o diagrama como uma cadeia de camadas que tentam responder, cada uma, antes que a seguinte seja consultada. O cache do data center responde primeiro, a camada do Tiered Cache responde os arquivos estáticos que o data center não tem, e só um miss em todas as camadas chega à origem pelo connector. As chamadas de API pulam as camadas e vão direto ao connector. A origem fica atrás de uma allowlist, então o connector é a única entrada. Real-Time Purge age no cache pelo lado, removendo o conteúdo que a origem mudou antes que o seu TTL termine.
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam o purge, que roda separado de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence. Primeiro, o Edge DNS resolve o domínio para o workload. Leia a requisição da aplicação para baixo, como uma cadeia de camadas que tentam responder, cada uma, antes que a seguinte seja consultada. O cache do data center responde primeiro, a camada do Tiered Cache responde os arquivos estáticos que o data center não tem, e só um miss em todas as camadas chega à origem pelo connector. As chamadas de API pulam as camadas e vão direto ao connector. A origem fica atrás de uma allowlist, então o connector é a única entrada. Leia a resposta a partir de onde ela começa. Uma camada de cache responde o que guarda, e a origem responde o resto. No caminho de volta, a camada do Tiered Cache mantém um arquivo estático, o Cache guarda os arquivos estáticos e as páginas, e uma resposta da API passa sem ser guardada. Toda resposta volta pela aplicação, que a entrega ao usuário. Real-Time Purge age nas duas camadas pelo lado, removendo o conteúdo que a origem mudou antes que o seu TTL termine.
 
 ### Fluxo de dados
 
 1. Edge DNS resolve `www.example.com` para o workload, e a requisição do usuário chega à aplicação em um data center próximo.
-2. As regras da aplicação leem o caminho na Request Phase e aplicam uma cache setting: `static-files` a um arquivo de `/static/`, `pages` a uma página. Uma cópia válida no cache do data center responde a requisição, e a origem não é consultada.
-3. Em um miss de um arquivo estático, o data center consulta a camada do Tiered Cache, que é compartilhada por todos os data centers e guarda objetos por mais tempo. Uma cópia ali responde a requisição sem chegar à origem.
-4. Uma chamada de `/api/` faz bypass do cache e chega à origem pelo connector `site-origin`, com todos os métodos HTTP. Qualquer outro miss também chega à origem por `site-origin`, e a resposta é guardada para a requisição seguinte.
+2. As regras da aplicação leem o caminho na Request Phase e aplicam uma cache setting: `static-files` a um arquivo de `/static/`, `pages` a uma página. Uma cópia válida no cache do data center responde a requisição pela aplicação, e a origem não é consultada.
+3. Em um miss de um arquivo estático, o data center consulta a camada do Tiered Cache, que é compartilhada por todos os data centers e guarda objetos por mais tempo. Uma cópia ali responde a requisição sem chegar à origem, e o Cache a guarda no caminho de volta.
+4. Uma chamada de `/api/` faz bypass do cache e chega à origem pelo connector `site-origin`, com todos os métodos HTTP, e a resposta dela não é guardada. Qualquer outro miss também chega à origem por `site-origin`. No caminho de volta, a camada do Tiered Cache mantém um arquivo estático, e o Cache guarda o arquivo ou a página para a requisição seguinte.
 5. O connector chega à origem a partir de um endereço da lista `Azion Origin Shield`, e o firewall da origem recusa todas as outras fontes.
 6. Quando um deploy muda arquivos estáticos, um purge por cache key os remove antes que o seu TTL termine, primeiro da camada do Tiered Cache e depois do Cache, e a requisição seguinte busca a nova versão. Um purge por cache key é o único tipo que chega à camada do Tiered Cache.
 
@@ -122,7 +136,7 @@ A Azion muda a lista de tempos em tempos e envia um email para a sua conta a cad
 Um deploy que muda arquivos estáticos envia um purge, para que os usuários recebam os novos arquivos sem esperar o **Max Age** de um dia. A setting `static-files` tem o Tiered Cache ativo, e um purge por cache key é o único tipo que chega à camada do Tiered Cache. Por isso, o deploy purga cada arquivo alterado por cache key, primeiro na camada do Tiered Cache e depois no Cache, para que a primeira camada não se reabasteça com uma cópia desatualizada do Tiered Cache.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 sequenceDiagram
   participant Deploy as pipeline de deploy
   participant Purge as Purge API
