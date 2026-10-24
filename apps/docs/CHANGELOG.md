@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.3.2](https://github.com/aziontech/docs/compare/docs-v2.3.1...docs-v2.3.2) (2026-10-24)
+
+
+### Documentation
+
+* **diagrams:** redraw every other diagram in the use-case diagram style ([#2513](https://github.com/aziontech/docs/issues/2513)) ([799d807](https://github.com/aziontech/docs/commit/799d80745b396b3b0af0fce1a7c945f85c090efc))
+* **examples:** regionalism cleanup ([#2512](https://github.com/aziontech/docs/issues/2512)) ([d4f67f3](https://github.com/aziontech/docs/commit/d4f67f32cb213ce9778f8b23e860ee096faad88a))
+* **use-cases:** redraw the use-case diagrams with the way back and check their claims ([#2509](https://github.com/aziontech/docs/issues/2509)) ([907138c](https://github.com/aziontech/docs/commit/907138c1f5cb1379c32527a7e89354de66d963c8))
+* **version:** take the v3 pages out of the side menu and standardize the version notices ([#2511](https://github.com/aziontech/docs/issues/2511)) ([c2ca59d](https://github.com/aziontech/docs/commit/c2ca59d77dd92b5387995337833f8625102048e0))
+
 ## [2.3.1](https://github.com/aziontech/docs/compare/docs-v2.3.0...docs-v2.3.1) (2026-10-22)
 
 
