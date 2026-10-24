@@ -15,21 +15,38 @@ Este design atende times que constroem uma aplicação web com um framework de r
 
 ## Diagrama de arquitetura
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Repo["Repositório do GitHub"] -->|"push"| GH["Azion GitHub App"]
-  GH -->|"assets estáticos"| Bucket["Object Storage"]
-  GH -->|"código de servidor"| Fn["Functions"]
-  User["Navegador"] -->|"requisição HTTPS"| App["aplicação"]
-  App -->|"caminhos de assets estáticos"| Bucket
-  App -->|"caminhos de páginas e de API"| Fn
-  Fn -->|"lê"| Replica["read replica do SQL Database"]
-  Fn -->|"grava pela Azion API"| Main["instância principal do SQL Database"]
-  Fn -.->|"sessões, opcional"| KV["KV Store"]
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam o fluxo de publicação, que roda separado de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-Leia o diagrama como dois fluxos. O fluxo de publicação vai do repositório pelo Azion GitHub App, que coloca os assets estáticos do build no Object Storage e o código de servidor em uma function. O fluxo de requisição começa na aplicação, que envia os caminhos de assets estáticos para o bucket e todos os outros caminhos para a function. Toda visualização de página inclui, portanto, uma execução da function e uma leitura de dados, então o banco de dados fica dentro do fluxo de requisição e do fluxo de falha, enquanto os assets estáticos não dependem de nenhum dos dois.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  User(["Navegador"])
+  Repo[["Repositório do GitHub"]]
+  GH["Azion GitHub App"]
+  App["aplicação"]
+  Conn["connector"]
+  Bucket[("Object Storage")]
+  Fn["Functions"]
+  Cache["Cache"]
+  Replica[("read replica do SQL Database")]
+  Main[("instância principal do SQL Database")]
+  User -->|"2, 3. requisição"| App
+  App -->|"2. caminhos estáticos"| Conn
+  Conn -->|"2. lê"| Bucket
+  App -->|"3. outros caminhos"| Fn
+  Fn -->|"4. lê"| Replica
+  Fn -->|"4. Cache API"| Cache
+  Fn -->|"5. gravação"| Main
+  Bucket -.->|"2. asset"| App
+  Replica -.->|"4. linhas"| Fn
+  Cache -.->|"4. cópia guardada"| Fn
+  Main -.->|"5. 200, erro dentro"| Fn
+  Fn -.->|"3, 6. página ou erro"| App
+  App -.->|"2, 3, 6. resposta"| User
+  Repo ==>|"1. push"| GH
+  GH ==>|"1. assets estáticos"| Bucket
+  GH ==>|"1. código de servidor"| Fn
+```
 
 ### Fluxo de dados
 
@@ -39,6 +56,8 @@ Leia o diagrama como dois fluxos. O fluxo de publicação vai do repositório pe
 4. A function lê do SQL Database por meio de uma read replica, que não precisa de token. Uma resposta que é a mesma para todo visitante pode ser guardada com a Cache API do runtime e devolvida em requisições seguintes.
 5. Uma gravação vai para o endpoint de query do banco de dados na Azion API, com um personal token guardado em uma variável de ambiente, e a instância principal a aplica. Um statement que falha ainda responde `200`, com o erro dentro da entrada dele.
 6. Quando a leitura ou a gravação no banco de dados falha, a function responde o erro para aquela página ou rota. As requisições por assets estáticos continuam sendo respondidas pelo bucket.
+
+Toda resposta volta pela aplicação, que a entrega ao navegador. Uma visualização de página executa a function e lê o banco de dados, a menos que uma resposta guardada a responda. Por isso, o banco de dados fica dentro do fluxo de requisição e do fluxo de falha, enquanto os assets estáticos não dependem de nenhum dos dois.
 
 ## Componentes
 

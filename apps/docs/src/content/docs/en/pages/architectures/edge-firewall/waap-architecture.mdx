@@ -16,23 +16,36 @@ This design serves teams that consolidate application security in front of an or
 
 ## Architecture diagram
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Client"] -->|"request to the workload"| DDoS["DDoS Protection"]
-  DDoS --> FW["firewall"]
-  FW -->|"Network criterion"| NS["Network Shield lists"]
-  FW -->|"Set WAF behavior"| WAF["WAF rule set"]
-  FW -->|"Run Function behavior"| BM["Bot Manager"]
-  FW -->|"no rule stops the request"| App["application"]
-  App --> Conn["connector"]
-  Conn -->|"from an Azion Origin Shield prefix"| Origin["origin"]
-  FW -.->|"events"| DS["Data Stream"]
-  DS --> SIEM["SIEM"]
-  FW -.->|"request records"| RTE["Real-Time Events"]
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the WAF events, which run apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram from the firewall outward. DDoS Protection acts before any rule, and the firewall's rules then decide each request in order. Network Shield, WAF, and Bot Manager each act only through the rule that calls them, so the order of those rules is the order of the policy. Every request that passes ends at one connector, and the origin's own firewall closes every other path to it. The dotted edges carry records, not requests: events leave for the SIEM, and Real-Time Events keeps each request for investigation.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Client"])
+  DDoS["DDoS Protection"]
+  Net["firewall rule 1: Network Shield lists"]
+  WAF["firewall rule 2: WAF rule set"]
+  Bot["firewall rule 3: Bot Manager instance"]
+  App["application"]
+  Conn["connector with Origin IP ACL"]
+  Origin[["origin: allows Azion prefixes only"]]
+  Stream["Data Stream"]
+  SIEM[["SIEM"]]
+  Client -->|"1. request"| DDoS
+  DDoS -->|"1. assessed"| Net
+  Net -->|"3. not listed"| WAF
+  WAF -->|"4. passes"| Bot
+  Bot -->|"5. passes"| App
+  App -->|"5. request"| Conn
+  Conn -->|"5. from an Azion prefix"| Origin
+  Origin -.->|"5. response"| App
+  App -.->|"5. response"| Client
+  Net -.->|"2. 403"| Client
+  WAF -.->|"3. 400 in Blocking"| Client
+  Bot -.->|"4. 403 with deny"| Client
+  WAF ==>|"6. WAF Events"| Stream
+  Stream ==>|"6. WAF Events"| SIEM
+```
 
 ### Dataflow
 
@@ -42,6 +55,10 @@ Read the diagram from the firewall outward. DDoS Protection acts before any rule
 4. A rule with the _Run Function_ behavior runs a Bot Manager instance, which scores the request for automation and runs its action when the score reaches the threshold.
 5. A request that no rule stops reaches the application, which forwards it to the origin through the connector. The origin accepts connections only from the prefixes of the `Azion Origin Shield` list.
 6. Data Stream sends the requests WAF analyzed to the SIEM, and Real-Time Events holds the record of each request, joined to a refusal by its `x-azion-request-id`.
+
+Network Shield, WAF, and Bot Manager each act only through the rule that calls them, so the order of those rules is the order of the policy. Every request that passes ends at one connector, and the origin's own firewall closes every other path to it.
+
+A refusal starts at the rule that decided it and goes straight to the client, because the application never receives a refused request.
 
 ## Components
 

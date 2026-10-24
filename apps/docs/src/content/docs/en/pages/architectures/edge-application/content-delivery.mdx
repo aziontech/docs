@@ -15,23 +15,37 @@ This design serves teams whose content is mostly cacheable and lives on an origi
 
 ## Architecture diagram
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  User["User"] -->|"DNS lookup"| DNS["Edge DNS"]
-  DNS -->|"resolves to the workload"| User
-  User -->|"HTTPS request"| App["application rules"]
-  App -->|"/static/"| Static["static-files cache setting"]
-  App -->|"pages"| Pages["pages cache setting"]
-  App -->|"/api/: Bypass Cache"| Conn["site-origin connector"]
-  Static -->|"miss"| Tiered["Tiered Cache"]
-  Tiered -->|"miss"| Conn
-  Pages -->|"miss"| Conn
-  Conn -->|"Azion addresses only"| Origin["origin"]
-  Purge["Real-Time Purge"] -->|"removes changed files"| Static
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the purge, which runs apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-The diagram stacks the layers that a request tries in turn. The application's rules pick a cache setting by path, and the cache of the data center answers first. A static file that misses there tries the Tiered Cache layer next, and only a miss in every layer reaches the connector. Calls under `/api/` skip every layer and go straight to the connector. The origin allows Azion addresses only, so the connector is the single way in. Real-Time Purge acts on the cache from outside the request flow, and removes changed files before their TTL ends.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  User(["User"])
+  DNS["Edge DNS"]
+  App["application"]
+  Cache["Cache"]
+  Purge["Real-Time Purge"]
+  Tiered["Tiered Cache"]
+  Conn["site-origin connector"]
+  Origin[["origin"]]
+  User -->|"1. lookup"| DNS
+  User -->|"1. request"| App
+  App -->|"4. /api/, Bypass Cache"| Conn
+  App -->|"2. static-files, pages"| Cache
+  Cache -->|"3. /static/ miss"| Tiered
+  Cache -->|"4. page miss"| Conn
+  Tiered -->|"4. miss"| Conn
+  Conn -->|"4, 5. Azion addresses only"| Origin
+  DNS -.->|"1. workload address"| User
+  Origin -.->|"4. static file, kept"| Tiered
+  Origin -.->|"4. page, stored"| Cache
+  Tiered -.->|"3, 4. static file, stored"| Cache
+  Origin -.->|"4. API, not stored"| App
+  Cache -.->|"2, 3, 4. cached copy"| App
+  App -.->|"2, 3, 4. response"| User
+  Purge ==>|"6. first, cache key"| Tiered
+  Purge ==>|"6. then, cache key"| Cache
+```
 
 ### Dataflow
 
@@ -41,6 +55,8 @@ The diagram stacks the layers that a request tries in turn. The application's ru
 4. A miss in every layer reaches the origin through the connector, and the response is stored for the next request. A call on a bypassed path, such as `/api/`, always reaches the origin, and its response is never stored.
 5. The connector reaches the origin from an address on the `Azion Origin Shield` list, and the firewall of the origin refuses every other source.
 6. When content changes, a cache key purge removes it from the Tiered Cache layer first and from Cache second. The next request then fetches the new version from the origin.
+
+Every response returns through the application, which delivers it to the user. The origin allows Azion addresses only, so the connector is the single way in.
 
 ## Components
 

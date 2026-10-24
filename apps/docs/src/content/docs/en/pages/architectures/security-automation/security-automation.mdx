@@ -15,20 +15,31 @@ This design serves SOC teams that detect threats in a SIEM but block by hand, so
 
 ## Architecture diagram
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Attacker["Attacker"] -->|"requests"| FW["firewall: deny rule on siem-blocklist, then WAF"]
-  FW -->|"WAF Events"| DS["Data Stream"]
-  DS --> SIEM["SIEM: detection"]
-  SIEM --> SOAR["SOAR playbook"]
-  SOAR -->|"PATCH with a dated entry"| API["Azion API"]
-  API --> List["siem-blocklist"]
-  List -->|"read by the deny rule"| FW
-  Job["expiry job, on a schedule"] -->|"write of the same items"| API
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the loop, which runs apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-The diagram draws a loop that starts and ends at the firewall. Events leave through Data Stream, the SIEM decides, and the decision returns through the API as an entry in `siem-blocklist`. The deny rule reads that list before WAF runs, so a new entry changes what the firewall blocks without a change to any rule. On a schedule, the expiry job writes the same items back, and each write drops the entries whose due date has passed.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Attacker(["Attacker"])
+  FW["firewall: deny rule on siem-blocklist"]
+  WAF["WAF"]
+  List["siem-blocklist"]
+  DS["Data Stream"]
+  SIEM[["SIEM: detection"]]
+  SOAR[["SOAR playbook"]]
+  API["Azion API"]
+  Job[["expiry job, on a schedule"]]
+  Attacker -->|"1. requests"| FW
+  FW -->|"3, 4. reads the list"| List
+  FW -->|"1. not listed"| WAF
+  FW -.->|"3. 403"| Attacker
+  WAF ==>|"1. WAF Events"| DS
+  DS ==>|"1. WAF Events"| SIEM
+  SIEM ==>|"2. detection"| SOAR
+  SOAR ==>|"2. PATCH, dated entry"| API
+  Job ==>|"5. same items"| API
+  API ==>|"2, 5. items written"| List
+```
 
 ### Dataflow
 
@@ -37,6 +48,8 @@ The diagram draws a loop that starts and ends at the firewall. Events leave thro
 3. The deny rule already reads `siem-blocklist`, so the next requests from that address receive `403` once the change reaches traffic, in about 100 seconds.
 4. Rules on several firewalls can read the same list, so one write blocks the address on every application those firewalls protect.
 5. An expiry job writes the items of the list back on a schedule. Each write drops the entries whose due date has passed, which ends those blocks.
+
+The deny rule reads `siem-blocklist` before WAF runs, so a new entry changes what the firewall blocks without a change to any rule, and WAF does not score the requests of a listed address.
 
 ## Components
 

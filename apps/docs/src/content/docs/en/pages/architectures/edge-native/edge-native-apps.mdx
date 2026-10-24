@@ -15,21 +15,38 @@ This design serves teams that build a web application with a server-rendering fr
 
 ## Architecture diagram
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Repo["GitHub repository"] -->|"push"| GH["Azion GitHub App"]
-  GH -->|"static assets"| Bucket["Object Storage"]
-  GH -->|"server code"| Fn["Functions"]
-  User["Browser"] -->|"HTTPS request"| App["application"]
-  App -->|"static asset paths"| Bucket
-  App -->|"page and API paths"| Fn
-  Fn -->|"reads"| Replica["SQL Database read replica"]
-  Fn -->|"writes through the Azion API"| Main["SQL Database main instance"]
-  Fn -.->|"sessions, optional"| KV["KV Store"]
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the publish flow, which runs apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram as two flows. The publish flow runs from the repository through the Azion GitHub App, which puts the build's static assets in Object Storage and its server code in a function. The request flow starts at the application, which sends static asset paths to the bucket and every other path to the function. Every page view therefore includes a function run and a data read, so the database sits inside both the request flow and the failure flow, while the static assets do not depend on either.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  User(["Browser"])
+  Repo[["GitHub repository"]]
+  GH["Azion GitHub App"]
+  App["application"]
+  Conn["connector"]
+  Bucket[("Object Storage")]
+  Fn["Functions"]
+  Cache["Cache"]
+  Replica[("SQL Database read replica")]
+  Main[("SQL Database main instance")]
+  User -->|"2, 3. request"| App
+  App -->|"2. static paths"| Conn
+  Conn -->|"2. reads"| Bucket
+  App -->|"3. other paths"| Fn
+  Fn -->|"4. reads"| Replica
+  Fn -->|"4. Cache API"| Cache
+  Fn -->|"5. write"| Main
+  Bucket -.->|"2. asset"| App
+  Replica -.->|"4. rows"| Fn
+  Cache -.->|"4. stored copy"| Fn
+  Main -.->|"5. 200, error inside"| Fn
+  Fn -.->|"3, 6. page or error"| App
+  App -.->|"2, 3, 6. response"| User
+  Repo ==>|"1. push"| GH
+  GH ==>|"1. static assets"| Bucket
+  GH ==>|"1. server code"| Fn
+```
 
 ### Dataflow
 
@@ -39,6 +56,8 @@ Read the diagram as two flows. The publish flow runs from the repository through
 4. The function reads SQL Database through a read replica, which needs no token. A response that is the same for every visitor can be stored with the runtime Cache API and returned to later requests.
 5. A write goes to the database's query endpoint of the Azion API, with a personal token kept in an environment variable, and the main instance applies it. A failed statement still answers `200`, with the error inside its entry.
 6. When the database read or write fails, the function answers the error for that page or route. Requests for static assets keep answering from the bucket.
+
+Every response returns through the application, which delivers it to the browser. A page view runs the function, and reads the database unless a stored response answers it. The database therefore sits inside both the request flow and the failure flow, while the static assets depend on neither.
 
 ## Components
 

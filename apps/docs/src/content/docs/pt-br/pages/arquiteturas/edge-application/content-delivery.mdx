@@ -15,23 +15,37 @@ Este design atende times cujo conteúdo é, na maior parte, cacheável e fica em
 
 ## Diagrama de arquitetura
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  User["Usuário"] -->|"consulta DNS"| DNS["Edge DNS"]
-  DNS -->|"resolve para o workload"| User
-  User -->|"Requisição HTTPS"| App["regras da aplicação"]
-  App -->|"/static/"| Static["cache setting static-files"]
-  App -->|"páginas"| Pages["cache setting pages"]
-  App -->|"/api/: Bypass Cache"| Conn["connector site-origin"]
-  Static -->|"miss"| Tiered["Tiered Cache"]
-  Tiered -->|"miss"| Conn
-  Pages -->|"miss"| Conn
-  Conn -->|"só endereços da Azion"| Origin["origem"]
-  Purge["Real-Time Purge"] -->|"remove os arquivos alterados"| Static
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam o purge, que roda separado de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-O diagrama empilha as camadas que uma requisição tenta, uma depois da outra. As regras da aplicação escolhem uma cache setting pelo caminho, e o cache do data center responde primeiro. Um arquivo estático que não está ali tenta em seguida a camada do Tiered Cache, e só um miss em todas as camadas chega ao connector. As chamadas em `/api/` pulam todas as camadas e vão direto ao connector. A origem permite só endereços da Azion, então o connector é a única entrada. Real-Time Purge age no cache por fora do fluxo de requisição e remove os arquivos alterados antes que o TTL deles termine.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  User(["Usuário"])
+  DNS["Edge DNS"]
+  App["aplicação"]
+  Cache["Cache"]
+  Purge["Real-Time Purge"]
+  Tiered["Tiered Cache"]
+  Conn["connector site-origin"]
+  Origin[["origem"]]
+  User -->|"1. consulta"| DNS
+  User -->|"1. requisição"| App
+  App -->|"4. /api/, Bypass Cache"| Conn
+  App -->|"2. static-files, pages"| Cache
+  Cache -->|"3. miss em /static/"| Tiered
+  Cache -->|"4. miss de página"| Conn
+  Tiered -->|"4. miss"| Conn
+  Conn -->|"4, 5. só endereços da Azion"| Origin
+  DNS -.->|"1. endereço do workload"| User
+  Origin -.->|"4. estático, mantido"| Tiered
+  Origin -.->|"4. página, guardada"| Cache
+  Tiered -.->|"3, 4. estático, guardado"| Cache
+  Origin -.->|"4. API, não guardada"| App
+  Cache -.->|"2, 3, 4. cópia em cache"| App
+  App -.->|"2, 3, 4. resposta"| User
+  Purge ==>|"6. primeiro, cache key"| Tiered
+  Purge ==>|"6. depois, cache key"| Cache
+```
 
 ### Fluxo de dados
 
@@ -41,6 +55,8 @@ O diagrama empilha as camadas que uma requisição tenta, uma depois da outra. A
 4. Um miss em todas as camadas chega à origem pelo connector, e a resposta é guardada para a requisição seguinte. Uma chamada em um caminho com bypass, como `/api/`, sempre chega à origem, e a resposta dela nunca é guardada.
 5. O connector chega à origem a partir de um endereço da lista `Azion Origin Shield`, e o firewall da origem recusa todas as outras fontes.
 6. Quando o conteúdo muda, um purge por cache key o remove primeiro da camada do Tiered Cache e depois do Cache. A requisição seguinte então busca a nova versão na origem.
+
+Toda resposta volta pela aplicação, que a entrega ao usuário. A origem permite só endereços da Azion, então o connector é a única entrada.
 
 ## Componentes
 

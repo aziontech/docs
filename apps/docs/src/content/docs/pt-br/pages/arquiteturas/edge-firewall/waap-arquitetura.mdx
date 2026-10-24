@@ -16,23 +16,36 @@ Este design atende equipes que consolidam a segurança de aplicações na frente
 
 ## Diagrama de arquitetura
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Cliente"] -->|"requisição ao workload"| DDoS["DDoS Protection"]
-  DDoS --> FW["firewall"]
-  FW -->|"critério Network"| NS["listas do Network Shield"]
-  FW -->|"behavior Set WAF"| WAF["WAF rule set"]
-  FW -->|"behavior Run Function"| BM["Bot Manager"]
-  FW -->|"nenhuma regra para a requisição"| App["application"]
-  App --> Conn["connector"]
-  Conn -->|"a partir de um prefixo do Azion Origin Shield"| Origin["origem"]
-  FW -.->|"eventos"| DS["Data Stream"]
-  DS --> SIEM["SIEM"]
-  FW -.->|"registros de requisições"| RTE["Real-Time Events"]
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam os eventos do WAF, que rodam separados de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-Leia o diagrama do firewall para fora. DDoS Protection age antes de qualquer regra, e as regras do firewall decidem então cada requisição em ordem. Network Shield, WAF e Bot Manager agem cada um só pela regra que os chama, então a ordem dessas regras é a ordem da política. Toda requisição que passa termina em um único connector, e o próprio firewall da origem fecha qualquer outro caminho até ela. As arestas pontilhadas carregam registros, não requisições: os eventos saem para o SIEM, e Real-Time Events guarda cada requisição para investigação.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Cliente"])
+  DDoS["DDoS Protection"]
+  Net["firewall, regra 1: listas do Network Shield"]
+  WAF["firewall, regra 2: WAF rule set"]
+  Bot["firewall, regra 3: instância do Bot Manager"]
+  App["application"]
+  Conn["connector com Origin IP ACL"]
+  Origin[["origem: permite só prefixos da Azion"]]
+  Stream["Data Stream"]
+  SIEM[["SIEM"]]
+  Client -->|"1. requisição"| DDoS
+  DDoS -->|"1. avaliada"| Net
+  Net -->|"3. não listada"| WAF
+  WAF -->|"4. passa"| Bot
+  Bot -->|"5. passa"| App
+  App -->|"5. requisição"| Conn
+  Conn -->|"5. de um prefixo da Azion"| Origin
+  Origin -.->|"5. resposta"| App
+  App -.->|"5. resposta"| Client
+  Net -.->|"2. 403"| Client
+  WAF -.->|"3. 400 em Blocking"| Client
+  Bot -.->|"4. 403 com deny"| Client
+  WAF ==>|"6. WAF Events"| Stream
+  Stream ==>|"6. WAF Events"| SIEM
+```
 
 ### Fluxo de dados
 
@@ -42,6 +55,10 @@ Leia o diagrama do firewall para fora. DDoS Protection age antes de qualquer reg
 4. Uma regra com o behavior _Run Function_ executa uma instância do Bot Manager, que pontua a requisição em busca de automação e executa a sua action quando o score atinge o threshold.
 5. Uma requisição que nenhuma regra para chega à application, que a encaminha à origem pelo connector. A origem aceita conexões apenas dos prefixos da lista `Azion Origin Shield`.
 6. Data Stream envia ao SIEM as requisições que WAF analisou, e Real-Time Events guarda o registro de cada requisição, ligado a uma recusa pelo seu `x-azion-request-id`.
+
+Network Shield, WAF e Bot Manager agem cada um só pela regra que os chama, então a ordem dessas regras é a ordem da política. Toda requisição que passa termina em um único connector, e o próprio firewall da origem fecha qualquer outro caminho até ela.
+
+Uma recusa começa na regra que a decidiu e vai direto ao cliente, porque a application nunca recebe uma requisição recusada.
 
 ## Componentes
 
