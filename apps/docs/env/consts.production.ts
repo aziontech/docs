@@ -10,3 +10,9 @@ export const ALGOLIA_APIKEY = '7c1795c333053265edd2aeb199745797';
 // Analytics Configuration
 export const ANALYTICS_WRITE_KEY = 'YUr3hmFXyFN1n2dXL7pp1DXilTzgUAIT';
 export const ANALYTICS_PROXY_URL = 'https://www.azion.com/api/segment-proxy';
+
+// Real User Monitoring (observability POC). Empty string disables the agent.
+// Set to the deployed collector, e.g. 'https://rum.azion.com/rum.js', to enable.
+export const RUM_URL = '';
+export const RUM_ENV = 'production';
+export const RUM_SAMPLE_RATE = 0.25;
