@@ -40,30 +40,41 @@ The model comes from the third-party provider. A team that runs the model on AI 
 
 This page builds the *Tool-calling agent over third-party LLMs*: every step of the loop calls the provider's API, and the tools run in the function.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Caller["Your application"] -->|"POST /api/agent/tasks"| Fn["agent function"]
-  Fn -->|"messages and tool definitions"| LLM["third-party provider"]
-  LLM -->|"answer, or tool calls"| Fn
-  Fn -->|"get_order"| API["order service API"]
-  Fn -->|"refund_order: pause"| KV["KV Store: agent-state"]
-  Approver["Person who approves"] -->|"POST /api/agent/approve"| Fn
-  KV -->|"resume"| Fn
-  Fn -->|"started, paused, finished"| DB["SQL Database: task_events"]
-  Fn -->|"answer, or awaiting approval"| Caller
-```
+Solid arrows carry the requests, and dotted arrows carry the responses. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram from the function outward. The loop lives in the function, and every turn of it crosses to the provider: the arrow to the provider is taken once per step, so the provider's latency multiplies by the number of steps, and its failures can end a task at any step. The arrow to the order service leaves Azion only when the tool is an external service. KV Store and SQL Database hold what must outlive one request: the state of a task that waits for a person, and the record of what every task did.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Caller(["Your application"])
+  Approver(["Person who approves"])
+  Fn["application: agent function"]
+  LLM[["third-party provider"]]
+  API[["order service API"]]
+  KV[("KV Store: agent-state")]
+  DB[("SQL Database: task_events")]
+  Caller -->|"1. task"| Fn
+  Approver -->|"4. decision"| Fn
+  Fn -->|"1, 2, 4. messages"| LLM
+  Fn -->|"2. get_order, 4. refund"| API
+  Fn -->|"3. save, 4. read"| KV
+  Fn -->|"1, 3, 5. task events"| DB
+  LLM -.->|"2, 3, 5. reply"| Fn
+  API -.->|"2, 4. result"| Fn
+  KV -.->|"4. saved task"| Fn
+  Fn -.->|"3, 5, 6. status or answer"| Caller
+  Fn -.->|"4. resumed result"| Approver
+```
 
 ### Dataflow
 
 1. Your application sends a task to `POST /api/agent/tasks`, and the application's rule runs the agent function. The function gives the task an ID, records it as started, and sends the task and the tool definitions to the provider with the provider key.
-2. When the model asks for `get_order`, the function calls the order service with the backend token and sends the result back to the model as the next message.
-3. When the model asks for `refund_order`, the function stores the task's messages and the pending refund in KV Store, records the pause, and answers `awaiting_approval`.
-4. A person sends the decision to `POST /api/agent/approve`. The function reads the task from KV Store, runs the refund only when approved, and resumes the loop.
-5. When the model answers with text and no tool call, the function records the task as completed and returns the answer.
-6. A provider call that fails ends the task with `502`, and the function writes that failure to its log. A design that adds a second provider moves the task to it instead, so provider keys, latency, and fallback are decided in the function. A task that reaches six steps stops with `step_limit`.
+2. When the model asks for `get_order`, the function calls the order service with the backend token, and sends the result it receives back to the model as the next message.
+3. When the model asks for `refund_order`, the function stores the task's messages and the pending refund in KV Store, records the pause, and answers `awaiting_approval`, which the application returns to your application.
+4. A person sends the decision to `POST /api/agent/approve`. The function reads the task from KV Store, runs the refund through the order service only when approved, and resumes the loop. The person's request receives the result of the resumed loop.
+5. When the model answers with text and no tool call, the function records the task as completed and returns the answer. The application delivers it to your application, or to the person who approved when the task resumed.
+6. A provider call that fails ends the task with `502`, and the function writes that failure to its log. A design that adds a second provider moves the task to it instead, so provider keys, latency, and fallback are decided in the function. A task that reaches six steps stops with `step_limit`. Both outcomes return through the application, as an answer does.
+
+The loop lives in the function, and every turn of it crosses to the provider: the arrow to the provider is taken once per step, so the provider's latency multiplies by the number of steps, and its failures can end a task at any step. The arrow to the order service leaves Azion only when the tool is an external service. KV Store and SQL Database hold what must outlive one request: the state of a task that waits for a person, and the record of what every task did. KV Store starts nothing. The function writes a paused task to it, and reads the task back when the decision arrives.
 
 ### Platform Resources
 

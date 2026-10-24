@@ -44,34 +44,49 @@ This use case does not cover API design or lifecycle management, or account take
 
 This page builds the *API security perimeter*: a firewall on the API's workload that filters each request by rules, tokens, bot scores, and rates before the connector forwards it to the API origin.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["API client"] -->|"request to /v1/"| WAF["rule 1: WAF rule set"]
-  WAF -->|"attack pattern, Blocking"| R400["400"]
-  WAF --> JWT["rule 2: JWT function"]
-  JWT -->|"invalid token"| R401["400 or 401"]
-  JWT --> Bot["rule 3: Bot Manager, API mode"]
-  Bot -->|"score at threshold"| R403["403"]
-  Bot --> RL["rule 4: rate limit per client"]
-  RL -->|"beyond the burst"| R429["429"]
-  RL --> App["application"]
-  App -->|"cacheable GET"| Cache["Cache"]
-  App --> Conn["connector"]
-  Cache -->|"miss"| Conn
-  Conn --> Origin["API origin"]
-```
+Solid arrows carry the request, and dotted arrows carry the response. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram at the firewall rules. The connection is already accepted when a request reaches them, so every check acts on a request, not on a client's identity: rules, a token, a bot score, and a rate. Each check acts through the rule that calls it, so the order of the rules is the order of the checks. Only a request that passes them all reaches the application, which answers safe GET requests from Cache and sends the rest to the API origin.
+```mermaid
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["API client"])
+  WAF["firewall rule 1: WAF rule set"]
+  JWT["firewall rule 2: JWT function"]
+  Bot["firewall rule 3: Bot Manager, API mode"]
+  RL["firewall rule 4: rate limit per client"]
+  App["application"]
+  Cache["Cache"]
+  Conn["connector"]
+  Origin[["API origin"]]
+  Client -->|"1, 2. request to /v1/"| WAF
+  WAF -->|"3. passes"| JWT
+  JWT -->|"4. valid token"| Bot
+  Bot -->|"5. passes"| RL
+  RL -->|"6. within the rate"| App
+  App -->|"6. cacheable GET"| Cache
+  App -->|"6. other requests"| Conn
+  Cache -->|"6. miss"| Conn
+  Conn -->|"6. fetch"| Origin
+  Origin -.->|"6. GET, stored"| Cache
+  Origin -.->|"6. response"| App
+  Cache -.->|"6. cached copy"| App
+  App -.->|"6. response"| Client
+  WAF -.->|"2. 400"| Client
+  JWT -.->|"3. 400 or 401"| Client
+  Bot -.->|"4. 403 with deny"| Client
+  RL -.->|"5. 429 beyond the burst"| Client
+```
 
 ### Dataflow
 
-1. An API client's request to `api.example.com/v1/` reaches the workload. DDoS Protection assesses it before any firewall rule runs, and the firewall bound to the workload then runs its rules in order.
-2. The WAF rule set scores the request, its JSON body included. In _Blocking_, a request whose score reaches a threshold receives `400`.
+1. An API client's request to `api.example.com/v1/` reaches the workload. DDoS Protection assesses it before any firewall rule runs, and the firewall bound to the workload then runs its rules in order. A rule that refuses the request answers the client from the firewall, and no later rule runs.
+2. The WAF rule set scores the request, its JSON body included, up to 131,072 bytes. In _Blocking_, a request whose score reaches a threshold receives `400`, and so does a request whose body is larger than that bound.
 3. The JWT function checks the token the request carries in its `Authorization` header. A request whose token is invalid receives `400` or `401`.
 4. The Bot Manager instance scores the client for automation. Once its action is `deny`, a score at the threshold receives `403`.
 5. The rate limit counts the requests of each client IP address, and a request beyond the burst receives `429`.
-6. A request that passes reaches the application. A cacheable GET response comes from Cache, and every other request reaches the API origin through the connector. Data Stream sends the requests WAF analyzed to the SIEM, and Real-Time Events holds the record of each request, joined to a refusal by its `x-azion-request-id`.
+6. A request that passes reaches the application. A cacheable GET response comes from Cache, and on a miss the connector fetches it from the API origin and Cache stores it on the way back. Every other request reaches the API origin through the connector. Every response returns through the application, which delivers it to the client. Data Stream sends the requests WAF analyzed to the SIEM, and Real-Time Events holds the record of each request, joined to a refusal by its `x-azion-request-id`.
+
+The connection is already accepted when a request reaches the firewall rules, so every check acts on a request, not on a client's identity: rules, a token, a bot score, and a rate. Each check acts through the rule that calls it, so the order of the rules is the order of the checks. Each refusal starts at the rule that decided it and goes straight to the client, because the application never receives a refused request.
 
 ### Platform Resources
 

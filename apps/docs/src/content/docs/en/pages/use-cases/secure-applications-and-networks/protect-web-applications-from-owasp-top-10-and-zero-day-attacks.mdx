@@ -44,32 +44,47 @@ DDoS Protection mitigates DoS and DDoS attacks on every workload, before any fir
 
 This page builds the *Web application and API protection (WAAP) perimeter*: one firewall policy in front of the workload, with the origin closed to every other path.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Visitor["Visitor"] -->|"HTTPS request"| DDoS["DDoS Protection"]
-  DDoS --> Net["rule 1: Network Shield lists"]
-  Net -->|"listed source"| Deny["403"]
-  Net -->|"not listed"| WAF["rule 2: WAF rule set"]
-  WAF -->|"score at threshold, Blocking"| Bad["400"]
-  WAF -->|"below threshold"| Bot["rule 3: Bot Manager instance"]
-  Bot -->|"score below threshold"| App["application"]
-  App --> Conn["connector with Origin IP ACL"]
-  Conn --> Origin["origin: allows Azion prefixes only"]
-  WAF -.->|"WAF Events"| Stream["Data Stream"]
-  Stream --> SIEM["SIEM"]
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the WAF events, which leave apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram from top to bottom. DDoS Protection acts before any rule, and the firewall's rules then decide each request in order. Network Shield, WAF, and Bot Manager each act only through the rule that calls them, so the order of those rules is the order of the policy. Every request that passes ends at one connector, and the origin's own firewall closes every other path to it. The dotted edge carries records, not requests: the WAF events leave for the SIEM through Data Stream.
+```mermaid
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Visitor(["Visitor"])
+  DDoS["DDoS Protection"]
+  Net["firewall rule 1: Network Shield lists"]
+  WAF["firewall rule 2: WAF rule set"]
+  Bot["firewall rule 3: Bot Manager instance"]
+  App["application"]
+  Conn["connector with Origin IP ACL"]
+  Origin[["origin: allows Azion prefixes only"]]
+  Stream["Data Stream"]
+  SIEM[["SIEM"]]
+  Visitor -->|"1. HTTPS request"| DDoS
+  DDoS -->|"1. assessed"| Net
+  Net -->|"3. not listed"| WAF
+  WAF -->|"4. passes"| Bot
+  Bot -->|"5. passes"| App
+  App -->|"5. request"| Conn
+  Conn -->|"5. from an Azion prefix"| Origin
+  Origin -.->|"5. response"| App
+  App -.->|"5. response"| Visitor
+  Net -.->|"2. 403"| Visitor
+  WAF -.->|"3. 400 in Blocking"| Visitor
+  Bot -.->|"4. 403 with deny"| Visitor
+  WAF ==>|"6. WAF Events"| Stream
+  Stream ==>|"6. WAF Events"| SIEM
+```
 
 ### Dataflow
 
 1. A visitor's request reaches the workload on `www.example.com`. DDoS Protection assesses it first, and the firewall bound to the workload takes it next.
-2. The first rule compares the client address with the team's network list and with the Tor exit node list. A listed client receives `403`, and no later rule runs.
-3. The second rule hands the request to the WAF rule set. In _Blocking_, a request whose score reaches a family's threshold receives `400`.
-4. The third rule runs the Bot Manager instance on every request that is not a static asset. A score at the threshold runs the instance's action.
-5. A request that no rule stops reaches the application, which forwards it to the origin through the connector. The origin's firewall accepts the connection because it comes from an `Azion Origin Shield` prefix, and refuses connections from anywhere else.
+2. The first rule compares the client address with the team's network list and with the Tor exit node list. A listed client receives `403` from the firewall, and no later rule runs.
+3. The second rule hands the request to the WAF rule set. In _Blocking_, a request whose score reaches a family's threshold receives `400` from the firewall.
+4. The third rule runs the Bot Manager instance on every request that is not a static asset. A score at the threshold runs the instance's action: `allow`, the action the instance starts with, lets the request continue, and `deny` answers `403`.
+5. A request that no rule stops reaches the application, which forwards it to the origin through the connector. The origin's firewall accepts the connection because it comes from an `Azion Origin Shield` prefix, and refuses connections from anywhere else. The origin's response returns through the application, which delivers it to the visitor.
 6. Data Stream sends each request WAF analyzed to the SIEM. Real-Time Events keeps the record of each request for investigation, joined to a refusal by its `x-azion-request-id`.
+
+Network Shield, WAF, and Bot Manager each act only through the rule that calls them, so the order of those rules is the order of the policy. A refusal starts at the rule that decided it and goes straight to the visitor, because the application never receives a refused request. A network rule switched to _Drop_ would send a listed client no response at all, so that refusal would have no arrow.
 
 ### Platform Resources
 

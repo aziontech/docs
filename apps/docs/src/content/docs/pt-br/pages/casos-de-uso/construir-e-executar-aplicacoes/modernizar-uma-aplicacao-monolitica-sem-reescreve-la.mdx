@@ -37,29 +37,44 @@ Este caso de uso não cobre mover a aplicação inteira para uma nova origem em 
 
 Esta página monta a *Fachada strangler para aplicações legadas*: uma aplicação na Azion se torna o ponto de entrada único do domínio, e cada caminho migrado vai para uma função, enquanto todos os outros caminhos vão para o monolito.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Cliente"] -->|"requisição HTTPS"| App["aplicação"]
-  App -->|"Rules Engine: caminho não migrado"| Conn["connector"]
-  Conn --> Monolith["monolito"]
-  App -->|"Rules Engine: caminho migrado"| Fn["Functions: rota migrada"]
-  Fn -->|"leitura"| SQL["SQL Database"]
-  Fn -->|"sessões e consultas"| KV["KV Store"]
-  Fn -->|"dados que ainda pertencem a ele"| Monolith
-  App --> Metrics["Real-Time Metrics: requisições por caminho e upstream"]
-  Team["equipe: próxima rota ou reversão"] -->|"regra ativada ou desativada"| App
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam os registros das requisições e as mudanças de regra da equipe, que rodam separados de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-Leia o diagrama da aplicação para fora. Toda requisição entra pela aplicação, e as regras dela dividem o tráfego por caminho: um caminho que ninguém moveu passa pelo connector até o monolito, e um caminho migrado vai para uma função. A função mantém seu estado no SQL Database ou no KV Store, e ainda pode chamar o monolito para dados que pertencem ao monolito. O loop de controle na parte de baixo é como as rotas se movem: a equipe ativa a regra de uma rota para movê-la e a desativa para revertê-la, e Real-Time Metrics mostra onde cada caminho é atendido.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Cliente"])
+  App["aplicação"]
+  Conn["connector"]
+  Monolith[["monolito"]]
+  Fn["Functions: rota migrada"]
+  SQL[("SQL Database")]
+  KV[("KV Store")]
+  Metrics["Real-Time Metrics"]
+  Team[["equipe"]]
+  Client -->|"1. requisição"| App
+  App -->|"2. caminho não migrado"| Conn
+  Conn -->|"2. busca"| Monolith
+  App -->|"3. caminho migrado"| Fn
+  Fn -->|"4. leitura"| SQL
+  Fn -->|"4. sessões, consultas"| KV
+  Fn -->|"4. dados que ainda são dele"| Monolith
+  Monolith -.->|"2. resposta"| App
+  Monolith -.->|"4. resposta da API"| Fn
+  SQL -.->|"4. linhas"| Fn
+  KV -.->|"4. valores"| Fn
+  Fn -.->|"3, 4. JSON"| App
+  App -.->|"2, 3, 4. resposta"| Client
+  App ==>|"5. caminho, upstream"| Metrics
+  Team ==>|"6. regra ativada ou desativada"| App
+```
 
 ### Fluxo de dados
 
 1. A requisição de um cliente chega ao workload no domínio, e a aplicação executa as regras da Request Phase em ordem, lendo o caminho e o método da requisição.
-2. A primeira regra corresponde a todos os caminhos e nomeia o connector para o monolito, então uma rota que ninguém moveu continua chegando ao monolito.
-3. Uma regra posterior corresponde a `GET /api/stores` e executa a instância da função, e a resposta da função é o que o cliente recebe.
-4. A função abre `stores-db` na réplica de leitura dele, consulta a tabela `stores` e responde com JSON. Uma rota migrada também pode ler sessões e consultas do KV Store, ou chamar a API do monolito para uma tabela que ainda pertence ao monolito.
-5. Real-Time Metrics registra o caminho e o endereço de upstream de cada requisição, em que `127.0.0.1:1666` marca Azion Runtime e o endereço do monolito marca as rotas que ele ainda atende.
+2. A primeira regra corresponde a todos os caminhos e nomeia o connector para o monolito, então uma rota que ninguém moveu continua chegando ao monolito. A resposta do monolito volta para a aplicação, que a entrega ao cliente.
+3. Uma regra posterior corresponde a `GET /api/stores` e executa a instância da função, e a resposta da função é o que a aplicação entrega ao cliente.
+4. A função abre `stores-db` na réplica de leitura dele, consulta a tabela `stores` e responde com JSON montado a partir das linhas que recebe. Uma rota migrada também pode ler sessões e consultas do KV Store, ou chamar a API do monolito para uma tabela que ainda pertence ao monolito. Essa resposta volta para a função, não para o cliente.
+5. Real-Time Metrics soma as requisições por caminho e por endereço de upstream, por hora, em que `127.0.0.1:1666` marca Azion Runtime e o endereço do monolito marca as rotas que ele ainda atende.
 6. A equipe move a próxima rota com uma nova regra. Para reverter uma rota, a equipe desativa a regra dela, e as próximas requisições para esse caminho correspondem apenas à primeira regra e chegam ao monolito.
 
 ### Recursos de Plataforma

@@ -37,30 +37,46 @@ This use case does not cover applications whose backend also runs on Azion. For 
 
 This page builds the *Client-rendered frontend over origin APIs*: the browser renders the interface from static files, and every data call crosses Azion to the existing backend.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Repo["Git repository"] -->|"push"| GH["Azion GitHub App: build and deploy"]
-  GH -->|"build output"| Bucket["Object Storage bucket"]
-  Browser["Browser"] -->|"HTTPS request"| App["application"]
-  App -->|"Rules Engine: API path"| Conn["connector"]
-  Conn --> API["backend API"]
-  App -->|"Rules Engine: file path"| Cache["Cache"]
-  Cache -->|"miss"| Bucket
-  App -->|"Rules Engine: client-side route"| Index["entry HTML"]
-  Index --> Bucket
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the publish flow, which runs from the repository to the bucket and moves only when the team deploys a change. Each label starts with the number of the dataflow step it belongs to.
 
-The diagram carries two flows. The publish flow runs from the repository to the bucket, and it moves only when the team deploys a change. The request flow starts at the browser, and the application's rules split it three ways: API paths cross to the backend, files of the build come from Cache or the bucket, and every client-side route returns the entry HTML. Only the first path leaves Azion, so a page load reads static files, and every data call reaches the backend origin.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Browser(["Browser"])
+  App["application"]
+  Cache["Cache"]
+  Conn["backend connector"]
+  SConn["storage connector"]
+  API[["backend API"]]
+  Repo[["Git repository"]]
+  GH["Azion GitHub App"]
+  Bucket[("Object Storage bucket")]
+  Browser -->|"2. request"| App
+  App -->|"3. /api/"| Conn
+  Conn -->|"3. API call"| API
+  App -->|"5. build file"| Cache
+  Cache -->|"5. miss"| SConn
+  App -->|"6. /index.html"| SConn
+  SConn -->|"5, 6. read"| Bucket
+  API -.->|"4. data, not cached"| App
+  Bucket -.->|"5. file, cached"| Cache
+  Cache -.->|"5. cached copy"| App
+  Bucket -.->|"6. entry HTML"| App
+  App -.->|"4, 5, 6. response"| Browser
+  Repo ==>|"1. push"| GH
+  GH ==>|"1. build output"| Bucket
+```
 
 ### Dataflow
 
 1. A push to the repository, or `azion deploy` from the project folder, builds the interface and uploads the build output to the bucket.
 2. A browser's request reaches the workload on the interface's domain, and the application runs its request rules in order.
 3. A request under `/api/` matches the first rule, which sends it through the backend connector and ends the request phase, so no later rule rewrites or caches it.
-4. The backend answers the API call, and the browser renders the data into the interface.
-5. A request for a file of the build, such as a script or a stylesheet, is answered from Cache. On a miss, the application reads the file from the bucket and caches it.
-6. A request for a client-side route, such as `/orders/42`, is rewritten to `/index.html`, and the router in the browser renders that route.
+4. The backend answers the API call, the application delivers the answer to the browser without caching it, and the browser renders the data into the interface.
+5. A request for a file of the build, such as a script or a stylesheet, is answered from Cache. On a miss, the application reads the file from the bucket through the storage connector, and Cache stores it on the way back.
+6. A request for a client-side route, such as `/orders/42`, is rewritten to `/index.html`, which the storage connector reads from the bucket, and the router in the browser renders that route.
+
+Every response returns through the application, which delivers it to the browser. Only the API path leaves Azion, so a page load reads static files, and every data call reaches the backend origin.
 
 ### Platform Resources
 

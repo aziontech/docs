@@ -44,32 +44,47 @@ DDoS Protection mitiga ataques DoS e DDoS em todo workload, antes de qualquer re
 
 Esta página constrói o *perímetro de proteção de aplicações web e APIs (WAAP)*: uma política de firewall na frente do workload, com a origem fechada a qualquer outro caminho.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Visitor["Visitante"] -->|"requisição HTTPS"| DDoS["DDoS Protection"]
-  DDoS --> Net["regra 1: listas do Network Shield"]
-  Net -->|"fonte listada"| Deny["403"]
-  Net -->|"não listada"| WAF["regra 2: WAF rule set"]
-  WAF -->|"score no threshold, Blocking"| Bad["400"]
-  WAF -->|"abaixo do threshold"| Bot["regra 3: instância do Bot Manager"]
-  Bot -->|"score abaixo do threshold"| App["application"]
-  App --> Conn["connector com Origin IP ACL"]
-  Conn --> Origin["origem: permite só prefixos da Azion"]
-  WAF -.->|"WAF Events"| Stream["Data Stream"]
-  Stream --> SIEM["SIEM"]
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam os eventos do WAF, que saem separados de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-Leia o diagrama de cima para baixo. DDoS Protection age antes de qualquer regra, e as regras do firewall decidem então cada requisição em ordem. Network Shield, WAF e Bot Manager agem cada um só pela regra que os chama, então a ordem dessas regras é a ordem da política. Toda requisição que passa termina em um connector, e o próprio firewall da origem fecha qualquer outro caminho até ela. A aresta pontilhada carrega registros, não requisições: os eventos do WAF saem para o SIEM pelo Data Stream.
+```mermaid
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Visitor(["Visitante"])
+  DDoS["DDoS Protection"]
+  Net["firewall, regra 1: listas do Network Shield"]
+  WAF["firewall, regra 2: WAF rule set"]
+  Bot["firewall, regra 3: instância do Bot Manager"]
+  App["application"]
+  Conn["connector com Origin IP ACL"]
+  Origin[["origem: permite só prefixos da Azion"]]
+  Stream["Data Stream"]
+  SIEM[["SIEM"]]
+  Visitor -->|"1. requisição HTTPS"| DDoS
+  DDoS -->|"1. avaliada"| Net
+  Net -->|"3. não listada"| WAF
+  WAF -->|"4. passa"| Bot
+  Bot -->|"5. passa"| App
+  App -->|"5. requisição"| Conn
+  Conn -->|"5. de um prefixo da Azion"| Origin
+  Origin -.->|"5. resposta"| App
+  App -.->|"5. resposta"| Visitor
+  Net -.->|"2. 403"| Visitor
+  WAF -.->|"3. 400 em Blocking"| Visitor
+  Bot -.->|"4. 403 com deny"| Visitor
+  WAF ==>|"6. WAF Events"| Stream
+  Stream ==>|"6. WAF Events"| SIEM
+```
 
 ### Fluxo de dados
 
 1. A requisição de um visitante chega ao workload em `www.example.com`. DDoS Protection a avalia primeiro, e o firewall vinculado ao workload a recebe em seguida.
-2. A primeira regra compara o endereço do cliente com a network list da equipe e com a lista de nós de saída do Tor. Um cliente listado recebe `403`, e nenhuma regra seguinte roda.
-3. A segunda regra entrega a requisição ao WAF rule set. Em _Blocking_, uma requisição cujo score atinge o threshold de uma família recebe `400`.
-4. A terceira regra executa a instância do Bot Manager em toda requisição que não é um asset estático. Um score no threshold executa a action da instância.
-5. Uma requisição que nenhuma regra para chega à application, que a encaminha à origem pelo connector. O firewall da origem aceita a conexão porque ela vem de um prefixo de `Azion Origin Shield`, e recusa conexões de qualquer outro lugar.
+2. A primeira regra compara o endereço do cliente com a network list da equipe e com a lista de nós de saída do Tor. Um cliente listado recebe `403` do firewall, e nenhuma regra seguinte roda.
+3. A segunda regra entrega a requisição ao WAF rule set. Em _Blocking_, uma requisição cujo score atinge o threshold de uma família recebe `400` do firewall.
+4. A terceira regra executa a instância do Bot Manager em toda requisição que não é um asset estático. Um score no threshold executa a action da instância: `allow`, a action com que a instância começa, deixa a requisição seguir, e `deny` responde `403`.
+5. Uma requisição que nenhuma regra para chega à application, que a encaminha à origem pelo connector. O firewall da origem aceita a conexão porque ela vem de um prefixo de `Azion Origin Shield`, e recusa conexões de qualquer outro lugar. A resposta da origem volta pela application, que a entrega ao visitante.
 6. Data Stream envia ao SIEM cada requisição que o WAF analisou. Real-Time Events guarda o registro de cada requisição para investigação, ligado a uma recusa pelo seu `x-azion-request-id`.
+
+Network Shield, WAF e Bot Manager agem cada um só pela regra que os chama, então a ordem dessas regras é a ordem da política. Uma recusa começa na regra que a decidiu e vai direto ao visitante, porque a application nunca recebe uma requisição recusada. Uma regra de rede trocada para _Drop_ não enviaria resposta nenhuma a um cliente listado, então essa recusa não teria seta.
 
 ### Recursos de Plataforma
 

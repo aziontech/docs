@@ -37,30 +37,48 @@ This use case does not cover APIs without a user interface, which [Build REST an
 
 This page builds the *Server-rendered full-stack application on SQL Database*: a server-rendering framework whose build splits into static assets in Object Storage and server code in a function that reads Azion's stores.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Repo["GitHub repository"] -->|"push"| GH["Azion GitHub App"]
-  GH -->|"static assets"| Bucket["Object Storage"]
-  GH -->|"server code"| Fn["Functions"]
-  User["Browser"] -->|"HTTPS request"| App["application"]
-  App -->|"static asset paths"| Bucket
-  App -->|"page and API paths"| Fn
-  Fn -->|"reads"| Replica["SQL Database read replica"]
-  Fn -->|"writes through the Azion API"| Main["SQL Database main instance"]
-  Fn -.->|"sessions, optional"| KV["KV Store"]
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the publish flow, which runs apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram as two flows. The publish flow runs from the repository through the Azion GitHub App, which puts the build's static assets in Object Storage and its server code in a function. The request flow starts at the application, which sends static asset paths to the bucket and every other path to the function. Every page view therefore includes a function run and a data read, so the database sits inside both the request flow and the failure flow, while the static assets do not depend on either.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  User(["Browser"])
+  Repo[["GitHub repository"]]
+  GH["Azion GitHub App"]
+  App["application"]
+  Conn["connector"]
+  Bucket[("Object Storage")]
+  Fn["Functions"]
+  Cache["Cache"]
+  Replica[("SQL Database read replica")]
+  Main[("SQL Database main instance")]
+  User -->|"2, 3. request"| App
+  App -->|"2. static paths"| Conn
+  Conn -->|"2. reads"| Bucket
+  App -->|"3. other paths"| Fn
+  Fn -->|"4. reads"| Replica
+  Fn -->|"4. Cache API"| Cache
+  Fn -->|"5. write"| Main
+  Bucket -.->|"2. asset"| App
+  Cache -.->|"4. stored copy"| Fn
+  Main -.->|"5. 200, error inside"| Fn
+  Fn -.->|"3, 6. page or error"| App
+  App -.->|"2, 3, 6. response"| User
+  Repo ==>|"1. push"| GH
+  GH ==>|"1. static assets"| Bucket
+  GH ==>|"1. server code"| Fn
+```
 
 ### Dataflow
 
 1. A push to the repository makes the Azion GitHub App build the project. The build uploads the static assets to an Object Storage bucket and deploys the server code as a function.
-2. A browser's request reaches the application. Its rules deliver paths under `/_next/static/` and static file types from the bucket, without running the function.
-3. A rule runs the function on every other path. The function renders the page, or answers the API route, on each request.
-4. To render a page, the function reads the database through a read replica with `Database.open`, which takes the database name and no token. A response that is the same for every visitor can be stored with the runtime Cache API and returned to later requests.
-5. An API route that writes sends its statement to the query endpoint of the Azion API, with the personal token it reads from an environment variable, and the main instance applies the write. A failed statement still answers `200`, with the error inside its entry.
+2. A browser's request reaches the application. Its rules send paths under `/_next/static/` and static file types to the bucket through a connector, without running the function, and the application delivers the file the bucket returns.
+3. A rule runs the function on every other path. The function renders the page, or answers the API route, on each request, and its response returns through the application to the browser.
+4. To render a page, the function reads the database through a read replica with `Database.open`, which takes the database name and no token, and renders the rows it receives. A response that is the same for every visitor can be stored with the runtime Cache API, and the function returns the stored response to later requests instead of rendering the page again.
+5. An API route that writes sends its statement to the query endpoint of the Azion API, with the personal token it reads from an environment variable, and the main instance applies the write. The Azion API answers the function: a statement that fails while it runs still answers `200`, with the error inside its entry, and statements the database cannot run at all answer `422`.
 6. When a read or a write fails, the function answers the error for that page or route, while requests for the build assets keep answering from the bucket.
+
+A page view runs the function, and reads the database unless a stored response answers it. The database therefore sits inside both the request flow and the failure flow, while the static assets depend on neither.
 
 ### Platform Resources
 

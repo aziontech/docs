@@ -39,31 +39,41 @@ Este caso de uso não cobre a varredura antivírus de arquivos armazenados nem a
 
 Esta página constrói o *pipeline de inspeção de uploads assistida por AI*: o firewall envia cada upload a uma função que pergunta a um modelo se ele é malicioso e aplica o veredito na mesma requisição.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  User["Usuário envia um arquivo"] --> List["regra 1: remetente em upload-senders?"]
-  List -->|"sim"| Deny1["403"]
-  List -->|"não"| Rule["regra 2: Request Uri começa com /upload"]
-  Rule --> Fn["função upload-inspection"]
-  Fn -->|"conteúdo do arquivo e prompt"| AI["modelo do AI Inference"]
-  AI -->|"true ou false"| Fn
-  Fn -->|"true"| Deny2["403 e uma linha de aviso"]
-  Fn -->|"false, ou uma imagem"| App["application"]
-  Deny2 -.->|"fonte de dados Functions"| DS["Data Stream para o SIEM"]
-  DS -.->|"endereço do remetente adicionado"| List
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam as linhas de veredito e a atualização da blocklist, que rodam separadas de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-Leia o diagrama a partir da função. As regras antes dela são decisões comuns de firewall, tomadas a partir do envelope da requisição: o endereço do remetente e a rota. A função é onde o design lê o próprio arquivo, e o veredito do modelo é a única dependência nova que o design adiciona ao caminho da requisição. Tudo depois da função decorre desse veredito, e o ciclo pontilhado pelo Data Stream transforma um arquivo malicioso em um bloqueio do seu remetente.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  User(["Usuário"])
+  List["firewall, regra 1: upload-senders"]
+  Fn["firewall, regra 2: upload-inspection"]
+  App["application"]
+  AI["modelo do AI Inference"]
+  DS["Data Stream"]
+  SIEM[["SIEM"]]
+  User -->|"1. arquivo para /upload"| List
+  List -->|"2. não listado"| Fn
+  Fn -->|"3, 4. passa"| App
+  Fn -->|"3. conteúdo"| AI
+  AI -.->|"3. true ou false"| Fn
+  App -.->|"4. resposta"| User
+  List -.->|"1. 403"| User
+  Fn -.->|"4. 403 quando true"| User
+  Fn ==>|"5. linhas"| DS
+  DS ==>|"5. linhas"| SIEM
+  SIEM ==>|"6. remetente adicionado"| List
+```
 
 ### Fluxo de dados
 
-1. Um usuário envia um arquivo para `/upload`. A primeira regra do firewall compara o endereço do usuário com `upload-senders`, e um remetente listado recebe `403` em todas as rotas.
+1. Um usuário envia um arquivo para `/upload`. A primeira regra do firewall compara o endereço do usuário com `upload-senders`, e um remetente listado recebe `403` do firewall em todas as rotas.
 2. A segunda regra executa a função `upload-inspection` em toda requisição para `/upload`.
 3. A função lê o corpo da requisição e o envia ao modelo por `Azion.AI.run`, com um prompt que pede `true` quando o conteúdo é malicioso. Um arquivo cujo `Content-Type` começa com `image/` segue sem chamada ao modelo.
-4. Quando o modelo responde `true`, a função grava uma linha de aviso e nega a requisição com `403`, antes que a aplicação a receba. Caso contrário, o upload segue para a aplicação.
+4. Quando o modelo responde `true`, a função grava uma linha de aviso e nega a requisição com `403`, que vai do firewall ao usuário antes que a aplicação receba o upload. Caso contrário, o upload segue para a aplicação, que responde ao usuário.
 5. Data Stream envia as linhas da função ao SIEM.
-6. O request ID de um veredito leva ao endereço do remetente, que é então adicionado a `upload-senders`, a lista que a primeira regra lê.
+6. O request ID de um veredito leva ao endereço do remetente, que o SIEM ou uma pessoa adiciona então a `upload-senders`, a lista que a primeira regra lê.
+
+As regras antes da função são decisões comuns de firewall, tomadas a partir do envelope da requisição: o endereço do remetente e a rota. A função é onde o design lê o próprio arquivo, e o veredito do modelo é a única dependência nova que o design adiciona ao caminho da requisição. Uma função configurada com `drop` não responderia nada, então essa recusa não teria seta.
 
 ### Recursos de Plataforma
 

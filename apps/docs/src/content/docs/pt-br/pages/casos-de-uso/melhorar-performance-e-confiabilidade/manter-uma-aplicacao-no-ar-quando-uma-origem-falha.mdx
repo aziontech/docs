@@ -38,28 +38,47 @@ Este caso de uso não cobre a replicação de dados entre as origens nem a perfo
 
 Esta página constrói o *Pool de origens ativo-passivo*: um connector que agrupa uma origem primária e uma de reserva, com a origem de reserva atendendo só quando a primária falha.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  User["Usuário"] -->|"Requisição HTTPS"| App["aplicação"]
-  App -->|"cópia em cache"| Cache["Cache"]
-  App -->|"Set Connector"| Pool["connector app-origin com Load Balancer"]
-  Pool -->|"função Primary: todas as requisições"| Primary["primary.example.com"]
-  Pool -->|"função Backup: só quando todas as primárias falham"| Standby["standby.example.com"]
-  Pool -->|"nenhuma origem responde: 502, 503 ou 504"| Pages["custom page set"]
-  Pages -->|"busca a página"| Errors["connector error-pages"]
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e a seta grossa leva as métricas, que rodam separadas de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-Leia o diagrama a partir da aplicação. O Cache responde o que já guarda, e todas as outras requisições chegam a um connector, que guarda as duas origens. Dentro do connector, a função de cada endereço decide quem atende: a primária na operação normal, a de reserva só depois que a primária falha. O custom page set fica no fim do caminho de falha, para o momento em que nenhuma das origens pode responder.
+```mermaid
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  User(["Usuário"])
+  App["aplicação"]
+  Cache["Cache"]
+  Pool["connector app-origin com Load Balancer"]
+  Primary[["primary.example.com"]]
+  Standby[["standby.example.com"]]
+  Pages["custom page set"]
+  Errors["connector error-pages"]
+  RTM["Real-Time Metrics"]
+  User -->|"1. requisição"| App
+  App -->|"1. consulta ao cache"| Cache
+  Cache -->|"2. miss, Set Connector"| Pool
+  Pool -->|"3. função Primary"| Primary
+  Pool -->|"4. função Backup"| Standby
+  Pages -->|"5. busca a página"| Errors
+  Cache -.->|"1. cópia em cache ou expirada"| App
+  Primary -.->|"3. resposta"| App
+  Standby -.->|"4. resposta"| App
+  Pool -.->|"1. a origem falhou"| Cache
+  Pool -.->|"5. 502 ou 504"| Pages
+  Errors -.->|"5. página, em cache"| Pages
+  Pages -.->|"5. página, como 503"| App
+  App -.->|"1, 3, 4, 5. resposta"| User
+  App ==>|"6. status codes"| RTM
+```
 
 ### Fluxo de dados
 
-1. A requisição de um usuário chega à aplicação, e uma cópia válida que o Cache guarda a responde sem chegar a nenhuma das origens.
+1. A requisição de um usuário chega à aplicação, e uma cópia válida que o Cache guarda a responde sem chegar a nenhuma das origens. Com **Stale cache** ativo, o Cache também responde com uma cópia expirada quando a origem retorna um erro `5xx` ou excede o tempo limite, e a resposta informa `STALE`.
 2. Qualquer outra requisição vai para o connector `app-origin` pela regra **Set Connector** da aplicação.
-3. Load Balancer envia a requisição para `primary.example.com`, o único endereço _Primary_. A origem de reserva não recebe nada enquanto a primária responde, então só uma origem grava dados por vez.
-4. Quando todos os endereços _Primary_ falham, o que é detectado a partir de conexões que falharam ou excederam o tempo limite, Load Balancer envia a requisição para `standby.example.com`, o endereço _Backup_. A troca para a origem de reserva não precisa de mudança de DNS.
-5. Quando nenhuma origem pode ser selecionada ou nenhuma responde a tempo, a Azion retorna `502`, `503` ou `504`, e o custom page set substitui essa resposta pela página que o connector `error-pages` serve, fora do pool.
-6. Real-Time Metrics conta os status codes do domínio e, por requisição, a origem que respondeu, enquanto o tráfego passa para a origem de reserva e volta.
+3. Load Balancer envia a requisição para `primary.example.com`, o único endereço _Primary_. A origem de reserva não recebe nada enquanto a primária responde, então só uma origem grava dados por vez. A resposta da primária volta ao usuário pela aplicação.
+4. Quando todos os endereços _Primary_ falham, o que é detectado a partir de conexões que falharam ou excederam o tempo limite, Load Balancer envia a requisição para `standby.example.com`, o endereço _Backup_. O usuário recebe a resposta da origem de reserva, e a troca para a origem de reserva não precisa de mudança de DNS.
+5. Quando nenhuma origem pode ser selecionada ou nenhuma responde a tempo, a Azion retorna `502` ou `504`. O custom page set substitui essa resposta pela página que o connector `error-pages` serve, fora do pool, e a Azion mantém a página em cache pelo TTL dela. O usuário recebe a página com o status `503`.
+6. Real-Time Metrics conta os status codes do domínio e, somadas por hora, as requisições que cada origem respondeu, enquanto o tráfego passa para a origem de reserva e volta.
+
+Toda resposta volta pela aplicação, que a entrega ao usuário.
 
 ### Recursos de Plataforma
 

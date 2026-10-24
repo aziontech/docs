@@ -36,29 +36,39 @@ Este caso de uso não cobre APIs que reagem a eventos em vez de chamadores, que 
 
 Esta página constrói a *API de serviço único sobre o SQL Database*: uma function implementa todos os endpoints e lê e grava um banco de dados no SQL Database.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Cliente da API"] -->|"Requisição HTTPS"| App["aplicação"]
-  App -->|"Rules Engine: Run Function"| Fn["function da API, todos os endpoints"]
-  Fn -->|"resposta compartilhável"| Cache["Cache"]
-  Fn -->|"leitura"| Replica["read replica do SQL Database"]
-  Fn -->|"gravação, pela Azion API"| Main["instância principal do SQL Database"]
-  Main -->|"copia os dados"| Replica
-  Fn -->|"sessão ou configuração, opcional"| KV["KV Store"]
-  App -->|"tempo de requisição e status codes"| RTM["Real-Time Metrics"]
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam a replicação e as métricas, que rodam separadas de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence. A aplicação não faz nada além de executar a function da API em toda requisição, então o diagrama desenha as duas como um único nó.
 
-Leia o diagrama da function para fora. Toda requisição que a aplicação recebe executa a mesma function, então a function é o único lugar que conhece todos os endpoints. A partir dela, os caminhos se dividem pelo que o endpoint faz: uma resposta que todo cliente pode compartilhar vai para o Cache, uma leitura vai para uma réplica do banco de dados e uma gravação vai para a instância principal. O KV Store fica ao lado do banco de dados para valores lidos por chave, como uma sessão, e o design funciona sem ele. O Real-Time Metrics lê o que a aplicação registra e não muda nada no caminho da requisição.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Cliente da API"])
+  RTM["Real-Time Metrics"]
+  App["aplicação: function da API"]
+  Cache["Cache"]
+  Main[("instância principal do SQL Database")]
+  Replica[("read replica do SQL Database")]
+  Client -->|"1. requisição"| App
+  App -->|"3, 6. Cache API"| Cache
+  App -->|"5. gravação, Azion API"| Main
+  App -->|"3, 4. leitura"| Replica
+  Cache -.->|"3. lista guardada"| App
+  Main -.->|"5. 200, entradas"| App
+  Replica -.->|"3, 4. linhas"| App
+  App -.->|"2, 3, 4, 5. resposta"| Client
+  Main ==>|"5. copia os dados"| Replica
+  App ==>|"1. métricas"| RTM
+```
 
 ### Fluxo de dados
 
-1. A requisição de um cliente chega ao workload no domínio da API, que a entrega à aplicação, e uma regra da aplicação executa a function da API.
+1. A requisição de um cliente chega ao workload no domínio da API, que a entrega à aplicação, e uma regra da aplicação executa a function da API. O Real-Time Metrics reporta as requisições por status code e o tempo médio delas.
 2. A function compara o método e o caminho. Um caminho fora de `/api/tasks` responde `404`.
-3. Um `GET` da lista de tarefas é respondido pela cópia que a function guardou no Cache. Quando não existe cópia, a function lê as linhas e guarda a nova resposta por 60 segundos.
+3. Um `GET` da lista de tarefas é respondido pela cópia que a function guardou no Cache. Quando não existe cópia, a function lê as linhas em uma read replica e guarda a nova resposta por 60 segundos.
 4. Um `GET` de uma tarefa abre uma conexão com uma read replica do banco de dados com `Database.open`, que recebe o nome do banco de dados e nenhum token, então os dados de que uma leitura precisa ficam dentro da Azion.
-5. Um `POST` ou um `DELETE` envia o statement ao endpoint de query do banco de dados na Azion API, com o personal token que a function lê de uma variável de ambiente, porque a instância principal é a única que aplica gravações. As réplicas passam a ter a mudança em seguida.
+5. Um `POST` ou um `DELETE` envia o statement ao endpoint de query do banco de dados na Azion API, com o personal token que a function lê de uma variável de ambiente, porque a instância principal é a única que aplica gravações. As réplicas passam a ter a mudança em seguida. O endpoint responde `200` mesmo quando um statement falha durante a execução, com `error` na entrada desse statement, e `422` quando não consegue executar os statements.
 6. Depois de uma gravação, a function apaga a resposta de lista guardada, para que a requisição de lista seguinte leia as linhas de novo.
+
+O Real-Time Metrics lê o que a aplicação registra e não muda nada no caminho da requisição.
 
 ### Recursos de Plataforma
 

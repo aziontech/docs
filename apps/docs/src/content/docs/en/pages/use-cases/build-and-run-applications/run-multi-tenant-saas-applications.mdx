@@ -40,31 +40,45 @@ This use case does not cover running code supplied by tenants.
 
 This page builds the *Pooled multi-tenant application*: every tenant hostname reaches the same workload and the same function, and isolation lives in the code and in the data keys.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Visitor["Tenant visitor"] -->|"HTTPS: tenant hostname"| Workload["workload: tenant domains"]
-  Cert["Certificate Manager: Let's Encrypt"] -->|"TLS certificate"| Workload
-  Workload --> App["application: Run Function on every path"]
-  App --> Fn["Functions: tenant resolution and logic"]
-  Fn -->|"key from the hostname"| KV["KV Store: tenant configuration"]
-  Fn -->|"tenant ID bound in the query"| SQL["SQL Database: tenant data"]
-  Fn -->|"entries keyed by the request"| Cache["Cache"]
-  Ops["onboarding"] -->|"rows, key, hostname"| SQL
-  Ops --> KV
-  Ops --> Workload
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the certificate and the onboarding writes, which run apart from any request. Each label starts with the number of the dataflow step it belongs to. The application and the `tenant-app` function are one node, because the application's rule does nothing but run that function on every path.
 
-Read the diagram from the visitor down. Every tenant reaches the same workload, application, and function, so nothing in the request path names a tenant until the function reads the hostname. From there, isolation is a chain of keys: the hostname selects the configuration in KV Store, the configuration carries the tenant ID, and the tenant ID is bound in every query to SQL Database. Onboarding, at the bottom, writes data and a domain, and it touches no code and no deployment.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true, "cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Visitor(["Tenant visitor"])
+  Cert["Certificate Manager"]
+  Ops[["onboarding"]]
+  Workload["workload: tenant domains"]
+  App["application: tenant-app"]
+  Cache["Cache"]
+  KV[("KV Store: tenant configuration")]
+  SQL[("SQL Database: tenant data")]
+  Visitor -->|"1. tenant hostname"| Workload
+  Workload -->|"2. every path"| App
+  App -->|"3. key from hostname"| KV
+  App -->|"4. tenant ID bound"| SQL
+  App -->|"5. Cache API"| Cache
+  KV -.->|"3. configuration"| App
+  SQL -.->|"4. tenant rows"| App
+  Cache -.->|"5. cached response"| App
+  App -.->|"3, 5. response"| Visitor
+  Cert ==>|"1. wildcard certificate"| Workload
+  Ops ==>|"6. rows"| SQL
+  Ops ==>|"6. key, admin PUT"| App
+  App ==>|"6. writes key"| KV
+  Ops ==>|"6. hostname"| Workload
+```
 
 ### Dataflow
 
 1. A visitor requests a tenant hostname, and the workload completes the TLS handshake with the wildcard certificate that Certificate Manager issued for it.
 2. The application's rule runs the `tenant-app` function on every path.
-3. The function reads the hostname of the request and looks up the key `tenant:<hostname>` in the `saas-tenants` namespace. A hostname with no key answers `404`.
+3. The function reads the hostname of the request and looks up the key `tenant:<hostname>` in the `saas-tenants` namespace. KV Store returns the tenant's configuration, and a hostname with no key answers `404`.
 4. The tenant's configuration carries its integer ID, and the function binds that ID in its query to `saas-data`, so the result holds only that tenant's rows.
-5. The function answers with the tenant's data. A cached response is keyed by the request, which carries the hostname, so it never answers another tenant.
-6. Onboarding a tenant writes its rows and its key, adds its hostname to the workload, and points the hostname at the workload. The tenant answers once the change propagates, with no deployment.
+5. The function answers with the tenant's data, and the application delivers the response to the visitor. A response the function stored with the Cache API is keyed by the request, which carries the hostname, so it never answers another tenant.
+6. Onboarding a tenant writes its rows, writes its key through the function's admin path, adds its hostname to the workload, and points the hostname at the workload. The tenant answers once the change propagates, with no deployment.
+
+Every tenant reaches the same workload, application, and function, so nothing in the request path names a tenant until the function reads the hostname. From there, isolation is a chain of keys: the hostname selects the configuration in KV Store, the configuration carries the tenant ID, and the tenant ID is bound in every query to SQL Database. Onboarding writes data and a domain, and it touches no code and no deployment. Its key reaches KV Store through the function, because only a function writes a key.
 
 ### Platform Resources
 

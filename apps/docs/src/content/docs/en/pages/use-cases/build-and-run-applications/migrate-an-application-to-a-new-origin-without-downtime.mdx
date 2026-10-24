@@ -38,30 +38,42 @@ This use case does not cover rewriting the application onto functions on Azion. 
 
 This page builds the *Weighted canary origin pool*: one connector groups the old and the new origin, and Load Balancer weights decide the share each one receives.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Visitor["Visitor"] -->|"HTTPS request"| App["application: Set Connector rule"]
-  App --> Conn["connector: origin group"]
-  Conn --> LB["Load Balancer: method and weights"]
-  LB -->|"larger share"| Old["old origin"]
-  LB -->|"smaller share, raised per step"| New["new origin"]
-  Old -->|"status and upstream address"| Obs["Real-Time Metrics and Real-Time Events"]
-  New -->|"status and upstream address"| Obs
-  Obs -->|"errors per origin"| Team["team decision"]
-  Team -->|"next weight, or new address off"| LB
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the control loop, which runs apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram as two loops. The request loop runs from the visitor through one rule to one connector, where Load Balancer picks an origin for each request. The control loop runs from the observations back to Load Balancer: the team reads the errors of each origin, then either raises the new origin's weight or turns its address off. Nothing in the request loop changes during the migration except the weights and the **Active** switch of each address, so the application, its rules, and DNS stay as they are.
+```mermaid
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Visitor(["Visitor"])
+  App["application: Set Connector rule"]
+  Conn["connector: origin group"]
+  LB["Load Balancer: method and weights"]
+  Old[["old origin"]]
+  New[["new origin"]]
+  Obs["Real-Time Metrics and Real-Time Events"]
+  Team[["team decision"]]
+  Visitor -->|"1. request"| App
+  App -->|"1. Set Connector"| Conn
+  Conn -->|"2. picks an address"| LB
+  LB -->|"2, 3. larger share"| Old
+  LB -->|"2, 3. smaller share"| New
+  Old -.->|"3. response"| App
+  New -.->|"3. response"| App
+  App -.->|"3. response"| Visitor
+  App ==>|"4. request records"| Obs
+  Obs ==>|"5. errors per origin"| Team
+  Team ==>|"5, 6. weight or Active"| LB
+```
 
 ### Dataflow
 
 1. A visitor's request reaches the workload on the site's domain, and the application's rule, with its _Set Connector_ behavior, sends it to the connector that holds both origins.
 2. Load Balancer picks one active address of the connector in proportion to its weight under _Round Robin_, or by the client IP address under _IP Hash_. Each data center balances on its own, so the split is a proportion, not an exact count.
-3. The connector sends the request to the chosen origin with the same `Host` header, path, and protocol for both addresses.
+3. The connector sends the request to the chosen origin with the same `Host` header, path, and protocol for both addresses. The response of that origin returns to the application, which delivers it to the visitor.
 4. Real-Time Metrics counts the requests per upstream address, and Real-Time Events records the address and the status of the origin that answered each request.
 5. While the new origin shows no new errors, the team raises its weight at the next step. When errors appear, the team turns the new address off, and every request returns to the old origin once the change reaches each data center.
 6. When the new origin carries the traffic with no new errors, the team turns the old address off, and every request reaches the new origin.
+
+Nothing in the request path changes during the migration except the weights and the **Active** switch of each address, so the application, its rules, and DNS stay as they are.
 
 ### Platform Resources
 
@@ -96,7 +108,7 @@ The weight schedule moves traffic in steps, and each step changes only the two w
 The weights of each step add up to 100, so each weight reads as a percentage. The schedule stops at `10` for the old origin, because a weight cannot be `0`. The last move to the new origin is a change to the **Active** switch, described in the next section.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
   Step["Hold the current step"] --> Check{"New errors on the new origin?"}
   Check -->|"No"| Last{"Step 4 reached?"}

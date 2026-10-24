@@ -37,29 +37,36 @@ This use case does not cover conversational assistants grounded in company conte
 
 This page builds the *Catalog-model inference API*: the model is used as AI Inference publishes it, behind a function your application calls.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  AppCode["Your application's code"] -->|"POST /api/summarize"| App["application rule on /api/summarize"]
-  App -->|"Run Function"| Fn["ai-summarize function"]
-  Fn -->|"invalid input: 400 or 413"| AppCode
-  Fn -->|"SHA-256 of the text"| Cache["Cache API"]
-  Cache -->|"hit: stored summary"| Fn
-  Fn -->|"miss: Azion.AI.run"| Model["AI Inference: Qwen3 30B A3B Instruct"]
-  Model -->|"summary"| Fn
-  Fn -->|"summary and cache status"| AppCode
-```
+Solid arrows carry the request, and dotted arrows carry the response. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram from the function outward. The arrows that reach the function come from a route of an application that already serves your traffic, so your application's code reaches the model through one more path on a domain it already calls. The arrows that leave the function are one execution: the function holds the request open while the model generates, and no arrow leads to an inference server, because the function names a model id and Azion runs the model. The model is used as published, so the design has no training step and no model version to choose beyond the id.
+```mermaid
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  AppCode(["Your application's code"])
+  App["application"]
+  Fn["ai-summarize function"]
+  Cache["Cache API"]
+  Model["AI Inference: Qwen3 30B A3B Instruct 2507 FP8"]
+  AppCode -->|"1. POST /api/summarize"| App
+  App -->|"1. Run Function"| Fn
+  Fn -->|"3, 5. lookup, store"| Cache
+  Fn -->|"4. miss: Azion.AI.run"| Model
+  Cache -.->|"3. stored summary"| Fn
+  Model -.->|"4. summary"| Fn
+  Fn -.->|"2. 400 or 413, 6. summary"| App
+  App -.->|"2, 6. response"| AppCode
+```
 
 ### Dataflow
 
 1. Your application's code sends `POST /api/summarize` with the text to summarize, and the application's rule runs the `ai-summarize` function. Every other path keeps its own rules.
-2. The function validates the body before any model call, and refuses a missing text with `400` and a text over 20,000 characters with `413`.
-3. The function hashes the text and looks the hash up in the cache. A match returns the stored summary with no model call.
-4. On a miss, the function sends the text to the catalog model with `Azion.AI.run`, with an instruction to summarize it, and AI Inference runs the model and returns the summary.
+2. The function validates the body before any model call, and refuses a missing text with `400` and a text over 20,000 characters with `413`. The refusal returns through the application to your application's code.
+3. The function hashes the text and looks the hash up in the cache. A match returns the stored summary to the function, with no model call.
+4. On a miss, the function sends the text to the catalog model with `Azion.AI.run`, with an instruction to summarize it, and AI Inference runs the model and returns the summary to the function.
 5. The function stores the summary in the cache under the hash, for one day.
-6. The function returns the summary and whether it came from the cache.
+6. The function returns the summary and whether it came from the cache, and the application delivers both to your application's code.
+
+The request comes from a route of an application that already serves your traffic, so your application's code reaches the model through one more path on a domain it already calls. The application's rule runs the function, and the arrows between the function, the Cache API, and AI Inference are one execution: the function holds the request open while the model generates. No arrow leads to an inference server, because the function names a model id and Azion runs the model. The model is used as published, so the design has no training step and no model version to choose beyond the id.
 
 ### Platform Resources
 

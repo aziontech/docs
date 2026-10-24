@@ -42,31 +42,41 @@ DDoS Protection mitigates DoS and DDoS attacks on every workload, with nothing t
 
 This page builds the *Compliance perimeter with security event retention*: encryption, filtering, and access restrictions in front of the application, and an export of every security event to a destination the team keeps.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Client"] -->|"HTTPS, certificate on the workload"| FW["firewall"]
-  FW -->|"country not served"| D1["403"]
-  FW -->|"/admin from outside the team network"| D2["403"]
-  FW -->|"attack pattern, Blocking"| D3["400"]
-  FW --> App["application: redirects HTTP to HTTPS"]
-  App --> Conn["connector"]
-  Conn --> Origin["origin"]
-  App -.->|"request and WAF records"| DS["Data Stream"]
-  DS --> Dest["SIEM or storage the team keeps"]
-  App -.->|"7 days"| RTE["Real-Time Events"]
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the evidence, which leaves apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram as two paths. The solid path is the request: encrypted on arrival, filtered by the firewall's rules, and delivered to the origin through the connector. The dotted path is the evidence: a record of every request, with its WAF decision, leaves for a destination the team keeps, while Real-Time Events holds a short window for review. An audit asks about both paths, and each control on the first has a record on the second.
+```mermaid
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Client"])
+  FW["firewall"]
+  App["application: redirects HTTP to HTTPS"]
+  Conn["connector"]
+  Origin[["origin"]]
+  DS["Data Stream"]
+  Dest[["SIEM or storage the team keeps"]]
+  RTE["Real-Time Events"]
+  Client -->|"1. HTTPS or HTTP request"| FW
+  FW -->|"4. passes"| App
+  App -->|"4. HTTPS request"| Conn
+  Conn -->|"4. fetch"| Origin
+  Origin -.->|"4. response"| App
+  App -.->|"4. redirect, or response"| Client
+  FW -.->|"2, 3. 403, 400 in Blocking"| Client
+  FW ==>|"5. request and WAF records"| DS
+  DS ==>|"5. kept for the audit period"| Dest
+  FW ==>|"6. records, 7 days"| RTE
+```
 
 ### Dataflow
 
 1. A client connects over HTTPS, and the workload presents the certificate that Certificate Manager holds for the domain. DDoS Protection assesses the traffic before any firewall rule runs.
-2. The firewall's rules deny, through Network Shield lists, a client whose country is not in the served list and a request to `/admin` from outside the team's network.
-3. WAF scores every request, and in _Blocking_ refuses one whose score reaches a family's threshold.
-4. A request that passes reaches the application, which redirects plain HTTP to HTTPS and forwards the request to the origin through the connector.
-5. Data Stream exports the record of every request, with its WAF variables, to the SIEM or the storage the team keeps for the period its standard requires.
+2. The firewall's rules deny, through Network Shield lists, a client whose country is not in the served list and a request to `/admin` from outside the team's network. Both receive `403` from the firewall.
+3. WAF scores every request, and in _Blocking_ refuses one whose score reaches a family's threshold. The refused request receives `400` from the firewall.
+4. A request that passes reaches the application, which redirects plain HTTP to HTTPS, so a plain HTTP request never reaches the connector. The application forwards an HTTPS request to the origin through the connector, and delivers the origin's response to the client.
+5. Data Stream exports the record of every request, with its WAF variables, to the SIEM or the storage the team keeps for the period its standard requires. Delivery is not guaranteed: while the destination is unavailable, Data Stream discards the lines of that interval, and Real-Time Events records each discarded batch with `503`.
 6. Real-Time Events keeps each record for 7 days, for the review of a recent incident.
+
+A refusal starts at the firewall and goes straight to the client, because the application never receives a refused request. The evidence leaves from the firewall, which every request crosses, refused requests included. An audit asks about both the request and the evidence, and each control on the request has a record in the evidence.
 
 ### Platform Resources
 

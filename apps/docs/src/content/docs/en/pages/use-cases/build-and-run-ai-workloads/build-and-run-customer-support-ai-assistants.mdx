@@ -39,31 +39,47 @@ This use case does not cover AI features that are not conversational. For those,
 
 This page builds the *Retrieval-augmented assistant on platform-hosted models*: the documents, the vectors, the retrieval, and both models stay on Azion.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Bucket["Object Storage bucket: support-docs"] -->|"document text"| Ingest["ingestion function on /admin/ingest"]
-  Ingest -->|"passages"| Embed["AI Inference: Qwen3 Embedding 4B"]
-  Embed -->|"vectors"| Ingest
-  Ingest -->|"INSERT through the Azion API"| DB["SQL Database: passages table and vector index"]
-  Customer["Customer"] -->|"POST /api/ask"| Assist["assistant function on /api/ask"]
-  Assist -->|"question"| Embed
-  Assist -->|"vector_top_k, read replica"| DB
-  Assist -->|"passages and question"| Chat["AI Inference: Qwen3 30B A3B Instruct"]
-  Chat -->|"answer with citations"| Assist
-  Assist -->|"answer and sources"| Customer
-```
+The diagram carries two flows that meet at the database. Solid arrows carry a customer's question, dotted arrows carry its answer, and thick arrows carry the ingestion flow, which runs apart from any question. Each label starts with the number of the dataflow step it belongs to.
 
-The diagram carries two flows that meet at the database. The ingestion flow, at the top, runs when a document changes: it turns a document into passages and vectors, and writes them to the `passages` table. The request flow runs on every question: the assistant function embeds the question, retrieves passages by vector distance, and asks the chat model to answer from them. Both models run on AI Inference, so neither flow leaves Azion. A failed model call ends inside the function, and the function decides what the customer receives.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true, "cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Customer(["Customer"])
+  Operator(["Operator"])
+  App["application"]
+  Assist["assistant function on /api/ask"]
+  Ingest["ingestion function on /admin/ingest"]
+  Embed["AI Inference: Qwen3 Embedding 4B"]
+  DB[("SQL Database: passages")]
+  Chat["AI Inference: Qwen3 30B A3B Instruct 2507 FP8"]
+  Bucket[("Object Storage bucket: support-docs")]
+  Customer -->|"3. POST /api/ask"| App
+  App -->|"3. Run Function"| Assist
+  Assist -->|"3. question"| Embed
+  Assist -->|"4. vector_top_k"| DB
+  Assist -->|"5. prompt"| Chat
+  Embed -.->|"3. vector"| Assist
+  DB -.->|"4. passages"| Assist
+  Chat -.->|"5. answer"| Assist
+  Assist -.->|"6. answer, sources"| App
+  App -.->|"6. answer, sources"| Customer
+  Operator ==>|"1. POST /admin/ingest"| App
+  App ==>|"1. Run Function"| Ingest
+  Ingest ==>|"1. read"| Bucket
+  Ingest ==>|"2. passages"| Embed
+  Ingest ==>|"2. INSERT"| DB
+```
 
 ### Dataflow
 
-1. An operator sends `POST /admin/ingest` with a document key, and the ingestion function reads that document from the `support-docs` bucket in Object Storage.
+1. An operator sends `POST /admin/ingest` with a document key. The application's rule runs the ingestion function, which reads that document from the `support-docs` bucket in Object Storage.
 2. The function splits the document into passages, embeds all of them in one call to the embedding model on AI Inference, and writes them to the `passages` table through the Azion API, because the runtime connection to a database is read-only.
-3. A customer sends a question to `POST /api/ask`. The application's rule runs the assistant function, which embeds the question with the same embedding model.
-4. The assistant function asks the vector index of `passages` for the four passages nearest to the question, through a read replica of the database.
-5. The function sends the passages, the earlier turns of the conversation, and the question to the chat model on AI Inference, which answers and cites the passages it used.
-6. The function returns the answer and the list of its sources to the customer. A model call that fails ends inside the function, so the failure flow stays inside Azion.
+3. A customer sends a question to `POST /api/ask`. The application's rule runs the assistant function, which embeds the question with the same embedding model, and the model returns the question's vector to the assistant function.
+4. The assistant function asks the vector index of `passages` for the four passages nearest to the question, through a read replica of the database, and the replica returns them.
+5. The function sends the passages, the earlier turns of the conversation, and the question to the chat model on AI Inference, which returns an answer that cites the passages it used.
+6. The function returns the answer and the list of its sources to the application, which delivers them to the customer. A model call that fails ends inside the function, so the failure flow stays inside Azion.
+
+The ingestion flow runs when a document changes: it turns a document into passages and vectors, and writes them to the `passages` table. Both models run on AI Inference, so neither flow leaves Azion.
 
 ### Platform Resources
 

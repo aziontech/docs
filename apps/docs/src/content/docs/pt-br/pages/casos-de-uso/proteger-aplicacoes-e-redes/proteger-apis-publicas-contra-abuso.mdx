@@ -44,34 +44,49 @@ Este caso de uso não cobre o design nem a gestão do ciclo de vida de APIs, nem
 
 Esta página constrói o *perímetro de segurança de APIs*: um firewall no workload da API que filtra cada requisição por regras, tokens, scores de bot e taxas antes que o connector a encaminhe à origem da API.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Cliente da API"] -->|"requisição a /v1/"| WAF["regra 1: WAF rule set"]
-  WAF -->|"padrão de ataque, Blocking"| R400["400"]
-  WAF --> JWT["regra 2: função JWT"]
-  JWT -->|"token inválido"| R401["400 ou 401"]
-  JWT --> Bot["regra 3: Bot Manager, modo API"]
-  Bot -->|"score no threshold"| R403["403"]
-  Bot --> RL["regra 4: rate limit por cliente"]
-  RL -->|"além do burst"| R429["429"]
-  RL --> App["application"]
-  App -->|"GET cacheável"| Cache["Cache"]
-  App --> Conn["connector"]
-  Cache -->|"miss"| Conn
-  Conn --> Origin["origem da API"]
-```
+As setas contínuas levam a requisição, e as setas pontilhadas levam a resposta. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-Leia o diagrama nas regras do firewall. A conexão já foi aceita quando uma requisição chega a elas, então cada verificação age sobre uma requisição, não sobre a identidade de um cliente: regras, um token, um score de bot e uma taxa. Cada verificação age pela regra que a chama, então a ordem das regras é a ordem das verificações. Só uma requisição que passa por todas chega à application, que responde as requisições GET seguras a partir do Cache e envia as demais à origem da API.
+```mermaid
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Cliente da API"])
+  WAF["firewall, regra 1: WAF rule set"]
+  JWT["firewall, regra 2: função JWT"]
+  Bot["firewall, regra 3: Bot Manager, modo API"]
+  RL["firewall, regra 4: rate limit por cliente"]
+  App["application"]
+  Cache["Cache"]
+  Conn["connector"]
+  Origin[["origem da API"]]
+  Client -->|"1, 2. requisição a /v1/"| WAF
+  WAF -->|"3. passa"| JWT
+  JWT -->|"4. token válido"| Bot
+  Bot -->|"5. passa"| RL
+  RL -->|"6. dentro da taxa"| App
+  App -->|"6. GET cacheável"| Cache
+  App -->|"6. outras requisições"| Conn
+  Cache -->|"6. miss"| Conn
+  Conn -->|"6. busca"| Origin
+  Origin -.->|"6. GET, armazenado"| Cache
+  Origin -.->|"6. resposta"| App
+  Cache -.->|"6. cópia em cache"| App
+  App -.->|"6. resposta"| Client
+  WAF -.->|"2. 400"| Client
+  JWT -.->|"3. 400 ou 401"| Client
+  Bot -.->|"4. 403 com deny"| Client
+  RL -.->|"5. 429 além do burst"| Client
+```
 
 ### Fluxo de dados
 
-1. A requisição de um cliente da API a `api.example.com/v1/` chega ao workload. DDoS Protection a avalia antes que qualquer regra de firewall rode, e o firewall vinculado ao workload roda então as suas regras em ordem.
-2. O WAF rule set pontua a requisição, incluindo o seu corpo JSON. Em _Blocking_, uma requisição cujo score atinge um threshold recebe `400`.
+1. A requisição de um cliente da API a `api.example.com/v1/` chega ao workload. DDoS Protection a avalia antes que qualquer regra de firewall rode, e o firewall vinculado ao workload roda então as suas regras em ordem. Uma regra que recusa a requisição responde ao cliente a partir do firewall, e nenhuma regra seguinte roda.
+2. O WAF rule set pontua a requisição, incluindo o seu corpo JSON, até 131.072 bytes. Em _Blocking_, uma requisição cujo score atinge um threshold recebe `400`, assim como uma requisição cujo corpo passa desse limite.
 3. A função JWT verifica o token que a requisição carrega no seu header `Authorization`. Uma requisição cujo token é inválido recebe `400` ou `401`.
 4. A instância do Bot Manager pontua o cliente em busca de automação. Quando a sua action é `deny`, um score no threshold recebe `403`.
 5. O rate limit conta as requisições de cada endereço IP de cliente, e uma requisição além do burst recebe `429`.
-6. Uma requisição que passa chega à application. Uma resposta GET cacheável vem do Cache, e toda outra requisição chega à origem da API pelo connector. Data Stream envia ao SIEM as requisições que o WAF analisou, e Real-Time Events guarda o registro de cada requisição, ligado a uma recusa pelo seu `x-azion-request-id`.
+6. Uma requisição que passa chega à application. Uma resposta GET cacheável vem do Cache. Em um miss, o connector a busca na origem da API, e o Cache a armazena no caminho de volta. Toda outra requisição chega à origem da API pelo connector. Toda resposta volta pela application, que a entrega ao cliente. Data Stream envia ao SIEM as requisições que o WAF analisou, e Real-Time Events guarda o registro de cada requisição, ligado a uma recusa pelo seu `x-azion-request-id`.
+
+A conexão já foi aceita quando uma requisição chega às regras do firewall, então cada verificação age sobre uma requisição, não sobre a identidade de um cliente: regras, um token, um score de bot e uma taxa. Cada verificação age pela regra que a chama, então a ordem das regras é a ordem das verificações. Cada recusa começa na regra que a decidiu e vai direto ao cliente, porque a application nunca recebe uma requisição recusada.
 
 ### Recursos de Plataforma
 

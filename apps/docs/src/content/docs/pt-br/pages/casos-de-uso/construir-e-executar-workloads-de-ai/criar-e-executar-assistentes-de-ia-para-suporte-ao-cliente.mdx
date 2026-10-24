@@ -39,31 +39,47 @@ Este caso de uso não cobre funcionalidades de IA que não são conversacionais.
 
 Esta página constrói o *Retrieval-augmented assistant on platform-hosted models*: os documentos, os vetores, a recuperação e os dois modelos ficam na Azion.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Bucket["Bucket do Object Storage: support-docs"] -->|"texto do documento"| Ingest["function de ingestão em /admin/ingest"]
-  Ingest -->|"trechos"| Embed["AI Inference: Qwen3 Embedding 4B"]
-  Embed -->|"vetores"| Ingest
-  Ingest -->|"INSERT pela API da Azion"| DB["SQL Database: tabela passages e índice vetorial"]
-  Customer["Cliente"] -->|"POST /api/ask"| Assist["function do assistente em /api/ask"]
-  Assist -->|"pergunta"| Embed
-  Assist -->|"vector_top_k, réplica de leitura"| DB
-  Assist -->|"trechos e pergunta"| Chat["AI Inference: Qwen3 30B A3B Instruct"]
-  Chat -->|"resposta com citações"| Assist
-  Assist -->|"resposta e fontes"| Customer
-```
+O diagrama tem dois fluxos que se encontram no banco de dados. As setas contínuas levam a pergunta de um cliente, as setas pontilhadas levam a resposta dela, e as setas grossas levam o fluxo de ingestão, que roda separado de qualquer pergunta. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-O diagrama tem dois fluxos que se encontram no banco de dados. O fluxo de ingestão, no topo, é executado quando um documento muda: ele transforma um documento em trechos e vetores e os grava na tabela `passages`. O fluxo de requisição é executado a cada pergunta: a function do assistente gera o embedding da pergunta, recupera trechos pela distância vetorial e pede ao modelo de chat que responda a partir deles. Os dois modelos são executados no AI Inference, então nenhum dos fluxos sai da Azion. Uma chamada ao modelo que falha termina dentro da function, e a function decide o que o cliente recebe.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true, "cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Customer(["Cliente"])
+  Operator(["Operador"])
+  App["aplicação"]
+  Assist["function do assistente em /api/ask"]
+  Ingest["function de ingestão em /admin/ingest"]
+  Embed["AI Inference: Qwen3 Embedding 4B"]
+  DB[("SQL Database: passages")]
+  Chat["AI Inference: Qwen3 30B A3B Instruct 2507 FP8"]
+  Bucket[("Bucket do Object Storage: support-docs")]
+  Customer -->|"3. POST /api/ask"| App
+  App -->|"3. Run Function"| Assist
+  Assist -->|"3. pergunta"| Embed
+  Assist -->|"4. vector_top_k"| DB
+  Assist -->|"5. prompt"| Chat
+  Embed -.->|"3. vetor"| Assist
+  DB -.->|"4. trechos"| Assist
+  Chat -.->|"5. resposta"| Assist
+  Assist -.->|"6. resposta, fontes"| App
+  App -.->|"6. resposta, fontes"| Customer
+  Operator ==>|"1. POST /admin/ingest"| App
+  App ==>|"1. Run Function"| Ingest
+  Ingest ==>|"1. leitura"| Bucket
+  Ingest ==>|"2. trechos"| Embed
+  Ingest ==>|"2. INSERT"| DB
+```
 
 ### Fluxo de dados
 
-1. Um operador envia `POST /admin/ingest` com a key de um documento, e a function de ingestão lê esse documento do bucket `support-docs` no Object Storage.
+1. Um operador envia `POST /admin/ingest` com a key de um documento. A regra da aplicação executa a function de ingestão, que lê esse documento do bucket `support-docs` no Object Storage.
 2. A function divide o documento em trechos, gera o embedding de todos eles em uma chamada ao modelo de embedding do AI Inference e os grava na tabela `passages` pela API da Azion, porque a conexão do runtime com um banco de dados é somente leitura.
-3. Um cliente envia uma pergunta para `POST /api/ask`. A regra da aplicação executa a function do assistente, que gera o embedding da pergunta com o mesmo modelo de embedding.
-4. A function do assistente pede ao índice vetorial de `passages` os quatro trechos mais próximos da pergunta, por uma réplica de leitura do banco de dados.
-5. A function envia os trechos, os turnos anteriores da conversa e a pergunta ao modelo de chat do AI Inference, que responde e cita os trechos que usou.
-6. A function retorna ao cliente a resposta e a lista das suas fontes. Uma chamada ao modelo que falha termina dentro da function, então o fluxo de falha fica dentro da Azion.
+3. Um cliente envia uma pergunta para `POST /api/ask`. A regra da aplicação executa a function do assistente, que gera o embedding da pergunta com o mesmo modelo de embedding, e o modelo retorna o vetor da pergunta à function do assistente.
+4. A function do assistente pede ao índice vetorial de `passages` os quatro trechos mais próximos da pergunta, por uma réplica de leitura do banco de dados, e a réplica os retorna.
+5. A function envia os trechos, os turnos anteriores da conversa e a pergunta ao modelo de chat do AI Inference, que retorna uma resposta que cita os trechos que usou.
+6. A function retorna a resposta e a lista das suas fontes à aplicação, que as entrega ao cliente. Uma chamada ao modelo que falha termina dentro da function, então o fluxo de falha fica dentro da Azion.
+
+O fluxo de ingestão é executado quando um documento muda: ele transforma um documento em trechos e vetores e os grava na tabela `passages`. Os dois modelos são executados no AI Inference, então nenhum dos fluxos sai da Azion.
 
 ### Recursos de Plataforma
 

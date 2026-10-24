@@ -41,32 +41,51 @@ This use case does not cover general API abuse, which [Protect public APIs from 
 
 This page builds the *Bot-scoring perimeter for authentication flows*: firewall rules that scope Bot Manager to the login, signup, and checkout paths, where the score decides whether a request passes, is challenged, or is denied.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Client"] --> ALTCHA["ALTCHA rule: verifies a solved challenge"]
-  ALTCHA --> WAF["WAF rule set on the three paths"]
-  WAF --> Path{"Path"}
-  Path -->|"/login or /signup"| Login["auth-login-challenge instance"]
-  Path -->|"/checkout"| Checkout["auth-checkout-deny instance"]
-  Path -->|"any other path"| App["application"]
-  Login -->|"score below threshold"| App
-  Login -->|"score at threshold"| Verify["redirect to /az-request-verify"]
-  Checkout -->|"score below threshold"| App
-  Checkout -->|"score at threshold"| Deny["403"]
-  App --> Origin["identity system or payment flow"]
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the report lines, which leave apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram at the path split. The firewall's rules hand only the three sensitive paths to WAF and Bot Manager, so every other page is served without a score. On `/login`, `/signup`, and `/checkout`, the score of the instance that path runs sends each request one of three ways: through to the application, to the ALTCHA challenge a person can solve, or to a refusal. One instance per kind of path lets each run its own threshold and action.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Client"])
+  ALTCHA["firewall: ALTCHA rule"]
+  WAF["firewall: WAF rule set"]
+  Login["firewall: Bot Manager, auth-login-challenge"]
+  Checkout["firewall: Bot Manager, auth-checkout-deny"]
+  App["application"]
+  Conn["connector"]
+  Origin[["identity system or payment flow"]]
+  DS["Data Stream"]
+  Team[["fraud team's tools"]]
+  Client -->|"1. request"| ALTCHA
+  ALTCHA -->|"2. passes"| WAF
+  WAF -->|"3. /login, /signup"| Login
+  WAF -->|"4. /checkout"| Checkout
+  WAF -->|"5. other paths"| App
+  Login -->|"5. below threshold"| App
+  Checkout -->|"5. below threshold"| App
+  App -->|"5. request"| Conn
+  Conn -->|"5. fetch"| Origin
+  Origin -.->|"5. response"| App
+  App -.->|"5. response"| Client
+  ALTCHA -.->|"3. challenge page"| Client
+  WAF -.->|"2. 400 in Blocking"| Client
+  Login -.->|"3. redirect"| Client
+  Checkout -.->|"4. 403"| Client
+  Login ==>|"6. report lines"| DS
+  Checkout ==>|"6. report lines"| DS
+  DS ==>|"6. report lines"| Team
+```
 
 ### Dataflow
 
 1. A request reaches the firewall bound to the workload. The ALTCHA rule runs first, so a client that already solved a challenge carries a session that ALTCHA validates.
-2. The WAF rule scores requests to the three paths for attack payloads, such as an injection in a form field.
-3. On `/login` and `/signup`, the `auth-login-challenge` instance scores the request. A score at its threshold redirects the client to the ALTCHA challenge. A person who solves it continues, and later requests pass without a new challenge.
-4. On `/checkout`, the `auth-checkout-deny` instance scores the request. A score at its threshold receives `403`, because a checkout request that a script sends has no person to answer a challenge.
-5. A request below the threshold reaches the application, and from it the identity system or the payment flow.
+2. The WAF rule scores requests to the three paths for attack payloads, such as an injection in a form field. In _Blocking_, a request whose score reaches a threshold receives `400` from the firewall. In _Logging_, where the rule starts, the same request continues, except one that internal rule 13 blocks for an invalid POST format.
+3. On `/login` and `/signup`, the `auth-login-challenge` instance scores the request. A score at its threshold receives a redirect to the ALTCHA challenge. The redirected request comes back through the firewall, where the ALTCHA rule answers with the challenge page. A person who solves it receives a session cookie and continues, and later requests pass without a new challenge.
+4. On `/checkout`, the `auth-checkout-deny` instance scores the request. A score at its threshold receives `403` from the firewall, because a checkout request that a script sends has no person to answer a challenge.
+5. A request below the threshold, or to any other path, reaches the application, which forwards it through the connector to the identity system or the payment flow. Their response returns through the application, which delivers it to the client.
 6. Each instance writes a report line per request, which Real-Time Events holds and Data Stream sends to the fraud team's tools.
+
+One instance per kind of path lets each run its own threshold and action. Every refusal, redirect, and challenge page starts at the firewall rule that gives it. It goes straight to the client, because the application never receives that request.
 
 ### Platform Resources
 

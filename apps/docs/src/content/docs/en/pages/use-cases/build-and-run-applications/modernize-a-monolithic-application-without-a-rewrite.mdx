@@ -37,29 +37,44 @@ This use case does not cover moving the whole application to a new origin in one
 
 This page builds the *Strangler façade for legacy applications*: an application on Azion becomes the single entry point for the domain, and each migrated path goes to a function while every other path goes to the monolith.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Client"] -->|"HTTPS request"| App["application"]
-  App -->|"Rules Engine: path not migrated"| Conn["connector"]
-  Conn --> Monolith["monolith"]
-  App -->|"Rules Engine: migrated path"| Fn["Functions: migrated route"]
-  Fn -->|"read"| SQL["SQL Database"]
-  Fn -->|"sessions and lookups"| KV["KV Store"]
-  Fn -->|"data still owned there"| Monolith
-  App --> Metrics["Real-Time Metrics: requests per path and upstream"]
-  Team["team: next route or rollback"] -->|"rule on or off"| App
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the request records and the team's rule changes, which run apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram from the application outward. Every request enters through the application, and its rules split the traffic by path: a path nobody moved goes through the connector to the monolith, and a migrated path goes to a function. The function keeps its state in SQL Database or KV Store, and it can still call the monolith for data the monolith owns. The control loop at the bottom is how routes move: the team turns a route's rule on to move it and off to roll it back, and Real-Time Metrics shows where each path is served.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Client"])
+  App["application"]
+  Conn["connector"]
+  Monolith[["monolith"]]
+  Fn["Functions: migrated route"]
+  SQL[("SQL Database")]
+  KV[("KV Store")]
+  Metrics["Real-Time Metrics"]
+  Team[["team"]]
+  Client -->|"1. request"| App
+  App -->|"2. path not migrated"| Conn
+  Conn -->|"2. fetch"| Monolith
+  App -->|"3. migrated path"| Fn
+  Fn -->|"4. read"| SQL
+  Fn -->|"4. sessions, lookups"| KV
+  Fn -->|"4. data it still owns"| Monolith
+  Monolith -.->|"2. response"| App
+  Monolith -.->|"4. API answer"| Fn
+  SQL -.->|"4. rows"| Fn
+  KV -.->|"4. values"| Fn
+  Fn -.->|"3, 4. JSON"| App
+  App -.->|"2, 3, 4. response"| Client
+  App ==>|"5. path, upstream"| Metrics
+  Team ==>|"6. rule on or off"| App
+```
 
 ### Dataflow
 
 1. A client's request reaches the workload on the domain, and the application runs its Request Phase rules in order, reading the path and the method of the request.
-2. The first rule matches every path and names the connector to the monolith, so a route nobody moved keeps reaching the monolith.
-3. A later rule matches `GET /api/stores` and runs the function instance, and the function's response is what the client receives.
-4. The function opens `stores-db` on its read replica, queries the `stores` table, and answers with JSON. A migrated route can also read sessions and lookups from KV Store, or call the monolith's API for a table the monolith still owns.
-5. Real-Time Metrics records the path and the upstream address of each request, where `127.0.0.1:1666` marks Azion Runtime and the monolith's address marks the routes it still serves.
+2. The first rule matches every path and names the connector to the monolith, so a route nobody moved keeps reaching the monolith. The monolith's response returns to the application, which delivers it to the client.
+3. A later rule matches `GET /api/stores` and runs the function instance, and the function's response is what the application delivers to the client.
+4. The function opens `stores-db` on its read replica, queries the `stores` table, and answers with JSON built from the rows it receives. A migrated route can also read sessions and lookups from KV Store, or call the monolith's API for a table the monolith still owns. That answer returns to the function, not to the client.
+5. Real-Time Metrics sums the requests by path and upstream address, by the hour, where `127.0.0.1:1666` marks Azion Runtime and the monolith's address marks the routes it still serves.
 6. The team moves the next route with a new rule. To roll a route back, the team turns its rule off, and the next requests to that path match only the first rule and reach the monolith.
 
 ### Platform Resources

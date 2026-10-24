@@ -38,31 +38,41 @@ This use case does not cover antivirus scanning of stored files, or general WAF 
 
 This page builds the *AI-assisted upload inspection pipeline*: the firewall sends each upload to a function that asks a model whether it is malicious, and applies the verdict in the same request.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  User["User uploads a file"] --> List["rule 1: sender in upload-senders?"]
-  List -->|"yes"| Deny1["403"]
-  List -->|"no"| Rule["rule 2: Request Uri starts with /upload"]
-  Rule --> Fn["upload-inspection function"]
-  Fn -->|"file content and prompt"| AI["AI Inference model"]
-  AI -->|"true or false"| Fn
-  Fn -->|"true"| Deny2["403, and a warning line"]
-  Fn -->|"false, or an image"| App["application"]
-  Deny2 -.->|"Functions data source"| DS["Data Stream to the SIEM"]
-  DS -.->|"sender address added"| List
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the verdict lines and the blocklist update, which run apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram at the function. The rules before it are ordinary firewall decisions, made from the request's envelope: the sender's address and the route. The function is where the design reads the file itself, and the model's verdict is the one new dependency the design adds to the request path. Everything after the function follows from that verdict, and the dotted loop through Data Stream turns one malicious file into a block on its sender.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  User(["User"])
+  List["firewall rule 1: deny upload-senders"]
+  Fn["firewall rule 2: runs upload-inspection"]
+  App["application"]
+  AI["AI Inference model"]
+  DS["Data Stream"]
+  SIEM[["SIEM"]]
+  User -->|"1. file to /upload"| List
+  List -->|"2. not listed"| Fn
+  Fn -->|"3, 4. passes"| App
+  Fn -->|"3. content"| AI
+  AI -.->|"3. true or false"| Fn
+  App -.->|"4. response"| User
+  List -.->|"1. 403"| User
+  Fn -.->|"4. 403 when true"| User
+  Fn ==>|"5. lines"| DS
+  DS ==>|"5. lines"| SIEM
+  SIEM ==>|"6. sender added"| List
+```
 
 ### Dataflow
 
-1. A user sends a file to `/upload`. The first firewall rule compares the user's address with `upload-senders`, and a listed sender receives `403` on every route.
+1. A user sends a file to `/upload`. The first firewall rule compares the user's address with `upload-senders`, and a listed sender receives `403` from the firewall on every route.
 2. The second rule runs the `upload-inspection` function on every request to `/upload`.
 3. The function reads the request body and sends it to the model through `Azion.AI.run`, with a prompt that asks for `true` when the content is malicious. A file whose `Content-Type` starts with `image/` continues without a model call.
-4. When the model answers `true`, the function writes a warning line and denies the request with `403`, before the application receives it. Otherwise the upload continues to the application.
+4. When the model answers `true`, the function writes a warning line and denies the request with `403`, which goes from the firewall to the user before the application receives the upload. Otherwise the upload continues to the application, which answers the user.
 5. Data Stream sends the function's lines to the SIEM.
-6. A verdict's request ID leads to the sender's address, which is then added to `upload-senders`, the list the first rule reads.
+6. A verdict's request ID leads to the sender's address, which the SIEM or a person then adds to `upload-senders`, the list the first rule reads.
+
+The rules before the function are ordinary firewall decisions, made from the request's envelope: the sender's address and the route. The function is where the design reads the file itself, and the model's verdict is the one new dependency the design adds to the request path. A function set to `drop` would answer nothing, so that refusal would have no arrow.
 
 ### Platform Resources
 

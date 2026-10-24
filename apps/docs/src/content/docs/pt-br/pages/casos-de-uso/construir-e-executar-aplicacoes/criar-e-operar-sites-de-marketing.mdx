@@ -36,29 +36,44 @@ Este caso de uso não cobre vitrines de e-commerce, que [Criar vitrines de e-com
 
 Esta página constrói o *Site estático orientado por Git*: cada push no repositório constrói o site, e uma aplicação serve os arquivos pré-construídos do Object Storage pelo Cache.
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Repo["Repositório Git"] -->|"push"| GH["Azion GitHub App"]
-  GH -->|"build, depois upload sob um novo prefixo"| Bucket["Bucket do Object Storage"]
-  Visitor["Visitante"] -->|"Requisição HTTPS"| App["aplicação"]
-  App -->|"página ou asset"| Cache["Cache"]
-  App -->|"caminho de imagem, uma opção de design"| IP["Image Processor"]
-  Cache -->|"miss"| Connector["connector para o bucket"]
-  IP --> Connector
-  Connector -->|"lê o prefixo atual"| Bucket
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam o fluxo de publicação e o purge, que rodam separados de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-O diagrama traz dois fluxos que só se encontram no bucket. O fluxo de publicação, no topo, vai do repositório pelo Azion GitHub App e só se move quando alguém faz um push. O fluxo de requisição vai do visitante pela aplicação, onde o Cache responde com a sua cópia e um miss lê um arquivo pré-construído do bucket. Nada no fluxo de requisição constrói ou renderiza uma página, então a requisição de um visitante nunca espera por um build.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Visitor(["Visitante"])
+  App["aplicação"]
+  Purge["Real-Time Purge"]
+  Cache["Cache"]
+  Connector["connector para o bucket"]
+  IP["Image Processor"]
+  Repo[["Repositório Git"]]
+  GH["Azion GitHub App"]
+  Bucket[("Bucket do Object Storage")]
+  Visitor -->|"3. requisição"| App
+  App -->|"4. página, 5. imagem"| Cache
+  Cache -->|"4, 5, 6. miss"| Connector
+  Connector -->|"4, 5, 6. prefixo atual"| Bucket
+  Bucket -.->|"4, 6. arquivo, armazenado"| Cache
+  Bucket -.->|"5. imagem original"| IP
+  IP -.->|"5. derivada, armazenada"| Cache
+  Cache -.->|"4, 5. cópia em cache"| App
+  App -.->|"4, 5. resposta"| Visitor
+  Repo ==>|"1. push"| GH
+  GH ==>|"2. upload, novo prefixo"| Bucket
+  Purge ==>|"6. purge por wildcard"| Cache
+```
 
 ### Fluxo de dados
 
 1. Um push no repositório conectado inicia um deploy, e o Azion GitHub App constrói o site com o preset de framework do projeto, Astro nesta página.
 2. O deploy envia o resultado do build para o bucket do Object Storage do projeto sob um novo prefixo de armazenamento e aponta o connector para esse prefixo. Os arquivos dos deploys anteriores continuam no bucket sob os seus próprios prefixos.
 3. A requisição de um visitante chega ao workload no domínio do site, que a entrega à aplicação, e as regras da aplicação aplicam a cache setting que o preset Astro gerou.
-4. O Cache responde com a sua cópia quando tem uma. Em um miss, a aplicação lê o arquivo pré-construído do bucket por meio do connector, e o Cache o guarda pelo Max Age dele.
-5. Quando o Image Processor está ativo, uma requisição de imagem é redimensionada ou convertida a partir do original no bucket, e o Cache guarda cada variação.
-6. Quando o deploy termina, um purge por wildcard remove do Cache todas as páginas do domínio, e a requisição seguinte por cada página lê o novo build do bucket.
+4. O Cache responde com a sua cópia quando tem uma. Em um miss, a aplicação lê o arquivo pré-construído do bucket por meio do connector, e o Cache o guarda pelo Max Age dele no caminho de volta.
+5. Quando o Image Processor está ativo, uma requisição de imagem vai primeiro para o Cache, que guarda cada variação. Em um miss, o connector lê o original no bucket, o Image Processor o redimensiona ou converte, e o Cache armazena a imagem derivada no caminho de volta.
+6. Quando o deploy termina, um purge por wildcard remove do Cache todas as páginas do domínio, e a requisição seguinte por cada página lê o novo build do bucket, que o Cache armazena no caminho de volta.
+
+Toda resposta volta pela aplicação, que a entrega ao visitante. Nada no fluxo de requisição constrói ou renderiza uma página, então a requisição de um visitante nunca espera por um build.
 
 ### Recursos de Plataforma
 
@@ -90,17 +105,21 @@ O site é um projeto Astro na raiz do repositório, importado no Azion Console p
 Um deploy envia o novo build sob um novo prefixo, e as páginas que já estão em cache mantêm o build antigo até o Max Age delas terminar. Um único purge por wildcard do domínio inteiro, enviado assim que o deploy termina, faz todas as páginas lerem o novo build. Um wildcard serve porque um build pode mudar qualquer página, e um purge por deploy fica muito abaixo das 2.000 requisições por wildcard que a Azion aceita em um intervalo de 24 horas. Envie-o assim que o deploy do push terminar: um purge enviado enquanto o deploy ainda roda pode preencher o cache de novo com o build antigo.
 
 ```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 sequenceDiagram
   participant Team as Time
   participant Azion as Deploy da Azion
+  participant Bucket as Bucket do Object Storage
   participant Cache as Cache
   participant Visitor as Visitante
   Team->>Azion: git push
+  Azion->>Bucket: Envia o novo build
   Azion-->>Team: Deploy concluído
   Team->>Cache: Purge por wildcard
   Visitor->>Cache: Requisição de página
-  Cache->>Azion: Miss, lê o novo build
+  Cache->>Bucket: Miss, lê o novo build
+  Bucket-->>Cache: Novo build, armazenado
+  Cache-->>Visitor: Nova página
 ```
 
 1. O time faz o push de uma mudança, e o deploy constrói e envia os novos arquivos.
