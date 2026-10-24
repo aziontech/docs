@@ -140,6 +140,12 @@ export default tseslint.config(
 		},
 	},
 
+	// A shared snippet is an MDX component: the page that imports it passes `props`.
+	{
+		files: ['apps/docs/src/includes/snippets/**/*.mdx'],
+		languageOptions: { globals: { props: 'readonly' } },
+	},
+
 	// The wrapper folder closes the transitive guarantee: MDX may import these wrappers,
 	// so the wrappers themselves may only reach vue, webkit and each other.
 	{
