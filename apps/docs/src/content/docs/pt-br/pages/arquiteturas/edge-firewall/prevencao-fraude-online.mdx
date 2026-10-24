@@ -15,23 +15,38 @@ Este design atende equipes de fraude e de segurança que protegem transações s
 
 ## Diagrama de arquitetura
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Cliente"] --> ALTCHA["regra ALTCHA: verifica um desafio resolvido"]
-  ALTCHA --> WAF["WAF rule set nos três caminhos"]
-  WAF --> Path{"Caminho"}
-  Path -->|"/login ou /signup"| Login["instância auth-login-challenge"]
-  Path -->|"/checkout"| Checkout["instância auth-checkout-deny"]
-  Path -->|"qualquer outro caminho"| App["application"]
-  Login -->|"score abaixo do threshold"| App
-  Login -->|"score no threshold"| Verify["redirecionamento para /az-request-verify"]
-  Checkout -->|"score abaixo do threshold"| App
-  Checkout -->|"score no threshold"| Deny["403"]
-  App --> Origin["sistema de identidade ou fluxo de pagamento"]
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam as linhas de report, que rodam separadas de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-O diagrama acompanha uma requisição pelo firewall até uma decisão. A regra ALTCHA e o WAF rule set rodam antes da divisão por caminho, então um desafio resolvido é validado antes de qualquer score. Depois da divisão, login e cadastro compartilham a instância `auth-login-challenge`, e o checkout executa `auth-checkout-deny`. Abaixo do seu threshold, uma instância deixa a requisição seguir para a application. No threshold, ela envia o cliente a um desafio ou responde `403`. As requisições a qualquer outro caminho chegam à application sem nenhum score.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Cliente"])
+  ALTCHA["firewall: regra ALTCHA"]
+  WAF["firewall: WAF rule set"]
+  Login["firewall: Bot Manager, auth-login-challenge"]
+  Checkout["firewall: Bot Manager, auth-checkout-deny"]
+  App["application"]
+  Origin[["sistema de identidade ou fluxo de pagamento"]]
+  DS["Data Stream"]
+  Team[["ferramentas e SIEM da equipe de fraude"]]
+  Client -->|"1. requisição"| ALTCHA
+  ALTCHA -->|"2. passa"| WAF
+  WAF -->|"3. /login, /signup"| Login
+  WAF -->|"4. /checkout"| Checkout
+  WAF -->|"5. outros caminhos"| App
+  Login -->|"5. abaixo do threshold"| App
+  Checkout -->|"5. abaixo do threshold"| App
+  App -->|"5. requisição"| Origin
+  Origin -.->|"5. resposta"| App
+  App -.->|"5. resposta"| Client
+  ALTCHA -.->|"3. página de desafio"| Client
+  WAF -.->|"2. 400 em Blocking"| Client
+  Login -.->|"3. redirecionamento"| Client
+  Checkout -.->|"4. 403"| Client
+  Login ==>|"6. linhas de report"| DS
+  Checkout ==>|"6. linhas de report"| DS
+  DS ==>|"6. linhas de report"| Team
+```
 
 ### Fluxo de dados
 
@@ -41,6 +56,10 @@ O diagrama acompanha uma requisição pelo firewall até uma decisão. A regra A
 4. Em `/checkout`, a instância `auth-checkout-deny` pontua a requisição, e no seu threshold o cliente recebe `403`. Um script que testa cartões não tem uma pessoa por trás para responder a um desafio.
 5. Uma requisição abaixo do threshold, ou em qualquer outro caminho, chega à application e, por meio dela, ao sistema de identidade ou ao fluxo de pagamento.
 6. Cada instância grava uma linha de report por requisição. [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/) guarda a linha, e Data Stream a envia às ferramentas e ao SIEM da equipe de fraude.
+
+A regra ALTCHA e o WAF rule set rodam antes da divisão por caminho, então um desafio resolvido é validado antes de qualquer score. Uma instância por tipo de caminho permite que cada uma execute o seu próprio threshold e a sua própria action, e as requisições a qualquer outro caminho chegam à application sem nenhum score.
+
+Toda recusa, todo redirecionamento e toda página de desafio saem da regra do firewall que os produz. Eles vão direto ao cliente, porque a application nunca recebe essa requisição.
 
 ## Componentes
 

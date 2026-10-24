@@ -15,26 +15,44 @@ This design serves teams whose APIs run on their own gateway, cloud, or data cen
 
 ## Architecture diagram
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["API client, anonymous or with a token"] --> DDoS["DDoS Protection"]
-  DDoS --> FW["firewall"]
-  FW -->|"Set WAF"| WAF["WAF rule set"]
-  FW -->|"Run Function"| Fn["token check function"]
-  FW -->|"Run Function"| BM["Bot Manager"]
-  FW -->|"Set Rate Limit"| RL["rate limit per client"]
-  FW -->|"no rule stops the request"| App["application"]
-  App -->|"safe GET"| Cache["Cache"]
-  App --> Conn["connector"]
-  Cache -->|"miss"| Conn
-  Conn --> Origin["API origin"]
-  FW -.->|"events"| DS["Data Stream"]
-  DS --> SIEM["SIEM"]
-  FW -.->|"request records"| RTE["Real-Time Events"]
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the WAF events, which run apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-Read the diagram at the firewall. The connection is already accepted when a request reaches it, so every check acts on a request, not on a client's identity: rules, a token, a bot score, and a rate. Each check acts through the rule that calls it, so the order of the rules is the order of the checks. Only a request that passes them all reaches the application, which answers safe GET requests from Cache and sends the rest to the API origin. The dotted edges carry records, not requests.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["API client"])
+  DDoS["DDoS Protection"]
+  WAF["firewall rule 1: WAF rule set"]
+  Fn["firewall rule 2: token check function"]
+  Bot["firewall rule 3: Bot Manager, API mode"]
+  RL["firewall rule 4: rate limit per client"]
+  App["application"]
+  Cache["Cache"]
+  Conn["connector"]
+  Origin[["API origin"]]
+  DS["Data Stream"]
+  SIEM[["SIEM"]]
+  Client -->|"1. request"| DDoS
+  DDoS -->|"1. assessed"| WAF
+  WAF -->|"3. passes"| Fn
+  Fn -->|"3. valid token"| Bot
+  Bot -->|"4. passes"| RL
+  RL -->|"5. within the rate"| App
+  App -->|"5. cacheable GET"| Cache
+  App -->|"5. other requests"| Conn
+  Cache -->|"5. miss"| Conn
+  Conn -->|"5. fetch"| Origin
+  Origin -.->|"5. GET, stored"| Cache
+  Origin -.->|"5. response"| App
+  Cache -.->|"5. cached copy"| App
+  App -.->|"5. response"| Client
+  WAF -.->|"2. 400 in Blocking"| Client
+  Fn -.->|"3. invalid token, refused"| Client
+  Bot -.->|"3. 403 with deny"| Client
+  RL -.->|"4. 429 beyond the burst"| Client
+  WAF ==>|"6. WAF Events"| DS
+  DS ==>|"6. WAF Events"| SIEM
+```
 
 ### Dataflow
 
@@ -44,6 +62,10 @@ Read the diagram at the firewall. The connection is already accepted when a requ
 4. A rule's _Set Rate Limit_ behavior counts the requests of each client IP address, and refuses requests beyond the burst with `429`.
 5. A request that no rule stops reaches the application. A cacheable GET response comes from Cache, and every other request reaches the API origin through the connector.
 6. Data Stream sends the requests WAF analyzed to the SIEM, and Real-Time Events holds the record of each request, joined to a refusal by its `x-azion-request-id`.
+
+The connection is already accepted when a request reaches the firewall rules, so every check acts on a request, not on a client's identity: rules, a token, a bot score, and a rate. Each check acts through the rule that calls it, so the order of the rules is the order of the checks.
+
+Each refusal starts at the rule that decided it and goes straight to the client, because the application never receives a refused request. Every other response returns through the application, which delivers it to the client.
 
 ## Components
 

@@ -16,26 +16,44 @@ Este design atende equipes cujas APIs rodam no próprio gateway, na própria nuv
 
 ## Diagrama de arquitetura
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Cliente da API, anônimo ou com um token"] --> DDoS["DDoS Protection"]
-  DDoS --> FW["firewall"]
-  FW -->|"Set WAF"| WAF["WAF rule set"]
-  FW -->|"Run Function"| Fn["função de verificação de token"]
-  FW -->|"Run Function"| BM["Bot Manager"]
-  FW -->|"Set Rate Limit"| RL["rate limit por cliente"]
-  FW -->|"nenhuma regra para a requisição"| App["application"]
-  App -->|"GET seguro"| Cache["Cache"]
-  App --> Conn["connector"]
-  Cache -->|"miss"| Conn
-  Conn --> Origin["origem da API"]
-  FW -.->|"eventos"| DS["Data Stream"]
-  DS --> SIEM["SIEM"]
-  FW -.->|"registros de requisições"| RTE["Real-Time Events"]
-```
+As setas contínuas levam a requisição, as setas pontilhadas levam a resposta, e as setas grossas levam os eventos do WAF, que rodam separados de qualquer requisição. Cada rótulo começa pelo número da etapa do fluxo de dados a que pertence.
 
-Leia o diagrama no firewall. A conexão já foi aceita quando uma requisição chega a ele, então cada verificação age sobre uma requisição, não sobre a identidade de um cliente: regras, um token, um score de bot e uma taxa. Cada verificação age pela regra que a chama, então a ordem das regras é a ordem das verificações. Só uma requisição que passa por todas chega à application, que responde as requisições GET seguras a partir do Cache e envia as demais à origem da API. As arestas pontilhadas carregam registros, não requisições.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Cliente da API"])
+  DDoS["DDoS Protection"]
+  WAF["firewall, regra 1: WAF rule set"]
+  Fn["firewall, regra 2: função de verificação de token"]
+  Bot["firewall, regra 3: Bot Manager, modo API"]
+  RL["firewall, regra 4: rate limit por cliente"]
+  App["application"]
+  Cache["Cache"]
+  Conn["connector"]
+  Origin[["origem da API"]]
+  DS["Data Stream"]
+  SIEM[["SIEM"]]
+  Client -->|"1. requisição"| DDoS
+  DDoS -->|"1. avaliada"| WAF
+  WAF -->|"3. passa"| Fn
+  Fn -->|"3. token válido"| Bot
+  Bot -->|"4. passa"| RL
+  RL -->|"5. dentro da taxa"| App
+  App -->|"5. GET cacheável"| Cache
+  App -->|"5. outras requisições"| Conn
+  Cache -->|"5. miss"| Conn
+  Conn -->|"5. busca"| Origin
+  Origin -.->|"5. GET, armazenado"| Cache
+  Origin -.->|"5. resposta"| App
+  Cache -.->|"5. cópia em cache"| App
+  App -.->|"5. resposta"| Client
+  WAF -.->|"2. 400 em Blocking"| Client
+  Fn -.->|"3. token inválido, recusada"| Client
+  Bot -.->|"3. 403 com deny"| Client
+  RL -.->|"4. 429 além do burst"| Client
+  WAF ==>|"6. WAF Events"| DS
+  DS ==>|"6. WAF Events"| SIEM
+```
 
 ### Fluxo de dados
 
@@ -45,6 +63,10 @@ Leia o diagrama no firewall. A conexão já foi aceita quando uma requisição c
 4. O behavior _Set Rate Limit_ de uma regra conta as requisições de cada endereço IP de cliente e recusa as requisições além do burst com `429`.
 5. Uma requisição que nenhuma regra para chega à application. Uma resposta GET cacheável vem do Cache, e toda outra requisição chega à origem da API pelo connector.
 6. Data Stream envia ao SIEM as requisições que WAF analisou, e Real-Time Events guarda o registro de cada requisição, ligado a uma recusa pelo seu `x-azion-request-id`.
+
+A conexão já foi aceita quando uma requisição chega às regras do firewall, então cada verificação age sobre uma requisição, não sobre a identidade de um cliente: regras, um token, um score de bot e uma taxa. Cada verificação age pela regra que a chama, então a ordem das regras é a ordem das verificações.
+
+Cada recusa começa na regra que a decidiu e vai direto ao cliente, porque a application nunca recebe uma requisição recusada. Toda outra resposta volta pela application, que a entrega ao cliente.
 
 ## Componentes
 

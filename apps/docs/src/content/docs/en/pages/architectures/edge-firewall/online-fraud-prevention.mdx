@@ -15,23 +15,38 @@ This design serves fraud and security teams that protect sensitive transactions 
 
 ## Architecture diagram
 
-```mermaid
-%%{init: {"layout": "dagre", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 12, "rankSpacing": 12, "padding": 6, "wrappingWidth": 70, "minNodeWidth": 40, "useMaxWidth": true}}}%%
-flowchart TD
-  Client["Client"] --> ALTCHA["ALTCHA rule: verifies a solved challenge"]
-  ALTCHA --> WAF["WAF rule set on the three paths"]
-  WAF --> Path{"Path"}
-  Path -->|"/login or /signup"| Login["auth-login-challenge instance"]
-  Path -->|"/checkout"| Checkout["auth-checkout-deny instance"]
-  Path -->|"any other path"| App["application"]
-  Login -->|"score below threshold"| App
-  Login -->|"score at threshold"| Verify["redirect to /az-request-verify"]
-  Checkout -->|"score below threshold"| App
-  Checkout -->|"score at threshold"| Deny["403"]
-  App --> Origin["identity system or payment flow"]
-```
+Solid arrows carry the request, dotted arrows carry the response, and thick arrows carry the report lines, which run apart from any request. Each label starts with the number of the dataflow step it belongs to.
 
-The diagram follows a request through the firewall to a decision. The ALTCHA rule and the WAF rule set run before the path split, so a solved challenge is validated before any score. After the split, login and signup share the `auth-login-challenge` instance, and checkout runs `auth-checkout-deny`. Below its threshold, an instance lets the request through to the application. At the threshold, it sends the client to a challenge or answers `403`. Requests to every other path reach the application with no score at all.
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Client"])
+  ALTCHA["firewall: ALTCHA rule"]
+  WAF["firewall: WAF rule set"]
+  Login["firewall: Bot Manager, auth-login-challenge"]
+  Checkout["firewall: Bot Manager, auth-checkout-deny"]
+  App["application"]
+  Origin[["identity system or payment flow"]]
+  DS["Data Stream"]
+  Team[["fraud team's tools and SIEM"]]
+  Client -->|"1. request"| ALTCHA
+  ALTCHA -->|"2. passes"| WAF
+  WAF -->|"3. /login, /signup"| Login
+  WAF -->|"4. /checkout"| Checkout
+  WAF -->|"5. other paths"| App
+  Login -->|"5. below threshold"| App
+  Checkout -->|"5. below threshold"| App
+  App -->|"5. request"| Origin
+  Origin -.->|"5. response"| App
+  App -.->|"5. response"| Client
+  ALTCHA -.->|"3. challenge page"| Client
+  WAF -.->|"2. 400 in Blocking"| Client
+  Login -.->|"3. redirect"| Client
+  Checkout -.->|"4. 403"| Client
+  Login ==>|"6. report lines"| DS
+  Checkout ==>|"6. report lines"| DS
+  DS ==>|"6. report lines"| Team
+```
 
 ### Dataflow
 
@@ -41,6 +56,10 @@ The diagram follows a request through the firewall to a decision. The ALTCHA rul
 4. On `/checkout`, the `auth-checkout-deny` instance scores the request, and at its threshold the client receives `403`. A script testing cards has no person behind it to answer a challenge.
 5. A request below the threshold, or on any other path, reaches the application, and through it the identity system or the payment flow.
 6. Each instance writes a report line per request. [Real-Time Events](/en/documentation/platform/real-time-events/) holds the line, and Data Stream sends it to the fraud team's tools and SIEM.
+
+The ALTCHA rule and the WAF rule set run before the path split, so a solved challenge is validated before any score. One instance per kind of path lets each run its own threshold and action, and requests to every other path reach the application with no score at all.
+
+Every refusal, redirect, and challenge page starts at the firewall rule that gives it. It goes straight to the client, because the application never receives that request.
 
 ## Components
 
