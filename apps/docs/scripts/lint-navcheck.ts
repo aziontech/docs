@@ -121,6 +121,8 @@ for (const tree of data.trees.values()) {
 					`tree "${tree.id}": row "${entry.nodeId}" is tagged with unknown product "${product}"`
 				);
 		}
+		if (entry.node.hidden && (!entry.node.page || entry.node.items?.length))
+			fail(`tree "${tree.id}": hidden row "${entry.nodeId}" must be a page with no children`);
 	}
 }
 

@@ -56,6 +56,8 @@ const baseNode = z.object({
 	kind: guideKind.optional(),
 	/** The catalog product this row stands for when it owns no tree: a Product nested as a dropdown row inside its Platform resource. */
 	product: segmentString.optional(),
+	/** The page stays located in this tree (sidebar, breadcrumb) but the row is not rendered: a page reached from its counterpart's notice, not from the menu. */
+	hidden: z.boolean().optional(),
 });
 
 export type NavNode = z.infer<typeof baseNode> & { items?: NavNode[] };
