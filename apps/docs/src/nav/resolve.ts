@@ -332,6 +332,12 @@ function toMenuNodes(
 		const label = nodeLabel(data, node, lang);
 		if (!label) return;
 
+		if (node.hidden) {
+			const href = nodeHref(data, node, lang, owner);
+			if (href && normalize(href) === ctx.activePath) ctx.expanded.push(...ancestors);
+			return;
+		}
+
 		const inlined = inlineTree(data, node);
 		const rows = inlined ? inlined.groups.flatMap((group) => group.items) : node.items;
 		const href = inlined ? undefined : nodeHref(data, node, lang, owner);
@@ -674,7 +680,8 @@ export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): Hu
 						},
 					];
 				}
-				if (!row.page || row.linkOnly || row.placeholder || row.page === hub.root) return [];
+				if (!row.page || row.linkOnly || row.placeholder || row.hidden || row.page === hub.root)
+					return [];
 				const href = pageHref(data, row.page, lang);
 				if (!href) return [];
 				return [
@@ -750,7 +757,10 @@ export function resolveNeighbours(
 	if (!tree) return {};
 
 	const leaves = walkTree(tree, lang)
-		.filter((entry) => entry.node.page && !entry.node.placeholder && !entry.node.linkOnly)
+		.filter(
+			(entry) =>
+				entry.node.page && !entry.node.placeholder && !entry.node.linkOnly && !entry.node.hidden
+		)
 		.map((entry) => ({
 			nodeId: entry.nodeId,
 			text: nodeLabel(data, entry.node, lang),
