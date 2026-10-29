@@ -17,9 +17,8 @@ function remarkAsides(): unified.Plugin<[], mdast.Root> {
 	const variants = new Set(['note', 'tip', 'caution', 'danger']);
 
 	const transformer: unified.Transformer<mdast.Root> = (tree) => {
-		// @ts-expect-error Possibly infinite type instantiation we can’t do anything about.
 		visit(tree, (node, index, parent) => {
-			if (!parent || index === null || node.type !== 'containerDirective') return;
+			if (!parent || index === undefined || node.type !== 'containerDirective') return;
 			const type = node.name;
 			if (!variants.has(type)) return;
 
@@ -27,7 +26,7 @@ function remarkAsides(): unified.Plugin<[], mdast.Root> {
 			// to the `title` prop and drop the paragraph.
 			let title: string | undefined;
 			remove(node, (child) => {
-				if (child.data?.directiveLabel) {
+				if ((child.data as { directiveLabel?: boolean } | undefined)?.directiveLabel) {
 					// `in` alone leaves `children` as `unknown`, so narrow to the text node.
 					const children = 'children' in child ? child.children : undefined;
 					const first = Array.isArray(children) ? children[0] : undefined;

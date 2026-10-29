@@ -1,4 +1,4 @@
-import type { BlockContent } from 'mdast';
+import type { BlockContent, DefinitionContent } from 'mdast';
 import type { MdxJsxAttribute, MdxJsxFlowElement } from 'mdast-util-mdx-jsx';
 
 interface NodeProps {
@@ -9,7 +9,7 @@ interface NodeProps {
 export function makeComponentNode(
 	name: string,
 	{ attributes = {} }: NodeProps = {},
-	...children: BlockContent[]
+	...children: Array<BlockContent | DefinitionContent>
 ): MdxJsxFlowElement {
 	return {
 		type: 'mdxJsxFlowElement',
