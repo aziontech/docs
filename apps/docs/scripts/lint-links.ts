@@ -150,22 +150,39 @@ for (const page of corpus) {
 }
 
 // Product spine: the overview links every page of its section, and every page links the overview.
+// A nested Product row with an Overview of its own is the overview of the pages in its dropdown.
 for (const tree of data.trees.values()) {
 	if (!tree.root || NON_PRODUCT_TREES.has(tree.id)) continue;
 	for (const lang of LANGS) {
 		const root = corpus.find((p) => p.lang === lang && p.namespace === tree.root);
 		if (!root) continue;
-		const rootLinks = new Set(links(readBody(root), lang).map((t) => t.namespace));
+		const owners = new Map<string, { namespace: string; name: string }>();
+		const ownerLinks = new Map<string, Set<string>>();
 		for (const entry of walkTree(tree, lang)) {
 			const { node } = entry;
+			const owner = entry.ancestors
+				.map((id) => owners.get(id))
+				.reverse()
+				.find(Boolean) ?? { namespace: tree.root, name: tree.id };
+			if (node.product && node.page && node.items?.length)
+				owners.set(entry.nodeId, {
+					namespace: node.page,
+					name: text(node.label, 'en') ?? node.page,
+				});
 			if (!node.page || node.linkOnly || node.placeholder || node.page === tree.root) continue;
 			if (text(node.label, 'en') === 'Guides and tutorials') continue;
 			const page = corpus.find((p) => p.lang === lang && p.namespace === node.page);
-			if (!page) continue;
-			if (!rootLinks.has(node.page))
-				spine.push(`${lang} ${root.file}: overview does not link "${node.page}"`);
-			const back = links(readBody(page), lang).some((t) => t.namespace === tree.root);
-			if (!back) spine.push(`${lang} ${page.file}: does not link the "${tree.id}" overview`);
+			const ownerPage = corpus.find((p) => p.lang === lang && p.namespace === owner.namespace);
+			if (!page || !ownerPage) continue;
+			if (!ownerLinks.has(owner.namespace))
+				ownerLinks.set(
+					owner.namespace,
+					new Set(links(readBody(ownerPage), lang).map((t) => t.namespace))
+				);
+			if (!ownerLinks.get(owner.namespace)?.has(node.page))
+				spine.push(`${lang} ${ownerPage.file}: overview does not link "${node.page}"`);
+			const back = links(readBody(page), lang).some((t) => t.namespace === owner.namespace);
+			if (!back) spine.push(`${lang} ${page.file}: does not link the "${owner.name}" overview`);
 		}
 	}
 }
