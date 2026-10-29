@@ -9,14 +9,18 @@
 		:aria-label="ariaLabel"
 	>
 		<MenuBack>{{ backText }}</MenuBack>
-		<MenuGroup v-if="flatBack">
-			<MenuItem
-				:label="flatBackText"
-				icon="pi pi-chevron-left"
-				:href="backHref"
-				@click="onFlatBack"
+		<a
+			v-if="flatBack"
+			:href="backHref"
+			class="mb-(--spacing-sm) flex h-8 w-fit max-w-full items-center gap-(--spacing-xxs) rounded-(--shape-elements) px-(--spacing-sm) text-(--text-default) transition-colors duration-fast-02 ease-productive-entrance hover:bg-(--bg-hover) motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--ring-color) focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--menu-ring-offset,var(--bg-canvas))]"
+			@click="onFlatBack"
+		>
+			<i
+				class="pi pi-chevron-left size-4 shrink-0 leading-none text-(--text-muted)"
+				aria-hidden="true"
 			/>
-		</MenuGroup>
+			<span class="min-w-0 truncate text-label-md">{{ flatBackText }}</span>
+		</a>
 
 		<MenuGroup
 			v-for="(group, index) in rootGroups"
@@ -63,7 +67,6 @@
 <script setup lang="ts">
 import MenuBack from '@aziontech/webkit/menu-back';
 import MenuGroup from '@aziontech/webkit/menu-group';
-import MenuItem from '@aziontech/webkit/menu-item';
 import MenuRoot from '@aziontech/webkit/menu-root';
 import MenuSub from '@aziontech/webkit/menu-sub';
 import MenuSubContent from '@aziontech/webkit/menu-sub-content';
