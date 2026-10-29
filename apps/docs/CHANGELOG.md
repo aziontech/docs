@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.3](https://github.com/aziontech/docs/compare/docs-v2.3.2...docs-v2.3.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* **platform:** correct the glossary facts and the scripted deploy path ([#2515](https://github.com/aziontech/docs/issues/2515)) ([deceb97](https://github.com/aziontech/docs/commit/deceb977cd7a67da0772a96976019910b449a95d))
+
 ## [2.3.2](https://github.com/aziontech/docs/compare/docs-v2.3.1...docs-v2.3.2) (2026-10-24)
 
 
