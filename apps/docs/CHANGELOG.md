@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.4](https://github.com/aziontech/docs/compare/docs-v2.3.3...docs-v2.3.4) (2026-10-29)
+
+
+### Documentation
+
+* **services:** describe Security Response Team from the Terms of Service scope ([#2463](https://github.com/aziontech/docs/issues/2463)) ([e5f916a](https://github.com/aziontech/docs/commit/e5f916a49eaf763d872fcdab619eb7af54a7136b))
+
 ## [2.3.3](https://github.com/aziontech/docs/compare/docs-v2.3.2...docs-v2.3.3) (2026-10-29)
 
 
