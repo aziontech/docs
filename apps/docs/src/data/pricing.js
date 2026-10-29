@@ -1,5 +1,5 @@
-// @ts-nocheck
 /* eslint-disable webkit/authoring-standards -- its comments moved verbatim from TablePricing.astro */
+// @ts-nocheck
 /** The rows `TablePricing.astro` renders, `{ tier, prices }` with prices in billing-column
  * order, fetched from the pricing API at build time. Shared with the page's Markdown twin;
  * the body is the component's former frontmatter, unchanged. */
