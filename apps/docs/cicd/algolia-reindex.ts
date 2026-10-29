@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import algoliasearch from 'algoliasearch';
-import StreamArray from 'stream-json/streamers/StreamArray';
+import streamArray from 'stream-json/streamers/stream-array.js';
 
 // Constants
 const MAX_RECORD_SIZE_BYTES = 100_000; // Algolia's limit is 100KB per record
@@ -85,7 +85,7 @@ async function uploadBatches(
 		let recordPosition = 0;
 		let skippedCount = 0;
 
-		const stream = fs.createReadStream(filepath).pipe(StreamArray.withParser());
+		const stream = fs.createReadStream(filepath).pipe(streamArray.withParserAsStream());
 
 		stream.on('data', ({ value }: { value: AlgoliaRecord }) => {
 			recordPosition++;

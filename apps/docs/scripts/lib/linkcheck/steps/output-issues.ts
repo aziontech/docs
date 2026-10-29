@@ -1,4 +1,4 @@
-import core from '@actions/core';
+import * as core from '@actions/core';
 import kleur from 'kleur';
 import { dedentMd, formatCount } from '../../output.mjs';
 import type { LinkCheckerState } from '../base/base';
