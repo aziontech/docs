@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.4.0](https://github.com/aziontech/docs/compare/docs-v2.3.4...docs-v2.4.0) (2026-10-30)
+
+
+### Features
+
+* **platform:** add Overview pages for the nested Products ([#2536](https://github.com/aziontech/docs/issues/2536)) ([3d7b2d0](https://github.com/aziontech/docs/commit/3d7b2d0ac3344acd68b226e6470578bdcf507782))
+
+
+### Documentation
+
+* **release-notes:** add release notes for Sep 3 and Sep 19, 2026 ([#2385](https://github.com/aziontech/docs/issues/2385)) ([39103de](https://github.com/aziontech/docs/commit/39103de6545c3197a4b03f6e14a025d1c25fe6e2))
+
 ## [2.3.4](https://github.com/aziontech/docs/compare/docs-v2.3.3...docs-v2.3.4) (2026-10-29)
 
 
