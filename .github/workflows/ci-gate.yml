@@ -43,7 +43,6 @@ jobs:
               - 'apps/docs/src/content/**'
               - 'apps/docs/src/i18n/**'
               - 'apps/docs/src/nav/**'
-              - 'apps/redirects-massive/src/redirects/**'
               - *gate
             platform:
               - 'apps/docs/src/**'
@@ -60,10 +59,9 @@ jobs:
               - 'pnpm-workspace.yaml'
               - *gate
             redirects:
-              - 'apps/redirects-massive/**'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'pnpm-workspace.yaml'
+              - 'apps/docs/redirects/**'
+              - 'apps/docs/cicd/massive-redirects/**'
+              - 'apps/docs/package.json'
               - *gate
 
   security:
@@ -153,29 +151,58 @@ jobs:
     needs: changes
     if: needs.changes.outputs.redirects == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
+        with:
+          install: 'false'
 
-      - name: Lint
-        run: pnpm --filter redirects-massive lint
-
-      - name: Typecheck
-        if: always()
-        run: pnpm --filter redirects-massive typecheck
-
+      # `pnpm --filter docs redirects:publish --dry-run` cannot run here: it needs AZION_TOKEN
+      # and AZION_APPLICATION_ID and reads the live function instances, and a pull request
+      # (from a fork above all) gets no secrets. This step applies the same offline rules the
+      # publish script checks before it writes anything, so a file it would refuse fails the PR
+      # instead of failing the publish after the merge.
       - name: Validate redirect data
-        if: always()
-        run: pnpm --filter redirects-massive validate
+        run: |
+          node --input-type=module <<'EOF'
+          import { readdirSync } from 'node:fs';
+          import { en, pt } from './apps/docs/redirects/index.js';
 
-      - name: Unit tests
-        if: always()
-        run: pnpm --filter redirects-massive test
+          const LIMIT_BYTES = 300 * 1024;
+          const errors = [];
 
-      - name: Integration tests
-        if: always()
-        run: pnpm --filter redirects-massive test:integration
+          for (const [lang, files] of Object.entries({ en, 'pt-br': pt })) {
+            // A file index.js does not load is never published.
+            const indexed = Object.keys(files).map((key) => `${key}.json`);
+            for (const name of readdirSync(`apps/docs/redirects/${lang}`)) {
+              if (name.endsWith('.json') && !indexed.includes(name))
+                errors.push(`${lang}/${name} is not loaded by apps/docs/redirects/index.js, so it is never published`);
+            }
+
+            for (const [key, entries] of Object.entries(files)) {
+              const file = `${lang}/${key}.json`;
+              if (!Array.isArray(entries) || entries.length === 0) {
+                errors.push(`${file}: expected a non-empty array of redirects`);
+                continue;
+              }
+              const bytes = Buffer.byteLength(JSON.stringify(entries));
+              if (bytes > LIMIT_BYTES)
+                errors.push(`${file} is ${(bytes / 1024).toFixed(1)} KB, over the 300 KB Massive Redirect limit`);
+              entries.forEach((entry, index) => {
+                const has = (field) => typeof entry?.[field] === 'string';
+                if (has('from') === has('from_regex'))
+                  errors.push(`${file}[${index}]: needs exactly one of "from" / "from_regex"`);
+                if (has('moved') === has('found'))
+                  errors.push(`${file}[${index}]: needs exactly one of "moved" / "found"`);
+              });
+              console.log(`ok    ${file}: ${entries.length} redirects, ${(bytes / 1024).toFixed(1)} KB`);
+            }
+          }
+
+          for (const error of errors) console.log(`::error::${error}`);
+          if (errors.length) process.exit(1);
+          EOF
 
   build:
     name: Build
