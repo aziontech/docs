@@ -2,8 +2,8 @@
 title: Docs as code
 description: >-
   Understand how the documentation ships: a public repository, an issue-first
-  review flow, and automated checks on every change.
-meta_tags: 'style guide, docs as code, repository, checks'
+  review flow, and automated checks on every pull request.
+meta_tags: 'style guide, docs as code, repository, checks, redirects'
 namespace: documentation_style_guide_hwd_docs_as_code
 permalink: /documentation/style-guide/how-we-docs/docs-as-code/
 ---
@@ -11,41 +11,110 @@ import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
 
-The documentation is a codebase. Every page is a file in a public repository, and every change is a pull request. Every pull request passes the same automated checks before it ships.
+The documentation is a codebase. Each page is a file in a public repository, and a change reaches the site as a pull request. Automated checks run on the pull request before it merges.
+
+The site ships in two languages: US English (EN) and Brazilian Portuguese (PT-BR). EN is the source, and PT-BR is its translation.
 
 ## One repository, one review
 
-The source lives at [aziontech/docs](https://github.com/aziontech/docs) on GitHub, open to external contributions. For significant changes, an issue comes before the pull request, so a maintainer can weigh in on the approach before the work starts. Minor fixes can go straight to a pull request.
+The source lives at [aziontech/docs](https://github.com/aziontech/docs) on GitHub, open to external contributions. For significant changes, an issue comes before the pull request, so a maintainer can weigh in on the approach before the work starts. A new page, a page that moves or is deleted, a permalink change, and a navigation restructure are significant. A typo, a broken link, or a formatting fix can go straight to a pull request.
 
-Two teams own the reviews: Developer Education gatekeeps the content, and UX Engineering gatekeeps the structure code. The issue templates on the repository route each request: report an error, request an addition, update content, or ask a question.
+Two teams review the changes. Developer Relations reviews and approves the content, and UX Engineering reviews and approves the structure code. The [issue templates](https://github.com/aziontech/docs/issues/new/choose) route each request: report an error, request an addition, update content, or ask a question.
 
-## The checks every change passes
+## The checks on a pull request
 
-The build gates a change four ways:
+The checks run in GitHub Actions on each pull request against `main`, in three workflows. The repository governance asks for all three to pass before a merge; the branch rules on `main` enforce Design system adoption, and reviewers hold the line on the other two.
 
-| Check | What it catches |
-| --- | --- |
-| Site build | A page that does not compile: a broken component, malformed MDX, an invalid import |
-| Frontmatter validator | A missing, malformed, or duplicated `namespace` or `permalink` |
-| Sidebar check | A menu entry pointing at a permalink that does not exist, and a page unreachable from any menu |
-| Link checker | An internal link whose target page does not exist |
+**CI gate** groups five jobs. A first job reads the diff and runs only the jobs whose paths the change touches, so not every pull request runs every check. The Build job runs on every pull request.
 
-A change that fails any of them does not merge.
+| Job | What runs | What it catches |
+| --- | --- | --- |
+| Security scans | A dependency audit, and TruffleHog over the diff | More high or critical vulnerabilities than the baseline, and verified secrets in the change |
+| Content integrity | `lint:navcheck`, and a translation slug check | A navigation row that points at an unknown page or tree, an EN page in no navigation row, and more PT-BR pages without an EN page of the same `namespace` than the baseline |
+| Code quality | ESLint, Prettier, and Stylelint on the files the pull request changes, and `astro check` | A lint or format error in a changed file, and more type errors than the baseline |
+| Redirects | A validation of the redirect files | A redirect file the publish step would reject: a malformed entry, a file over the size limit, or a file that never publishes |
+| Build | `astro build`, then `test:frontmatter` | A page that does not compile, and a `permalink` that is missing, malformed, or duplicated, or a duplicated `namespace` |
+
+**Internal links** builds the site and runs the link checker. The checker follows internal links only. It reports a link to a page or a fragment that does not exist, a link to a redirect page instead of the canonical URL, an absolute URL where a relative one belongs, and a link to a page in the other language. The vague-text check covers every link, internal or external: it reports link text such as "here" or "read more".
+
+**Design system adoption** runs the design system lint rules over the UI and the MDX content, and writes a report to the run summary.
+
+Five checks are ratchets: the dependency audit, the translation slug check, `astro check`, the link checker, and the design system check. Each one compares a count with its baseline in [`ci/baselines.json`](https://github.com/aziontech/docs/blob/main/ci/baselines.json) and fails only when the count exceeds the baseline. A pull request that lowers a count updates the baseline with `pnpm ci:ratchet <check> --update`. Every other check fails on any error.
+
+Run the checks locally before you open the pull request:
+
+```bash
+pnpm build:local                  # astro build + test:frontmatter
+pnpm lint:navcheck                # navigation tree
+pnpm ci:ratchet slugcheck         # translation slugs
+pnpm ci:ratchet linkcheck         # link checker, after pnpm build:local
+pnpm ci:ratchet astro-check       # type errors
+pnpm ci:ratchet webkit-adoption   # design system rules
+pnpm exec eslint <files>          # lint the files you changed
+pnpm exec prettier --check <files>
+```
 
 ## Redirects
 
-A permalink that changes or disappears ships its redirect in the same change. Redirect pairs are declared in the repository and applied by the platform layer that serves the site.
+A permalink that changes or disappears ships its redirect in the same pull request. Without the redirect, the old URL returns an error to every bookmark, search result, and external link that points at it.
+
+### Where redirects live
+
+Redirects live in four JSON files, two per language:
+
+- `apps/docs/redirects/en/00.json` and `apps/docs/redirects/en/01.json` for EN URLs
+- `apps/docs/redirects/pt-br/00.json` and `apps/docs/redirects/pt-br/01.json` for PT-BR URLs
+
+Each file is an array of objects. Each object pairs a full source URL with a full destination URL:
+
+```json
+{
+  "from": "https://www.azion.com/en/documentation/architectures/",
+  "moved": "https://www.azion.com/en/documentation/use-cases/"
+}
+```
+
+Each object carries exactly one source field and exactly one destination field:
+
+| Field | Meaning |
+| --- | --- |
+| `from` | The exact source URL |
+| `from_regex` | A regular expression that matches source URLs |
+| `moved` | The destination of a permanent redirect, HTTP 301 |
+| `found` | The destination of a temporary redirect, HTTP 302 |
+
+### Add a redirect
+
+1. Add the pair to the file of the page's language, in the same pull request that changes or removes the permalink. Add new pairs to the highest-numbered file of that language.
+2. Search the redirect files for the old URL as a destination. Point those entries at the new URL, so a reader never passes through a chain of redirects.
+3. Declare the change in the pull request, under URL changes and redirects in the [pull request template](https://github.com/aziontech/docs/blob/main/.github/PULL_REQUEST_TEMPLATE.md): the old URL, the new URL, and the redirects added.
+
+### How a redirect goes live
+
+Each redirect file is the argument list of one Massive 301 Redirect function instance on the Azion application that serves the site. `pnpm --filter docs redirects:publish` validates the four files, checks each target instance, and writes the files that changed to their instances. The `--dry-run` flag reports what would change and writes nothing. Both modes read the live instances, so both need the `AZION_TOKEN` and `AZION_APPLICATION_ID` environment variables.
+
+The production deploy workflow runs the publish step after each production deploy. A merge to `main` alone does not publish a redirect: the redirect goes live with the next production deploy.
+
+### When a file fills up
+
+A function instance accepts at most 300 KB of arguments, and the publish step rejects a file over that size. The Redirects job reports the size of each file. When a file nears the limit, start the next numbered file, such as `en/02.json`. The files do not map to instances automatically, so a new file is a platform change in three parts:
+
+1. Create a Massive Redirect function instance on the Azion application.
+2. Load the file in `apps/docs/redirects/index.js`.
+3. Add the file as a target in `apps/docs/cicd/massive-redirects/update-function-instances.mjs`, with the instance ID and name.
+
+The Redirects job fails on a file that `index.js` does not load, since that file never publishes.
 
 ## Metadata
 
-Every page carries the same five frontmatter fields, and two of them are contracts. The `permalink` is unique per language, and the `namespace` pairs the page with its translation. The full contract is in [File conventions](/en/documentation/style-guide/conventions/frontmatter/).
+Every page carries five frontmatter fields: `title`, `description`, `meta_tags`, `namespace`, and `permalink`. Two of them are contracts. The `permalink` is unique per language, and the `namespace` pairs the EN page with its PT-BR translation. The rules for each field are in [Frontmatter](/en/documentation/style-guide/conventions/frontmatter/).
 
 ## Related resources
 
 <FrameBox>
 <ItemList>
-  <DocItem title="File conventions" href="/en/documentation/style-guide/conventions/frontmatter/">The frontmatter contract the validator enforces.</DocItem>
+  <DocItem title="Frontmatter" href="/en/documentation/style-guide/conventions/frontmatter/">The five frontmatter fields and the rules the validator enforces.</DocItem>
   <DocItem title="Information architecture" href="/en/documentation/style-guide/content/information-architecture/">Where a page sits and how sections grow.</DocItem>
-  <DocItem title="Contributing on GitHub" href="https://github.com/aziontech/docs">The repository, the issue templates, and the review flow.</DocItem>
+  <DocItem title="Contributing on GitHub" href="https://github.com/aziontech/docs/blob/main/.github/CONTRIBUTING.md">How to open an issue, write a page, and open a pull request.</DocItem>
 </ItemList>
 </FrameBox>
