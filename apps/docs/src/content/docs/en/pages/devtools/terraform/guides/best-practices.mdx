@@ -13,7 +13,7 @@ import DocItem from '@aziontech/webkit/doc-item'
 
 A Terraform configuration describes infrastructure that several people and pipelines change over time. When its files follow one layout, its state lives in one shared place, and its token stays out of the repository, every run starts from the same picture of the account. Without that, two applies can write the same state at once, a token leaks with a commit, and a provider release reaches a configuration that never asked for it.
 
-These practices apply to configurations that use the [Azion Terraform Provider](/en/documentation/devtools/terraform/) v2.0, which works with Azion API v4 only.
+These practices apply to configurations that use the [Azion Terraform Provider](/en/documentation/devtools/terraform/) v2, which works with Azion API v4 only. The samples are written for provider 2.10.0.
 
 In order, the practices cover the file layout, resource names, the remote backend and its lock, the sensitive token variable, the `.gitignore` file, and the token in the environment. They then cover modules, the CI/CD pipeline, the provider version, outputs, references between resources, comments, and module README files.
 
@@ -55,19 +55,23 @@ To check it, confirm that each file holds only the blocks its name announces, su
 
 ## Name each resource for what it serves
 
-Terraform addresses a resource by its type and its local name, as in `azion_workload.api_gateway`, and `terraform state show` and every reference use that address. A local name such as `w1` tells nobody which workload it is. A local name such as `api_gateway`, with a `name` argument such as `api-gateway-prod`, says what the workload serves and in which environment. The cost is a naming convention that the team agrees on and keeps.
+Terraform addresses a resource by its type and its local name, as in `azion_workload.api_gateway`, and `terraform state show` and every reference use that address. A local name such as `w1` tells nobody which workload it is. A local name such as `api_gateway`, with a `name` such as `api-gateway-prod` in its `workload` block, says what the workload serves and in which environment. The cost is a naming convention that the team agrees on and keeps.
 
 The first block shows the name to avoid, and the second the name to use:
 
 ```hcl
 # Avoid: the names say nothing about the workload
 resource "azion_workload" "w1" {
-  name = "w1"
+  workload = {
+    name = "w1"
+  }
 }
 
 # Use: the names say what the workload serves and where
 resource "azion_workload" "api_gateway" {
-  name = "api-gateway-prod"
+  workload = {
+    name = "api-gateway-prod"
+  }
 }
 ```
 
@@ -175,16 +179,19 @@ variable "environment" {
 }
 
 resource "azion_workload" "this" {
-  name = "${var.name}-${var.environment}"
+  workload = {
+    name = "${var.name}-${var.environment}"
+  }
 }
 
 output "workload_id" {
-  value = azion_workload.this.id
+  value = azion_workload.this.workload.id
 }
 ```
 
 The root `main.tf` calls the module once per workload, with its own values:
 
+{/* terraform-validate: skip */}
 ```hcl
 # main.tf
 module "api_workload" {
@@ -252,7 +259,7 @@ terraform {
   required_providers {
     azion = {
       source  = "aziontech/azion"
-      version = "2.0.0"  # An exact version, not a range
+      version = "2.10.0" # An exact version, not a range
     }
   }
 }
@@ -260,7 +267,7 @@ terraform {
 
 The cost is that a later release arrives only when you edit the pin and run `terraform init -upgrade`.
 
-To check it, run `terraform init` and confirm that it installs `aziontech/azion` at version `2.0.0`.
+To check it, run `terraform init` and confirm that it installs `aziontech/azion` at version `2.10.0`.
 
 ---
 
@@ -268,21 +275,33 @@ To check it, run `terraform init` and confirm that it installs `aziontech/azion`
 
 An output publishes a value after `terraform apply`, so another configuration, a script, or a person reads a workload or application ID instead of looking it up. A `description` says what the value is to anyone who reads the outputs later. The cost is a stable contract: whatever reads an output breaks when you rename or remove it.
 
-The outputs below export the IDs of the workload and the application:
+The outputs below export the IDs of a workload and an application declared in the same configuration. Provider v2 returns each ID inside the resource's nested block, as `workload.id` and `application.application_id`:
 
 ```hcl
+resource "azion_workload" "main" {
+  workload = {
+    name = "main-workload"
+  }
+}
+
+resource "azion_application_main_setting" "main" {
+  application = {
+    name = "main-application"
+  }
+}
+
 output "workload_id" {
   description = "ID of the created workload"
-  value       = azion_workload.main.id
+  value       = azion_workload.main.workload.id
 }
 
 output "application_id" {
   description = "ID of the created application"
-  value       = azion_application_main_setting.main.id
+  value       = azion_application_main_setting.main.application.application_id
 }
 ```
 
-Inside a module, the same blocks go in its `outputs.tf`. For example, `modules/application/outputs.tf` exports `application_id` from `azion_application_main_setting.this.id` and `application_name` from `azion_application_main_setting.this.name`.
+Inside a module, the same blocks go in its `outputs.tf`. For example, `modules/application/outputs.tf` exports `application_id` from `azion_application_main_setting.this.application.application_id` and `application_name` from `azion_application_main_setting.this.application.name`.
 
 To check it, confirm that each output carries a `description` and reads a resource attribute, never a literal ID.
 
@@ -290,25 +309,56 @@ To check it, confirm that each output carries a `description` and reads a resour
 
 ## Reference resources instead of hardcoding IDs
 
-A reference such as `azion_application_main_setting.example.id` passes the ID that Terraform knows once it creates the application, and it makes Terraform create the application first. A hardcoded ID such as `"12345"` belongs to one account, breaks when the application is created again with another ID, and gives Terraform no order to follow. The cost is that the referenced resource must be in the same configuration, or be read through a data source.
+A reference such as `azion_application_main_setting.example.application.application_id` passes the ID that Terraform knows once it creates the application, and it makes Terraform create the application first. A hardcoded ID such as `12345` belongs to one account, breaks when the application is created again with another ID, and gives Terraform no order to follow. The cost is that the referenced resource must be in the same configuration, or be read through a data source.
 
-The first block shows the hardcoded ID to avoid, and the second the reference to use:
+The configuration below declares an application and one rule, held in a `locals` block, that two rules engine resources apply. The first resource shows the hardcoded ID to avoid, and the second the reference to use:
 
 ```hcl
+resource "azion_application_main_setting" "example" {
+  application = {
+    name = "my-application"
+  }
+}
+
+# The rule that both rules engine resources below apply
+locals {
+  deliver_rule = {
+    name      = "Deliver all requests"
+    phase     = "request"
+    behaviors = [{ behavior = { type = "deliver" } }]
+    criteria = [
+      {
+        entries = [
+          {
+            criterion = {
+              variable    = "$${uri}"
+              operator    = "starts_with"
+              conditional = "if"
+              argument    = "/"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+
 # Avoid: an ID copied from one account
-resource "azion_application_rule_engine" "example" {
-  application_id = "12345"
+resource "azion_application_rule_engine" "hardcoded" {
+  application_id = 12345
+  results        = local.deliver_rule
 }
 
 # Use: a reference that also sets the order
-resource "azion_application_rule_engine" "example" {
-  application_id = azion_application_main_setting.example.id
+resource "azion_application_rule_engine" "referenced" {
+  application_id = azion_application_main_setting.example.application.application_id
+  results        = local.deliver_rule
 }
 ```
 
-Because a reference already sets the order, a `depends_on` list that names the same resource repeats it. A deployment with `workload_id = azion_workload.main.id` needs no `depends_on = [azion_workload.main]`. For how references order resources, refer to [How the Terraform Provider works](/en/documentation/devtools/terraform/how-it-works/).
+Because a reference already sets the order, a `depends_on` list that names the same resource repeats it. A deployment with `workload_id = azion_workload.main.workload.id` needs no `depends_on = [azion_workload.main]`. For how references order resources, refer to [How the Terraform Provider works](/en/documentation/devtools/terraform/how-it-works/).
 
-To check it, search the configuration for quoted IDs in `_id` arguments, and replace each one with a reference or a data source.
+To check it, search the configuration for literal IDs in `_id` arguments, and replace each one with a reference or a data source.
 
 ---
 
@@ -322,7 +372,9 @@ The comment below says which API the workload serves and in which environment:
 # Workload for the main API
 # This workload manages the production API
 resource "azion_workload" "api" {
-  name = "api-prod"
+  workload = {
+    name = "api-prod"
+  }
 }
 ```
 
@@ -334,7 +386,7 @@ To check it, read each commented block after a change and confirm that the comme
 
 A `README.md` file in each module shows how to call it, which inputs it takes, and which outputs it returns. The person who calls the module then needs no look at its code. The cost is manual upkeep: update the README in the same change as the module's variables and outputs.
 
-The README below documents a workload module with one input and one output:
+The README below documents a workload module with two inputs and one output:
 
 ````markdown
 # Workload Module
@@ -343,8 +395,9 @@ The README below documents a workload module with one input and one output:
 
 ```hcl
 module "workload" {
-  source = "./modules/workload"
-  name   = "api"
+  source      = "./modules/workload"
+  name        = "api"
+  environment = "prod"
 }
 ```
 
@@ -353,6 +406,7 @@ module "workload" {
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
 | name | Workload name | string | n/a |
+| environment | Environment suffix of the workload name | string | n/a |
 
 ## Outputs
 
