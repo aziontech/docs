@@ -27,25 +27,45 @@ Esta página cobre os mecanismos, não os campos: cada campo está em [Configura
 
 Uma requisição alcança um workload pelo seu hostname, e o workload decide tudo o que acontece antes que a aplicação a veja. O hostname é o workload domain que a Azion gera ou um domínio seu listado no workload. A conexão, a verificação do certificado do cliente e o firewall pertencem ao workload e ao seu deployment, então a aplicação recebe apenas as requisições que passaram por eles.
 
-Este diagrama acompanha uma requisição, da consulta DNS até a resposta:
+Este diagrama acompanha uma requisição, da consulta DNS até a resposta. As setas contínuas levam a requisição, e as setas pontilhadas levam o que volta ao cliente. Cada rótulo começa com o número do passo a que pertence.
 
 ```mermaid
-%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  DNS["Consulta DNS"] --> Host["Workload"]
-  Host --> TLS["Handshake TLS"]
-  TLS --> MTLS["Verificação mTLS (opcional)"]
-  MTLS --> FW["Firewall (opcional)"]
-  FW --> App["Aplicação"]
-  App --> CP["Custom page (em erro)"]
+  Client(["Cliente"])
+  DNS[["DNS"]]
+  DDoS["DDoS Protection"]
+  WL["workload"]
+  FW["firewall"]
+  App["aplicação"]
+  Conn["connector"]
+  Origin[["origem"]]
+  CP["conjunto de custom pages"]
+  Client -->|"1. consulta do hostname"| DNS
+  DNS -.->|"1. data center mais próximo"| Client
+  Client -->|"2. tráfego"| DDoS
+  DDoS -->|"3. requisição e handshake TLS"| WL
+  WL -.->|"4. handshake recusado, mTLS enforce"| Client
+  WL -->|"5. o deployment nomeia um firewall"| FW
+  WL -->|"5. sem firewall"| App
+  FW -->|"5. permitida"| App
+  FW -.->|"5. bloqueada"| Client
+  App -->|"6. requisição"| Conn
+  Conn -->|"6. busca"| Origin
+  Origin -.->|"6. resposta"| Conn
+  Conn -.->|"6. resposta"| App
+  App -.->|"6. resposta"| Client
+  Conn -.->|"7. código de erro coberto"| CP
+  CP -.->|"7. custom page"| Client
 ```
 
 1. O cliente consulta o hostname. Para um domínio personalizado que aponta para o workload domain, o DNS retorna o endereço do data center mais próximo da infraestrutura distribuída da Azion.
-2. O cliente se conecta a esse data center, e o workload que lista o hostname recebe a requisição.
-3. O workload completa o handshake TLS com o seu certificado, a sua versão mínima de TLS e o seu conjunto de cifras. Com o mTLS ativado, ele também verifica o certificado do cliente.
-4. Quando o deployment nomeia um firewall, o firewall executa as suas regras sobre a requisição antes da aplicação.
-5. A aplicação do deployment trata a requisição e busca o conteúdo pelo seu connector.
-6. Quando o connector responde com um status code de erro que o conjunto de custom pages do deployment cobre, o cliente recebe a custom page no lugar dessa resposta.
+2. O cliente se conecta a esse data center. Ali, DDoS Protection inspeciona o tráfego antes que o workload o veja, e a Azion mitiga o tráfego que identifica como ataque.
+3. O workload que lista o hostname recebe a requisição. Ele completa o handshake TLS com o seu certificado, a sua versão mínima de TLS e o seu conjunto de cifras.
+4. Com o mTLS ativado, o workload também verifica o certificado do cliente. No modo `enforce`, um cliente sem um certificado que a CA confiável assinou não consegue completar o handshake.
+5. Quando o deployment nomeia um firewall, as regras dele avaliam a requisição antes da aplicação e podem bloqueá-la. Sem firewall, a requisição segue direto para a aplicação.
+6. A aplicação do deployment trata a requisição e busca o conteúdo pelo seu connector. A resposta volta pela aplicação até o cliente.
+7. Quando o connector responde com um status code de erro que o conjunto de custom pages do deployment cobre, o cliente recebe a custom page no lugar dessa resposta.
 
 Manter o ponto de entrada separado da aplicação permite que os hostnames e as configurações de TLS mudem sem alterar o código da aplicação. O preço é que o caminho de uma requisição depende de dois objetos. Um workload sem deployment propagado não tem aplicação para onde enviar a requisição, e uma aplicação não serve tráfego até que um deployment a vincule a um workload.
 
@@ -90,6 +110,28 @@ O TLS criptografa a conexão entre o cliente e o workload, e as configurações 
 ### O certificado
 
 O certificado vem de um de dois lugares possíveis. Com [`tls.certificate`](/pt-br/documentacao/plataforma/workloads/#estrutura-do-workload) definido como `null`, o workload usa o certificado SAN da Azion, que cobre o workload domain e o Azion Custom Domain. Para um domínio seu, você vincula um certificado de servidor do [Certificate Manager](/pt-br/documentacao/plataforma/workloads/#certificate-manager), e o certificado protege o tráfego HTTPS assim que o workload o usa. A API não compara os nomes do certificado com os domínios do workload, então aceita um certificado que não os cobre. Verifique os nomes antes de vincular um certificado.
+
+Este diagrama acompanha o certificado, do workload até a verificação do cliente. As setas contínuas levam o handshake do cliente, e as setas pontilhadas levam o certificado de volta. Cada rótulo começa com o número do passo a que pertence.
+
+```mermaid
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Cliente"])
+  WL["workload"]
+  SAN["certificado SAN da Azion"]
+  CM["Certificate Manager: certificado de servidor"]
+  Client -->|"1. o handshake nomeia o hostname"| WL
+  WL -->|"2. tls.certificate é null"| SAN
+  WL -->|"3. tls.certificate nomeia um certificado"| CM
+  SAN -.->|"2. certificado apresentado"| Client
+  CM -.->|"3. certificado apresentado"| Client
+  Client -->|"4. nomes batem: o handshake se completa; não batem: falha"| WL
+```
+
+1. O cliente abre o handshake TLS e nomeia o hostname que quer.
+2. Com `tls.certificate` definido como `null`, o workload apresenta o certificado SAN da Azion, que cobre o workload domain e o Azion Custom Domain.
+3. Com um certificado de servidor vinculado em `tls.certificate`, o workload apresenta esse certificado do Certificate Manager.
+4. O cliente verifica se os nomes do certificado cobrem o hostname que pediu. A API não os compara quando você vincula um certificado, então uma divergência só aparece aqui, como um handshake que falha.
 
 ### Versão mínima de TLS e conjunto de cifras
 
@@ -153,18 +195,20 @@ Um workload usa um certificado apenas depois que você o vincula. Um certificado
 
 Certificate Manager age durante o handshake TLS, antes que qualquer regra de firewall ou aplicação veja a requisição. Um certificado que nenhum workload nomeia não participa de nenhum handshake.
 
-Este diagrama acompanha um handshake, do hello do cliente até a requisição que continua:
+Este diagrama acompanha um handshake, do hello do cliente até a requisição que continua, com os certificados que Certificate Manager fornece. As setas contínuas levam o handshake e a requisição, e as setas pontilhadas levam o que volta ao cliente. Cada rótulo começa com o número do passo a que pertence.
 
 ```mermaid
-%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Hello["Client hello"] --> Server["Certificado de servidor"]
-  Server --> Mtls{"mTLS ativado?"}
-  Mtls -->|"Não"| Pass["A requisição continua"]
-  Mtls -->|"Sim"| Check["Verificação do certificado do cliente"]
-  Check -->|"Assinado pela CA confiável"| Pass
-  Check -->|"Ausente ou não confiável, enforce"| End["O handshake termina"]
-  Check -->|"Ausente ou não confiável, permissive"| Rules["As regras do firewall decidem"]
+  Client(["Cliente"])
+  WL["workload"]
+  CM["Certificate Manager"]
+  FW["firewall e aplicação"]
+  Client -->|"1, 4. TLS hello, depois o certificado de cliente"| WL
+  CM -->|"2, 4. certificado de servidor, CA confiável, CRLs"| WL
+  WL -.->|"2. certificado de servidor"| Client
+  WL -.->|"5. enforce, ausente ou não confiável: o handshake termina"| Client
+  WL -->|"3, 5. mTLS desativado, confiável ou permissive"| FW
 ```
 
 1. O cliente abre uma conexão TLS com um dos hostnames do workload e nomeia esse hostname por SNI.
@@ -189,15 +233,26 @@ Em um workload, [Custom Pages](/pt-br/documentacao/plataforma/workloads/#custom-
 
 Uma custom page age depois que a aplicação obteve uma resposta. Quando um cliente solicita um conteúdo, a aplicação envia a requisição à origem pelo seu connector, e o connector retorna um status code que diz se a requisição teve sucesso. Esse status code decide se uma página se aplica.
 
-Este diagrama acompanha uma resposta, do status code do connector até o que o cliente recebe:
+Este diagrama acompanha uma resposta, do status code do connector até o que o cliente recebe. As setas contínuas levam as requisições, e as setas pontilhadas levam as respostas. Cada rótulo começa com o número do passo a que pertence.
 
 ```mermaid
-%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Status["O connector retorna um status code"] --> Match{"Há página para o código?"}
-  Match -->|"Não"| Orig["Nenhuma custom page"]
-  Match -->|"Sim"| Fetch["Página buscada no connector dela"]
-  Fetch --> Resp["Página entregue com o custom_status_code"]
+  Client(["Cliente"])
+  App["aplicação"]
+  Conn["connector"]
+  Origin[["origem"]]
+  Set["conjunto de custom pages"]
+  PConn["connector da página"]
+  Client -->|"1. requisição"| App
+  App -->|"1. requisição"| Conn
+  Conn -->|"1. requisição"| Origin
+  Origin -.->|"1. status code"| Conn
+  Conn -.->|"2. busca o código"| Set
+  Set -.->|"2. sem página: resposta inalterada"| Client
+  Set -->|"3. página encontrada: busca o uri"| PConn
+  PConn -.->|"3. conteúdo, em cache pelo ttl"| Set
+  Set -.->|"4. página no lugar, sem redirecionamento"| Client
 ```
 
 1. A aplicação envia a requisição à origem pelo seu connector, e o connector responde com um status code.
@@ -223,14 +278,22 @@ DDoS Protection é uma funcionalidade da plataforma: a plataforma mitiga ataques
 
 DDoS Protection age na infraestrutura distribuída da Azion, antes do firewall do workload. Ele monitora continuamente o fluxo de rede inspecionando o tráfego de entrada, e avalia cada requisição em busca de um ataque DoS ou DDoS antes que qualquer regra de firewall seja executada.
 
-Este diagrama acompanha o tráfego de entrada, da sua chegada até o workload:
+Este diagrama acompanha o tráfego de entrada, da sua chegada até o workload. Cada rótulo começa com o número do passo a que pertence.
 
 ```mermaid
-%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"preset": "modelOrder", "keepEntryNodeOnTop": true}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  In["O tráfego chega à Azion"] --> Inspect["DDoS Protection inspeciona o fluxo"]
-  Inspect -->|"Ataque"| Mitigate["A Azion mitiga o ataque"]
-  Inspect -->|"Não é ataque"| Workload["Workload e o firewall dele"]
+  Clients(["Clientes"])
+  Infra["infraestrutura distribuída da Azion"]
+  DDoS["DDoS Protection"]
+  Mit["mitigação"]
+  WL["workload"]
+  FW["firewall"]
+  Clients -->|"1. tráfego de entrada"| Infra
+  Infra -->|"2. fluxo de rede"| DDoS
+  DDoS -->|"3. tráfego de ataque"| Mit
+  DDoS -->|"4. restante do tráfego"| WL
+  WL -->|"4. firewall do deployment"| FW
 ```
 
 1. O tráfego de qualquer workload alcança a infraestrutura distribuída da Azion.
