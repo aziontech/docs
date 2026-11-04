@@ -1,9 +1,9 @@
 <template>
-	<WkDocOnThisPage :items="items" :active-id="activeId" :title="labels.title" @select="onSelect" />
+	<DocOnThisPage :items="items" :active-id="activeId" :title="labels.title" @select="onSelect" />
 </template>
 
 <script setup lang="ts">
-import WkDocOnThisPage, { type DocTocItem } from '@aziontech/webkit/doc-on-this-page';
+import DocOnThisPage, { type DocTocItem } from '@aziontech/webkit/doc-on-this-page';
 import type { MarkdownHeading } from 'astro';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 

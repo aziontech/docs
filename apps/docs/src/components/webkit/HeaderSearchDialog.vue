@@ -1,12 +1,12 @@
 <template>
-	<CommandMenu v-model:open="open" shortcut="meta+k" @select="onSelect">
+	<CommandMenuRoot v-model:open="open" shortcut="meta+k" @select="onSelect">
 		<div @input="onQueryInput">
-			<CommandMenu.Input :placeholder="inputPlaceholder" />
+			<CommandMenuInput :placeholder="inputPlaceholder" />
 		</div>
 
-		<CommandMenu.List>
-			<CommandMenu.Group v-for="section in sections" :key="section.name" :heading="section.heading">
-				<CommandMenu.Item
+		<CommandMenuList>
+			<CommandMenuGroup v-for="section in sections" :key="section.name" :heading="section.heading">
+				<CommandMenuItem
 					v-for="hit in section.hits"
 					:key="`${query}:${hit.objectID}`"
 					:value="`doc:${hit.url}`"
@@ -16,20 +16,25 @@
 					</template>
 					<span class="truncate">{{ hit.title }}</span>
 					<span class="hidden">{{ query }}</span>
-				</CommandMenu.Item>
-			</CommandMenu.Group>
+				</CommandMenuItem>
+			</CommandMenuGroup>
 
-			<CommandMenu.Empty>
+			<CommandMenuEmpty>
 				{{ query.trim() ? noResultsText : typeToSearchText }}
-			</CommandMenu.Empty>
-		</CommandMenu.List>
-	</CommandMenu>
+			</CommandMenuEmpty>
+		</CommandMenuList>
+	</CommandMenuRoot>
 
 	<HeaderSearch label="Search" @click="open = true" />
 </template>
 
 <script setup lang="ts">
-import CommandMenu from '@aziontech/webkit/command-menu';
+import CommandMenuEmpty from '@aziontech/webkit/command-menu-empty';
+import CommandMenuGroup from '@aziontech/webkit/command-menu-group';
+import CommandMenuInput from '@aziontech/webkit/command-menu-input';
+import CommandMenuItem from '@aziontech/webkit/command-menu-item';
+import CommandMenuList from '@aziontech/webkit/command-menu-list';
+import CommandMenuRoot from '@aziontech/webkit/command-menu-root';
 import algoliasearch from 'algoliasearch/dist/algoliasearch-lite.esm.browser.js';
 import { ref, watch } from 'vue';
 import HeaderSearch from './HeaderSearch.vue';
