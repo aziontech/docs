@@ -18,7 +18,7 @@ export default UIDictionary({
 	'guides.topics': 'Tópicos',
 	'guides.kind.tutorial': 'Tutorial',
 	'guides.kind.howToGuide': 'Guia how-to',
-	'guides.kind.multiProductGuide': 'Guia multiproduto',
+	'guides.kind.multiProductGuide': 'Guia multirrecurso',
 	'guides.kind.useCase': 'Caso de uso',
 	'guides.kind.architecture': 'Arquitetura',
 	'guides.format.video': 'Vídeo',
