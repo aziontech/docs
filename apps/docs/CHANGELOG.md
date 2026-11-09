@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.3](https://github.com/aziontech/docs/compare/docs-v2.4.2...docs-v2.4.3) (2026-11-09)
+
+
+### Documentation
+
+* **applications:** review the Applications section and apply the updated writing rules ([#2615](https://github.com/aziontech/docs/issues/2615)) ([c1df92f](https://github.com/aziontech/docs/commit/c1df92f2885e5a4a17ded9eb44186a12203ebf35))
+
 ## [2.4.2](https://github.com/aziontech/docs/compare/docs-v2.4.1...docs-v2.4.2) (2026-11-09)
 
 
