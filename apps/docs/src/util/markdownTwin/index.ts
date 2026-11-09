@@ -52,7 +52,6 @@ const serializer = remark()
 			// Two lists in a row (cards, then related items) stay apart without an HTML comment.
 			bulletOther: '*',
 			bulletOrdered: '.',
-			bulletOrderedOther: ')',
 			emphasis: '*',
 			strong: '*',
 			fence: '`',
@@ -173,7 +172,7 @@ async function convert(
 				const [first, ...rest] = node.children ?? [];
 				const labelled = (first?.data as { directiveLabel?: boolean })?.directiveLabel;
 				const title = labelled ? plainText(first) : calloutTitle(options.lang, String(node.name));
-				return callout(title, await ctx.transform(labelled ? rest : node.children ?? []));
+				return callout(title, await ctx.transform(labelled ? rest : (node.children ?? [])));
 			}
 			case 'leafDirective':
 				return [paragraph([text(sourceOf(node, source))])];
