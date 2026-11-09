@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.2](https://github.com/aziontech/docs/compare/docs-v2.4.1...docs-v2.4.2) (2026-11-09)
+
+
+### Documentation
+
+* **style-guide:** align the guide with the shipped sections and settle its open rules ([#2600](https://github.com/aziontech/docs/issues/2600)) ([5ea57c0](https://github.com/aziontech/docs/commit/5ea57c0202d2d0023f288462a5c87fd1b453c5d4))
+
 ## [2.4.1](https://github.com/aziontech/docs/compare/docs-v2.4.0...docs-v2.4.1) (2026-11-04)
 
 

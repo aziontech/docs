@@ -36,7 +36,7 @@ pnpm build:local     # build + frontmatter validation (CI runs this too)
 pnpm lint:slugcheck  # permalink rules
 ```
 
-- Changed a permalink or moved a page? **Add the redirect in this PR**, in the highest-numbered file of `apps/docs/redirects/{en,pt-br}/`, and list it under **URL changes and redirects** in the PR description.
+- Changed a permalink or moved a page? **Add the redirect in this PR**, in the highest-numbered file of `apps/docs/redirects/{en,pt-br}/`, and list it on the redirect row of the PR checklist.
 - Can't update `pt-br` yourself? Create the follow-up `i18n` issue and link it in the PR checklist.
 
 ## The PR
