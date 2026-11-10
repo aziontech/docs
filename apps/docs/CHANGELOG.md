@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.4](https://github.com/aziontech/docs/compare/docs-v2.4.3...docs-v2.4.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* **applications:** apply live test results and define each resource by its role ([#2626](https://github.com/aziontech/docs/issues/2626)) ([1f841e4](https://github.com/aziontech/docs/commit/1f841e408508ef9bf9f5be03f32d17416477199e))
+
 ## [2.4.3](https://github.com/aziontech/docs/compare/docs-v2.4.2...docs-v2.4.3) (2026-11-09)
 
 
