@@ -64,14 +64,15 @@ The tags are the current names of the Platform Resources and products, plus the 
 notes report on. Older entries keep the names of their time.
 
 - **Platform Resources and channels:** Azion API, Azion CLI, Azion Console, Azion MCP servers,
-  Terraform Provider, DevTools & Integrations, Marketplace, GraphQL API, Applications, Firewall,
-  Connectors, Workloads, Certificate Manager, Custom Pages, Real-Time Purge, Copilot.
+  Terraform Provider, DevTools & Integrations, Marketplace, GraphQL API, Real-Time Metrics,
+  Applications, Firewall, Connectors, Workloads, Certificate Manager, Custom Pages, Real-Time Purge,
+  Copilot.
 - **Build:** AI Inference, Application Accelerator, Cache, Durable Objects, Functions, Image
   Processor, Live Ingest, LoRA Fine-Tune, Orchestrator.
 - **Store:** KV Store, Object Storage, SQL Database.
 - **Secure:** AI Gateway, Bot Manager, Edge DNS, Load Balancer, Network Shield, Origin Shield, Secure
   Internet Access, WAF.
-- **Observe:** Data Stream, Edge Pulse, Real-Time Events, Real-Time Metrics.
+- **Observe:** Data Stream, Edge Pulse, Real-Time Events.
 
 A release that needs a new tag adds it to this list and to `TAGS` in
 `apps/docs/scripts/lint-changelog.mjs` in the same PR.

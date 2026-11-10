@@ -72,6 +72,7 @@ const TAGS = new Set([
 	'Custom Pages',
 	'Real-Time Purge',
 	'Copilot',
+	'Real-Time Metrics',
 	// Build
 	'AI Inference',
 	'Application Accelerator',
@@ -99,7 +100,6 @@ const TAGS = new Set([
 	'Data Stream',
 	'Edge Pulse',
 	'Real-Time Events',
-	'Real-Time Metrics',
 ]);
 
 /** Tags the pages have used, and earlier names, mapped to the tag that replaces them. */
