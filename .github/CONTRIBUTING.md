@@ -35,6 +35,7 @@ pnpm dev                         # local preview
 pnpm build:local     # build + frontmatter validation (CI runs this too)
 pnpm lint:slugcheck  # permalink rules
 pnpm lint:changelog  # release notes entries (see below)
+pnpm lint:codeblocks <files>  # code samples parse (see below)
 ```
 
 - Changed a permalink or moved a page? **Add the redirect in this PR**, in the highest-numbered file of `apps/docs/redirects/{en,pt-br}/`, and list it on the redirect row of the PR checklist.
@@ -81,6 +82,25 @@ A release that needs a new tag adds it to this list and to `TAGS` in
 On a PR that changes a changelog page, the **Changelog entries** check runs the same script over the
 pages the PR changes and annotates each finding on its line. It does not block the merge: you decide
 whether to fix the entry there.
+
+### Code samples
+
+Readers paste samples into the Console, a terminal, or a function, so a sample has to parse:
+a `json` block is JSON, a JavaScript or TypeScript block has no syntax errors, and the JSON body of
+a `curl --data` is JSON. `pnpm lint:codeblocks <files>` checks the pages you pass it, and every page
+when you pass none. It accepts the conventions the docs use on purpose:
+
+- a bare `<placeholder>` where a value goes, such as `"id": <rule-id>`;
+- `...` or `…` for members, elements, or statements left out;
+- a fragment: object members without their braces, or the body of a class or interface;
+- `diff` in the fence meta (` ```javascript diff `), which checks the removed and the added side;
+- `jsonc` for JSON that allows comments and trailing commas, and `jsonl` for one value per line.
+
+A block that is partial on purpose, such as a function split across two steps, takes `nolint` in its
+fence meta (` ```typescript nolint `). Nothing renders the meta.
+
+On a PR, the **Code blocks** check runs the same script over the pages the PR changes and annotates
+each finding on its line. It does not block the merge: you decide whether to fix the sample there.
 
 ## The PR
 

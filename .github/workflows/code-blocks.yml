@@ -1,0 +1,63 @@
+# Checks the code samples on the pages a PR changes: JSON blocks parse, JavaScript and TypeScript
+# blocks have no syntax errors, and the JSON body of a `curl --data` parses. See
+# apps/docs/scripts/lint-codeblocks.mjs for what counts and which conventions it accepts.
+#
+# Advisory on purpose. A finding turns this check red and annotates the lines, but the check is not
+# a required status check and must not become one: the PR author decides whether to fix it. It is a
+# workflow of its own, outside the CI gate, for that reason.
+name: Code blocks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-blocks:
+    name: Code blocks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # On a PR, only the pages it changes: a finding then belongs to what the author touched, not to
+      # debt the PR did not create. A manual run checks every page.
+      - name: Collect changed pages
+        id: pages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # The diff goes to a file first: a failed diff must fail the step, not read as "no page
+        # changed". Only grep's "no match" is tolerated.
+        run: |
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" > changed.txt
+          grep -E '^apps/docs/src/(content|includes)/.*\.mdx?$' changed.txt > changed-pages.txt || true
+          count=$(wc -l < changed-pages.txt | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" = 0 ]; then
+            echo "No page changed in this PR, so there are no code blocks to check." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: ./.github/actions/setup
+        if: github.event_name != 'pull_request' || steps.pages.outputs.count != '0'
+
+      - name: Lint the code blocks
+        if: github.event_name != 'pull_request' || steps.pages.outputs.count != '0'
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            tr '\n' '\0' < changed-pages.txt | xargs -0 node apps/docs/scripts/lint-codeblocks.mjs
+          else
+            node apps/docs/scripts/lint-codeblocks.mjs
+          fi
