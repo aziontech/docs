@@ -11,7 +11,7 @@ import remarkMdx from 'remark-mdx';
 
 import type { Lang } from '../../data/docs-home/types';
 
-import { callout, calloutTitle, handlers, type Context, type TwinData } from './handlers';
+import { callout, calloutTitle, handlers, linkList, type Context, type TwinData } from './handlers';
 import {
 	asBlocks,
 	childElements,
@@ -215,6 +215,8 @@ async function convert(
 /** The page body as plain Markdown, without the title line (the route writes it). */
 export async function mdxToMarkdown(body: string, options: TwinOptions): Promise<string> {
 	const children = await convert(body.replace(FRONTMATTER, ''), options, new Map());
+	const hub = options.data?.hub;
+	if (hub?.length) children.push(linkList(hub, (href) => twinHref(href, options.hasTwin)));
 	const root = { type: 'root', children } as Parameters<typeof serializer.stringify>[0];
 	return serializer.stringify(root);
 }

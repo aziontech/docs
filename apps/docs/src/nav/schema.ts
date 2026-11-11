@@ -58,6 +58,8 @@ const baseNode = z.object({
 	product: segmentString.optional(),
 	/** The page stays located in this tree (sidebar, breadcrumb) but the row is not rendered: a page reached from its counterpart's notice, not from the menu. */
 	hidden: z.boolean().optional(),
+	/** The dropdown's page is where its breadcrumb crumb lands: a hub listing the rows, with no Overview row of its own in the sidebar. */
+	landing: z.boolean().optional(),
 });
 
 export type NavNode = z.infer<typeof baseNode> & { items?: NavNode[] };
@@ -77,6 +79,12 @@ export const navNode: z.ZodType<NavNode> = baseNode
 	)
 	.refine((n) => Boolean(n.label || n.page || n.tree), {
 		message: 'a row with no page or tree needs an explicit label',
+	})
+	.refine((n) => !n.landing || Boolean(n.page && n.items?.length), {
+		message: 'a landing row is a page with children',
+	})
+	.refine((n) => !n.landing || (n.items ?? []).every((row) => !row.items?.length || row.page), {
+		message: 'a landing row lists each sub-group by its page, so every sub-group needs one',
 	});
 
 export const navGroup = z.object({

@@ -3,7 +3,7 @@ import { getLangFromSlug, stripLangFromSlug, getSlugFromPermalink } from '~/util
 import { docsHomeEntries } from '~/data/docs-home';
 import { ARCHITECTURES_HOME_NAMESPACE, architecturesHomeMarkdown } from '~/data/architectures-home';
 import { DEVTOOLS_HOME_NAMESPACE, devtoolsHomeMarkdown } from '~/data/devtools-home';
-import { getGuidesHome, getHubDirectory } from '~/nav/index';
+import { getGuidesHome, getHubDirectory, getHubList } from '~/nav/index';
 import { pricingRows } from '~/data/pricing';
 import { useTranslationsForLang } from '~/i18n/util';
 import { guidesCatalog } from '~/util/guidesCatalog';
@@ -98,12 +98,14 @@ async function getPageMarkdown(page, lang) {
 	const header = (await guideNamespaces(lang)).has(page.data.namespace)
 		? skillHeader(page.data.title, page.data.description)
 		: '';
+	const { slug } = twinParams(page);
+	const hub = await getHubList(`/${lang}/${slug}/`, lang);
 	try {
 		const markdown = await mdxToMarkdown(page.body, {
 			lang,
 			readInclude: (key) => includes[key],
 			hasTwin: (path) => twinPaths.has(path),
-			data: { guides: guidesGroups, pricing: pricingRows },
+			data: { guides: guidesGroups, pricing: pricingRows, hub },
 			onUnknown: (name) => console.warn(`[markdown twin] ${page.id}: no rule for ${name}`),
 		});
 		return `${header}# ${page.data.title}\n\n${markdown}`;

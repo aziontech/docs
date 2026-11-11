@@ -163,18 +163,19 @@ function indexTree(data: NavData, tree: NavTree, lang: Lang, rootLabel?: string)
 				const href = pageHref(data, node.page, lang);
 				if (facts && href) {
 					const parentEn = [...chain].reverse().find((c) => c.en)?.en;
-					const kind =
-						node.kind ??
-						(node.page === tree.root
-							? 'overview'
-							: inheritedKind ??
-							  (tree.id === 'guides'
-									? 'tutorial'
-									: SLOT_KIND[label.en ?? ''] ?? SLOT_KIND[parentEn ?? '']));
+					const kind = node.landing
+						? 'navigation-hub'
+						: (node.kind ??
+							(node.page === tree.root
+								? 'overview'
+								: (inheritedKind ??
+									(tree.id === 'guides'
+										? 'tutorial'
+										: (SLOT_KIND[label.en ?? ''] ?? SLOT_KIND[parentEn ?? ''])))));
 					const url = `${SITE_URL}${href}`;
 					const page: IndexedPage = {
 						namespace: node.page,
-						title: label.local ?? facts.title ?? node.page,
+						title: (node.landing ? facts.title : label.local) ?? facts.title ?? node.page,
 						description: facts.description,
 						url,
 						markdownUrl: markdownUrl(url),
