@@ -222,6 +222,35 @@ describe('resolveHubList', () => {
 		]);
 	});
 
+	test('lists a tree row by its root page and the tree description', () => {
+		const withTree = data([{ ...reference, items: [{ tree: 'other' }] }]);
+		withTree.trees.set(
+			'other',
+			navTree.parse({
+				id: 'other',
+				title: { en: 'Other tool' },
+				description: { en: 'Another section.' },
+				path: { en: 'other' },
+				root: 'shared',
+				groups: [{ items: [{ page: 'shared' }] }],
+			})
+		);
+		expect(
+			resolveHubList(
+				withTree,
+				buildNavIndex(withTree, 'en'),
+				'/en/documentation/product/reference/',
+				'en'
+			)
+		).toEqual([
+			{
+				label: 'Other tool',
+				href: '/en/documentation/other/shared/',
+				description: 'Another section.',
+			},
+		]);
+	});
+
 	test('returns nothing for a page that is not a landing', () => {
 		expect(resolveHubList(nav, index, '/en/documentation/product/settings/', 'en')).toBeUndefined();
 		expect(resolveHubList(nav, index, '/en/documentation/missing/', 'en')).toBeUndefined();
