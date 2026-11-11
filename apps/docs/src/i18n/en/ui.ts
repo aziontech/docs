@@ -18,7 +18,7 @@ export default {
 	'guides.topics': 'Topics',
 	'guides.kind.tutorial': 'Tutorial',
 	'guides.kind.howToGuide': 'How-to guide',
-	'guides.kind.multiProductGuide': 'Multi-product guide',
+	'guides.kind.multiProductGuide': 'Multi-resource guide',
 	'guides.kind.useCase': 'Use case',
 	'guides.kind.architecture': 'Architecture',
 	'guides.format.video': 'Video',
