@@ -38,10 +38,9 @@ for (const tree of data.trees.values()) {
 
 		if (depth > MAX_DEPTH)
 			fail(`tree "${tree.id}": row "${nodeId}" is ${depth} levels deep (max ${MAX_DEPTH})`);
-		const visibleChildren = node.items?.filter((child) => !child.hidden).length ?? 0;
-		if (visibleChildren > MAX_CHILDREN) {
+		if ((node.items?.length ?? 0) > MAX_CHILDREN) {
 			warn(
-				`tree "${tree.id}": row "${nodeId}" has ${visibleChildren} visible children (soft max ${MAX_CHILDREN})`
+				`tree "${tree.id}": row "${nodeId}" has ${node.items?.length} children (soft max ${MAX_CHILDREN})`
 			);
 		}
 		if (node.page && node.page === tree.root) rootIsListed = true;
