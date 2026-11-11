@@ -106,6 +106,13 @@ if (data.topnav) {
 		fail(`topnav.json: unknown devtoolsHome tree "${data.topnav.devtoolsHome}"`);
 }
 
+type Rows = NonNullable<ReturnType<typeof walkTree>[number]['node']['items']>;
+const ownsPage = (rows: Rows): boolean =>
+	rows.some(
+		(row) =>
+			(row.page && !row.linkOnly && !row.placeholder) || (row.items ? ownsPage(row.items) : false)
+	);
+
 const productIds = productLabels(data, 'en');
 for (const [index, video] of (data.videos ?? []).entries()) {
 	for (const product of video.products ?? []) {
@@ -123,6 +130,10 @@ for (const tree of data.trees.values()) {
 		}
 		if (entry.node.hidden && (!entry.node.page || entry.node.items?.length))
 			fail(`tree "${tree.id}": hidden row "${entry.nodeId}" must be a page with no children`);
+		if (entry.node.items?.length && !entry.node.page && ownsPage(entry.node.items))
+			fail(
+				`tree "${tree.id}": group "${entry.nodeId}" is a breadcrumb crumb with no page; give it a landing page`
+			);
 	}
 }
 
