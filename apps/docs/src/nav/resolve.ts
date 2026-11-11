@@ -679,7 +679,7 @@ export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): Hu
 							id: tree.id,
 							label: nodeLabel(data, row, lang),
 							href: treeHref(data, tree, lang),
-							description: text(tree.description, lang),
+							description: rowDescription(data, row, lang),
 						},
 					];
 				}
@@ -692,7 +692,7 @@ export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): Hu
 						id: row.page,
 						label: nodeLabel(data, row, lang),
 						href,
-						description: pageFacts(data, row.page, lang)?.description,
+						description: rowDescription(data, row, lang),
 					},
 				];
 			}),
@@ -700,25 +700,42 @@ export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): Hu
 		.filter((group) => group.label && group.items.length > 0);
 }
 
+function rowDescription(data: NavData, row: NavNode, lang: Lang): string | undefined {
+	const tree = row.tree ? data.trees.get(row.tree) : undefined;
+	if (tree) return text(tree.description, lang);
+	if (row.page) return pageFacts(data, row.page, lang)?.description || undefined;
+	return text(row.description, lang);
+}
+
+export interface HubListEntry {
+	label: string;
+	href: string;
+	description?: string;
+	target: '_self' | '_blank';
+}
+
 export function resolveHubList(
 	data: NavData,
 	index: NavIndex,
 	pathname: string,
 	lang: Lang
-): TopNavEntry[] | undefined {
+): HubListEntry[] | undefined {
 	const location = index.get(normalize(pathname));
 	if (!location?.node.landing) return undefined;
 
 	const owner = data.trees.get(location.treeId);
-	return (location.node.items ?? []).flatMap((row): TopNavEntry[] => {
+	return (location.node.items ?? []).flatMap((row): HubListEntry[] => {
 		if (row.hidden || row.placeholder) return [];
 		const href = nodeHref(data, row, lang, owner);
 		if (!href) return [];
-		const tree = row.tree ? data.trees.get(row.tree) : undefined;
-		const description = tree
-			? text(tree.description, lang)
-			: row.page && pageFacts(data, row.page, lang)?.description;
-		return [{ label: nodeLabel(data, row, lang), href, description: description || undefined }];
+		return [
+			{
+				label: nodeLabel(data, row, lang),
+				href,
+				description: rowDescription(data, row, lang),
+				target: row.href || row.llms ? '_blank' : '_self',
+			},
+		];
 	});
 }
 

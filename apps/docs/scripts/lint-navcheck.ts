@@ -1,4 +1,4 @@
-import { LANGS, type Lang } from '../src/nav/schema';
+import { LANGS, type Lang, type NavNode } from '../src/nav/schema';
 import { buildNavIndex, productLabels, targetPermalink, walkTree } from '../src/nav/resolve';
 import { loadNav } from './nav/lib/load';
 
@@ -106,8 +106,7 @@ if (data.topnav) {
 		fail(`topnav.json: unknown devtoolsHome tree "${data.topnav.devtoolsHome}"`);
 }
 
-type Rows = NonNullable<ReturnType<typeof walkTree>[number]['node']['items']>;
-const ownsPage = (rows: Rows): boolean =>
+const ownsPage = (rows: NavNode[]): boolean =>
 	rows.some(
 		(row) =>
 			(row.page && !row.linkOnly && !row.placeholder) || (row.items ? ownsPage(row.items) : false)

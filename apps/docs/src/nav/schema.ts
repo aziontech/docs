@@ -60,6 +60,8 @@ const baseNode = z.object({
 	hidden: z.boolean().optional(),
 	/** The dropdown's page is where its breadcrumb crumb lands: a hub listing the rows, with no Overview row of its own in the sidebar. */
 	landing: z.boolean().optional(),
+	/** What an external link holds, for the hub that lists it; a page or tree row takes its own description instead. */
+	description: localized.optional(),
 });
 
 export type NavNode = z.infer<typeof baseNode> & { items?: NavNode[] };
@@ -85,6 +87,9 @@ export const navNode: z.ZodType<NavNode> = baseNode
 	})
 	.refine((n) => !n.landing || (n.items ?? []).every((row) => !row.items?.length || row.page), {
 		message: 'a landing row lists each sub-group by its page, so every sub-group needs one',
+	})
+	.refine((n) => !n.description || Boolean(n.href), {
+		message: 'only an external link carries its own description',
 	});
 
 export const navGroup = z.object({

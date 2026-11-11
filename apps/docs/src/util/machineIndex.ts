@@ -175,7 +175,7 @@ function indexTree(data: NavData, tree: NavTree, lang: Lang, rootLabel?: string)
 					const url = `${SITE_URL}${href}`;
 					const page: IndexedPage = {
 						namespace: node.page,
-						title: (node.landing ? facts.title : label.local) ?? facts.title ?? node.page,
+						title: (node.landing ? undefined : label.local) ?? facts.title ?? node.page,
 						description: facts.description,
 						url,
 						markdownUrl: markdownUrl(url),

@@ -75,7 +75,11 @@ const reference: NavNode = {
 		{ page: 'legacy', hidden: true },
 		{ page: 'shared', linkOnly: true },
 		{ placeholder: true, label: { en: 'Soon' } },
-		{ href: 'https://example.com/registry', label: { en: 'Registry' } },
+		{
+			href: 'https://example.com/registry',
+			label: { en: 'Registry' },
+			description: { en: 'The public registry.' },
+		},
 	],
 };
 
@@ -189,16 +193,33 @@ describe('targetPermalink', () => {
 describe('resolveHubList', () => {
 	const index = buildNavIndex(nav, 'en');
 
-	test('lists the rows the sidebar shows, in order, with each page description', () => {
+	test('lists the page and link rows in order, without hidden or placeholder rows', () => {
 		expect(resolveHubList(nav, index, '/en/documentation/product/reference/', 'en')).toEqual([
 			{
 				label: 'Settings',
 				href: '/en/documentation/product/settings/',
 				description: 'Look up every setting.',
+				target: '_self',
 			},
-			{ label: 'Shared', href: '/en/documentation/other/shared/', description: 'Owned elsewhere.' },
-			{ label: 'Registry', href: 'https://example.com/registry', description: undefined },
+			{
+				label: 'Shared',
+				href: '/en/documentation/other/shared/',
+				description: 'Owned elsewhere.',
+				target: '_self',
+			},
+			{
+				label: 'Registry',
+				href: 'https://example.com/registry',
+				description: 'The public registry.',
+				target: '_blank',
+			},
 		]);
+	});
+
+	test('rejects a description on a row that is not an external link', () => {
+		expect(navNode.safeParse({ page: 'settings', description: { en: 'Not here.' } }).success).toBe(
+			false
+		);
 	});
 
 	test('lists a sub-group by its own page', () => {
@@ -218,7 +239,12 @@ describe('resolveHubList', () => {
 				'en'
 			)
 		).toEqual([
-			{ label: 'Feature', href: '/en/documentation/product/feature/', description: undefined },
+			{
+				label: 'Feature',
+				href: '/en/documentation/product/feature/',
+				description: undefined,
+				target: '_self',
+			},
 		]);
 	});
 
@@ -247,6 +273,7 @@ describe('resolveHubList', () => {
 				label: 'Other tool',
 				href: '/en/documentation/other/shared/',
 				description: 'Another section.',
+				target: '_self',
 			},
 		]);
 	});
@@ -264,6 +291,7 @@ describe('resolveHubList', () => {
 			label: 'Configurações',
 			href: '/pt-br/documentacao/produto/configuracoes/',
 			description: 'Consulte cada configuração.',
+			target: '_self',
 		});
 	});
 });

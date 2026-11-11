@@ -29,7 +29,7 @@ import {
 	type PageIndex,
 	type SidebarLabels,
 	type SidebarModel,
-	type TopNavEntry,
+	type HubListEntry,
 	type TopNavModel,
 	withSlashes,
 } from './resolve';
@@ -175,7 +175,10 @@ export async function getHubDirectory(treeId: string, lang: Lang): Promise<HubGr
 	return buildHubDirectory(await getNavData(), treeId, lang);
 }
 
-export async function getHubList(pathname: string, lang: Lang): Promise<TopNavEntry[] | undefined> {
+export async function getHubList(
+	pathname: string,
+	lang: Lang
+): Promise<HubListEntry[] | undefined> {
 	return resolveHubList(await getNavData(), await getNavIndex(lang), pathname, lang);
 }
 
@@ -296,8 +299,8 @@ export type {
 	SidebarLabels,
 	SidebarModel,
 	SidebarParent,
-	TopNavEntry,
 	TopNavModel,
 	HubGroup,
+	HubListEntry,
 	HubTool,
 } from './resolve';
