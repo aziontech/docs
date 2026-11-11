@@ -16,7 +16,7 @@ import DocStep from '@aziontech/webkit/doc-step'
 
 Neste tutorial, você vai construir uma busca semântica que retorna os documentos de significado mais próximo a uma pergunta, sobre dados armazenados em [SQL Database](/pt-br/documentacao/plataforma/sql-database/). Você vai criar um banco de dados, adicionar uma tabela com uma coluna vetorial e um índice sobre ela, gerar embeddings com a OpenAI, armazená-los e consultar a tabela por similaridade.
 
-O trabalho é dividido em duas partes. Um script de setup roda uma vez a partir da sua máquina: ele cria o banco de dados, espera até que o banco aceite instruções e armazena os embeddings. Uma função TypeScript então responde a cada requisição com uma busca sobre essas linhas. Os dois acessam o banco de dados pela [biblioteca SQL da Azion](/pt-br/documentacao/devtools/azion-lib/sql/) e produzem embeddings com o pacote LangChain OpenAI. A função roda localmente com `azion dev`.
+O trabalho é dividido em duas partes. Um script de setup roda uma vez a partir da sua máquina: ele cria o banco de dados, espera até que o banco aceite instruções e armazena os embeddings. Uma função então responde a cada requisição com uma busca sobre essas linhas. Os dois acessam o banco de dados pela [biblioteca SQL da Azion](/pt-br/documentacao/devtools/azion-lib/sql/) e produzem embeddings com o pacote LangChain OpenAI. A função roda localmente com `azion dev`.
 
 ---
 
@@ -24,7 +24,7 @@ O trabalho é dividido em duas partes. Um script de setup roda uma vez a partir 
 
 - Node.js versão 20.6 ou superior. O script de setup lê suas credenciais com `node --env-file`, que versões anteriores não têm.
 - Azion CLI instalada e autorizada. Para mais informações, consulte [Azion CLI](/pt-br/documentacao/devtools/cli/).
-- Um projeto de função TypeScript criado com `azion init`. Para criar um, consulte [Faça o deploy de uma function com a Azion CLI](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/deploy-function-with-cli/). Os passos abaixo rodam na pasta do projeto.
+- Um projeto de função criado com `azion init`, com o preset _Javascript_ e o template _Hello World_. Para criar um, consulte [Faça o deploy de uma function com a Azion CLI](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/deploy-function-with-cli/). Os passos abaixo rodam na pasta do projeto.
 - Um personal token da Azion. Para mais informações, consulte [Como criar um personal token](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
 - SQL Database habilitado na conta. O produto está em Preview, e o acesso é solicitado pelo time de suporte técnico. Para solicitá-lo, consulte [Technical Support](/pt-br/documentacao/suporte/).
 - Uma OpenAI API key. A etapa de embedding chama a OpenAI API com ela. Para criar uma, consulte [Create and export an API key](https://developers.openai.com/api/docs/quickstart#create-and-export-an-api-key).
@@ -139,7 +139,7 @@ O banco de dados passa a ter uma tabela `documents` e um índice `documents_idx`
 
 O modelo de embedding transforma texto em um vetor. `text-embedding-3-small` retorna 1.536 dimensões, o número que a coluna `embedding` declara, e o mesmo modelo produz os vetores armazenados aqui e o vetor que a busca usa na etapa 5.
 
-Continue em `setup.mjs`. A função conta as linhas primeiro e só armazena os documentos quando a tabela está vazia, então uma segunda execução não os duplica. Ela gera o embedding de cada documento com `embedQuery` e envolve o resultado em `vector('[...]')`, que converte um array de números no tipo que a coluna guarda:
+Continue em `setup.mjs`. `seedDocuments` conta as linhas primeiro e só armazena os documentos quando a tabela está vazia, então uma segunda execução não os duplica. Ela gera o embedding de cada documento com `embedQuery` e envolve o resultado em `vector('[...]')`, que converte um array de números no tipo que a coluna guarda:
 
 ```javascript
 const documents = [
@@ -208,31 +208,33 @@ Uma busca gera o embedding da pergunta com o mesmo modelo e pede ao índice as l
 SELECT content FROM vector_top_k('documents_idx', vector('[...]'), 2) JOIN documents ON documents.rowid = id;
 ```
 
-A função apenas lê, então não cria nada e responde a toda requisição da mesma forma. Substitua o conteúdo de `main.ts`, o arquivo de entrada do projeto, pela busca, e rode a instrução com `useQuery`, que atende as instruções que retornam linhas:
+A função apenas lê, então não cria nada e responde a toda requisição da mesma forma. Substitua o conteúdo do `index.js`, o entrypoint que o build lê por padrão, pela busca, e rode a instrução com `useQuery`, que atende as instruções que retornam linhas:
 
-```typescript
+```javascript
 import { useQuery } from '@aziontech/sql'
 import { OpenAIEmbeddings } from '@langchain/openai'
 
-export default async function vectorSearch() {
-  const embeddings = new OpenAIEmbeddings({
-    model: 'text-embedding-3-small',
-    apiKey: process.env.OPENAI_API_KEY
-  })
+export default {
+  async fetch(request) {
+    const embeddings = new OpenAIEmbeddings({
+      model: 'text-embedding-3-small',
+      apiKey: process.env.OPENAI_API_KEY
+    })
 
-  const query = 'What is the capital of Australia?'
-  const queryEmbedding = await embeddings.embedQuery(query)
+    const query = 'What is the capital of Australia?'
+    const queryEmbedding = await embeddings.embedQuery(query)
 
-  const { data: searchData, error: searchError } = await useQuery('vectorDatabase', [
-    `SELECT content FROM vector_top_k('documents_idx', vector('[${queryEmbedding}]'), 2)
-     JOIN documents ON documents.rowid = id;`
-  ])
+    const { data: searchData, error: searchError } = await useQuery('vectorDatabase', [
+      `SELECT content FROM vector_top_k('documents_idx', vector('[${queryEmbedding}]'), 2)
+       JOIN documents ON documents.rowid = id;`
+    ])
 
-  if (searchError) {
-    return Response.json({ error: searchError.message }, { status: 500 })
+    if (searchError) {
+      return Response.json({ error: searchError.message }, { status: 500 })
+    }
+
+    return Response.json({ data: searchData })
   }
-
-  return Response.json({ data: searchData })
 }
 ```
 
@@ -240,16 +242,20 @@ A resposta carrega `results`, uma entrada por instrução, cada uma com suas `co
 
 A função retorna as duas linhas cujos embeddings estão mais próximos da pergunta, e uma busca que falha retorna uma mensagem JSON com status `500`.
 
+:::note[nota]
+SQL Database também suporta a integração LangChain Vector Store para armazenamento de documentos e o LangChain Retriever para busca híbrida, que combina busca vetorial com busca full-text.
+:::
+
 ---
 
-## 6. Execute a função
+## 6. Execute a busca localmente
 
 A função lê as linhas que o script de setup armazenou. Para executá-la localmente:
 
 <DocSteps>
-  <DocStep title="Construa a aplicação">
+  <DocStep title="Faça o build do projeto">
 
-  Na pasta do projeto, construa-a:
+  Na pasta do projeto, faça o build:
 
   ```bash
   azion build
