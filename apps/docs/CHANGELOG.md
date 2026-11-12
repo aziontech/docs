@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.4.4](https://github.com/aziontech/docs/compare/docs-v2.4.3...docs-v2.4.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* **applications:** apply live test results and define each resource by its role ([#2626](https://github.com/aziontech/docs/issues/2626)) ([1f841e4](https://github.com/aziontech/docs/commit/1f841e408508ef9bf9f5be03f32d17416477199e))
+
+## [2.4.3](https://github.com/aziontech/docs/compare/docs-v2.4.2...docs-v2.4.3) (2026-11-09)
+
+
+### Documentation
+
+* **applications:** review the Applications section and apply the updated writing rules ([#2615](https://github.com/aziontech/docs/issues/2615)) ([c1df92f](https://github.com/aziontech/docs/commit/c1df92f2885e5a4a17ded9eb44186a12203ebf35))
+
+## [2.4.2](https://github.com/aziontech/docs/compare/docs-v2.4.1...docs-v2.4.2) (2026-11-09)
+
+
+### Documentation
+
+* **style-guide:** align the guide with the shipped sections and settle its open rules ([#2600](https://github.com/aziontech/docs/issues/2600)) ([5ea57c0](https://github.com/aziontech/docs/commit/5ea57c0202d2d0023f288462a5c87fd1b453c5d4))
+
 ## [2.4.1](https://github.com/aziontech/docs/compare/docs-v2.4.0...docs-v2.4.1) (2026-11-04)
 
 
