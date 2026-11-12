@@ -41,6 +41,10 @@ preferences.
 - **Register a new page in a navigation tree** under `apps/docs/src/nav`, or nothing links to it
   and it reaches no index.
 - **Internal links are root-relative** (`/en/documentation/...`) and must resolve.
+- **Code samples parse.** A `json` block is JSON, a JavaScript or TypeScript block has no syntax
+  errors, and the body of a `curl --data` is JSON. Run `pnpm lint:codeblocks <files>` on the
+  pages you changed; the conventions it accepts are in
+  [CONTRIBUTING.md](.github/CONTRIBUTING.md#code-samples).
 - Do not name competitors anywhere: not in pages, not in commit messages, not in pull request
   descriptions.
 
@@ -57,6 +61,7 @@ pnpm build:local         # build + frontmatter validation (CI runs this too)
 pnpm lint:slugcheck      # permalink rules
 pnpm lint:navcheck       # navigation trees
 pnpm lint:links          # internal links, without a build
+pnpm lint:codeblocks     # code samples parse: JSON, JS/TS, curl bodies
 pnpm format              # prettier
 ```
 
