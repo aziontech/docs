@@ -56,7 +56,7 @@ const baseNode = z.object({
 	kind: guideKind.optional(),
 	/** The catalog product this row stands for when it owns no tree: a Product nested as a dropdown row inside its Platform resource. */
 	product: segmentString.optional(),
-	/** The page stays located in this tree (sidebar, breadcrumb) but the row is not rendered: a page reached from its counterpart's notice, not from the menu. */
+	/** The page stays located in this tree (sidebar, breadcrumb) but the row is not rendered: a page reached from another page, not from the menu, such as an API v3 page from its v4 counterpart's notice or a Reference Architecture page from its use case. */
 	hidden: z.boolean().optional(),
 	/** The dropdown's page is where its breadcrumb crumb lands: a hub listing the rows, with no Overview row of its own in the sidebar. */
 	landing: z.boolean().optional(),
