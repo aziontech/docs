@@ -1,5 +1,53 @@
 # Changelog
 
+## [2.4.4](https://github.com/aziontech/docs/compare/docs-v2.4.3...docs-v2.4.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* **applications:** apply live test results and define each resource by its role ([#2626](https://github.com/aziontech/docs/issues/2626)) ([1f841e4](https://github.com/aziontech/docs/commit/1f841e408508ef9bf9f5be03f32d17416477199e))
+
+## [2.4.3](https://github.com/aziontech/docs/compare/docs-v2.4.2...docs-v2.4.3) (2026-11-09)
+
+
+### Documentation
+
+* **applications:** review the Applications section and apply the updated writing rules ([#2615](https://github.com/aziontech/docs/issues/2615)) ([c1df92f](https://github.com/aziontech/docs/commit/c1df92f2885e5a4a17ded9eb44186a12203ebf35))
+
+## [2.4.2](https://github.com/aziontech/docs/compare/docs-v2.4.1...docs-v2.4.2) (2026-11-09)
+
+
+### Documentation
+
+* **style-guide:** align the guide with the shipped sections and settle its open rules ([#2600](https://github.com/aziontech/docs/issues/2600)) ([5ea57c0](https://github.com/aziontech/docs/commit/5ea57c0202d2d0023f288462a5c87fd1b453c5d4))
+
+## [2.4.1](https://github.com/aziontech/docs/compare/docs-v2.4.0...docs-v2.4.1) (2026-11-04)
+
+
+### Documentation
+
+* **applications:** fix rewrite argument, certificate API, workload domains, and connector CLI ([#2562](https://github.com/aziontech/docs/issues/2562)) ([4c1f835](https://github.com/aziontech/docs/commit/4c1f835e8c1488f12a02946006597f373b955368))
+* **firewall:** add the Execution Environment step to the firewall function guides ([#2543](https://github.com/aziontech/docs/issues/2543)) ([a1d5d4e](https://github.com/aziontech/docs/commit/a1d5d4ec5c1e7618276825f27e227cdecc8058bb))
+* **functions:** end every firewall handler path with one finishing action ([#2542](https://github.com/aziontech/docs/issues/2542)) ([ac062f6](https://github.com/aziontech/docs/commit/ac062f670961b05af423a3876fef0bda75d57dea))
+* **marketplace:** fix invalid Arguments JSON in 7 integration guides ([#2559](https://github.com/aziontech/docs/issues/2559)) ([dd8b4f5](https://github.com/aziontech/docs/commit/dd8b4f5fd98fddd7d632d3b774413d02f1d92d77))
+* **runtime:** fix broken example code in the Runtime reference ([#2556](https://github.com/aziontech/docs/issues/2556)) ([d19f105](https://github.com/aziontech/docs/commit/d19f1053c13cff2fd62bbd28c015fa57e641530f))
+* **style-guide:** review the EN style guide against the naming catalog (MM-16284) ([#2561](https://github.com/aziontech/docs/issues/2561)) ([7660311](https://github.com/aziontech/docs/commit/7660311425581a257c1186cd0b7cd73f570ab7f9))
+* **templates:** reconcile Console Deploy links with the current catalog ([#2563](https://github.com/aziontech/docs/issues/2563)) ([25df790](https://github.com/aziontech/docs/commit/25df790aaf4b31b216ec5d64be2ca7d83b27e844))
+* **workloads:** document custom page assignment with azion workload-deployment ([#2564](https://github.com/aziontech/docs/issues/2564)) ([b75477a](https://github.com/aziontech/docs/commit/b75477ac5c0b726ae9f084cd5f9aeba96eb89620))
+
+## [2.4.0](https://github.com/aziontech/docs/compare/docs-v2.3.4...docs-v2.4.0) (2026-11-03)
+
+
+### Features
+
+* **platform:** add Overview pages for the nested Products ([#2536](https://github.com/aziontech/docs/issues/2536)) ([3d7b2d0](https://github.com/aziontech/docs/commit/3d7b2d0ac3344acd68b226e6470578bdcf507782))
+
+
+### Documentation
+
+* **plans:** stop tying features and quotas to support tiers and legacy plans ([#2541](https://github.com/aziontech/docs/issues/2541)) ([9acd12c](https://github.com/aziontech/docs/commit/9acd12c1ae5e66d064e735894af3694b1d1cc1bc))
+* **release-notes:** add release notes for Sep 3 and Sep 19, 2026 ([#2385](https://github.com/aziontech/docs/issues/2385)) ([39103de](https://github.com/aziontech/docs/commit/39103de6545c3197a4b03f6e14a025d1c25fe6e2))
+
 ## [2.3.4](https://github.com/aziontech/docs/compare/docs-v2.3.3...docs-v2.3.4) (2026-10-29)
 
 
