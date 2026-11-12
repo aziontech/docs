@@ -53,6 +53,8 @@ export interface TwinData {
 	guides?: (lang: Lang) => Promise<TwinGroup[]>;
 	/** The rows `TablePricing` renders: one per tier, prices in billing-column order. */
 	pricing?: (props: PricingProps) => Promise<{ tier: string; prices: string[] }[]>;
+	/** The rows the layout lists on a navigation group's landing page, after the body. */
+	hub?: TwinGroup['items'];
 }
 
 export interface Context {
@@ -154,6 +156,21 @@ async function entry(node: MdNode, ctx: Context): Promise<MdNode[]> {
 	const head = href ? link(ctx.twinHref(href), [text(title)]) : strong([text(title)]);
 	const line = plainText(description) ? [head, text(': '), ...description] : [head];
 	return [list(false, [listItem([paragraph(line)])])];
+}
+
+/** One bullet per page: its linked label, then its description. */
+export function linkList(items: TwinGroup['items'], twinHref: (href: string) => string): MdNode {
+	return list(
+		false,
+		items.map((item) =>
+			listItem([
+				paragraph([
+					link(twinHref(item.href), [text(item.label)]),
+					...(item.description ? [text(`: ${item.description}`)] : []),
+				]),
+			])
+		)
+	);
 }
 
 /** A container of cards or items: one bullet list, whatever mix of entries and includes it holds. */
@@ -452,19 +469,7 @@ export const handlers: Record<string, Handler> = {
 		const groups = (await ctx.data.guides?.(ctx.lang)) ?? [];
 		for (const group of groups) {
 			out.push(heading(2, [text(group.heading)]));
-			out.push(
-				list(
-					false,
-					group.items.map((item) =>
-						listItem([
-							paragraph([
-								link(ctx.twinHref(item.href), [text(item.label)]),
-								...(item.description ? [text(`: ${item.description}`)] : []),
-							]),
-						])
-					)
-				)
-			);
+			out.push(linkList(group.items, ctx.twinHref));
 		}
 		return out;
 	},
