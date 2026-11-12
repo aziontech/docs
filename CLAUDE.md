@@ -1,3 +1,9 @@
+## Repository rules
+
+The rules for every agent in this repository, including the pull request description format,
+are in AGENTS.md:
+
+@AGENTS.md
 
 <!-- @aziontech/webkit -->
 ## @aziontech/webkit design system

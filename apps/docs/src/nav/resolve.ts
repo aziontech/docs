@@ -108,13 +108,13 @@ export const COMING_SOON = 'documentation_coming_soon';
 
 export function text(value: Localized | undefined, lang: Lang): string | undefined {
 	if (!value) return undefined;
-	return (lang === 'en' ? value.en : value['pt-br'] ?? value.en) || undefined;
+	return (lang === 'en' ? value.en : (value['pt-br'] ?? value.en)) || undefined;
 }
 
 export function segmentText(value: LocalizedSegment | undefined, lang: Lang): string | undefined {
 	if (!value) return undefined;
 	if (typeof value === 'string') return value;
-	return (lang === 'en' ? value.en : value['pt-br'] ?? value.en) || undefined;
+	return (lang === 'en' ? value.en : (value['pt-br'] ?? value.en)) || undefined;
 }
 
 export function trimSlashes(value: string): string {
@@ -259,12 +259,15 @@ export function targetPermalink(data: NavData, entry: WalkEntry, lang: Lang): st
 	if (tree.root && node.page === tree.root) return `/${DOCS_BASE[lang]}/${treePath}/`;
 
 	const explicit = text(node.slug, lang);
+	const segment = segmentText(node.segment, lang);
 	const current =
 		data.pages.get(node.page)?.[lang]?.permalink ?? data.pages.get(node.page)?.en?.permalink;
 	const slug =
-		segmentText(node.segment, lang) ??
-		explicit ??
-		(current ? lastSegment(current) : slugify(nodeLabel(data, node, lang)));
+		segment && explicit
+			? `${segment}/${explicit}`
+			: (segment ??
+				explicit ??
+				(current ? lastSegment(current) : slugify(nodeLabel(data, node, lang))));
 
 	return `/${[DOCS_BASE[lang], treePath, ...segments, slug].filter(Boolean).join('/')}/`;
 }
@@ -348,7 +351,7 @@ function toMenuNodes(
 
 		const claimsActive = Boolean(href) && href !== ctx.comingSoonHref;
 		if (claimsActive && normalize(href!) === ctx.activePath) {
-			ctx.activeId = children?.length ? `${id}__index` : id;
+			if (!node.landing) ctx.activeId = children?.length ? `${id}__index` : id;
 			ctx.expanded.push(...ancestors, ...(children?.length ? [id] : []));
 		}
 
@@ -359,7 +362,7 @@ function toMenuNodes(
 		const opensTree = openedTree(data, node, href, ctx);
 
 		if (children?.length) {
-			if (href) {
+			if (href && !node.landing) {
 				children.unshift({
 					id: `${id}__index`,
 					label: OVERVIEW[lang],
@@ -676,7 +679,7 @@ export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): Hu
 							id: tree.id,
 							label: nodeLabel(data, row, lang),
 							href: treeHref(data, tree, lang),
-							description: text(tree.description, lang),
+							description: rowDescription(data, row, lang),
 						},
 					];
 				}
@@ -689,12 +692,51 @@ export function buildHubDirectory(data: NavData, treeId: string, lang: Lang): Hu
 						id: row.page,
 						label: nodeLabel(data, row, lang),
 						href,
-						description: pageFacts(data, row.page, lang)?.description,
+						description: rowDescription(data, row, lang),
 					},
 				];
 			}),
 		}))
 		.filter((group) => group.label && group.items.length > 0);
+}
+
+function rowDescription(data: NavData, row: NavNode, lang: Lang): string | undefined {
+	const tree = row.tree ? data.trees.get(row.tree) : undefined;
+	if (tree) return text(tree.description, lang);
+	if (row.page) return pageFacts(data, row.page, lang)?.description || undefined;
+	return text(row.description, lang);
+}
+
+export interface HubListEntry {
+	label: string;
+	href: string;
+	description?: string;
+	target: '_self' | '_blank';
+}
+
+export function resolveHubList(
+	data: NavData,
+	index: NavIndex,
+	pathname: string,
+	lang: Lang
+): HubListEntry[] | undefined {
+	const location = index.get(normalize(pathname));
+	if (!location?.node.landing) return undefined;
+
+	const owner = data.trees.get(location.treeId);
+	return (location.node.items ?? []).flatMap((row): HubListEntry[] => {
+		if (row.hidden || row.placeholder) return [];
+		const href = nodeHref(data, row, lang, owner);
+		if (!href) return [];
+		return [
+			{
+				label: nodeLabel(data, row, lang),
+				href,
+				description: rowDescription(data, row, lang),
+				target: row.href || row.llms ? '_blank' : '_self',
+			},
+		];
+	});
 }
 
 export interface Crumb {
@@ -759,7 +801,11 @@ export function resolveNeighbours(
 	const leaves = walkTree(tree, lang)
 		.filter(
 			(entry) =>
-				entry.node.page && !entry.node.placeholder && !entry.node.linkOnly && !entry.node.hidden
+				entry.node.page &&
+				!entry.node.placeholder &&
+				!entry.node.linkOnly &&
+				!entry.node.hidden &&
+				!entry.node.landing
 		)
 		.map((entry) => ({
 			nodeId: entry.nodeId,
