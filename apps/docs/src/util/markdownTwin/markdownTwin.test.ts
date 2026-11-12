@@ -500,6 +500,57 @@ describe('mdxToMarkdown', () => {
 		expect(includeKey('./local.mdx')).toBeUndefined();
 	});
 
+	test('lists the guides catalog under one heading per group', async () => {
+		const out = await convert('<GuidesHomeSection />', {
+			hasTwin: (path) => path === '/en/documentation/guide',
+			data: {
+				guides: async () => [
+					{
+						heading: 'Tutorials',
+						items: [
+							{ label: 'Guide', href: '/en/documentation/guide/', description: 'Does a thing.' },
+							{ label: 'Video', href: 'https://example.com/video' },
+						],
+					},
+				],
+			},
+		});
+		expect(out).toBe(
+			'## Tutorials\n\n- [Guide](/en/documentation/guide.md): Does a thing.\n- [Video](https://example.com/video)\n'
+		);
+	});
+
+	test('appends the rows of a navigation hub after the body', async () => {
+		const out = await convert('One sentence.', {
+			hasTwin: (path) => path === '/en/documentation/a',
+			data: {
+				hub: [
+					{ label: 'A', href: '/en/documentation/a/', description: 'Has a twin.' },
+					{ label: 'B', href: '/en/documentation/b/', description: 'Has none.' },
+					{ label: 'Registry', href: 'https://example.com/registry' },
+				],
+			},
+		});
+		expect(out).toBe(
+			'One sentence.\n\n- [A](/en/documentation/a.md): Has a twin.\n- [B](/en/documentation/b/): Has none.\n- [Registry](https://example.com/registry)\n'
+		);
+	});
+
+	test('escapes markup in a hub description', async () => {
+		const out = await convert('One sentence.', {
+			data: {
+				hub: [
+					{ label: 'A', href: 'https://example.com/a', description: 'Uses <tag> and *stars*.' },
+				],
+			},
+		});
+		expect(out).toContain('- [A](https://example.com/a): Uses \\<tag> and \\*stars\\*.');
+	});
+
+	test('appends nothing when the hub has no rows', async () => {
+		expect(await convert('One sentence.', { data: { hub: [] } })).toBe('One sentence.\n');
+	});
+
 	test('unwraps an unknown component and reports it', async () => {
 		const unknown: string[] = [];
 		const out = await convert('<Mystery>\n\nKept text.\n\n</Mystery>', {
