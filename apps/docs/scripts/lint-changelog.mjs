@@ -14,7 +14,8 @@ import { visit } from 'unist-util-visit';
  *
  * - anchor: present, unique on the page, and starting with the date of its label as a slug, so a
  *   link to `#<date>` opens the entry of that date;
- * - order: dates run newest first.
+ * - order: dates run newest first;
+ * - quotes: `label` and `anchor` in double quotes, the only form the page outline reads.
  *
  * An entry dated after NEW_AFTER also gets the rest of the rules. The log is append-only, so an older
  * entry is a record: it is never rewritten to meet rules written after it.
@@ -70,6 +71,7 @@ const TAGS = new Set([
 	'Workloads',
 	'Certificate Manager',
 	'Custom Pages',
+	'DDoS Protection',
 	'Real-Time Purge',
 	'Copilot',
 	'Real-Time Metrics',
@@ -139,6 +141,9 @@ const TAG_ALIASES = new Map(
 		'web application firewall': 'WAF',
 		'web application firewall (waf)': 'WAF',
 		'data streaming': 'Data Stream',
+		'digital certificates': 'Certificate Manager',
+		'devtools & integrações': 'DevTools & Integrations',
+		'vector search do edge sql': 'SQL Database',
 	})
 );
 const TAGS_BY_CASE = new Map([...TAGS].map((tag) => [tag.toLowerCase(), tag]));
@@ -360,8 +365,20 @@ function lintFile(absolute, totals) {
 		const isNew = date ? compareDates(date, NEW_AFTER) > 0 : !olderSeen;
 		if (date && !isNew) olderSeen = true;
 		if (isNew) totals.fresh++;
+		const openEnd = openingTagEnd(source, node.position.start.offset);
+		const opening = source.slice(node.position.start.offset, openEnd);
 
 		// Every entry: what breaks the page for a reader today.
+		// The outline (src/util/docUpdateHeadings.ts) reads only double-quoted values.
+		for (const name of ['label', 'anchor']) {
+			if (text(name) !== undefined && !new RegExp(`\\b${name}="`).test(opening)) {
+				flag(
+					line,
+					'quotes',
+					`Write \`${name}\` in double quotes, ${name}="...": the page outline reads only double-quoted values, so it leaves this entry out.`
+				);
+			}
+		}
 		if (!anchor) {
 			flag(
 				line,
@@ -471,7 +488,15 @@ function lintFile(absolute, totals) {
 			}
 		}
 
-		const openEnd = openingTagEnd(source, node.position.start.offset);
+		if (opening.trimEnd().endsWith('/>')) {
+			flag(
+				line,
+				'notes',
+				'The entry closes itself and has no notes: open it with `<DocUpdate ...>`, write the notes, and close it with `</DocUpdate>`.'
+			);
+			continue;
+		}
+
 		const afterOpen = source.slice(openEnd).match(/^[ \t]*\r?\n([^\n]*)/);
 		if (!afterOpen || afterOpen[1].trim()) {
 			flag(
@@ -540,9 +565,16 @@ function targets(args) {
 		return pages;
 	}
 	const base = process.env.INIT_CWD ?? process.cwd();
-	return args
-		.map((arg) => path.resolve(base, arg))
-		.filter((file) => /\.mdx?$/.test(file) && fs.existsSync(file));
+	const files = args.map((arg) => path.resolve(base, arg));
+	const invalid = files.filter(
+		(file) => !/\.mdx?$/.test(file) || !fs.statSync(file, { throwIfNoEntry: false })?.isFile()
+	);
+	if (invalid.length) {
+		// A mistyped path would otherwise check nothing and pass.
+		for (const file of invalid) console.error(`${file} is not a .md or .mdx file.`);
+		process.exit(2);
+	}
+	return files;
 }
 
 /** Workflow commands carry their message on one line, with these characters escaped. */

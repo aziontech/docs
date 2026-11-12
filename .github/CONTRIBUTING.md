@@ -48,7 +48,8 @@ style guide apply in full to the entries you add. `pnpm lint:changelog` checks t
 or the files you pass it.
 
 Every entry, old or new, keeps an `anchor` that is unique on the page and starts with its date as a
-slug, and the entries run newest first. An entry dated after October 22, 2026 also needs:
+slug, writes `label` and `anchor` in double quotes (the only form the page outline reads), and the
+entries run newest first. An entry dated after October 22, 2026 also needs:
 
 - the date as its `label`: `October 22, 2026` in English, `22 de outubro de 2026` in Portuguese;
 - the date as its `anchor`: `october-22-2026`, `22-de-outubro-de-2026`. Another entry on the same
@@ -65,8 +66,8 @@ notes report on. Older entries keep the names of their time.
 
 - **Platform Resources and channels:** Azion API, Azion CLI, Azion Console, Azion MCP servers,
   Terraform Provider, DevTools & Integrations, Marketplace, GraphQL API, Real-Time Metrics,
-  Applications, Firewall, Connectors, Workloads, Certificate Manager, Custom Pages, Real-Time Purge,
-  Copilot.
+  Applications, Firewall, Connectors, Workloads, Certificate Manager, Custom Pages, DDoS Protection,
+  Real-Time Purge, Copilot.
 - **Build:** AI Inference, Application Accelerator, Cache, Durable Objects, Functions, Image
   Processor, Live Ingest, LoRA Fine-Tune, Orchestrator.
 - **Store:** KV Store, Object Storage, SQL Database.
