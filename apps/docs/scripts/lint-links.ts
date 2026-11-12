@@ -55,6 +55,7 @@ interface Placement {
 	parentLabelEn?: string;
 	products?: string[];
 	isRoot: boolean;
+	landing: boolean;
 }
 
 const placement = new Map<string, Placement>();
@@ -70,6 +71,7 @@ for (const tree of data.trees.values()) {
 			parentLabelEn: labels.get(entry.ancestors[entry.ancestors.length - 1] ?? ''),
 			products: node.products,
 			isRoot: node.page === tree.root,
+			landing: Boolean(node.landing),
 		});
 	}
 }
@@ -121,6 +123,7 @@ for (const page of corpus) {
 	const at = placement.get(page.namespace);
 	if (!at) continue;
 	const exempt =
+		at.landing ||
 		EXEMPT_LABELS.has(at.labelEn ?? '') ||
 		EXEMPT_LABELS.has(at.parentLabelEn ?? '') ||
 		(at.isRoot && NON_PRODUCT_TREES.has(at.treeId)) ||
@@ -164,12 +167,19 @@ for (const tree of data.trees.values()) {
 				.map((id) => owners.get(id))
 				.reverse()
 				.find(Boolean) ?? { namespace: tree.root, name: tree.id };
-			if (node.product && node.page && node.items?.length)
+			if (node.product && node.page && node.items?.length && !node.landing)
 				owners.set(entry.nodeId, {
 					namespace: node.page,
 					name: text(node.label, 'en') ?? node.page,
 				});
-			if (!node.page || node.linkOnly || node.placeholder || node.page === tree.root) continue;
+			if (
+				!node.page ||
+				node.linkOnly ||
+				node.placeholder ||
+				node.landing ||
+				node.page === tree.root
+			)
+				continue;
 			if (text(node.label, 'en') === 'Guides and tutorials') continue;
 			const page = corpus.find((p) => p.lang === lang && p.namespace === node.page);
 			const ownerPage = corpus.find((p) => p.lang === lang && p.namespace === owner.namespace);
