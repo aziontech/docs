@@ -1,0 +1,410 @@
+---
+title: Gerencie uma Application com Terraform
+description: >-
+  Faça o deploy de uma Function na Azion com Terraform e altere o código com um
+  segundo apply, com um destroy opcional no fim.
+meta_tags: 'terraform, azion terraform provider, infrastructure as code, function, application, workload, workload deployment, terraform apply, terraform destroy, tutorial'
+namespace: docs_guides_manage_an_application_with_terraform
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/automacao/gerencie-uma-aplicacao-com-terraform/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Neste tutorial, você vai fazer o deploy de uma Function na Azion com Terraform e gerenciá-la como código. Você vai declarar os recursos em código, criá-los com um apply e alterar a Function. Se quiser remover tudo no fim, um destroy faz isso.
+
+A configuração declara seis recursos. Cada um se liga a um recurso acima dele:
+
+1. `azion_function` guarda o código da [Function](/pt-br/documentacao/plataforma/functions/).
+2. `azion_application_main_setting` cria a [Application](/pt-br/documentacao/plataforma/applications/), com Functions ativado.
+3. `azion_application_function_instance` vincula a Function à Application.
+4. `azion_application_rule_engine` adiciona uma regra de requisição que executa a Function em todos os caminhos.
+5. `azion_workload` cria o [Workload](/pt-br/documentacao/plataforma/workloads/), que guarda o domínio que recebe as requisições.
+6. `azion_workload_deployment` define a Application para a qual o Workload envia as requisições.
+
+---
+
+## Pré-requisitos
+
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) 1.0 ou posterior.
+- Uma conta Azion. Para criar uma, consulte [Criar uma conta](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- Um personal token. Para criar um, consulte [Tokens pessoais](/pt-br/documentacao/fundamentos/personal-tokens/).
+- `curl`, para enviar requisições à Application.
+
+---
+
+## 1. Crie o projeto
+
+Crie um diretório para o projeto e entre nele:
+
+```bash
+mkdir hello-terraform
+cd hello-terraform
+```
+
+Crie um arquivo `versions.tf`. Ele exige o Azion Terraform Provider na versão 2.10.0:
+
+```hcl title="versions.tf"
+terraform {
+  required_providers {
+    azion = {
+      source  = "aziontech/azion"
+      version = "2.10.0"
+    }
+  }
+}
+
+provider "azion" {}
+```
+
+O bloco `provider "azion"` fica vazio, porque o provider lê o seu personal token do ambiente.
+
+Baixe o provider:
+
+```bash
+terraform init
+```
+
+A saída nomeia o provider instalado e termina com uma linha de sucesso:
+
+```text
+- Installing aziontech/azion v2.10.0...
+- Installed aziontech/azion v2.10.0 (self-signed, key ID 60105B099A0FF3B3)
+...
+Terraform has been successfully initialized!
+```
+
+O diretório guarda o provider e um arquivo `.terraform.lock.hcl` que registra a versão dele.
+
+---
+
+## 2. Informe o seu personal token
+
+O provider lê o token da variável de ambiente `AZION_API_TOKEN`. No terminal que executa o Terraform, defina a variável. Substitua `<your-personal-token>` pelo seu token:
+
+```bash
+export AZION_API_TOKEN="<your-personal-token>"
+```
+
+A variável existe só nesta sessão do terminal, e nenhum arquivo do projeto guarda o token.
+
+---
+
+## 3. Escreva a Function
+
+Crie um arquivo `index.js`. A Function responde a toda requisição com uma mensagem JSON e um número de versão:
+
+```javascript title="index.js"
+export default {
+  async fetch(request) {
+    return Response.json({ message: 'Hello from Terraform', version: 1 })
+  }
+}
+```
+
+O Terraform lê esse arquivo e envia o conteúdo dele como o código da Function.
+
+---
+
+## 4. Declare os recursos
+
+Crie um arquivo `main.tf` com os seis recursos e um output que imprime o domínio do Workload:
+
+```hcl title="main.tf"
+resource "azion_function" "hello" {
+  function = {
+    name                  = "hello-terraform"
+    code                  = chomp(file("${path.module}/index.js"))
+    runtime               = "azion_js"
+    execution_environment = "application"
+    active                = true
+  }
+}
+
+resource "azion_application_main_setting" "hello" {
+  application = {
+    name   = "hello-terraform"
+    active = true
+    modules = {
+      functions = { enabled = true }
+    }
+  }
+}
+
+resource "azion_application_function_instance" "hello" {
+  application_id = azion_application_main_setting.hello.application.application_id
+  data = {
+    name        = "hello-terraform"
+    function_id = azion_function.hello.function.id
+    active      = true
+  }
+}
+
+resource "azion_application_rule_engine" "run_function" {
+  application_id = azion_application_main_setting.hello.application.application_id
+  results = {
+    name   = "Run hello-terraform"
+    phase  = "request"
+    active = true
+    criteria = [
+      {
+        entries = [
+          {
+            criterion = {
+              variable    = "$${uri}"
+              conditional = "if"
+              operator    = "starts_with"
+              argument    = "/"
+            }
+          }
+        ]
+      }
+    ]
+    behaviors = [
+      {
+        behavior = {
+          type       = "run_function"
+          attributes = { value = tostring(azion_application_function_instance.hello.data.id) }
+        }
+      }
+    ]
+  }
+}
+
+resource "azion_workload" "hello" {
+  workload = {
+    name   = "hello-terraform"
+    active = true
+    protocols = {
+      http = {
+        versions    = ["http1", "http2", "http3"]
+        http_ports  = [80]
+        https_ports = [443]
+        quic_ports  = [443]
+      }
+    }
+    tls = {
+      ciphers         = 7
+      minimum_version = "tls_1_3"
+    }
+  }
+}
+
+resource "azion_workload_deployment" "hello" {
+  workload_id = azion_workload.hello.workload.id
+  deployment = {
+    name    = "hello-terraform"
+    active  = true
+    current = true
+    strategy = {
+      type = "default"
+      attributes = {
+        application = azion_application_main_setting.hello.application.application_id
+      }
+    }
+  }
+  depends_on = [azion_application_rule_engine.run_function]
+}
+
+output "workload_domain" {
+  value = azion_workload.hello.workload.workload_domain
+}
+```
+
+Quatro linhas do arquivo precisam de um motivo:
+
+- `chomp(file(...))` remove a quebra de linha final do `index.js`. A Azion guarda o código sem ela, e sem `chomp` o apply para com `Provider produced inconsistent result after apply`.
+- `$${uri}` escreve o texto literal `${uri}`, a variável de regra que guarda o caminho da requisição. O `$` duplicado impede que o Terraform o leia como uma interpolação.
+- Os blocos `protocols` e `tls` repetem os valores que a Azion dá a um Workload novo. Declarados no arquivo, eles deixam os planos seguintes sem diferenças.
+- `depends_on` cria o deployment por último, depois que a regra que executa a Function existe.
+
+Verifique a configuração:
+
+```bash
+terraform validate
+```
+
+```text
+Success! The configuration is valid.
+```
+
+---
+
+## 5. Crie os recursos
+
+Crie os seis recursos:
+
+```bash
+terraform apply
+```
+
+O Terraform imprime o plano e pede confirmação:
+
+```text
+Plan: 6 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + workload_domain = (known after apply)
+
+Do you want to perform these actions?
+  Terraform will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value:
+```
+
+Digite `yes`. O Terraform cria os recursos na ordem das dependências e imprime o domínio do Workload:
+
+```text
+Apply complete! Resources: 6 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+workload_domain = "6xtfutfbo0u.map.azionedge.net"
+```
+
+O seu domínio tem o mesmo formato, com outras letras. Compare a configuração com o que a Azion guarda agora:
+
+```bash
+terraform plan
+```
+
+```text
+No changes. Your infrastructure matches the configuration.
+```
+
+O Terraform acompanha os seis recursos no state, e a conta guarda a Function, a Application e o Workload.
+
+---
+
+## 6. Envie uma requisição à Application
+
+Guarde o domínio numa variável do shell:
+
+```bash
+DOMAIN=$(terraform output -raw workload_domain)
+```
+
+Envie uma requisição ao domínio:
+
+```bash
+curl "https://$DOMAIN/"
+```
+
+Um Workload novo pode levar cerca de dez minutos para se propagar pela rede da Azion. Até lá, o domínio responde `404` com uma página de erro em HTML, e pode alternar entre `404` e a resposta da Function por alguns minutos. Repita a requisição a cada minuto até a mensagem JSON voltar três vezes seguidas:
+
+```json
+{"message":"Hello from Terraform","version":1}
+```
+
+O Workload envia cada requisição à Application, cuja regra executa a Function.
+
+---
+
+## 7. Altere a Function
+
+No `index.js`, troque `version: 1` por `version: 2`:
+
+```javascript title="index.js"
+export default {
+  async fetch(request) {
+    return Response.json({ message: 'Hello from Terraform', version: 2 })
+  }
+}
+```
+
+Veja a alteração antes de aplicá-la:
+
+```bash
+terraform plan
+```
+
+O plano mostra a linha de código alterada na Function:
+
+```text
+  # azion_function.hello will be updated in-place
+  ~ resource "azion_function" "hello" {
+      ~ function     = {
+          ~ code                  = <<-EOT
+                export default {
+                  async fetch(request) {
+              -     return Response.json({ message: 'Hello from Terraform', version: 1 })
+              +     return Response.json({ message: 'Hello from Terraform', version: 2 })
+                  }
+                }
+            EOT
+...
+Plan: 0 to add, 3 to change, 0 to destroy.
+```
+
+O plano também lista a function instance e a regra, porque o provider só consegue ler o ID da Function quando o apply termina. Os valores delas continuam os mesmos.
+
+Aplique a alteração e digite `yes` na confirmação:
+
+```bash
+terraform apply
+```
+
+O apply altera só a Function:
+
+```text
+azion_function.hello: Modifying... [id=109967]
+azion_function.hello: Modifications complete after 2s [id=109967]
+
+Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
+```
+
+Envie a requisição de novo:
+
+```bash
+curl "https://$DOMAIN/"
+```
+
+O código novo leva menos tempo para se propagar que um Workload novo. Durante a propagação, o domínio pode responder com a versão 1 ou, por alguns segundos, com a página `404`. Repita a requisição até a resposta trazer a versão 2:
+
+```json
+{"message":"Hello from Terraform","version":2}
+```
+
+A Function executa o código novo, e o domínio e os outros recursos não mudaram.
+
+---
+
+## 8. (Opcional) Destrua os recursos
+
+A Function continua servindo o seu domínio depois do tutorial. Se você quiser remover todos os recursos que a configuração criou, execute:
+
+```bash
+terraform destroy
+```
+
+O Terraform lista os seis recursos e pede confirmação:
+
+```text
+Plan: 0 to add, 0 to change, 6 to destroy.
+```
+
+Digite `yes`. O Terraform remove os recursos na ordem inversa das dependências:
+
+```text
+Destroy complete! Resources: 6 destroyed.
+```
+
+Verifique que o state está vazio:
+
+```bash
+terraform state list
+```
+
+O comando não imprime nada, porque o Terraform não acompanha mais nenhum recurso. A remoção também se propaga, então o domínio pode continuar respondendo por alguns minutos.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Azion Terraform Provider" href="/pt-br/documentacao/devtools/terraform/" label="Como o provider mapeia os recursos da Azion para o Terraform e as versões que ele suporta." />
+  <DocCard title="Recursos de Applications" href="/pt-br/documentacao/devtools/terraform/applications/" label="Todos os argumentos dos recursos de Application, function instance, regra e cache." />
+  <DocCard title="Recursos de Workloads" href="/pt-br/documentacao/devtools/terraform/workloads/" label="Adicione o seu domínio, as configurações de TLS e um Firewall ao deployment do Workload." />
+  <DocCard title="Boas práticas do Terraform Provider" href="/pt-br/documentacao/devtools/terraform/best-practices/" label="Mantenha o state, os tokens e as versões seguros à medida que a configuração cresce." />
+</DocCardGroup>

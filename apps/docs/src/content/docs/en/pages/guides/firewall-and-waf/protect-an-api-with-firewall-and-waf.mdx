@@ -1,0 +1,753 @@
+---
+title: Protect an API with Firewall and WAF
+description: >-
+  Put a Firewall with a WAF rule set in front of an API path, and watch it block
+  a SQL injection while normal requests pass.
+meta_tags: 'firewall, waf, web application firewall, set waf, blocking, sql injection, function, workload, tutorial'
+namespace: docs_guides_protect_an_api_with_firewall_and_waf
+permalink: /documentation/guides/application-security/firewall-and-waf/protect-an-api-with-firewall-and-waf/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+In this tutorial, you will protect an API with a [Firewall](/en/documentation/platform/firewall/) that applies a [WAF](/en/documentation/platform/firewall/waf/) rule set to every path that starts with `/api`. You will publish a small API, create the WAF rule set and the Firewall, deploy both on one Workload, and send a SQL injection that the WAF blocks.
+
+Every resource the tutorial creates links to one created before it:
+
+1. The [Function](/en/documentation/platform/functions/) is the API: it answers every request with the path and the query string it received.
+2. The [Application](/en/documentation/platform/applications/) runs the Function on every path.
+3. The WAF rule set sets which threats the WAF detects, and how sensitive it is to each one.
+4. The Firewall has WAF turned on, and a rule that applies the rule set in blocking mode to the paths that start with `/api`.
+5. The [Workload](/en/documentation/platform/workloads/) holds the domain, and its deployment sets the Firewall that inspects each request and the Application that answers it.
+
+The resources are the same in Azion Console, the Azion CLI, and the API. Select the interface you use, and every stage shows its steps.
+
+---
+
+## Prerequisites
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.cli">CLI</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+
+<Fragment slot="panel.console">
+
+### Console
+
+- An Azion account. To create one, refer to [Create an account](/en/documentation/fundamentals/creating-account/).
+- Access to Azion Console. To sign in, refer to [Access Azion Console](/en/documentation/guides/platform/account-and-billing/how-to-access-azion-console/).
+- `curl`, to send requests to the API.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+- An Azion account. To create one, refer to [Create an account](/en/documentation/fundamentals/creating-account/).
+- The Azion CLI. The commands on this page match Azion CLI 4.26.1. To install it, refer to [Azion CLI](/en/documentation/devtools/cli/).
+- The Azion CLI authorized with a personal token, with `azion -t <your-personal-token>`. The next command can ask whether you agree to share anonymous usage data. To create a token, refer to [Personal tokens](/en/documentation/fundamentals/personal-tokens/).
+- `curl`, to send requests to the API.
+- `jq`, to read the domain from the CLI output.
+- One terminal session for every command of the tutorial, because later commands read the shell variables that earlier ones set.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+- An Azion account. To create one, refer to [Create an account](/en/documentation/fundamentals/creating-account/).
+- A personal token. To create one, refer to [Personal tokens](/en/documentation/fundamentals/personal-tokens/).
+- `curl`, to call the Azion API and send requests to your API.
+- `jq`, to read IDs from the API responses.
+- One terminal session for every command of the tutorial, because later commands read the shell variables that earlier ones set.
+
+</Fragment>
+
+</Tabs>
+
+---
+
+## 1. Write the API
+
+Create a directory for the tutorial, go to it, and create an `index.js` file with this code:
+
+```javascript title="index.js"
+export default {
+  async fetch(request) {
+    const { pathname, searchParams } = new URL(request.url)
+    return Response.json({ path: pathname, query: Object.fromEntries(searchParams) })
+  }
+}
+```
+
+The Function echoes the path and the query string of each request as JSON, so every response shows what reached it.
+
+---
+
+## 2. Create the Function
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To create the Function in Azion Console:
+
+1. Access [Azion Console](https://console.azion.com/) > **Functions**.
+2. Select **+ Function**.
+3. In **Name**, enter `protected-api`.
+4. Keep **Application** selected in **Execution Environment**.
+5. Select the **Code** tab.
+6. Replace the sample code in the editor with the content of `index.js`.
+7. Select **Save**.
+
+The Console shows the message **Your function has been created**.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Create the Function from `index.js`:
+
+```bash
+azion create function --name protected-api --code index.js --execution-environment application --active true
+```
+
+```text
+Created function with ID 110036
+```
+
+Store the ID that your command printed. Replace `110036` with your ID:
+
+```bash
+FUNCTION_ID=110036
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Store your personal token in a shell variable. Replace `<your-personal-token>` with your token:
+
+```bash
+export AZION_API_TOKEN="<your-personal-token>"
+```
+
+Send a `POST` request to the functions endpoint. `jq` reads `index.js` into the `code` field:
+
+```bash
+jq -n --rawfile code index.js \
+  '{name: "protected-api", code: $code, runtime: "azion_js", execution_environment: "application"}' \
+| curl --silent https://api.azion.com/v4/workspace/functions \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data @- \
+| tee function.json
+```
+
+```json
+{"state": "pending", "data": {"id": 110037, "active": true, ...}}
+```
+
+```bash
+FUNCTION_ID=$(jq .data.id function.json)
+```
+
+</Fragment>
+
+</Tabs>
+
+The account holds the Function.
+
+---
+
+## 3. Create the Application
+
+The Application needs three parts: the Application itself with Functions turned on, a function instance that attaches the Function, and a rule that runs the instance on every path.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To create the Application:
+
+1. Access [Azion Console](https://console.azion.com/) > **Applications**.
+2. Select **+ Application**.
+3. In **Name**, enter `protected-api`.
+4. In **Modules**, turn on **Functions**.
+5. Select **Create**.
+
+To attach the Function:
+
+1. Select the **Functions Instances** tab.
+2. Select **+ Function**.
+3. In **Name**, enter `protected-api`.
+4. In **Function**, select `protected-api`.
+5. Select **Save**.
+
+To run the Function on every request:
+
+1. Select the **Rules Engine** tab.
+2. Select **+ Rule**.
+3. In **Name**, enter `Run protected-api`.
+4. Keep **Request Phase** selected.
+5. In **Criteria**, keep `${uri}` and **starts with**, and enter `/` as the argument.
+6. In **Behaviors**, replace **Deliver** with **Run Function**.
+7. In the function instance field that **Run Function** adds, select the `protected-api` instance.
+8. Select **Save**.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Create the Application with Functions turned on:
+
+```bash
+azion create application --name protected-api --function true --active true
+```
+
+```text
+Created Application with ID 1794609956
+```
+
+Store the ID. Replace `1794609956` with your ID:
+
+```bash
+APPLICATION_ID=1794609956
+```
+
+Attach the Function to the Application:
+
+```bash
+azion create function-instance --application-id $APPLICATION_ID --function-id $FUNCTION_ID --name protected-api
+```
+
+```text
+Created Function Instance with ID 64719
+```
+
+Store the ID. Replace `64719` with your ID:
+
+```bash
+INSTANCE_ID=64719
+```
+
+Write the rule that runs the instance on every path, and create it in the request phase:
+
+```bash
+cat > rule.json <<EOF
+{
+  "name": "Run protected-api",
+  "criteria": [[{ "variable": "\${uri}", "conditional": "if", "operator": "starts_with", "argument": "/" }]],
+  "behaviors": [{ "type": "run_function", "attributes": { "value": $INSTANCE_ID } }]
+}
+EOF
+azion create rules-engine --application-id $APPLICATION_ID --phase request --file rule.json
+```
+
+```text
+Created Rules Engine with ID 1547680
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Create the Application with Functions turned on, attach the Function, and add the rule that runs it:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "protected-api", "modules": {"functions": {"enabled": true}}}' \
+| tee application.json
+APPLICATION_ID=$(jq .data.id application.json)
+
+curl --silent https://api.azion.com/v4/workspace/applications/$APPLICATION_ID/functions \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"protected-api\", \"function\": $FUNCTION_ID}" \
+| tee instance.json
+INSTANCE_ID=$(jq .data.id instance.json)
+
+curl --silent https://api.azion.com/v4/workspace/applications/$APPLICATION_ID/request_rules \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"Run protected-api\", \"criteria\": [[{\"variable\": \"\${uri}\", \"conditional\": \"if\", \"operator\": \"starts_with\", \"argument\": \"/\"}]], \"behaviors\": [{\"type\": \"run_function\", \"attributes\": {\"value\": $INSTANCE_ID}}]}"
+```
+
+Each call answers with `"state": "pending"` and the new resource, with its `id`.
+
+</Fragment>
+
+</Tabs>
+
+The Application runs the Function on every request it receives.
+
+---
+
+## 4. Create the WAF rule set
+
+The rule set checks eight threat types, each at medium sensitivity, which is what Azion Console proposes for a new rule set.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To create the rule set:
+
+1. Access [Azion Console](https://console.azion.com/) > **WAF Rules**.
+2. Select **+ WAF Rule**.
+3. In **Name**, enter `protected-api`.
+4. In **Threat Type Configuration**, keep the eight threat types turned on, each with **Sensitivity Medium**.
+5. Select **Save**.
+
+The Console shows the message **Your WAF rule has been created**.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Create the rule set:
+
+```bash
+azion create waf --name protected-api --active true --engine-version 2021-Q3 --type score --rulesets 1 \
+  --thresholds "cross_site_scripting=medium,directory_traversal=medium,evading_tricks=medium,file_upload=medium,identified_attack=medium,remote_file_inclusion=medium,sql_injection=medium,unwanted_access=medium"
+```
+
+```text
+Created WAF with ID 49213
+```
+
+Store the ID. Replace `49213` with your ID:
+
+```bash
+WAF_ID=49213
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Create the rule set:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/wafs \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "protected-api", "engine_settings": {"engine_version": "2021-Q3", "type": "score", "attributes": {"rulesets": [1], "thresholds": [
+    {"threat": "cross_site_scripting", "sensitivity": "medium"},
+    {"threat": "directory_traversal", "sensitivity": "medium"},
+    {"threat": "evading_tricks", "sensitivity": "medium"},
+    {"threat": "file_upload", "sensitivity": "medium"},
+    {"threat": "identified_attack", "sensitivity": "medium"},
+    {"threat": "remote_file_inclusion", "sensitivity": "medium"},
+    {"threat": "sql_injection", "sensitivity": "medium"},
+    {"threat": "unwanted_access", "sensitivity": "medium"}]}}}' \
+| tee waf.json
+```
+
+```json
+{"state": "pending", "data": {"id": 49210, "active": true, "engine_settings": {...}, ...}}
+```
+
+```bash
+WAF_ID=$(jq .data.id waf.json)
+```
+
+</Fragment>
+
+</Tabs>
+
+The account holds the rule set. It inspects nothing until a Firewall rule applies it.
+
+---
+
+## 5. Create the Firewall
+
+The Firewall needs WAF turned on and a rule that applies the rule set to the paths that start with `/api`, in blocking mode. Requests to other paths reach the Application without WAF inspection.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To create the Firewall:
+
+1. Access [Azion Console](https://console.azion.com/) > **Firewalls**.
+2. Select **+ Firewall**.
+3. In **Name**, enter `protected-api`.
+4. In **Modules**, turn on **Web Application Firewall**.
+5. Select **Create**.
+
+The Console opens the new Firewall on its **Main Settings** tab.
+
+To apply the rule set to `/api`:
+
+1. Select the **Rules Engine** tab.
+2. Select **+ Rule**.
+3. In **Name**, enter `Apply the WAF to /api`.
+4. In **Criteria**, keep **Request Uri** and **starts with**, and enter `/api` as the argument.
+5. In **Behaviors**, select **Set WAF**.
+6. In the WAF field that **Set WAF** adds, select `protected-api`.
+7. In **Select a WAF mode**, select **Blocking**.
+8. Select **Save**.
+
+The rule appears in the **Rules Engine** tab of the Firewall.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Create the Firewall with WAF turned on:
+
+```bash
+azion create firewall --name protected-api --active true --waf-enabled true
+```
+
+```text
+Created Firewall with ID 103570
+```
+
+Store the ID. Replace `103570` with your ID:
+
+```bash
+FIREWALL_ID=103570
+```
+
+Write the rule that applies the rule set to `/api`, and create it on the Firewall:
+
+```bash
+cat > firewall-rule.json <<EOF
+{
+  "name": "Apply the WAF to /api",
+  "criteria": [[{ "variable": "\${request_uri}", "conditional": "if", "operator": "starts_with", "argument": "/api" }]],
+  "behaviors": [{ "type": "set_waf", "attributes": { "waf_id": $WAF_ID, "mode": "blocking" } }]
+}
+EOF
+azion create firewall-rule --firewall-id $FIREWALL_ID --file firewall-rule.json
+```
+
+```text
+Created Firewall Rule with ID 169033
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Create the Firewall with WAF turned on:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/firewalls \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "protected-api", "modules": {"waf": {"enabled": true}}}' \
+| tee firewall.json
+FIREWALL_ID=$(jq .data.id firewall.json)
+```
+
+```json
+{"state": "pending", "data": {"id": 103571, "modules": {"ddos_protection": {"enabled": true}, "functions": {"enabled": true}, "network_protection": {"enabled": true}, "waf": {"enabled": true}}, ...}}
+```
+
+Add the rule that applies the rule set to `/api`:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/firewalls/$FIREWALL_ID/request_rules \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"Apply the WAF to /api\", \"criteria\": [[{\"variable\": \"\${request_uri}\", \"conditional\": \"if\", \"operator\": \"starts_with\", \"argument\": \"/api\"}]], \"behaviors\": [{\"type\": \"set_waf\", \"attributes\": {\"waf_id\": $WAF_ID, \"mode\": \"blocking\"}}]}"
+```
+
+```json
+{"state": "pending", "data": {"id": 169034, "name": "Apply the WAF to /api", "active": true, ...}}
+```
+
+</Fragment>
+
+</Tabs>
+
+The Firewall applies the rule set to `/api` in blocking mode. `mode` is required: a `set_waf` behavior without it is refused.
+
+---
+
+## 6. Create the Workload
+
+The deployment of the Workload sets both the Firewall and the Application, so every request passes the Firewall before it reaches the Application.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To create the Workload and its deployment:
+
+1. Access [Azion Console](https://console.azion.com/) > **Workloads**.
+2. Select **+ Workload**.
+3. In **Name**, enter `protected-api`.
+4. In **Deployment Settings**, select `protected-api` in **Application**.
+5. In **Firewall**, select `protected-api`.
+6. Select **Save**.
+
+The list of Workloads shows the domain in the **Workload Domain** column, in the format `xxxxxxxxxxx.map.azionedge.net`.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Create the Workload:
+
+```bash
+azion create workload --name protected-api
+```
+
+```text
+Created Workload with ID 1794600546
+```
+
+Store the ID. Replace `1794600546` with your ID:
+
+```bash
+WORKLOAD_ID=1794600546
+```
+
+Create the deployment with the Application and the Firewall:
+
+```bash
+azion create workload-deployment --workload-id $WORKLOAD_ID --name protected-api --strategy-type default --application-id $APPLICATION_ID --firewall-id $FIREWALL_ID
+```
+
+```text
+Created Workload Deployment with ID 361377
+```
+
+Read the domain of the Workload:
+
+```bash
+DOMAIN=$(azion describe workload --workload-id $WORKLOAD_ID --format json | jq -r .workload_domain)
+echo $DOMAIN
+```
+
+```text
+yv9dezzdaoa.map.azionedge.net
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Create the Workload:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/workloads \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "protected-api"}' \
+| tee workload.json
+WORKLOAD_ID=$(jq .data.id workload.json)
+DOMAIN=$(jq -r .data.workload_domain workload.json)
+```
+
+Create the deployment with the Application and the Firewall:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/workloads/$WORKLOAD_ID/deployments \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"protected-api\", \"strategy\": {\"type\": \"default\", \"attributes\": {\"application\": $APPLICATION_ID, \"firewall\": $FIREWALL_ID}}}"
+```
+
+```json
+{"state": "pending", "data": {"id": 361378, "active": true, "current": true, "strategy": {"type": "default", "attributes": {"application": 1794609957, "firewall": 103571, "custom_page": null}}, ...}}
+```
+
+</Fragment>
+
+</Tabs>
+
+Your domain has the same format as the examples, with different letters.
+
+---
+
+## 7. Test the protection
+
+A new Workload can take about ten minutes to propagate across the Azion network. Until then, the domain answers `404` with an HTML error page, and it can alternate between `404` and the responses below for a few minutes. If you used the Console, set `DOMAIN` to your domain first, with `DOMAIN=<your-domain>`.
+
+Send a normal request to the API:
+
+```bash
+curl --silent --get "https://$DOMAIN/api/orders" --data-urlencode "id=42"
+```
+
+Repeat it every minute until the API answers three times in a row:
+
+```json
+{"path":"/api/orders","query":{"id":"42"}}
+```
+
+Send a SQL injection in the same parameter, and print the status code:
+
+```bash
+curl --silent --output /dev/null --write-out '%{http_code}\n' --get "https://$DOMAIN/api/orders" --data-urlencode "id=42' OR '1'='1"
+```
+
+```text
+400
+```
+
+The WAF blocked the request before it reached the Function. The body is the Azion default error page.
+
+Send the same injection to `/`, which the Firewall rule does not cover:
+
+```bash
+curl --silent --get "https://$DOMAIN/" --data-urlencode "id=42' OR '1'='1"
+```
+
+```json
+{"path":"/","query":{"id":"42' OR '1'='1"}}
+```
+
+The request reached the Function, because only the paths that start with `/api` pass through the rule set.
+
+---
+
+## 8. (Optional) Delete the resources
+
+The protected API keeps running on your domain after the tutorial. If you want to remove the resources, delete the Workload first, because its deployment uses the Firewall and the Application. Then delete the Firewall before the rule set it applies.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To delete the Workload:
+
+1. Access [Azion Console](https://console.azion.com/) > **Workloads**.
+2. In the `protected-api` row, open the actions menu and select **Delete**.
+3. In the **Delete Workload** dialog, enter `protected-api`.
+4. Select **Delete**.
+
+Repeat the steps in this order: **Firewalls** for the Firewall, **WAF Rules** for the rule set, **Applications** for the Application, and **Functions** for the Function. Each dialog asks for the name of the resource.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Delete the resources in order. Each command prints one confirmation:
+
+```bash
+azion delete workload --workload-id $WORKLOAD_ID
+```
+
+```text
+Workload 1794600546 was successfully deleted
+```
+
+```bash
+azion delete firewall --firewall-id $FIREWALL_ID
+```
+
+```text
+Firewall 103570 was successfully deleted
+```
+
+```bash
+azion delete waf --waf-id $WAF_ID
+```
+
+```text
+WAF 49213 was successfully deleted
+```
+
+```bash
+azion delete application --application-id $APPLICATION_ID
+```
+
+```text
+Application 1794609956 was successfully deleted
+```
+
+```bash
+azion delete function --function-id $FUNCTION_ID
+```
+
+```text
+Function 110036 was successfully deleted
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Delete the resources in order:
+
+```bash
+for resource in workloads/$WORKLOAD_ID firewalls/$FIREWALL_ID wafs/$WAF_ID applications/$APPLICATION_ID functions/$FUNCTION_ID; do
+  curl --silent --request DELETE https://api.azion.com/v4/workspace/$resource \
+    --header "Authorization: Token $AZION_API_TOKEN"
+  echo
+done
+```
+
+```text
+{"state":"pending"}
+{"state":"pending"}
+{"state":"pending"}
+{"state":"pending"}
+{"state":"pending"}
+```
+
+</Fragment>
+
+</Tabs>
+
+The account no longer holds the resources of the tutorial. The removal also propagates, so the domain can keep answering for a few minutes.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Scoring and modes" href="/en/documentation/platform/firewall/waf/scoring-and-modes/" label="How sensitivity sets what the WAF blocks, and when to start in logging mode." />
+  <DocCard title="Create a WAF exception" href="/en/documentation/guides/application-security/firewall-and-waf/configure-waf-allowed-rules/" label="Allow a legitimate request that the rule set blocks." />
+  <DocCard title="Apply WAF and a rate limit to one path" href="/en/documentation/guides/application-security/firewall-and-waf/apply-waf-and-rate-limit-to-one-path/" label="Add a rate limit to the same Firewall rule." />
+  <DocCard title="Firewall rules engine" href="/en/documentation/platform/firewall/rules-engine/" label="Every criterion and behavior a Firewall rule takes." />
+</DocCardGroup>

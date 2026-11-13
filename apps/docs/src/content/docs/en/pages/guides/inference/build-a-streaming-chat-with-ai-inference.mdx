@@ -1,0 +1,644 @@
+---
+title: Build a streaming chat with AI Inference
+description: >-
+  Build a chat page whose answers stream from a model on AI Inference, through a
+  Function, an Application, and a Workload.
+meta_tags: 'ai inference, azion.ai.run, streaming, chat, function, application, workload, qwen3, tutorial'
+namespace: docs_guides_build_a_streaming_chat_with_ai_inference
+permalink: /documentation/guides/ai/inference/build-a-streaming-chat-with-ai-inference/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+In this tutorial, you will build a chat page whose answers stream from a model on [AI Inference](/en/documentation/platform/ai-inference/). You will write a Function that calls the model, publish it through an Application and a Workload, and send it a question.
+
+Every resource the tutorial creates links to one created before it:
+
+1. The [Function](/en/documentation/platform/functions/) holds the code: a chat page, and an endpoint that sends each question to the model.
+2. The [Application](/en/documentation/platform/applications/) has Functions turned on, a function instance that attaches the Function, and a request rule that runs it on every path.
+3. The [Workload](/en/documentation/platform/workloads/) holds the domain that receives requests, and its deployment sets the Application that answers them.
+
+The resources are the same in Azion Console, the Azion CLI, and the API. Select the interface you use, and every stage shows its steps.
+
+---
+
+## Prerequisites
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.cli">CLI</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+
+<Fragment slot="panel.console">
+
+### Console
+
+- An Azion account with access to AI Inference. On the Hobby and Pro plans, access is available upon request, subject to approval. For more information, refer to [Access by plan](/en/documentation/platform/ai-inference/limits/#access-by-plan).
+- Access to Azion Console. To sign in, refer to [Access Azion Console](/en/documentation/guides/platform/account-and-billing/how-to-access-azion-console/).
+- `curl`, to send a question to the chat endpoint.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+- An Azion account with access to AI Inference. On the Hobby and Pro plans, access is available upon request, subject to approval. For more information, refer to [Access by plan](/en/documentation/platform/ai-inference/limits/#access-by-plan).
+- The Azion CLI. The commands on this page match Azion CLI 4.26.1. To install it, refer to [Azion CLI](/en/documentation/devtools/cli/).
+- The Azion CLI authorized with a personal token, with `azion -t <your-personal-token>`. The next command can ask whether you agree to share anonymous usage data. To create a token, refer to [Personal tokens](/en/documentation/fundamentals/personal-tokens/).
+- `curl`, to send a question to the chat endpoint.
+- `jq`, to read the domain from the CLI output.
+- One terminal session for every command of the tutorial, because later commands read the shell variables that earlier ones set.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+- An Azion account with access to AI Inference. On the Hobby and Pro plans, access is available upon request, subject to approval. For more information, refer to [Access by plan](/en/documentation/platform/ai-inference/limits/#access-by-plan).
+- A personal token. To create one, refer to [Personal tokens](/en/documentation/fundamentals/personal-tokens/).
+- `curl`, to call the API and send a question to the chat endpoint.
+- `jq`, to read IDs from the API responses.
+- One terminal session for every command of the tutorial, because later commands read the shell variables that earlier ones set.
+
+</Fragment>
+
+</Tabs>
+
+---
+
+## 1. Write the Function
+
+Create a directory for the tutorial, go to it, and create an `index.js` file with this code:
+
+```javascript title="index.js"
+const MODEL = 'Qwen/Qwen3-30B-A3B-Instruct-2507-FP8'
+
+const PAGE = `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Chat</title></head>
+<body>
+  <form id="form">
+    <label for="prompt">Ask a question</label>
+    <input id="prompt" name="prompt" required>
+    <button type="submit">Send</button>
+  </form>
+  <pre id="answer"></pre>
+  <script>
+    document.getElementById('form').addEventListener('submit', async (event) => {
+      event.preventDefault()
+      const answer = document.getElementById('answer')
+      answer.textContent = ''
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: document.getElementById('prompt').value })
+      })
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        answer.textContent += decoder.decode(value, { stream: true })
+      }
+    })
+  </script>
+</body>
+</html>`
+
+async function chat(request) {
+  const input = await request.json().catch(() => null)
+  const prompt = input?.prompt
+  if (typeof prompt !== 'string' || prompt.trim() === '') {
+    return new Response('prompt is required', { status: 400 })
+  }
+  let chunks
+  try {
+    chunks = await Azion.AI.run(MODEL, {
+      stream: true,
+      max_tokens: 300,
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant. Answer in three sentences or fewer.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  } catch (error) {
+    return new Response(`AI Inference error: ${error.message}`, { status: 502 })
+  }
+  const encoder = new TextEncoder()
+  const body = new ReadableStream({
+    async start(controller) {
+      for await (const chunk of chunks) {
+        const text = chunk?.choices?.[0]?.delta?.content
+        if (text) controller.enqueue(encoder.encode(text))
+      }
+      controller.close()
+    }
+  })
+  return new Response(body, { headers: { 'content-type': 'text/plain; charset=utf-8' } })
+}
+
+export default {
+  async fetch(request) {
+    const { pathname } = new URL(request.url)
+    if (pathname === '/api/chat' && request.method === 'POST') return chat(request)
+    if (pathname === '/') return new Response(PAGE, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+    return new Response('Not found', { status: 404 })
+  }
+}
+```
+
+The Function answers two routes:
+
+- `GET /` returns the chat page. The page sends the question to `/api/chat` and writes the answer as it arrives.
+- `POST /api/chat` calls the model with `stream: true`. `Azion.AI.run` then resolves to an async iterator of chunks, and the Function writes the text of each chunk, `choices[0].delta.content`, to the response. For every field of the request and the chunks, refer to [Model invocation](/en/documentation/platform/ai-inference/model-invocation/).
+
+When `Azion.AI.run` raises an error, the Function answers `502` with the error message, so the reason reaches the browser. A request with no question, or with a body that is not JSON, answers `400` and runs no model.
+
+---
+
+## 2. Create the Function
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To create the Function in Azion Console:
+
+1. Access [Azion Console](https://console.azion.com/) > **Functions**.
+2. Select **+ Function**.
+3. In **Name**, enter `ai-chat`.
+4. Keep **Application** selected in **Execution Environment**.
+5. Select the **Code** tab.
+6. Replace the sample code in the editor with the content of `index.js`.
+7. Select **Save**.
+
+The Console shows the message **Your function has been created**, and `ai-chat` appears in the list of Functions.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Create the Function from `index.js`:
+
+```bash
+azion create function --name ai-chat --code index.js --execution-environment application --active true
+```
+
+```text
+Created function with ID 110005
+```
+
+Store the ID that your command printed. Replace `110005` with your ID:
+
+```bash
+FUNCTION_ID=110005
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Store your personal token in a shell variable. Replace `<your-personal-token>` with your token:
+
+```bash
+export AZION_API_TOKEN="<your-personal-token>"
+```
+
+Send a `POST` request to the functions endpoint. `jq` reads `index.js` into the `code` field:
+
+```bash
+jq -n --rawfile code index.js \
+  '{name: "ai-chat", code: $code, runtime: "azion_js", execution_environment: "application"}' \
+| curl --silent https://api.azion.com/v4/workspace/functions \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data @- \
+| tee function.json
+```
+
+```json
+{"state": "pending", "data": {"id": 110012, "name": "ai-chat", "active": true, "runtime": "azion_js", "execution_environment": "application", ...}}
+```
+
+Store the ID of the Function:
+
+```bash
+FUNCTION_ID=$(jq .data.id function.json)
+```
+
+</Fragment>
+
+</Tabs>
+
+The account holds the Function. It runs only after an Application attaches it.
+
+---
+
+## 3. Create the Application
+
+The Application needs three parts: the Application itself with Functions turned on, a function instance that attaches the Function, and a rule that runs the instance.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To create the Application:
+
+1. Access [Azion Console](https://console.azion.com/) > **Applications**.
+2. Select **+ Application**.
+3. In **Name**, enter `ai-chat`.
+4. In **Modules**, turn on **Functions**.
+5. Select **Create**.
+
+The Console opens the new Application on its **Main Settings** tab.
+
+To attach the Function:
+
+1. Select the **Functions Instances** tab.
+2. Select **+ Function**.
+3. In **Name**, enter `ai-chat`.
+4. In **Function**, select `ai-chat`.
+5. Select **Save**.
+
+The instance appears in the **Functions Instances** tab.
+
+To run the Function on every request:
+
+1. Select the **Rules Engine** tab.
+2. Select **+ Rule**.
+3. In **Name**, enter `Run ai-chat`.
+4. Keep **Request Phase** selected.
+5. In **Criteria**, keep `${uri}` and **starts with**, and enter `/` as the argument.
+6. In **Behaviors**, replace **Deliver** with **Run Function**.
+7. In the function instance field that **Run Function** adds, select the `ai-chat` instance.
+8. Select **Save**.
+
+The rule appears in the request phase of the **Rules Engine** tab.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Create the Application with Functions turned on:
+
+```bash
+azion create application --name ai-chat --function true --active true
+```
+
+```text
+Created Application with ID 1794599906
+```
+
+Store the ID. Replace `1794599906` with your ID:
+
+```bash
+APPLICATION_ID=1794599906
+```
+
+Attach the Function to the Application:
+
+```bash
+azion create function-instance --application-id $APPLICATION_ID --function-id $FUNCTION_ID --name ai-chat
+```
+
+```text
+Created Function Instance with ID 64698
+```
+
+Store the ID. Replace `64698` with your ID:
+
+```bash
+INSTANCE_ID=64698
+```
+
+Write the rule that runs the instance on every path to a `rule.json` file:
+
+```bash
+cat > rule.json <<EOF
+{
+  "name": "Run ai-chat",
+  "criteria": [[{ "variable": "\${uri}", "conditional": "if", "operator": "starts_with", "argument": "/" }]],
+  "behaviors": [{ "type": "run_function", "attributes": { "value": $INSTANCE_ID } }]
+}
+EOF
+```
+
+Create the rule in the request phase:
+
+```bash
+azion create rules-engine --application-id $APPLICATION_ID --phase request --file rule.json
+```
+
+```text
+Created Rules Engine with ID 1547491
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Create the Application with Functions turned on:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "ai-chat", "modules": {"functions": {"enabled": true}}}' \
+| tee application.json
+```
+
+```json
+{"state": "pending", "data": {"id": 1794599918, "name": "ai-chat", "active": true, ...}}
+```
+
+```bash
+APPLICATION_ID=$(jq .data.id application.json)
+```
+
+Attach the Function to the Application:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications/$APPLICATION_ID/functions \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"ai-chat\", \"function\": $FUNCTION_ID}" \
+| tee instance.json
+```
+
+```json
+{"state": "pending", "data": {"id": 64702, "name": "ai-chat", "function": 110012, "active": true, ...}}
+```
+
+```bash
+INSTANCE_ID=$(jq .data.id instance.json)
+```
+
+Add the rule that runs the instance on every path:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications/$APPLICATION_ID/request_rules \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"Run ai-chat\", \"criteria\": [[{\"variable\": \"\${uri}\", \"conditional\": \"if\", \"operator\": \"starts_with\", \"argument\": \"/\"}]], \"behaviors\": [{\"type\": \"run_function\", \"attributes\": {\"value\": $INSTANCE_ID}}]}"
+```
+
+```json
+{"state": "pending", "data": {"id": 1547525, "name": "Run ai-chat", "active": true, "order": 0, ...}}
+```
+
+</Fragment>
+
+</Tabs>
+
+The Application runs the Function on every request it receives.
+
+---
+
+## 4. Create the Workload
+
+The Workload holds the domain, and its deployment sets the Application that answers its requests.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To create the Workload and its deployment:
+
+1. Access [Azion Console](https://console.azion.com/) > **Workloads**.
+2. Select **+ Workload**.
+3. In **Name**, enter `ai-chat`.
+4. In **Deployment Settings**, select `ai-chat` in **Application**.
+5. Select **Save**.
+
+The Console shows the message **Your Workload has been created**. The list of Workloads shows the domain in the **Workload Domain** column, in the format `xxxxxxxxxxx.map.azionedge.net`.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Create the Workload:
+
+```bash
+azion create workload --name ai-chat
+```
+
+```text
+Created Workload with ID 1794590465
+```
+
+Store the ID. Replace `1794590465` with your ID:
+
+```bash
+WORKLOAD_ID=1794590465
+```
+
+Create the Workload's deployment, which sets the Application:
+
+```bash
+azion create workload-deployment --workload-id $WORKLOAD_ID --name ai-chat --strategy-type default --application-id $APPLICATION_ID
+```
+
+```text
+Created Workload Deployment with ID 361359
+```
+
+Read the domain of the Workload:
+
+```bash
+DOMAIN=$(azion describe workload --workload-id $WORKLOAD_ID --format json | jq -r .workload_domain)
+echo $DOMAIN
+```
+
+```text
+vunirus4zla.map.azionedge.net
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Create the Workload:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/workloads \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "ai-chat"}' \
+| tee workload.json
+```
+
+```json
+{"state": "pending", "data": {"id": 1794590479, "name": "ai-chat", ..., "workload_domain": "vdumpyw53ze.map.azionedge.net", ...}}
+```
+
+```bash
+WORKLOAD_ID=$(jq .data.id workload.json)
+DOMAIN=$(jq -r .data.workload_domain workload.json)
+```
+
+Create the Workload's deployment, which sets the Application:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/workloads/$WORKLOAD_ID/deployments \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"ai-chat\", \"strategy\": {\"type\": \"default\", \"attributes\": {\"application\": $APPLICATION_ID}}}"
+```
+
+```json
+{"state": "pending", "data": {"id": 361364, "name": "ai-chat", "active": true, "current": true, ...}}
+```
+
+</Fragment>
+
+</Tabs>
+
+Your domain has the same format as the examples, with different letters.
+
+---
+
+## 5. Chat with the model
+
+A new Workload can take about ten minutes to propagate across the Azion network. Until then, the domain answers `404` with an HTML error page, and it can alternate between `404` and the Function's response for a few minutes.
+
+Open `https://<your-domain>/` in a browser, where `<your-domain>` is the domain of your Workload. When the page shows the **Ask a question** field, the Function serves your domain.
+
+Send a question to the chat endpoint. If you used the Console, set `DOMAIN` to your domain first, with `DOMAIN=<your-domain>`:
+
+```bash
+curl --no-buffer --request POST "https://$DOMAIN/api/chat" \
+  --header 'Content-Type: application/json' \
+  --data '{"prompt": "What is a CDN?"}'
+```
+
+The response is the model's answer as plain text, in three sentences or fewer. `--no-buffer` prints each part of the text as it reaches the terminal. In the browser, enter the same question in **Ask a question** and select **Send**: the page writes the answer below the form.
+
+When the account has no access to AI Inference, the endpoint answers `502` with the error that `Azion.AI.run` raised:
+
+```text
+AI Inference error: model not found or not allowed
+```
+
+To request access, refer to [Access by plan](/en/documentation/platform/ai-inference/limits/#access-by-plan). The same message also appears when the model ID is wrong; for the causes, refer to [AI Inference troubleshooting](/en/documentation/platform/ai-inference/troubleshooting/).
+
+---
+
+## 6. (Optional) Delete the resources
+
+The chat keeps running on your domain after the tutorial, and it answers anyone who reaches the domain. Every call is billed in Compute Time and Requests. To keep the chat, add a check before the model call, as described in [Check each request in the Function before it calls a model](/en/documentation/platform/ai-inference/best-practices/#check-each-request-in-the-function-before-it-calls-a-model).
+
+If you want to remove the resources, delete them in the reverse order of their creation. Deleting the Workload also deletes its deployment, and deleting the Application also deletes its instance and its rule.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+To delete the Workload:
+
+1. Access [Azion Console](https://console.azion.com/) > **Workloads**.
+2. In the `ai-chat` row, open the actions menu and select **Delete**.
+3. In the **Delete Workload** dialog, enter `ai-chat`.
+4. Select **Delete**.
+
+Repeat the steps in **Applications** for the `ai-chat` Application, then in **Functions** for the `ai-chat` Function. Each dialog asks for the name of the resource.
+
+The three resources no longer appear in their lists.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Delete the Workload:
+
+```bash
+azion delete workload --workload-id $WORKLOAD_ID
+```
+
+```text
+Workload 1794590465 was successfully deleted
+```
+
+Delete the Application:
+
+```bash
+azion delete application --application-id $APPLICATION_ID
+```
+
+```text
+Application 1794599906 was successfully deleted
+```
+
+Delete the Function:
+
+```bash
+azion delete function --function-id $FUNCTION_ID
+```
+
+```text
+Function 110005 was successfully deleted
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Delete the Workload, the Application, and the Function:
+
+```bash
+for resource in workloads/$WORKLOAD_ID applications/$APPLICATION_ID functions/$FUNCTION_ID; do
+  curl --silent --request DELETE https://api.azion.com/v4/workspace/$resource \
+    --header "Authorization: Token $AZION_API_TOKEN"
+  echo
+done
+```
+
+```text
+{"state":"pending"}
+{"state":"pending"}
+{"state":"pending"}
+```
+
+</Fragment>
+
+</Tabs>
+
+The account no longer holds the Function, the Application, or the Workload. The removal also propagates, so the domain can keep answering for a few minutes.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Model invocation" href="/en/documentation/platform/ai-inference/model-invocation/" label="Every field of the request and of the streamed chunks, and the errors a call can raise." />
+  <DocCard title="AI models" href="/en/documentation/platform/ai-inference/models/" label="Copy the ID of another model, and check its context length and capabilities." />
+  <DocCard title="Call a model from a function" href="/en/documentation/guides/ai/inference/call-a-model-on-ai-inference-from-a-function/" label="Return the whole answer at once, without streaming." />
+  <DocCard title="AI Inference best practices" href="/en/documentation/platform/ai-inference/best-practices/" label="Protect the endpoint and control what each call consumes before you share it." />
+</DocCardGroup>
