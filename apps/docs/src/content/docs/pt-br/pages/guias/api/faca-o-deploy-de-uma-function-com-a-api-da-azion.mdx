@@ -1,0 +1,339 @@
+---
+title: Faça o deploy de uma Function com a API da Azion
+description: >-
+  Crie uma Function, uma Application e um Workload com chamadas curl à API v4
+  da Azion e atualize o código com um PATCH.
+meta_tags: 'azion api, api v4, curl, function, application, workload, workload deployment, rules engine, tutorial'
+namespace: docs_guides_deploy_a_function_with_the_azion_api
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/automacao/faca-o-deploy-de-uma-function-com-a-api-da-azion/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Neste tutorial, você vai fazer o deploy de uma Function na Azion usando só `curl` e a API v4 da Azion. Você vai criar a Function, uma Application que a executa e um Workload que a serve, depois atualizar o código. Se quiser, a última etapa exclui tudo.
+
+Cada recurso que o tutorial cria se liga a um criado antes dele:
+
+1. A [Function](/pt-br/documentacao/plataforma/functions/) guarda o código.
+2. A [Application](/pt-br/documentacao/plataforma/applications/) tem Functions ativado, uma function instance que vincula a Function e uma regra de requisição que a executa em todos os caminhos.
+3. O [Workload](/pt-br/documentacao/plataforma/workloads/) guarda o domínio que recebe as requisições, e o deployment dele define a Application que as responde.
+
+Toda requisição vai para a URL base `https://api.azion.com/v4`.
+
+---
+
+## Pré-requisitos
+
+- Uma conta Azion. Para criar uma, consulte [Criar uma conta](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- Um personal token. Para criar um, consulte [Tokens pessoais](/pt-br/documentacao/fundamentos/personal-tokens/).
+- `curl`, para chamar a API e enviar requisições à Function.
+- `jq`, para ler os IDs das respostas da API.
+
+---
+
+## 1. Prepare o terminal
+
+Crie um diretório para o tutorial e entre nele:
+
+```bash
+mkdir hello-api
+cd hello-api
+```
+
+Guarde o seu personal token numa variável do shell. Substitua `<your-personal-token>` pelo seu token:
+
+```bash
+export AZION_API_TOKEN="<your-personal-token>"
+```
+
+Toda requisição das próximas etapas envia o token no header `Authorization: Token`. A variável existe só nesta sessão do terminal, então execute todos os comandos do tutorial no mesmo terminal.
+
+---
+
+## 2. Crie a Function
+
+Crie um arquivo `index.js` com o código da Function. Ela responde a toda requisição com uma mensagem JSON:
+
+```javascript title="index.js"
+export default {
+  async fetch(request) {
+    return Response.json({ message: 'Hello from the Azion API' })
+  }
+}
+```
+
+Envie uma requisição `POST` ao endpoint de functions. O `jq` lê o `index.js` para o campo `code` do corpo da requisição:
+
+```bash
+jq -n --rawfile code index.js \
+  '{name: "hello-api", code: $code, runtime: "azion_js", execution_environment: "application"}' \
+| curl --silent https://api.azion.com/v4/workspace/functions \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data @- \
+| tee function.json
+```
+
+A resposta traz a Function nova. Este trecho mostra os campos que as próximas etapas usam:
+
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": 109978,
+    "name": "hello-api",
+    "active": true,
+    "runtime": "azion_js",
+    "execution_environment": "application",
+    ...
+  }
+}
+```
+
+Guarde o ID da Function:
+
+```bash
+FUNCTION_ID=$(jq .data.id function.json)
+```
+
+A conta guarda a Function, e `FUNCTION_ID` guarda o ID dela.
+
+---
+
+## 3. Crie a Application
+
+A Application precisa de três chamadas: uma a cria, uma vincula a Function e uma adiciona a regra que executa a Function.
+
+Crie a Application com Functions ativado:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "hello-api", "modules": {"functions": {"enabled": true}}}' \
+| tee application.json
+```
+
+```json
+{"state": "pending", "data": {"id": 1794599823, "name": "hello-api", "active": true, ...}}
+```
+
+Guarde o ID da Application:
+
+```bash
+APPLICATION_ID=$(jq .data.id application.json)
+```
+
+Vincule a Function à Application com uma function instance:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications/$APPLICATION_ID/functions \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"hello-api\", \"function\": $FUNCTION_ID}" \
+| tee instance.json
+```
+
+```json
+{"state": "pending", "data": {"id": 64685, "name": "hello-api", "function": 109978, "active": true, ...}}
+```
+
+Guarde o ID da function instance:
+
+```bash
+INSTANCE_ID=$(jq .data.id instance.json)
+```
+
+Adicione uma regra de requisição que executa a function instance em todos os caminhos. O critério corresponde a toda URI que começa com `/`:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications/$APPLICATION_ID/request_rules \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"Run hello-api\", \"criteria\": [[{\"variable\": \"\${uri}\", \"conditional\": \"if\", \"operator\": \"starts_with\", \"argument\": \"/\"}]], \"behaviors\": [{\"type\": \"run_function\", \"attributes\": {\"value\": $INSTANCE_ID}}]}"
+```
+
+```json
+{"state": "pending", "data": {"id": 1547354, "name": "Run hello-api", "active": true, "order": 0, ...}}
+```
+
+A Application executa a Function em toda requisição que recebe.
+
+---
+
+## 4. Crie o Workload e faça o deploy da Application
+
+Crie o Workload:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/workloads \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "hello-api"}' \
+| tee workload.json
+```
+
+A resposta traz o domínio que a Azion gerou para o Workload:
+
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": 1794590393,
+    "name": "hello-api",
+    "active": true,
+    ...
+    "workload_domain": "zahmpc2nojg.map.azionedge.net",
+    ...
+  }
+}
+```
+
+O seu domínio tem o mesmo formato, com outras letras. Guarde o ID e o domínio:
+
+```bash
+WORKLOAD_ID=$(jq .data.id workload.json)
+DOMAIN=$(jq -r .data.workload_domain workload.json)
+```
+
+Crie o deployment do Workload, que define a Application que responde às requisições do Workload:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/workloads/$WORKLOAD_ID/deployments \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"hello-api\", \"strategy\": {\"type\": \"default\", \"attributes\": {\"application\": $APPLICATION_ID}}}"
+```
+
+```json
+{"state": "pending", "data": {"id": 361344, "name": "hello-api", "active": true, "current": true, "strategy": {"type": "default", "attributes": {"application": 1794599823, "firewall": null, "custom_page": null}}, ...}}
+```
+
+O Workload envia as requisições à Application, que executa a Function.
+
+---
+
+## 5. Envie uma requisição à Function
+
+Envie uma requisição ao domínio:
+
+```bash
+curl "https://$DOMAIN/"
+```
+
+Um Workload novo pode levar cerca de dez minutos para se propagar pela rede da Azion. Até lá, o domínio responde `404` com uma página de erro em HTML, e pode alternar entre `404` e a resposta da Function por alguns minutos. Repita a requisição a cada minuto até a mensagem JSON voltar três vezes seguidas:
+
+```json
+{"message":"Hello from the Azion API"}
+```
+
+A Function responde às requisições no domínio do Workload.
+
+---
+
+## 6. Atualize a Function
+
+No `index.js`, troque a mensagem por `Hello again from the Azion API`:
+
+```javascript title="index.js"
+export default {
+  async fetch(request) {
+    return Response.json({ message: 'Hello again from the Azion API' })
+  }
+}
+```
+
+Envie o código novo numa requisição `PATCH` à Function:
+
+```bash
+jq -n --rawfile code index.js '{code: $code}' \
+| curl --silent --request PATCH https://api.azion.com/v4/workspace/functions/$FUNCTION_ID \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data @-
+```
+
+A resposta traz a Function com o código novo:
+
+```json
+{
+  "state": "pending",
+  "data": {
+    "id": 109978,
+    "name": "hello-api",
+    ...
+    "code": "export default {\n  async fetch(request) {\n    return Response.json({ message: 'Hello again from the Azion API' })\n  }\n}",
+    ...
+  }
+}
+```
+
+Envie a requisição ao domínio de novo:
+
+```bash
+curl "https://$DOMAIN/"
+```
+
+O código novo leva menos tempo para se propagar que um Workload novo. Durante a propagação, o domínio pode responder com a mensagem antiga ou, por alguns segundos, com a página `404`. Repita a requisição até a resposta trazer a mensagem nova:
+
+```json
+{"message":"Hello again from the Azion API"}
+```
+
+A Function executa o código novo no mesmo domínio.
+
+---
+
+## 7. (Opcional) Exclua os recursos
+
+A Function continua servindo o seu domínio depois do tutorial. Se você quiser remover os recursos, exclua-os na ordem inversa da criação. Excluir o Workload também exclui o deployment dele:
+
+```bash
+curl --silent --request DELETE https://api.azion.com/v4/workspace/workloads/$WORKLOAD_ID \
+  --header "Authorization: Token $AZION_API_TOKEN"
+```
+
+Excluir a Application também exclui a function instance e a regra dela:
+
+```bash
+curl --silent --request DELETE https://api.azion.com/v4/workspace/applications/$APPLICATION_ID \
+  --header "Authorization: Token $AZION_API_TOKEN"
+```
+
+Exclua a Function:
+
+```bash
+curl --silent --request DELETE https://api.azion.com/v4/workspace/functions/$FUNCTION_ID \
+  --header "Authorization: Token $AZION_API_TOKEN"
+```
+
+Cada chamada responde com o mesmo corpo:
+
+```json
+{"state":"pending"}
+```
+
+Uma exclusão termina alguns segundos depois que a chamada responde. Verifique que o Workload não existe mais e repita a requisição até ela responder `404`:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/workloads/$WORKLOAD_ID \
+  --header "Authorization: Token $AZION_API_TOKEN"
+```
+
+```json
+{"errors":[{"code":"10004","title":"Not Found","detail":"Not found.","status":"404"}]}
+```
+
+A conta não guarda mais a Function, a Application nem o Workload. A remoção também se propaga, então o domínio pode continuar respondendo por alguns minutos.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Azion API" href="/pt-br/documentacao/devtools/api/" label="Autenticação, a URL base e como a API v4 é organizada." />
+  <DocCard title="Exemplos de Functions" href="/pt-br/documentacao/plataforma/functions/exemplos/" label="Código para enviar no lugar da mensagem de exemplo: redirecionamentos, headers, JSON e HTML." />
+  <DocCard title="Rules Engine para Applications" href="/pt-br/documentacao/plataforma/applications/rules-engine/" label="Critérios e comportamentos que decidem quando uma Application executa uma Function." />
+  <DocCard title="Workloads" href="/pt-br/documentacao/plataforma/workloads/" label="Adicione os seus domínios, as configurações de TLS e um Firewall ao deployment do Workload." />
+</DocCardGroup>
