@@ -156,23 +156,23 @@
 						:target="entry.external ? '_blank' : '_self'"
 					/>
 				</DocCardGroup>
-				<Paginator v-if="pageCount > 1" :aria-label="labels.pagination">
+				<PaginatorRoot v-if="pageCount > 1" :aria-label="labels.pagination">
 					<template #info>{{ rangeLabel }}</template>
-					<Paginator.Button
+					<PaginationButton
 						kind="previous"
 						:aria-label="labels.previous"
 						:disabled="page <= 1"
 						@click="goTo(page - 1)"
 					/>
 					<template v-for="item in pageItems" :key="item.key">
-						<Paginator.Button
+						<PaginationButton
 							v-if="item.type === 'page'"
 							kind="number"
 							:selected="item.value === page"
 							@click="goTo(item.value)"
 						>
 							{{ item.value }}
-						</Paginator.Button>
+						</PaginationButton>
 						<!-- A separator, not a control: webkit's `kind="more"` button renders only an
 						     `aria-hidden` glyph, which is a button with no accessible name. Sized to
 						     the buttons beside it with the component's own `h-7`/`w-10`. -->
@@ -184,13 +184,13 @@
 							<i class="pi pi-ellipsis-h text-[length:inherit] leading-none" />
 						</span>
 					</template>
-					<Paginator.Button
+					<PaginationButton
 						kind="next"
 						:aria-label="labels.next"
 						:disabled="page >= pageCount"
 						@click="goTo(page + 1)"
 					/>
-				</Paginator>
+				</PaginatorRoot>
 			</template>
 
 			<EmptyState
@@ -265,7 +265,8 @@ import DocCardGroup from '@aziontech/webkit/doc-card-group';
 import EmptyState from '@aziontech/webkit/empty-state';
 import InputText from '@aziontech/webkit/input-text';
 import Message from '@aziontech/webkit/message';
-import Paginator from '@aziontech/webkit/paginator';
+import PaginationButton from '@aziontech/webkit/pagination-button';
+import PaginatorRoot from '@aziontech/webkit/paginator-root';
 import Skeleton from '@aziontech/webkit/skeleton';
 import { computed, onMounted, onScopeDispose, ref, useAttrs, useId, watch, watchEffect } from 'vue';
 

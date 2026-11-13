@@ -3,32 +3,35 @@
 	     control: the Select's trigger is `w-full`, and content-sizing would change width
 	     between EN and PT-BR. `shrink-0` keeps the flex band from squeezing it to ~83px. -->
 	<div v-if="i18nPages?.length" class="w-28 shrink-0">
-		<Select
+		<SelectRoot
 			:model-value="activeSlug"
 			:display-value="displayValue"
 			:placeholder="LANGUAGE_LABEL"
 			@update:model-value="onSelect"
 		>
-			<Select.Trigger :aria-label="LANGUAGE_LABEL">
+			<SelectTrigger :aria-label="LANGUAGE_LABEL">
 				<!-- The globe names the control: a bare `EN` reads as a label, not a switch.
 				     It rides the trigger's `iconLeft` slot so it sits inside the border on
 				     the control's own gap; `aria-hidden` leaves the name to `aria-label`. -->
 				<template #iconLeft>
 					<i class="pi pi-globe text-(--text-muted)" aria-hidden="true" />
 				</template>
-			</Select.Trigger>
+			</SelectTrigger>
 
-			<Select.Content>
-				<Select.Option v-for="option in i18nPages" :key="option.langPrefix" :value="option.slug">
+			<SelectContent>
+				<SelectOption v-for="option in i18nPages" :key="option.langPrefix" :value="option.slug">
 					{{ codeFor(option.langPrefix) }}
-				</Select.Option>
-			</Select.Content>
-		</Select>
+				</SelectOption>
+			</SelectContent>
+		</SelectRoot>
 	</div>
 </template>
 
 <script setup lang="ts">
-import Select from '@aziontech/webkit/select';
+import SelectContent from '@aziontech/webkit/select-content';
+import SelectOption from '@aziontech/webkit/select-option';
+import SelectRoot from '@aziontech/webkit/select-root';
+import SelectTrigger from '@aziontech/webkit/select-trigger';
 
 /** One translation of the current page. */
 interface I18nPage {

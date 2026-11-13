@@ -1,5 +1,5 @@
 <template>
-	<WkDocOnThisPage
+	<DocOnThisPage
 		:items="items"
 		:active-id="activeId"
 		:title="title"
@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
-import WkDocOnThisPage, {
+import DocOnThisPage, {
 	type DocTocItem,
 	type DocTocLink,
 } from '@aziontech/webkit/doc-on-this-page';
