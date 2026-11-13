@@ -278,13 +278,13 @@ export const ptBr: DocsHomeContent = {
 					icon: 'pi pi-wallet',
 					title: 'Conformidade PCI DSS',
 					href: '/pt-br/documentacao/fundamentos/pci-dss-certification/',
-					body: 'PCI DSS 4.0 Nível 1 e o que ele cobre para dados de portadores de cartão.',
+					body: 'PCI DSS 4.0.1 Nível 1 e o que ele cobre para dados de portadores de cartão.',
 				},
 				{
 					icon: 'pi pi-lock',
 					title: 'Conformidade SOC',
 					href: '/pt-br/documentacao/fundamentos/soc/',
-					body: 'Relatórios SOC 2 Tipo 2 e SOC 3, duas vezes por ano.',
+					body: 'Relatórios SOC 2 Tipo 2 e SOC 3, emitidos anualmente.',
 				},
 				{
 					icon: 'pi pi-history',
