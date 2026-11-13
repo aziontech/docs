@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
 	ts: 'TypeScript',
 	typescript: 'TypeScript',
 	json: 'JSON',
+	jsonl: 'JSON Lines',
 	hcl: 'HCL',
 	graphql: 'GraphQL',
 	yaml: 'YAML',
