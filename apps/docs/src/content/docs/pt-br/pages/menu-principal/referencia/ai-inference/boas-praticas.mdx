@@ -1,8 +1,8 @@
 ---
-title: Boas práticas
+title: Boas práticas para AI Inference
 description: >-
-  Proteja o endpoint que serve um modelo, copie o id que cada modelo declara e
-  decida o que alcança o modelo antes da chamada.
+  Proteja o endpoint que serve um modelo, escolha os modelos que ele alcança,
+  copie cada id e leia a resposta e os erros que uma chamada retorna.
 meta_tags: 'AI Inference, best practices, model id, authentication, Workload Domain, context length, optional chaining, Compute Time'
 namespace: docs_edge_ai_best_practices
 permalink: /documentacao/plataforma/ai-inference/boas-praticas/
@@ -11,61 +11,155 @@ import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
 
-Uma chamada de modelo é um código que pertence a você invocando um modelo que você não opera. Seu código escolhe qual modelo responde, o que chega até ele e o que o chamador recebe no fim. O modelo lê a requisição exatamente como ela chega, então as decisões que moldam uma resposta são tomadas antes da chamada.
+O código que chama um modelo decide quem pode fazer a chamada, qual modelo responde, o que o modelo lê e o que o chamador recebe de volta. Cada uma dessas decisões é tomada no seu código, antes ou depois da chamada. Deixadas no padrão, um endpoint responde a qualquer um, um campo digitado errado não muda nada e não gera erro, e uma resposta lida de forma direta demais quebra no primeiro modelo que responde de outro jeito.
 
-No [AI Inference](/pt-br/documentacao/plataforma/ai-inference/), o código que faz a chamada é uma [função](/pt-br/documentacao/plataforma/functions/), e a chamada é `Azion.AI.run`. Cada prática abaixo é uma das decisões que essa chamada deixa para você. Os valores em si pertencem a outras páginas. Os campos da requisição estão em [Invocação de modelos](/pt-br/documentacao/plataforma/ai-inference/invocacao-de-modelos/), e as condições que Azion aplica a um modelo estão em [Limites do AI Inference](/pt-br/documentacao/plataforma/ai-inference/limites/). O caminho que uma requisição percorre está em [Como AI Inference funciona](/pt-br/documentacao/plataforma/ai-inference/como-funciona/).
+No [AI Inference](/pt-br/documentacao/plataforma/ai-inference/), esse código é uma [Function](/pt-br/documentacao/plataforma/functions/), e ela chama um modelo com `Azion.AI.run`. Os campos da requisição estão em [Invocação de modelos](/pt-br/documentacao/plataforma/ai-inference/invocacao-de-modelos/), as condições que Azion aplica a um modelo estão em [Limites do AI Inference](/pt-br/documentacao/plataforma/ai-inference/limites/), e o caminho de uma requisição está em [Como AI Inference funciona](/pt-br/documentacao/plataforma/ai-inference/como-funciona/).
 
-As seções seguem a ordem em que as decisões surgem: a autenticação que o endpoint não carrega, o id do modelo e as capacidades que um modelo declara. As duas últimas tratam da entrada que a função envia e da resposta que ela lê.
-
----
-
-## A autenticação que o endpoint não carrega
-
-Uma aplicação implantada a partir do [AI Inference Starter Kit](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/ai-inference-starter-kit/) responde em um Workload Domain, na forma `xxxxxxxxxx.map.azionedge.net`, e serve nele um endpoint compatível com OpenAI. A autenticação nesse endpoint é inteiramente sua. Azion não emite nenhuma credencial para uma chamada de modelo nem exige uma. Uma requisição que alcança o domínio alcança a função, a menos que o seu próprio código a interrompa.
-
-A consequência é o que uma aplicação implantada faz quando nada é acrescentado a ela. Ela responde a toda requisição que alcança o domínio, e cada requisição que o endpoint serve executa um modelo. Uma chamada de modelo consome Compute Time, a duração da execução ativa multiplicada pela memória alocada. Um endpoint aberto é, portanto, consumo que qualquer pessoa pode iniciar. Para a métrica e o valor cobrado, consulte [Preços](/pt-br/documentacao/fundamentos/precos/#ai-inference).
-
-A verificação pertence à função, antes da chamada de modelo. A função recebe a requisição e a pré-processa, então ela é o lugar em que uma requisição pode ser rejeitada sem que um modelo seja executado. Associar um domínio personalizado no lugar do Workload Domain muda onde a aplicação responde, não o que ela verifica.
+Em ordem, as práticas cobrem a checagem de cada requisição, os modelos que uma requisição alcança, o id do modelo, as capacidades de cada modelo, a grafia de cada campo, o tamanho da entrada e da saída, a leitura da resposta e os erros. Os espécimes são JavaScript para uma Function e corpos de requisição em JSON.
 
 ---
 
-## Ids de modelo, copiados em vez de derivados
+## Confira cada requisição na Function antes de ela chamar um modelo
 
-Um modelo é endereçado pelo seu id e por nada mais. O id é o primeiro argumento de `Azion.AI.run` e o campo `model` do corpo de uma requisição HTTP, e nenhuma URL base ou host o acompanha.
+O template [AI Inference Starter Kit](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/frameworks/ai-inference-starter-kit/) não configura nenhuma autenticação na frente do endpoint dele, e a regra dele executa a Function em todo path. Qualquer cliente que alcança o domínio pode, portanto, chamar um modelo, e cada chamada é cobrada em Compute Time e Requests. O custo de uma checagem é um segredo a guardar e um header que todo cliente envia.
 
-Os ids não compartilham uma forma única. `Qwen/Qwen3-30B-A3B-Instruct-2507-FP8` é o caminho do repositório do modelo, sem alteração. `casperhansen-mistral-small-24b-instruct-2501-awq` é o mesmo caminho com a barra substituída por um hífen. `qwen-qwen25-vl-3b-instruct-awq` está em minúsculas e também perdeu o ponto da versão. `gpt-oss-20b` descartou a organização por completo.
+Esta Function recusa uma requisição cujo header `Authorization` não carrega o segredo, antes de `Azion.AI.run` rodar. O formato completo também carrega a checagem de modelo da próxima prática e o tratamento de erros da última:
 
-Nenhuma regra transforma o nome de um modelo no seu id. Um id montado a partir do nome está certo para alguns modelos do catálogo e errado para outros. O erro é uma string, e é por isso que ele parece correto. Copie o id da própria página do modelo em [Modelos de AI](/pt-br/documentacao/plataforma/ai-inference/modelos/), onde cada página declara o id que alcança aquele modelo.
+```js
+const ALLOWED_MODELS = ["Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"];
+
+async function handleRequest(request) {
+  const secret = Azion.env.get("INFERENCE_SECRET");
+  if (!secret || request.headers.get("Authorization") !== `Bearer ${secret}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const input = await request.json();
+  const model = input["model"];
+  if (!ALLOWED_MODELS.includes(model)) {
+    return new Response(JSON.stringify({ error: `${model} is not allowed` }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const modelResponse = await Azion.AI.run(model, input);
+    return new Response(JSON.stringify(modelResponse), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error(`${e.name}: ${e.message}`);
+    if (e.message.includes("validation error")) {
+      return new Response(JSON.stringify({ error: `Invalid input for ${model}` }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (e.message.includes("model not found")) {
+      return new Response(JSON.stringify({ error: `${model} not found or not allowed` }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ error: "AI internal error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+```
+
+`Azion.env.get` lê o segredo de uma variável de ambiente guardada na sua conta Azion, conforme [API de variáveis de ambiente](/pt-br/documentacao/devtools/runtime/api-reference/environment-variables/). Quando a variável não existe, a chamada retorna `undefined`, e a Function recusa todas as requisições. A checagem cobre todos os domínios do Workload: um domínio personalizado responde além do workload domain, e só o switch **Workload Domain Allow Access** do Workload fecha o workload domain.
+
+Para conferir, envie uma requisição sem o header: a Function responde `401`.
 
 ---
 
-## As capacidades que um modelo declara para si
+## Escolha na Function quais modelos uma requisição alcança
 
-O que um modelo aceita é uma propriedade daquele modelo, e não do AI Inference. Cada página em [Modelos de AI](/pt-br/documentacao/plataforma/ai-inference/modelos/) declara o seu próprio comprimento de contexto, os tipos de entrada que aceita e se suporta chamada de ferramentas. O catálogo não é uniforme em nenhum dos três. Os comprimentos de contexto vão de 8k tokens a 131k tokens. Alguns modelos aceitam apenas texto, e outros aceitam texto e imagens. A chamada de ferramentas é declarada como suportada em algumas páginas e não suportada em outras.
+A Function que o template instala passa o campo `model` do corpo da requisição para `Azion.AI.run` como ele chega. Um cliente pode, portanto, selecionar qualquer modelo que a conta pode chamar, inclusive um cujo contexto, capacidades ou consumo você nunca previu. O custo é uma lista a atualizar a cada modelo que você adota.
 
-Uma requisição que não corresponde é uma requisição que o modelo não consegue servir. Uma imagem enviada a um modelo que aceita apenas texto é uma delas. Um prompt mais longo que o contexto que o modelo aceita é outra. As duas são decididas no seu código antes da chamada, que é onde elas podem ser verificadas.
+Na Function da primeira prática, a lista é `const ALLOWED_MODELS = ["Qwen/Qwen3-30B-A3B-Instruct-2507-FP8"];`, e uma requisição que indica outro modelo recebe `403`. Para mapear nomes seus para ids de modelo, com uma chave por time, consulte [Rotear chamadas de modelo por uma Function de gateway](/pt-br/documentacao/guias/ai/inferencia/rotear-chamadas-de-modelo-por-uma-function-de-gateway/).
 
-Onde a página de um modelo não declara nada para uma capacidade, nada sobre aquela capacidade está declarado. Leia um campo em branco como desconhecido, e não como um sim ou um não, e confirme antes que um código dependa dele.
-
----
-
-## A entrada decidida antes da chamada
-
-Tudo o que um modelo lê foi montado pela sua função, na mesma execução que faz a chamada. O pré-processamento fica de um lado de `Azion.AI.run` e a formatação da resposta do outro, e os dois são código que você escreveu.
-
-A chamada é aguardada, então o tempo que o modelo passa gerando é tempo que a função passa esperando. O tamanho do que você envia faz parte disso. Um prompt que carrega um documento inteiro onde uma seção bastaria é lido por completo, dentro de uma execução medida enquanto ela acontece.
-
-Restringir a entrada é feito antes da chamada, em vez de corrigido depois dela. A resposta declara o que a requisição consumiu: `usage.prompt_tokens` carrega os tokens lidos da requisição, e `usage.total_tokens` carrega a requisição e a resposta juntas. Esses dois campos são a forma de medir uma mudança em um prompt. Para os campos da resposta, consulte [Invocação de modelos](/pt-br/documentacao/plataforma/ai-inference/invocacao-de-modelos/).
+Para conferir, envie uma requisição cujo `model` não está na lista: a Function responde `403`, e nenhum modelo roda.
 
 ---
 
-## Optional chaining na resposta do modelo
+## Copie cada id de modelo da página do modelo, ou liste os ids com Azion.AI.models()
 
-Ler o texto que um modelo de chat gerou significa percorrer quatro níveis dentro de um objeto: `choices`, a sua primeira entrada, o `message` dessa entrada e o `content` dele. As funções de exemplo que Azion publica os percorrem como `modelResponse?.choices?.[0]?.message?.content`, com optional chaining em cada nível.
+Um modelo responde ao id dele e a nada mais: o primeiro argumento de `Azion.AI.run`, ou o campo `model` por HTTP, sem URL base nem host ao lado. Os ids não decorrem do nome do modelo. Duas formas podem selecionar o mesmo modelo, `Qwen/Qwen2.5-VL-3B-Instruct-AWQ` e `qwen-qwen25-vl-3b-instruct-awq`, e nenhuma regra simples transforma uma na outra: `Qwen2.5` vira `qwen25`. O GPT-OSS 20B responde a `openai/gpt-oss-20b`, enquanto `gpt-oss-20b` é recusado.
 
-A resposta não é idêntica para todo modelo e toda chamada. Ela carrega campos que apenas alguns modelos retornam, como o conteúdo de raciocínio e as probabilidades logarítmicas. Ler os níveis com optional chaining é o que impede que um nível ausente encerre a leitura.
+Copie o id da página do modelo em [Modelos de AI](/pt-br/documentacao/plataforma/ai-inference/modelos/), ou liste os ids que a sua conta pode chamar a partir de uma Function:
 
-A diferença está em onde uma falha cai. Com optional chaining, a função recebe `undefined` e decide o que o chamador obtém; sem ele, a própria leitura falha dentro da função. Uma das funções de exemplo que Azion publica encadeia `?.trim()` na mesma leitura, de modo que o valor é normalizado onde é obtido.
+```js
+const modelIds = await Azion.AI.models();
+```
+
+Nunca use o campo `model` de uma resposta como id: ele carrega um id interno, e o GPT-OSS 20B retorna `gpt-oss-20b`, a forma que é recusada.
+
+Para conferir, execute a chamada uma vez: um id errado é recusado com `AIError: model not found or not allowed`. Uma conta sem acesso ao AI Inference recebe o mesmo erro, então confirme o acesso em [Limites do AI Inference](/pt-br/documentacao/plataforma/ai-inference/limites/) primeiro.
+
+---
+
+## Envie a cada modelo somente as requisições que a página dele diz que ele serve
+
+O que um modelo aceita pertence a esse modelo. Cada página em [Modelos de AI](/pt-br/documentacao/plataforma/ai-inference/modelos/) declara o comprimento de contexto, de 8k a 131k tokens no catálogo, os tipos de entrada, somente texto ou texto e imagens, e a chamada de ferramentas: Sim, Só com a ferramenta nomeada ou Não. O servidor do modelo recusa um prompt maior que o contexto, e uma requisição com `tools` que deixa a escolha a um modelo cuja chamada de ferramentas não é Sim, com `Request failed with status 400`. A mensagem não diz qual valor causou a recusa. Quando uma página não declara nada, a capacidade é desconhecida, não ausente: confirme-a antes que o seu código dependa dela.
+
+Por exemplo, o Qwen2.5 VL AWQ 3B e o 7B recusam uma requisição com `tools` que deixa a escolha para o modelo, e retornam `tool_calls` quando o corpo indica a ferramenta: `"tool_choice": {"type": "function", "function": {"name": "get_weather"}}`. O custo é uma checagem por modelo no seu código, já que a plataforma informa a incompatibilidade só como um status.
+
+Para conferir, leia a capacidade na página do modelo sempre que uma chamada falhar com status `400`.
+
+---
+
+## Escreva cada campo da requisição como Invocação de modelos o lista
+
+Um campo que o modelo não conhece é ignorado, sem erro. Um campo escrito errado, portanto, não muda nada na resposta, e nada avisa que ele não foi aplicado. O custo é uma conferência em [Invocação de modelos](/pt-br/documentacao/plataforma/ai-inference/invocacao-de-modelos/) sempre que você acrescenta um campo.
+
+Um corpo que define a temperatura de amostragem a escreve `"temperature": 0.7`. Escrito como `"temprature": 0.7`, o campo é ignorado, e a requisição roda como se não tivesse temperatura.
+
+Para conferir, envie o campo uma vez com um valor além do limite dele, como `"temperature": 2.1`: um campo escrito certo é recusado com `validation error: Maximum`, e um escrito errado retorna uma resposta normal.
+
+---
+
+## Envie ao modelo somente a entrada de que ele precisa e limite a saída
+
+Tudo o que um modelo lê vem da sua Function, na mesma execução que aguarda a resposta. O modelo lê o prompt inteiro, e o tempo que ele leva para gerar é tempo que a Function espera. Essa espera não conta no limite de 2 segundos de CPU da Function, mas conta no tempo de execução de 5 minutos dela, que é tempo de relógio, conforme [Limites de Functions](/pt-br/documentacao/plataforma/functions/limites/). AI Inference cobra Compute Time e Requests, e o Compute Time, a duração da execução ativa multiplicada pela memória alocada, cresce com uma geração mais longa.
+
+Envie a seção de um documento que responde à pergunta, não o documento inteiro, e defina `max_tokens` em todo corpo, como `"max_tokens": 1024`. O custo é uma margem a manter: o GPT-OSS 20B raciocina antes de responder, e com um `max_tokens` pequeno o raciocínio pode usar todo o orçamento e retornar `content` igual a `null`.
+
+Para conferir, leia `usage.prompt_tokens` e `usage.completion_tokens` na resposta antes e depois de mudar um prompt.
+
+---
+
+## Leia a resposta com optional chaining e confira por que ela parou
+
+O texto gerado por um modelo de chat fica quatro níveis dentro da resposta, em `choices[0].message.content`, e esse texto nem sempre está lá. `content` é `null` quando o modelo retorna `tool_calls`, e no GPT-OSS 20B quando o raciocínio usa todo o `max_tokens`. Com `stream` igual a `true`, `Azion.AI.run` resolve para um iterador assíncrono de chunks, sem nenhum `choices[0].message`.
+
+Leia cada nível com optional chaining, para que um nível ausente retorne `undefined` em vez de lançar um erro dentro da Function:
+
+```js
+const summary = modelResponse?.choices?.[0]?.message?.content?.trim();
+```
+
+O custo é um desvio para o caso vazio. Para conferir, leia `choices[0].finish_reason` sempre que o texto vier vazio: `tool_calls` significa que o modelo escolheu uma ferramenta, e `length` significa que o `max_tokens` acabou.
+
+---
+
+## Distinga os três tipos de falha pela mensagem
+
+Uma chamada a `Azion.AI.run` que falha rejeita com um erro que carrega somente `name` e `message`, sem `code` nem `status`. A mensagem distingue os casos. `AIError: model not found or not allowed` cobre um id que não existe e uma conta sem acesso. `AIError: validation error` cobre um corpo que não corresponde ao schema do modelo, antes de o modelo rodar. `Error: Request failed with status <N>` cobre uma recusa do servidor do modelo, sem motivo.
+
+A Function da primeira prática desvia pela mensagem: `e.message.includes("validation error")` e `e.message.includes("model not found")` respondem `400`, e qualquer outro erro responde `500`. Ela também escreve cada erro com `console.error`. O custo é que uma recusa do servidor do modelo chega ao chamador sem causa, então a Function não consegue dizer ao chamador o que mudar. Para todos os erros e as causas deles, consulte [Invocação de modelos](/pt-br/documentacao/plataforma/ai-inference/invocacao-de-modelos/#erros).
+
+Para conferir, abra [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/): a fonte de dados Functions Console carrega as linhas que a Function escreve com `console.error`, mensagens `AIError` incluídas.
 
 ---
 
@@ -73,13 +167,9 @@ A diferença está em onde uma falha cai. Com optional chaining, a função rece
 
 <FrameBox>
 <ItemList>
-  <DocItem title="Modelos de AI" href="/pt-br/documentacao/plataforma/ai-inference/modelos/">O id a copiar e as capacidades que cada modelo declara para si.</DocItem>
-  <DocItem title="Invocação de modelos" href="/pt-br/documentacao/plataforma/ai-inference/invocacao-de-modelos/">Os campos da requisição que uma chamada aceita e o objeto de resposta que ela retorna.</DocItem>
-  <DocItem title="Limites do AI Inference" href="/pt-br/documentacao/plataforma/ai-inference/limites/">As condições em que Azion encerra ou desprovisiona um modelo.</DocItem>
-  <DocItem title="Como AI Inference funciona" href="/pt-br/documentacao/plataforma/ai-inference/como-funciona/">O que executa um modelo, e onde a parte de Azion termina e a sua começa.</DocItem>
-  <DocItem title="Primeiros passos com AI Inference" href="/pt-br/documentacao/plataforma/ai-inference/primeiros-passos/">Implante uma aplicação e envie uma primeira requisição a um modelo.</DocItem>
-  <DocItem title="Limites de Functions" href="/pt-br/documentacao/plataforma/functions/limites/">Os tetos da função dentro da qual uma chamada de modelo é executada.</DocItem>
-  <DocItem title="Preços" href="/pt-br/documentacao/fundamentos/precos/#ai-inference">Como o consumo de AI Inference é medido e cobrado.</DocItem>
-  <DocItem title="Suporte" href="/pt-br/documentacao/suporte/">Onde perguntar qual valor se aplica quando uma página não declara nenhum.</DocItem>
+  <DocItem title="Invocação de modelos" href="/pt-br/documentacao/plataforma/ai-inference/invocacao-de-modelos/">Todos os campos da requisição, o objeto de resposta e cada erro que uma chamada retorna.</DocItem>
+  <DocItem title="Modelos de AI" href="/pt-br/documentacao/plataforma/ai-inference/modelos/">A página de cada modelo, com o id e o contexto, a entrada e as ferramentas que ele serve.</DocItem>
+  <DocItem title="Primeiros passos com AI Inference" href="/pt-br/documentacao/plataforma/ai-inference/primeiros-passos/">Implante o template que serve o endpoint que estas práticas protegem.</DocItem>
+  <DocItem title="Preços" href="/pt-br/documentacao/fundamentos/precos/#ai-inference">Como Compute Time e Requests são medidos e cobrados.</DocItem>
 </ItemList>
 </FrameBox>
