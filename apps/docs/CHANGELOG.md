@@ -1,5 +1,66 @@
 # Changelog
 
+## [2.5.0](https://github.com/aziontech/docs/compare/docs-v2.4.4...docs-v2.5.0) (2026-11-13)
+
+
+### Features
+
+* **nav:** give every breadcrumb crumb a page and make CLI commands runnable ([#2636](https://github.com/aziontech/docs/issues/2636)) ([155d22d](https://github.com/aziontech/docs/commit/155d22d90c32fb2c707c07e8a98b693c38326b51))
+
+
+### Bug Fixes
+
+* **accounts:** hyphenate Real-Time Purge and name the Bills tab in the permissions table ([#2581](https://github.com/aziontech/docs/issues/2581)) ([8d81564](https://github.com/aziontech/docs/commit/8d8156460bf846b9884fc9929d3f7b5e6add6133))
+* **ai-inference:** review the AI Inference section and correct it from live tests ([#2641](https://github.com/aziontech/docs/issues/2641)) ([30a54ec](https://github.com/aziontech/docs/commit/30a54ec147d582582156d04b3907c8fdea9542ba))
+* **cli:** drop azion update workload-deployment, which the CLI does not expose ([#2639](https://github.com/aziontech/docs/issues/2639)) ([f8d8333](https://github.com/aziontech/docs/commit/f8d83332f9410f20c15740e466a699786d059910))
+* **compliance:** correct the SOC report cadence and PCI DSS version ([#2585](https://github.com/aziontech/docs/issues/2585)) ([6a4a60d](https://github.com/aziontech/docs/commit/6a4a60d6c3b683e5e1861c0c7f3463bdff801689))
+* **firewall:** correct the CLI binding, the WAF config sample, and the JWT paywall steps ([#2565](https://github.com/aziontech/docs/issues/2565)) ([1cac328](https://github.com/aziontech/docs/commit/1cac3285850ff40941d62d8144781198789dd6be))
+* **functions:** state that the Response Phase runs only Lua functions ([#2650](https://github.com/aziontech/docs/issues/2650)) ([bf4069c](https://github.com/aziontech/docs/commit/bf4069ceda54011bb6711ad61efd75fddbd592a4))
+* **fundamentals:** rewrite the Load Balancer steps in minimize-downtime from the reference ([#2578](https://github.com/aziontech/docs/issues/2578)) ([95f9997](https://github.com/aziontech/docs/commit/95f9997be976d5cf9decb1ab0b0cfe1bd532a417))
+* **guides:** match the QStash variable and the Functions usage response to the code ([#2571](https://github.com/aziontech/docs/issues/2571)) ([e343d1c](https://github.com/aziontech/docs/commit/e343d1cba96c4306a855ca70611f88dbcdf3365c))
+* **links:** point pt-br links to their existing pt-br pages ([#2620](https://github.com/aziontech/docs/issues/2620)) ([57c8125](https://github.com/aziontech/docs/commit/57c8125badaee0fbdac0506d006bc63c72b1a1f0))
+* **links:** point the v3 Applications reference and the guides at the current pages ([#2646](https://github.com/aziontech/docs/issues/2646)) ([81f80bf](https://github.com/aziontech/docs/commit/81f80bf7c2ac4047dce788a5e9f4edd5e36c2f0a))
+* **marketplace:** drop the Azion CLI prerequisite from firewall integration guides ([#2612](https://github.com/aziontech/docs/issues/2612)) ([ae7bf16](https://github.com/aziontech/docs/commit/ae7bf16a41e22add1035e6b4cdceef9206b4841c))
+* **observe:** name the query editor list instead of its position in the Grafana guides ([#2643](https://github.com/aziontech/docs/issues/2643)) ([b386f31](https://github.com/aziontech/docs/commit/b386f3124a6f89f3ff81bbdd9a5dc75303ccc0c7))
+* **orchestrator:** fix broken bind and create-service API samples ([#2574](https://github.com/aziontech/docs/issues/2574)) ([9490e5f](https://github.com/aziontech/docs/commit/9490e5f01752cf32edf45038da7e1645f10ada16))
+* **runtime:** clean up unused imports and JSDoc in the Node.js API samples ([#2649](https://github.com/aziontech/docs/issues/2649)) ([f541482](https://github.com/aziontech/docs/commit/f5414820cececfc99a7272ddad797a7cecba5a27))
+* **structure:** tag bare code fences, fix heading skips, add pt-br meta_tags ([#2629](https://github.com/aziontech/docs/issues/2629)) ([be433a0](https://github.com/aziontech/docs/commit/be433a00ccb141e7ac85f03eb6ba58545316e729))
+* **terminology:** replace desempenho and aplicativo in pt-br pages ([#2621](https://github.com/aziontech/docs/issues/2621)) ([9859029](https://github.com/aziontech/docs/commit/9859029e4701dc077dc3f41536fbf9902fde6eb6))
+
+
+### Documentation
+
+* **applications:** Run Function needs only Functions; fix WEBP and CORS prerequisites ([#2580](https://github.com/aziontech/docs/issues/2580)) ([41dbced](https://github.com/aziontech/docs/commit/41dbced3ace3880763d02fb9bde2b5c6b2cd879e))
+* **architectures:** keep security-modernization and bot-management as API v3 versions ([#2589](https://github.com/aziontech/docs/issues/2589)) ([fc25bf7](https://github.com/aziontech/docs/commit/fc25bf7ba2448e0f19ccd14fd89653d2d5f5cf7e))
+* **cli:** document azion workload-deployment and fix pages that say the CLI cannot bind a deployment ([#2567](https://github.com/aziontech/docs/issues/2567)) ([b596a5c](https://github.com/aziontech/docs/commit/b596a5c2d581a143a400448c0199000debd0f732))
+* **console:** apply the review of the Console path convention ([#2644](https://github.com/aziontech/docs/issues/2644)) ([e84b283](https://github.com/aziontech/docs/commit/e84b283608aecc805a308b5d405b62f0ab270c6e))
+* **fundamentals:** apply the reader review and the style guide to the Fundamentals pages ([#2558](https://github.com/aziontech/docs/issues/2558)) ([c9b16ab](https://github.com/aziontech/docs/commit/c9b16ab55089b6c5d388d05784ca842b9c8d8d28))
+* **guides:** make the auth layer and vector search tutorials runnable ([#2566](https://github.com/aziontech/docs/issues/2566)) ([43199bf](https://github.com/aziontech/docs/commit/43199bf5cadc19297534434c0a59d36eebf44b60))
+* **guides:** replace the residual "These checks confirm" lines with use-case expect blocks ([#2611](https://github.com/aziontech/docs/issues/2611)) ([ee0f695](https://github.com/aziontech/docs/commit/ee0f695448c3b43a9cd3497c2f673252573284b8))
+* **migration:** share the repeated migration-guide procedures as partials ([#2619](https://github.com/aziontech/docs/issues/2619)) ([f1d2162](https://github.com/aziontech/docs/commit/f1d21621bbb9c470a205a32fd25e525a5ded9e5f))
+* **nav:** triage the pages outside the navigation ([#2593](https://github.com/aziontech/docs/issues/2593)) ([cf7f0d2](https://github.com/aziontech/docs/commit/cf7f0d2b7310b9e51322088c57e4ccc62f0969cd))
+* **observe:** fix dataset name, Data Stream filter, and Grafana Data path ([#2573](https://github.com/aziontech/docs/issues/2573)) ([e302ed0](https://github.com/aziontech/docs/commit/e302ed01fd906b6b84c2f2d11d2b3c95dead1edb))
+* **observe:** use the current GraphQL dataset names across Observe and guides ([#2579](https://github.com/aziontech/docs/issues/2579)) ([92d9535](https://github.com/aziontech/docs/commit/92d95353f5be18e23e806cec28de6a8a3c7b3aa1))
+* **orchestrator:** consolidate duplicate guides and write How it works ([#2588](https://github.com/aziontech/docs/issues/2588)) ([bf03fc7](https://github.com/aziontech/docs/commit/bf03fc7d7d89d1fd7b4e5a163d45b7f3499a7a3a))
+* **orchestrator:** split how-tos into API v4 and API v3 pages ([#2584](https://github.com/aziontech/docs/issues/2584)) ([d480006](https://github.com/aziontech/docs/commit/d480006020a22912b34e0cc88f0650dce7625d65))
+* **platform:** retire the v3 build and deploy journey pages ([#2587](https://github.com/aziontech/docs/issues/2587)) ([a1c2299](https://github.com/aziontech/docs/commit/a1c22997ddfc2ccf64bb792ceee1325c0e557842))
+* **readability:** split the long sentences in the Runtime, CLI, Reference, and KV Store pages ([#2635](https://github.com/aziontech/docs/issues/2635)) ([90443af](https://github.com/aziontech/docs/commit/90443af8f3b1c5e92cffbab97999be6981cb7535))
+* **release-notes:** fix the October 14 anchor and merge the duplicate February 24 entry ([#2572](https://github.com/aziontech/docs/issues/2572)) ([ae576e5](https://github.com/aziontech/docs/commit/ae576e58b061beb2798e5a8c7c7f6ae810a7b0b1))
+* **runtime:** fix the azion dev port and the function size limit ([#2583](https://github.com/aziontech/docs/issues/2583)) ([48db006](https://github.com/aziontech/docs/commit/48db00651d31f646ebc8bccdf3b5e47ebe8a2a53))
+* **runtime:** migrate Node.js API samples to the ES Modules handler (MM-16245) ([#2592](https://github.com/aziontech/docs/issues/2592)) ([f6f95a4](https://github.com/aziontech/docs/commit/f6f95a43f0e2aa43a3dcab85c528d820c6bf9e59))
+* **secure:** retire the pre-Workloads security journey and guide pages ([#2586](https://github.com/aziontech/docs/issues/2586)) ([6ddf7ba](https://github.com/aziontech/docs/commit/6ddf7bab87f3510d56d4fb1a893897f0be366fe1))
+* **store:** name the SQL and Storage libraries by their scoped packages ([#2575](https://github.com/aziontech/docs/issues/2575)) ([af6a369](https://github.com/aziontech/docs/commit/af6a3697c841b96b33cade50a58867eb2418d19e))
+* **style-guide:** adopt the jsonl tag for JSON Lines samples ([#2642](https://github.com/aziontech/docs/issues/2642)) ([fea46fb](https://github.com/aziontech/docs/commit/fea46fb51b6de53a115e01172bd377d67946fcf3))
+* **style-guide:** drop the nonexistent GlossaryFilter from the glossary template ([#2577](https://github.com/aziontech/docs/issues/2577)) ([e65be43](https://github.com/aziontech/docs/commit/e65be431a3e23c9c08774610f5a4c359a2ca78e4))
+* **style-guide:** standardize Azion Console click paths ([#2596](https://github.com/aziontech/docs/issues/2596)) ([5a7ecbc](https://github.com/aziontech/docs/commit/5a7ecbc2c10801da31532246e3799e79b943dd3b))
+* **templates:** apply the review of the migrated template guides ([#2645](https://github.com/aziontech/docs/issues/2645)) ([fd09000](https://github.com/aziontech/docs/commit/fd09000a3162f69832fd3198d508ac995c93d81d))
+* **templates:** list the Astro templates that only the showcase covered ([#2595](https://github.com/aziontech/docs/issues/2595)) ([c64fc19](https://github.com/aziontech/docs/commit/c64fc19c556fed414e9c90ff92ed0413d7e20d16))
+* **templates:** migrate the legacy template guides to the current guide pattern ([#2597](https://github.com/aziontech/docs/issues/2597)) ([6b4bb55](https://github.com/aziontech/docs/commit/6b4bb5550f49a38882e629bd9adc86f9507bc4bf))
+* **templates:** point Deploy links to the current Marketplace catalog (MM-16236) ([#2582](https://github.com/aziontech/docs/issues/2582)) ([269601c](https://github.com/aziontech/docs/commit/269601cc4b45096c40a1debe6abd4cf31d374f94))
+* **terminology:** retire Edge Node, module, and add-on from current pages ([#2618](https://github.com/aziontech/docs/issues/2618)) ([5fcd8da](https://github.com/aziontech/docs/commit/5fcd8daca3b95a2737c9e815ad78951635c9ae98))
+* **terraform:** rewrite the samples for provider v2.10.0 ([#2557](https://github.com/aziontech/docs/issues/2557)) ([c1871a9](https://github.com/aziontech/docs/commit/c1871a90a6ef6eecb03c253a3c452941a4600b9d))
+* **workloads:** review the Workloads section with the style guide and correct it from live tests ([#2570](https://github.com/aziontech/docs/issues/2570)) ([d132e62](https://github.com/aziontech/docs/commit/d132e622006273cbe97c051776b9cfd1c7d28e40))
+
 ## [2.4.4](https://github.com/aziontech/docs/compare/docs-v2.4.3...docs-v2.4.4) (2026-11-10)
 
 
