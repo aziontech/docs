@@ -25,7 +25,7 @@ preferences.
 | `apps/docs/src/content/docs/en` · `.../pt-br` | every published page, as `.mdx` |
 | `apps/docs/src/nav` | the navigation trees that build the sidebars |
 | `apps/docs/src/pages` | routes, including the `.md` twins, `llms.txt`, and the sitemaps |
-| `apps/redirects-massive/src/redirects/{en,pt-br}/doc.json` | the redirect map |
+| `apps/docs/redirects/{en,pt-br}/*.json` | the redirect map, in numbered files |
 | `.claude/rules/webkit-*.md` · `CLAUDE.md` | the design system rules, for UI work only |
 
 ## Writing or changing a page
@@ -36,11 +36,15 @@ preferences.
   requires `description`, `meta_tags`, `namespace`, and `permalink`, and reviewers hold you to
   it. `namespace` pairs a page with its translation, so the two language versions share one.
 - **Changing a `permalink` or moving a page requires a redirect in the same pull request**, in
-  `apps/redirects-massive/src/redirects/{en,pt-br}/doc.json`. A permalink change without one is
-  a broken build.
+  the highest-numbered file of `apps/docs/redirects/{en,pt-br}/`. A permalink change without one
+  is a broken build.
 - **Register a new page in a navigation tree** under `apps/docs/src/nav`, or nothing links to it
   and it reaches no index.
 - **Internal links are root-relative** (`/en/documentation/...`) and must resolve.
+- **A new release notes entry follows the changelog rules:** the date as its `label` and
+  `anchor`, one tag from a closed list, and a closing link to a page in the same language. Run
+  `pnpm lint:changelog`; the rules and the tag list are in
+  [CONTRIBUTING.md](.github/CONTRIBUTING.md#changelog-entries). Never rewrite an older entry.
 - Do not name competitors anywhere: not in pages, not in commit messages, not in pull request
   descriptions.
 
@@ -57,6 +61,7 @@ pnpm build:local         # build + frontmatter validation (CI runs this too)
 pnpm lint:slugcheck      # permalink rules
 pnpm lint:navcheck       # navigation trees
 pnpm lint:links          # internal links, without a build
+pnpm lint:changelog      # release notes entries: anchors, order, tags, closing link
 pnpm format              # prettier
 ```
 
@@ -71,9 +76,29 @@ Run a script of another app with `pnpm -F <app> <script>`, for example
   corrections, `docs` upkeep, `i18n` translation, `refactor`/`chore` structure and tooling.
 - One concern per pull request. Content changes and platform or code changes never travel
   together.
-- Fill the pull request template; its checklists are the review contract.
 - Two people sign off: a subject matter expert for accuracy, a DevRel maintainer for writing
   and placement.
+
+### The description
+
+Write the description in the format of
+[`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md), the same body GitHub
+prefills for people. Its checklists are the review contract.
+
+- **Three sections, in order:** What & why, Type of change, Author checklist. Add no other
+  top-level section.
+- **What & why** opens with the **Related issue** and **Pages affected** lines. Then say what
+  changed and why, grouped by topic rather than by file, and how you checked it: which commands
+  ran, which pages you opened, and what you could not verify.
+- **Keep every checklist row verbatim.** Never drop, reword, shorten, or reorder a row. Tick a
+  row only when it is true. When a row is not true, leave it unticked and say why after a dash
+  on the same line. When it does not apply, tick it and say so the same way:
+  `— no screenshot is added or changed`.
+- **Leave the `pnpm build:local` row unticked unless you ran it** and it passed.
+- **When you do not open the pull request yourself, write it to `pr.md`** at the repository
+  root, which git ignores. The file starts with the title line,
+  ``**Title:** `type(scope): summary` ``, followed by the template's three sections, so the
+  person opening the pull request pastes it as it is.
 
 ## Building UI
 
