@@ -1,6 +1,6 @@
 ---
 title: Applications
-description: 'An application decides where each request goes, what is cached, and what code runs. Enable Cache, Application Accelerator, and Image Processor on it.'
+description: 'Route requests to your origins, cache responses, and run code with the rules of an Application, then turn on Application Accelerator or Image Processor.'
 meta_tags: 'applications, rules engine, connector, origin, cache, application accelerator, image processor, functions, workload'
 namespace: documentation_products_edge_applications
 permalink: /documentation/platform/applications/
@@ -13,18 +13,61 @@ import VersionRollingOut from '~/includes/snippets/versionRollingOut/en/snippet.
 
 <VersionRollingOut>[Applications | v3](/en/documentation/platform/applications/v3/)</VersionRollingOut>
 
-A reverse proxy is a server that receives requests in place of the servers that hold your content, the origins. It reads each request before an origin does and decides what happens to it. It can answer from a copy it stored earlier, add or remove a header, run code, or pass the request to an origin and relay the answer. Clients reach one domain, and logic that each origin would otherwise carry runs in front of all of them.
+**Applications** is a Platform Resource that processes the requests received by your [Workloads](/en/documentation/platform/workloads/). An Application can run serverless functions, act as a reverse proxy for your origins, or combine the two, on Azion's distributed infrastructure, from the data center nearest to your user. A serverless function is a [Function](/en/documentation/platform/functions/), code run on demand at each request, with no server for you to provision. A reverse proxy is a server in front of your origin, the server that holds your content. The proxy can answer each request with a cached copy of an earlier origin response, add or remove headers, or route the request to your origin. Every request passes through the proxy, so your clients reach a single domain, and the proxy applies the logic that each origin would otherwise repeat.
 
-**Applications** is the Platform Resource that runs that proxy on Azion's distributed infrastructure, close to your users, for each [workload](/en/documentation/platform/workloads/) whose deployment names it. An application acts through rules, which run in a request phase and a response phase. Its rules decide which [connector](/en/documentation/platform/connectors/) takes a request to your origin, what is answered from a stored copy, and which function runs. Use Applications to route each path to its origin, cache responses, add or filter headers, rewrite requests, run your own code, or resize and convert images on demand.
+An Application receives the requests of a Workload once that Workload's deployment sets that Application. On each request, the Application runs its rules. A rule can set the [Connector](/en/documentation/platform/connectors/) that routes the request to your origin, decide whether the response is cached, or run a Function. Use Applications to route each path to its origin, cache responses, add or remove headers, rewrite requests, run your own code on the requests a rule matches, or resize and convert images on demand.
 
 <DocButton href="/en/documentation/platform/applications/quickstart/" label="Quickstart" size="medium" />
 <DocButton href="/en/documentation/platform/applications/rules-engine/" label="Applications reference" kind="secondary" size="medium" />
 
 ---
 
+## Request path
+
+Creating an Application routes no request to it: a Workload's deployment has to set that Application first. An Application also reaches an origin only through a rule that sets a Connector. The diagram follows a request that takes that path. In place of an origin, a Function can answer a request: a rule runs the Function with _Run Function_, and the Function builds the response with no Connector.
+
+Solid arrows carry the request, and dotted arrows carry the response. Each label starts with the number of its step below.
+
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Client"])
+  WL["Workload"]
+  FW["Firewall"]
+  App["Application"]
+  Cache["Cache"]
+  Conn["Connector"]
+  Origin[["origin server"]]
+  Client -->|"1. request"| WL
+  WL -->|"1. with a Firewall"| FW
+  WL -->|"1. without a Firewall"| App
+  FW -->|"1. allowed"| App
+  FW -.->|"1. refusal"| Client
+  App -.->|"2. Deny (403)"| Client
+  App -->|"3. cache setting"| Cache
+  Cache -.->|"3. valid copy"| App
+  App -->|"4. no valid copy"| Conn
+  Conn -->|"4. request"| Origin
+  Origin -.->|"4. response"| Conn
+  Conn -.->|"4. response"| App
+  App -.->|"5. response"| Client
+```
+
+1. The request reaches a Workload through one of its domains, and the Workload's deployment sets the Application. In Azion Console, you set it in the **Application** field of **Deployment Settings**. A [Firewall](/en/documentation/platform/firewall/) that the deployment also sets runs its rules first, and it can stop the request there.
+2. The Application's Request Phase rules run in order. When a behavior, the action a rule runs, ends the processing, as _Deny (403 Forbidden)_ does, the Application answers the client, and no later rule runs.
+3. If a rule with the _Set Cache Policy_ behavior applied a cache setting, [Cache](/en/documentation/platform/applications/cache/) looks for a valid copy of the origin response. When Cache holds one, that copy becomes the response, and the origin receives no request.
+4. Otherwise, the Connector set by a rule with _Set Connector_ routes the request to the origin. If several matching rules carry _Set Connector_, only the last of them runs.
+5. The Application's Response Phase rules then run on the response, and the response reaches the client.
+
+A new Application starts with Cache and [Functions](/en/documentation/platform/functions/) on, Application Accelerator and [Image Processor](/en/documentation/platform/applications/image-processor/) off, and no rules.
+
+A change does not take effect at once: it propagates, and Azion guarantees no propagation time. Until the deployment of a new Workload propagates, which can take several minutes, the Workload answers with Azion's placeholder `404`. During that time, answers alternate between the placeholder and the Application's response, so repeat the request until they agree. For how the two phases work, the order of rules and behaviors, and propagation, refer to [How Applications works](/en/documentation/platform/applications/how-it-works/).
+
+---
+
 ## Rule structure
 
-Rules carry the logic of an application. A rule tests each request against its criteria and, when the request matches, runs its behaviors. Sent as the body of `POST /v4/workspace/applications/<application-id>/request_rules`, this rule hands every request to the connector that reaches your origin:
+A rule is the unit of logic in an Application. Its criteria test each request, and its behaviors run on a request that matches. To route every request to the Connector that reaches your origin, send this rule as the body of `POST /v4/workspace/applications/<application-id>/request_rules`:
 
 ```json
 {
@@ -49,91 +92,75 @@ Rules carry the logic of an application. A rule tests each request against its c
 }
 ```
 
-- `criteria` holds groups of conditions, and the first condition of a group opens with `if`. Here, `${uri}`, the URI without its query string, matches every request with `starts_with` and `/`, because every path starts with `/`. The same rule on `${request_uri}`, which keeps the query string, is refused with `400` and error `25047` while Application Accelerator is off.
-- `behaviors` lists what the rule does to each request it matches. `set_connector` hands the request to the connector whose ID is in `attributes.value`, and the connector holds the address of your origin.
-- `name` and `active` are the rule's own fields. The API answers `202` and returns the rule with `order` set to `0`, its position among the Request Phase rules of the application.
-- Azion Console builds the same rule in the application's **Rules Engine** tab, from **+ Rule**, _Request Phase_, a criterion on `${uri}`, and the _Set Connector_ behavior.
+- `criteria` holds groups of conditions, and each group starts with a condition whose `conditional` is `if`. Here, `${uri}` is the URI without its query string. Every path starts with `/`, so `starts_with` and `/` match every request. If the rule tests `${request_uri}` instead, which keeps the query string, the API refuses it with `400` and error `25047` while [Application Accelerator](/en/documentation/platform/applications/application-accelerator/) is off.
+- `behaviors` lists the actions the rule runs on a matching request. `set_connector` routes the request to the Connector whose ID is in `attributes.value`. That Connector holds the address of your origin.
+- `name` and `active` belong to the rule itself.
+- You can also build the same rule in Azion Console, as [Applications quickstart](/en/documentation/platform/applications/quickstart/) shows.
 
-If you have routed traffic by path in a reverse proxy, the model transfers: criteria are the match condition, behaviors the action, and a connector the backend server.
+When you send the rule, the API answers `202` and returns it with `order` set to `0`. That value is the rule's position among the Request Phase rules of the Application.
 
----
-
-## Request path
-
-Creating an application serves nothing. An application handles only the requests of a workload whose deployment names it, and it reaches an origin only through a rule that names a connector.
-
-```mermaid
-%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
-flowchart TD
-  Q["Request to the domain of a workload"] --> D["Workload deployment: names one application"]
-  D -->|"The deployment also names a firewall"| FW["Firewall: runs its rules first and can stop the request"]
-  D -->|"No firewall"| R["Application: runs its Request Phase rules, in order"]
-  FW -->|"The request continues"| R
-  R -->|"A Set Cache Policy rule applied, and a valid copy is stored"| C["Cache answers from the stored copy"]
-  R -->|"No stored copy"| O["The connector that a Set Connector rule names takes the request to the origin"]
-  C --> P["Application: runs its Response Phase rules on the response"]
-  O --> P
-  P --> A["The client receives the response"]
-```
-
-1. A workload receives the request, and its deployment names the application. In Azion Console, the binding is the **Application** field of **Deployment Settings**. When the deployment also names a [firewall](/en/documentation/platform/firewall/), the firewall runs its rules first and can stop the request.
-2. The application runs its Request Phase rules, in order. A behavior that ends the processing, such as _Deny (403 Forbidden)_, answers the client, and no later rule runs.
-3. When a _Set Cache Policy_ rule applied a cache setting and a valid copy is stored, Cache answers from the copy, and the origin is not asked.
-4. Otherwise, the connector that a _Set Connector_ rule names takes the request to the origin. When several matching rules carry _Set Connector_, only the last one runs.
-5. The application runs its Response Phase rules on the response, and the client receives it.
-
-A new application has Cache and Functions on, Application Accelerator and Image Processor off, and no rules. Until a rule names a connector, it has no origin to send a request to. No propagation time is guaranteed for a change. A new workload answers with Azion's placeholder `404` until its binding to the application propagates, which can take several minutes. Until then, answers alternate between the placeholder and the application, so send the request again until they agree. For the two phases, the order in which rules and behaviors run, and propagation, refer to [How Applications works](/en/documentation/platform/applications/how-it-works/).
+The model matches path-based routing in a reverse proxy: each criterion is a match condition, each behavior is an action, and a Connector holds the address of the backend server.
 
 ---
 
 ## Resources
 
-Cache, Application Accelerator, and Image Processor are Products enabled on an application, each with its own switch in [Main Settings](/en/documentation/platform/applications/main-settings/#products) › **Modules**.
+Cache, Application Accelerator, and Image Processor act on the requests of an Application. Each Application turns Application Accelerator and Image Processor on separately, and [Main Settings](/en/documentation/platform/applications/main-settings/#platform-resources) shows where in Azion Console and the API.
 
 ### Cache
 
-Cache answers later requests for an object from a copy of the origin response, kept in the data center that fetched it until its time to live (TTL) ends. Use it to keep static files close to your users, serve large video files in fragments, keep answering while the origin is down, or remove a copy the moment the origin changes. Cache is on in every new application, but it stores nothing until a _Set Cache Policy_ rule applies a cache setting, the object that holds the TTLs.
+Cache is a Platform Resource that stores copies of the responses to the requests received by an Application. Each copy stays in the data center that stored it, and later requests for the same object get that copy until its time to live (TTL) ends. Cache is always on in an Application. It starts storing copies once a _Set Cache Policy_ rule applies a cache setting, which holds the TTLs. Use Cache to:
 
-For what a cache setting holds, how a request reaches a stored copy, and where to start, refer to the [Cache overview](/en/documentation/platform/applications/cache/).
+- Keep static files in the data center nearest to your user
+- Serve large video files in fragments, with Large File Optimization turned on in the cache setting
+- Answer requests with an expired copy when the origin fails to answer, with stale cache turned on in the cache setting
+- Remove a copy when the origin changes, with [Real-Time Purge](/en/documentation/platform/applications/cache/real-time-purge/)
+
+The [Cache overview](/en/documentation/platform/applications/cache/) explains what a cache setting holds, how a request reaches a stored copy, and where to start.
 
 ### Application Accelerator
 
-Application Accelerator decides what besides the URL makes two requests different, such as a query-string argument, a cookie, the device group, or the request method, and Cache then keeps a separate copy for each. Turn it on when one URL has more than one correct response, such as a personalized page, an API response that changes with a query string, a catalog that differs by device, or a response to a `POST`. Its switch is off on a new application.
+Application Accelerator is a Platform Resource that unlocks four capabilities for the cache and the rules of an Application: cache variation, the caching of `POST` and `OPTIONS` responses, a Max Age below 60 seconds, and further Rules Engine behaviors and variables. With cache variation, a cache setting tells apart two requests for the same URL by a query-string argument, a cookie, the device group, or the request method, and Cache keeps a separate copy for each value. Application Accelerator starts off in a new Application. Turn it on when one URL has more than one correct response, for example:
 
-For what a variation adds to the cache key, what the switch unlocks, and where to start, refer to the [Application Accelerator overview](/en/documentation/platform/applications/application-accelerator/).
+- A personalized page
+- An API response that changes with its query string
+- A catalog that differs by device
+- A response to a `POST`
+
+The [Application Accelerator overview](/en/documentation/platform/applications/application-accelerator/) explains what a variation adds to the cache key, what turning it on unlocks, and where to start.
 
 ### Image Processor
 
-Image Processor builds a derived image from the source image on the origin, following the `ims` query string of the request, such as `?ims=fit-in/400x400`, and never saves the result as an asset of the account. Turn it on when pages need one image in several sizes, crops, qualities, or formats, such as WEBP for the browsers that accept it, without storing or uploading a file for each variant. Its switch is off on a new application, and turning it on processes nothing by itself: a Request Phase rule with _Optimize Images_ decides which requests reach it.
+Image Processor is a Platform Resource that builds a new image, the derived image, from an image on your origin. The `ims` query string of the request describes the derived image, such as `?ims=fit-in/400x400`, and even with no `ims` query string, Image Processor can convert an image to a format the browser accepts. It returns the derived image without saving it as an asset of the account. It starts off in a new Application, and even when it is on, Image Processor processes only the requests that a Request Phase rule with _Optimize Images_ matches. Turn it on when your pages need one image in several sizes, crops, qualities, or formats, such as WEBP for browsers that accept it. Every variant then comes from one file on your origin, so you store and upload only that file.
 
-For how a request becomes a derived image, what `ims` accepts, and where to start, refer to the [Image Processor overview](/en/documentation/platform/applications/image-processor/).
+The [Image Processor overview](/en/documentation/platform/applications/image-processor/) explains how a request becomes a derived image, what `ims` accepts, and where to start.
 
 ---
 
 ## Scope and limits
 
-- **Phases**: a rule runs in the Request Phase, on the request before a response exists, or in the Response Phase, on the response delivered to the user. The phase is set when the rule is created and cannot change, and the choice of origin and of cache setting happens only in the Request Phase. For the variables and behaviors of each phase, and the Product each one needs, refer to [Rules Engine for Applications](/en/documentation/platform/applications/rules-engine/#phases).
-- **Origins**: the application record names no origin, so two rules with two connectors can send `/api/` to one server and every other path to another. Behind a connector, the origin can be web servers in your infrastructure, a cloud service, or an [Object Storage](/en/documentation/platform/object-storage/) bucket, as [Use a bucket as an application origin](/en/documentation/guides/application-development/data/use-bucket-as-origin/) shows. One connector can spread traffic across several origins through [Load Balancer](/en/documentation/platform/connectors/load-balancer/). Azion Console states that origins have been redesigned as connectors.
-- **Functions**: an application runs your code through a [function instance](/en/documentation/platform/applications/functions-instances/), which binds one function from [Functions](/en/documentation/platform/functions/) to the application with its own arguments. A rule with _Run Function_ invokes the instance, and an instance that no rule names never runs. **Functions** is on in a new application. For the Response Phase, the instance form in Azion Console states `Only Lua functions can be used in the Response phase.` To attach your first function, refer to [Instantiate a function on an application](/en/documentation/guides/application-development/getting-started/instantiate-functions/).
-- **Cache and images in code**: Cache runs no code, so a function that reads and writes cached entries uses the [Cache API](/en/documentation/devtools/runtime/api-reference/cache/). A function that processes images itself uses the WASM Image Processor library, a surface other than Image Processor, as [Where Image Processor stops](/en/documentation/platform/applications/image-processor/image-delivery/#where-image-processor-stops) explains.
-- **Devices**: a [device group](/en/documentation/platform/applications/device-groups/) names the devices whose `User-Agent` header matches a regular expression. A rule tests it through `${device_group}`, and a cache setting can keep one copy per group, both with Application Accelerator on. For an expression that matches only the devices you mean, refer to [Applications best practices](/en/documentation/platform/applications/best-practices/#match-a-device-group-on-the-words-that-only-that-device-sends).
-- **WebSocket**: [WebSocket Proxy](/en/documentation/platform/applications/websocket/) carries a WebSocket connection, opened with the `Upgrade: websocket` and `Connection: upgrade` headers, between your users and the origin through an application. It is not enabled on an account by default, and Azion enables it on request. To request it, refer to [Support guidelines](/en/documentation/support/). Azion recycles keepalive connections approximately every 15 minutes, so the client reopens a WebSocket connection that closes.
-- **Workloads**: domains, protocols, and certificates belong to the workload that serves the application, so an application carries no delivery settings of its own. _Redirect HTTP to HTTPS_ needs HTTPS on the workload. The error page a client sees when the connector receives a 4xx or 5xx response from your origin is set by [Custom Pages](/en/documentation/platform/workloads/#custom-pages) on the workload. To request an application on your own domain from one device before you change its DNS records, refer to [Test an application through the hosts file](/en/documentation/guides/application-development/getting-started/stage-applications-through-hosts-file/).
-- **Interfaces**: you create and manage applications on the **Applications** page of [Azion Console](https://console.azion.com). Each application has the **Main Settings**, **Device Groups**, **Cache Settings**, **Functions Instances**, and **Rules Engine** tabs. **Clone**, a row action of the **Applications** list, creates a separate application that starts with the settings of the original, as [Clone an application](/en/documentation/guides/application-development/getting-started/clone-applications/) shows. The [Azion API](https://api.azion.com/) serves applications at `/v4/workspace/applications`, and [Azion CLI](/en/documentation/devtools/cli/) manages them with commands such as `azion create application`, `azion update application`, and `azion create rules-engine`. [`azion.config.js`](/en/documentation/devtools/cli/azion-config-js/), [Azion Lib](/en/documentation/devtools/azion-lib/application/), and the [Azion Terraform provider](/en/documentation/devtools/terraform/) also create and configure applications. An account that has not migrated to API v4 follows [Applications | v3](/en/documentation/platform/applications/v3/).
-- **Observability**: with **Debug Rules** on in [Main Settings](/en/documentation/platform/applications/main-settings/#debug-rules), [Real-Time Events](/en/documentation/platform/real-time-events/) and [Data Stream](/en/documentation/platform/data-stream/) show the rules each request ran, in the `$traceback` field. The setting is off on a new application. A response to a request sent with `Pragma: azion-debug-cache` reports its cache status, such as `HIT` or `MISS`, in the `x-cache` header. [Real-Time Metrics](/en/documentation/platform/real-time-metrics/) shows Cache and Tiered Cache traffic. For the tools and queries, refer to [Troubleshoot Applications](/en/documentation/platform/applications/troubleshooting/) and [Troubleshoot Applications](/en/documentation/platform/applications/troubleshooting/#a-problem-shows-in-traffic-but-not-in-the-responses-you-request).
-- **Limits**: an application holds up to 200 rules across both phases. A rule carries 1 to 5 groups of 1 to 10 criteria, and 1 to 10 behaviors. A cache setting takes a **Max Age** of at least 60 seconds without Application Accelerator, and a single cached object can reach 10 GB. For every bound, the answer past it, and the bounds of each Product, refer to [Applications limits](/en/documentation/platform/applications/limits/).
-- **Billing**: Cache is billed on purges, Application Accelerator on data transfer, and Image Processor on processed images, and turning on a Product can generate usage-related costs. Each plan includes an amount of each, such as 1,000 purges a month on Hobby and 2,000 on Pro. For the amounts, refer to [Applications limits](/en/documentation/platform/applications/limits/#included-usage-per-plan), and for the rates, refer to [Pricing](/en/documentation/fundamentals/pricing/).
-- **Terms**: the [Applications glossary](/en/documentation/platform/applications/glossary/) defines the words the Applications pages give a specific meaning, such as rule, phase, behavior, cache setting, cache key, and derived image.
+- **Phases**: every rule belongs to one of two phases. The Request Phase acts on the request before a response exists, and the Response Phase acts on the response that the user receives. You choose the phase when you create the rule, and you cannot change it later. Only Request Phase rules can choose the origin and the cache setting. [Rules Engine for Applications](/en/documentation/platform/applications/rules-engine/#phases) lists the variables and behaviors of each phase and the Platform Resource that each one needs.
+- **Origins**: an Application reaches each origin through a Connector, so two rules with two Connectors can route `/api/` to one server and every other path to another. The origin behind a Connector can be a web server in your infrastructure, a cloud service, or an [Object Storage](/en/documentation/platform/object-storage/) bucket. [Use a bucket as an application origin](/en/documentation/guides/application-development/data/use-bucket-as-origin/) shows the bucket case. With [Load Balancer](/en/documentation/platform/connectors/load-balancer/) enabled, one Connector of the `http` type can spread traffic across several origins. Connectors replace the origins that earlier versions of Applications configured on the Application.
+- **Functions**: a [Function Instance](/en/documentation/platform/applications/functions-instances/) binds one of your [Functions](/en/documentation/platform/functions/) to the Application, with its own arguments. A Function Instance belongs to one Application, and it runs only when a rule with _Run Function_ invokes that Function Instance. Functions starts on in a new Application, in its `modules.functions.enabled` field in the API. Only Functions written in Lua run in the Response Phase, as the Function Instance form in Azion Console states: `Only Lua functions can be used in the Response phase.` For the steps to add your first Function, refer to [Instantiate a function on an application](/en/documentation/guides/application-development/getting-started/instantiate-functions/).
+- **Cache and images in code**: code that reads or writes cached entries runs in a Function and uses the [Cache API](/en/documentation/devtools/runtime/api-reference/cache/), because Cache itself cannot run code. A Function that processes images on its own uses the WASM Image Processor library, which is separate from the Image Processor Platform Resource. [Where Image Processor stops](/en/documentation/platform/applications/image-processor/image-delivery/#where-image-processor-stops) explains the difference.
+- **Devices**: a [device group](/en/documentation/platform/applications/device-groups/) is a name and a regular expression that the Application compares with the `User-Agent` header of each request. Both uses of a group need Application Accelerator on: a rule tests the group through `${device_group}`, and a cache setting can keep one copy per group. [Applications best practices](/en/documentation/platform/applications/best-practices/#match-a-device-group-on-the-words-that-only-that-device-sends) shows how to write an expression that matches only the devices you mean.
+- **WebSocket**: [WebSocket Proxy](/en/documentation/platform/applications/websocket/) is a Feature of Applications that carries a WebSocket connection between your users and the origin. The connection opens with the `Upgrade: websocket` and `Connection: upgrade` headers. Azion turns the Feature on for an account only on request, and [Support guidelines](/en/documentation/support/) explains how to ask. Because Azion recycles keepalive connections about every 15 minutes, the client must reopen a WebSocket connection when it closes.
+- **Workloads**: a Workload holds the domains, protocols, and certificates that serve the Application, so you configure delivery on the Workload, not on the Application. [Test an application through the hosts file](/en/documentation/guides/application-development/getting-started/stage-applications-through-hosts-file/) shows how to request an Application on your own domain from one device before you change its DNS records. _Redirect HTTP to HTTPS_ works only when the Workload has HTTPS. When the Connector receives a 4xx or 5xx response from your origin, [Custom Pages](/en/documentation/platform/workloads/#custom-pages) on the Workload sets the error page that the client sees.
+- **Interfaces**: in [Azion Console](https://console.azion.com/), you create and manage your Applications on the **Applications** page, where each Application has five tabs: **Main Settings**, **Device Groups**, **Cache Settings**, **Functions Instances**, and **Rules Engine**. In the Console, the **Clone** row action of the **Applications** list creates a separate Application with the settings of the original, as [Clone an application](/en/documentation/guides/application-development/getting-started/clone-applications/) shows. The [Azion API](https://api.azion.com/) serves your Applications at `/v4/workspace/applications`, and [Azion CLI](/en/documentation/devtools/cli/) manages them with commands such as `azion create application`, `azion update application`, and `azion create rules-engine`. You can also create and configure your Applications with [`azion.config.js`](/en/documentation/devtools/cli/azion-config-js/), [Azion Lib](/en/documentation/devtools/azion-lib/application/), or the [Azion Terraform Provider](/en/documentation/devtools/terraform/). If your account has not migrated to API v4, use [Applications | v3](/en/documentation/platform/applications/v3/).
+- **Observability**: with Debug Rules on, [Real-Time Events](/en/documentation/platform/real-time-events/) and [Data Stream](/en/documentation/platform/data-stream/) show the rules that each request ran, in the `$traceback` field. Debug Rules starts off in a new Application. It is the `debug` field of the Application in the API, and [Main Settings](/en/documentation/platform/applications/main-settings/#debug-rules) shows where to turn it on in Azion Console. To check one response, send the request with `Pragma: azion-debug-cache`: the response reports its cache status, such as `HIT` or `MISS`, in the `x-cache` header. Across all requests, [Real-Time Metrics](/en/documentation/platform/real-time-metrics/) shows the traffic of Cache and [Tiered Cache](/en/documentation/platform/applications/cache/tiered-cache/). [Troubleshoot Applications](/en/documentation/platform/applications/troubleshooting/) lists the tools and queries. For traffic that differs from what you see, refer to [A problem shows in traffic but not in the responses you request](/en/documentation/platform/applications/troubleshooting/#a-problem-shows-in-traffic-but-not-in-the-responses-you-request).
+- **Limits**: an Application accepts at most 200 rules, counting both phases. Each rule has 1 to 5 groups of 1 to 10 criteria, plus 1 to 10 behaviors. Without Application Accelerator, a cache setting needs a Max Age, its `modules.cache.max_age` field, of at least 60 seconds. One cached object can be as large as 10 GB. [Applications limits](/en/documentation/platform/applications/limits/) lists every bound, what happens past it, and the bounds of each Platform Resource nested in Applications.
+- **Billing**: a Platform Resource that you turn on can add costs that depend on usage. [Azion pricing](https://www.azion.com/en/pricing/) lists the plans and the usage that each plan includes, and [Pricing](/en/documentation/fundamentals/pricing/) lists the rates and the metric that each Platform Resource is billed on.
+- **Terms**: the [Applications glossary](/en/documentation/platform/applications/glossary/) defines the words that the Applications pages use with a specific meaning, such as rule, phase, behavior, cache setting, cache key, and derived image.
 
 ---
 
 ## Next steps
 
 <DocCardGroup cols={2}>
-  <DocCard title="Quickstart" href="/en/documentation/platform/applications/quickstart/" label="Send every request of a new application to your origin." />
-  <DocCard title="How it works" href="/en/documentation/platform/applications/how-it-works/" label="Follow a request through an application, and see where each Product acts on it." />
-  <DocCard title="Rules Engine for Applications" href="/en/documentation/platform/applications/rules-engine/" label="Look up a variable, an operator, or a behavior, and the Product it needs." />
-  <DocCard title="Guides and tutorials" href="/en/documentation/platform/applications/guides/" label="Complete a specific task, from a device group to a framework template." />
-  <DocCard title="Limits" href="/en/documentation/platform/applications/limits/" label="Look up a bound, the answer past it, or what a plan includes." />
-  <DocCard title="Troubleshooting" href="/en/documentation/platform/applications/troubleshooting/" label="Find the cause when requests never reach the origin, or a rule does not act." />
+  <DocCard title="Quickstart" href="/en/documentation/platform/applications/quickstart/" label="Route every request of a new Application to your origin." />
+  <DocCard title="How it works" href="/en/documentation/platform/applications/how-it-works/" label="Trace a request through an Application, and see where Cache, Application Accelerator, and Image Processor act on it." />
+  <DocCard title="Rules Engine for Applications" href="/en/documentation/platform/applications/rules-engine/" label="Find a variable, an operator, or a behavior, and the Platform Resource it needs." />
+  <DocCard title="Guides and tutorials" href="/en/documentation/platform/applications/guides/" label="Do a specific task, from a device group to a framework template." />
+  <DocCard title="Limits" href="/en/documentation/platform/applications/limits/" label="Find a bound and what happens past it." />
+  <DocCard title="Troubleshooting" href="/en/documentation/platform/applications/troubleshooting/" label="Find out why requests never reach the origin, or why a rule does not act." />
 </DocCardGroup>
