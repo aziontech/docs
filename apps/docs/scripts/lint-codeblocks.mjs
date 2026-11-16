@@ -613,9 +613,16 @@ function targets(args) {
 		return glob.sync(DEFAULT_GLOBS, { cwd: DOCS_ROOT, absolute: true }).sort();
 	}
 	const base = process.env.INIT_CWD ?? process.cwd();
-	return args
-		.map((arg) => path.resolve(base, arg))
-		.filter((file) => /\.mdx?$/.test(file) && fs.existsSync(file));
+	const files = args.map((arg) => path.resolve(base, arg));
+	const invalid = files.filter(
+		(file) => !/\.mdx?$/.test(file) || !fs.statSync(file, { throwIfNoEntry: false })?.isFile()
+	);
+	if (invalid.length) {
+		// A mistyped path would otherwise check nothing and pass.
+		for (const file of invalid) console.error(`${file} is not a .md or .mdx file.`);
+		process.exit(2);
+	}
+	return files;
 }
 
 /** Workflow commands carry their message on one line, with these characters escaped. */
