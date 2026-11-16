@@ -1,12 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { LANGS, type Lang } from '../src/nav/schema';
+import { LANGS, type GuideKind, type Lang } from '../src/nav/schema';
 import { text, walkTree } from '../src/nav/resolve';
 import { loadNav, APP_ROOT, type CorpusPage } from './nav/lib/load';
 
 /** Build-free check of the closing-links rules in the style guide (Choose a content type):
  * every page closes with links, no dead ends, and the product spine is reciprocal.
+ * A use case closes with its guides instead (style guide, Use cases): its closing heading is
+ * `USE_CASE_CLOSING`, and its closing goes deeper when it links a guide.
  * Warn-only by default; `--strict` exits 1 when any rule has offenders. */
 
 const strict = process.argv.includes('--strict');
@@ -15,6 +17,11 @@ const LIST = 40;
 const CANONICAL: Record<Lang, string[]> = {
 	en: ['Next steps', 'Related resources'],
 	'pt-br': ['Próximos passos', 'Recursos relacionados'],
+};
+/** The closing of a page filed as a use case (`kind: use-case` on its nav row). */
+const USE_CASE_CLOSING: Record<Lang, string> = {
+	en: 'Guides in this use case',
+	'pt-br': 'Guias deste caso de uso',
 };
 const VARIANTS = [
 	'Related',
@@ -54,6 +61,7 @@ interface Placement {
 	labelEn?: string;
 	parentLabelEn?: string;
 	products?: string[];
+	kind?: GuideKind;
 	isRoot: boolean;
 	landing: boolean;
 }
@@ -70,6 +78,7 @@ for (const tree of data.trees.values()) {
 			labelEn: text(node.label, 'en'),
 			parentLabelEn: labels.get(entry.ancestors[entry.ancestors.length - 1] ?? ''),
 			products: node.products,
+			kind: node.kind,
 			isRoot: node.page === tree.root,
 			landing: Boolean(node.landing),
 		});
@@ -114,10 +123,19 @@ const nonCanonical: string[] = [];
 const deadEnds: string[] = [];
 const spine: string[] = [];
 
+const isUseCase = (at: Placement) => at.kind === 'use-case';
+
+const canonical = (page: CorpusPage, at: Placement) =>
+	isUseCase(at) ? [...CANONICAL[page.lang], USE_CASE_CLOSING[page.lang]] : CANONICAL[page.lang];
+
+/** The tree a closing link must reach past the overview of. A use case spans several products,
+ * and its closing goes deeper by routing to the guides that hold its values. */
 const homeTree = (page: CorpusPage, at: Placement) =>
-	at.treeId === 'guides' && at.products?.[0] && data.trees.has(at.products[0])
-		? at.products[0]
-		: at.treeId;
+	isUseCase(at)
+		? 'guides'
+		: at.treeId === 'guides' && at.products?.[0] && data.trees.has(at.products[0])
+			? at.products[0]
+			: at.treeId;
 
 for (const page of corpus) {
 	const at = placement.get(page.namespace);
@@ -133,11 +151,12 @@ for (const page of corpus) {
 	const body = readBody(page);
 	const end = closing(body);
 	const label = `${page.lang} ${page.file}`;
-	if (!end || !(CANONICAL[page.lang].includes(end.title) || VARIANTS.includes(end.title))) {
+	const accepted = canonical(page, at);
+	if (!end || !(accepted.includes(end.title) || VARIANTS.includes(end.title))) {
 		noClosing.push(`${label}: last heading is "${end?.title ?? 'none'}"`);
 		continue;
 	}
-	if (!CANONICAL[page.lang].includes(end.title)) nonCanonical.push(`${label}: "## ${end.title}"`);
+	if (!accepted.includes(end.title)) nonCanonical.push(`${label}: "## ${end.title}"`);
 
 	const targets = links(end.chunk, page.lang).filter((t) => t.namespace !== page.namespace);
 	if (!targets.length) {
