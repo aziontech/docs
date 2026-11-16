@@ -276,13 +276,13 @@ export const en: DocsHomeContent = {
 					icon: 'pi pi-wallet',
 					title: 'PCI DSS compliance',
 					href: '/en/documentation/fundamentals/pci-dss-certification/',
-					body: 'PCI DSS 4.0 Level 1, and what it covers for cardholder data.',
+					body: 'PCI DSS 4.0.1 Level 1, and what it covers for cardholder data.',
 				},
 				{
 					icon: 'pi pi-lock',
 					title: 'SOC compliance',
 					href: '/en/documentation/fundamentals/soc/',
-					body: 'SOC 2 Type 2 and SOC 3 reports, twice a year.',
+					body: 'SOC 2 Type 2 and SOC 3 reports, issued annually.',
 				},
 				{
 					icon: 'pi pi-history',

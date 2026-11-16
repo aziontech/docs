@@ -41,6 +41,10 @@ preferences.
 - **Register a new page in a navigation tree** under `apps/docs/src/nav`, or nothing links to it
   and it reaches no index.
 - **Internal links are root-relative** (`/en/documentation/...`) and must resolve.
+- **A new release notes entry follows the changelog rules:** the date as its `label` and
+  `anchor`, one tag from a closed list, and a closing link to a page in the same language. Run
+  `pnpm lint:changelog`; the rules and the tag list are in
+  [CONTRIBUTING.md](.github/CONTRIBUTING.md#changelog-entries). Never rewrite an older entry.
 - Do not name competitors anywhere: not in pages, not in commit messages, not in pull request
   descriptions.
 
@@ -57,6 +61,7 @@ pnpm build:local         # build + frontmatter validation (CI runs this too)
 pnpm lint:slugcheck      # permalink rules
 pnpm lint:navcheck       # navigation trees
 pnpm lint:links          # internal links, without a build
+pnpm lint:changelog      # release notes entries: anchors, order, tags, closing link
 pnpm format              # prettier
 ```
 

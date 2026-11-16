@@ -1,0 +1,942 @@
+---
+title: Armazene em cache um site estático de um bucket
+description: >-
+  Sirva uma página de um bucket do Object Storage por meio de uma Application
+  que a armazena em cache, publique uma nova versão e purgue a cópia antiga do
+  cache.
+meta_tags: 'cache, cache settings, real-time purge, purge, object storage, bucket, connector, application, workload, tutorial'
+namespace: docs_guides_cache_a_static_site_from_a_bucket
+permalink: /documentacao/guias/performance-e-confiabilidade/cache-e-purge/armazene-em-cache-um-site-estatico-de-um-bucket/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import Tabs from '~/components/webkit/Tabs.vue'
+
+Neste tutorial, você vai servir um site de uma página a partir de um bucket do [Object Storage](/pt-br/documentacao/plataforma/object-storage/) e manter uma cópia dele no [cache](/pt-br/documentacao/plataforma/applications/cache/) da Azion. Você vai ver o cache responder a página, publicar uma segunda versão dela e purgar a cópia antiga para que a nova versão chegue a todos os leitores.
+
+Cada recurso que o tutorial cria se liga a um criado antes dele:
+
+1. O bucket guarda a página. O **Workloads Access** dele é somente leitura, então a Application o lê e não o altera.
+2. O [Connector](/pt-br/documentacao/plataforma/connectors/), do tipo Object Storage, aponta para o bucket.
+3. A [Application](/pt-br/documentacao/plataforma/applications/) tem uma cache setting e uma regra de requisição. Em todos os caminhos, a regra envia a requisição ao Connector e aplica a cache setting.
+4. O [Workload](/pt-br/documentacao/plataforma/workloads/) guarda o domínio que recebe as requisições, e o deployment dele define a Application que as responde.
+
+Os recursos são os mesmos no Azion Console, na Azion CLI e na API. Selecione a interface que você usa, e cada etapa mostra os passos dela.
+
+---
+
+## Pré-requisitos
+
+<Tabs client:visible sharedStore="interface">
+<Fragment slot="tab.console">Console</Fragment>
+<Fragment slot="tab.cli">CLI</Fragment>
+<Fragment slot="tab.api">API</Fragment>
+
+<Fragment slot="panel.console">
+
+### Console
+
+- Uma conta Azion. Para criar uma, consulte [Criar uma conta](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- Acesso ao Azion Console. Para entrar, consulte [Acesse Azion Console](/pt-br/documentacao/guias/plataforma/conta-e-billing/como-acessar-o-azion-console/).
+- `curl`, para enviar requisições à página e ler os headers de cache dela.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+- Uma conta Azion. Para criar uma, consulte [Criar uma conta](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- A Azion CLI. Os comandos desta página correspondem à Azion CLI 4.26.1. Para instalá-la, consulte [Azion CLI](/pt-br/documentacao/devtools/cli/).
+- A Azion CLI autorizada com um personal token, com `azion -t <your-personal-token>`. O comando seguinte pode perguntar se você aceita compartilhar dados de uso anônimos. Para criar um token, consulte [Tokens pessoais](/pt-br/documentacao/fundamentos/personal-tokens/).
+- `curl`, para enviar requisições à página e ler os headers de cache dela.
+- `jq`, para ler o domínio da saída da CLI.
+- Uma única sessão de terminal para todos os comandos do tutorial, porque os comandos seguintes leem as variáveis do shell que os anteriores definem.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+- Uma conta Azion. Para criar uma, consulte [Criar uma conta](/pt-br/documentacao/fundamentos/criar-uma-conta/).
+- Um personal token. Para criar um, consulte [Tokens pessoais](/pt-br/documentacao/fundamentos/personal-tokens/).
+- `curl`, para chamar a API, enviar requisições à página e ler os headers de cache dela.
+- `jq`, para ler os IDs das respostas da API.
+- Uma única sessão de terminal para todos os comandos do tutorial, porque os comandos seguintes leem as variáveis do shell que os anteriores definem.
+
+</Fragment>
+
+</Tabs>
+
+---
+
+## 1. Crie a página
+
+Crie um diretório para o tutorial e entre nele:
+
+```bash
+mkdir cached-site
+cd cached-site
+```
+
+Escreva a primeira versão da página num arquivo `index.html`:
+
+```bash
+echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Cached site</title></head><body><h1>Version 1</h1></body></html>' > index.html
+```
+
+O diretório guarda `index.html`, cujo título diz `Version 1`.
+
+---
+
+## 2. Crie o bucket e envie a página
+
+Escolha um nome para o bucket. O nome de um bucket é único entre todas as contas Azion e tem de 6 a 63 caracteres: letras minúsculas, números e hífens, começando e terminando com uma letra ou um número. Onde um passo mostrar `<your-bucket-name>`, use o seu nome.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+Para criar o bucket:
+
+1. Acesse [Azion Console](https://console.azion.com/) > **Object Storage**.
+2. Selecione **+ Bucket**.
+3. Em **Name**, digite o nome do seu bucket.
+4. Mantenha **Read Only** em **Workloads Access**.
+5. Selecione **Save**.
+
+O bucket aparece na lista de buckets.
+
+Para enviar a página:
+
+1. Na lista de buckets, selecione o nome do seu bucket.
+2. Arraste `index.html` para a área com o texto **Drag files here to add them to your bucket**.
+
+O bucket lista `index.html` com 131 Bytes.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Guarde o nome do seu bucket numa variável do shell:
+
+```bash
+BUCKET=<your-bucket-name>
+```
+
+Crie o bucket com acesso somente leitura para os Workloads:
+
+```bash
+azion create storage bucket --name $BUCKET --workloads-access read_only
+```
+
+```text
+Bucket created successfully
+```
+
+Envie a página:
+
+```bash
+azion create storage object --bucket-name $BUCKET --object-key index.html --source index.html
+```
+
+```text
+Object created successfully
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Guarde o seu personal token e o nome do seu bucket em variáveis do shell. Substitua `<your-personal-token>` pelo seu token:
+
+```bash
+export AZION_API_TOKEN="<your-personal-token>"
+BUCKET=<your-bucket-name>
+```
+
+Crie o bucket com acesso somente leitura para os Workloads:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/storage/buckets \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"$BUCKET\", \"workloads_access\": \"read_only\"}"
+```
+
+```json
+{"state":"executed","data":{"name":"cached-site-api-ezxfkm","workloads_access":"read_only",...}}
+```
+
+Envie a página como corpo de uma requisição `POST` à chave do objeto. O `Content-Type` define o tipo do objeto:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/storage/buckets/$BUCKET/objects/index.html \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: text/html' \
+  --data-binary @index.html
+```
+
+```json
+{"state":"executed","data":{"object_key":"index.html"}}
+```
+
+</Fragment>
+
+</Tabs>
+
+O bucket guarda a página.
+
+---
+
+## 3. Crie o Connector
+
+O Connector aponta para o bucket. O prefixo `/` dele lê os objetos na raiz do bucket, então uma requisição a `/index.html` lê o objeto `index.html`. A raiz `/` do domínio não tem objeto para ler, por isso todas as requisições desta página usam `/index.html`.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+Para criar o Connector:
+
+1. Acesse [Azion Console](https://console.azion.com/) > **Connectors**.
+2. Selecione **+ Connectors**.
+3. Em **Name**, digite `cached-site`.
+4. Em **Connector Type**, selecione **Object Storage**.
+5. Em **Bucket**, selecione o seu bucket.
+6. Mantenha `/` em **Prefix**.
+7. Selecione **Save**.
+
+O Console mostra a mensagem **Connector successfully created**.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Escreva o Connector num arquivo `connector.json`. O arquivo lê o nome do bucket de `BUCKET`:
+
+```bash
+cat > connector.json <<EOF
+{
+  "name": "cached-site",
+  "type": "storage",
+  "attributes": { "bucket": "$BUCKET", "prefix": "/" }
+}
+EOF
+```
+
+Crie o Connector. O `--type storage` evita que a CLI pergunte o tipo:
+
+```bash
+azion create connector --type storage --file connector.json
+```
+
+```text
+Created Connector with ID 235616
+```
+
+Guarde o ID que o seu comando imprimiu. Substitua `235616` pelo seu ID:
+
+```bash
+CONNECTOR_ID=235616
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Crie o Connector:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/connectors \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"cached-site\", \"type\": \"storage\", \"attributes\": {\"bucket\": \"$BUCKET\", \"prefix\": \"/\"}}" \
+| tee connector.json
+```
+
+```json
+{"state":"pending","data":{"id":235617,...,"active":true,"type":"storage","attributes":{"bucket":"cached-site-api-ezxfkm","prefix":"/"},...}}
+```
+
+```bash
+CONNECTOR_ID=$(jq .data.id connector.json)
+```
+
+</Fragment>
+
+</Tabs>
+
+O Connector lê o bucket. Ele só responde a requisições depois que uma Application as envia a ele.
+
+---
+
+## 4. Crie a Application
+
+A Application precisa de três partes: a própria Application, uma cache setting e uma regra que aplica o Connector e a cache setting. A cache setting guarda dois tempos:
+
+- **O cache da Azion guarda uma cópia por 3600 segundos**, uma hora. Durante essa hora, a cópia responde às requisições, e o bucket não é lido de novo.
+- **Um navegador guarda a página por 60 segundos.** A Application envia esse tempo no header `cache-control` da resposta.
+
+A cache setting também mantém o **Stale cache** ativado: quando uma cópia expirou e o bucket não responde, a Azion pode servir a cópia expirada por até 300 segundos. Uma Application nova tem o Cache ativado.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+Para criar a Application:
+
+1. Acesse [Azion Console](https://console.azion.com/) > **Applications**.
+2. Selecione **+ Application**.
+3. Em **Name**, digite `cached-site`.
+4. Selecione **Create**.
+
+O Console abre a Application nova na aba **Main Settings**.
+
+Para criar a cache setting:
+
+1. Selecione a aba **Cache Settings**.
+2. Selecione **+ Cache**.
+3. Em **Name**, digite `cached-site`.
+4. Em **Browser Cache**, selecione **Override cache settings** e digite `60` em **Max Age**.
+5. Em **Cache**, mantenha **Override cache behavior** e digite `3600` em **Max Age**.
+6. Mantenha **Stale cache** ativado.
+7. Selecione **Save**.
+
+O Console mostra a mensagem **Cache Settings successfully created**.
+
+Para aplicar o Connector e a cache setting em toda requisição:
+
+1. Selecione a aba **Rules Engine**.
+2. Selecione **+ Rule**.
+3. Em **Name**, digite `Serve and cache the bucket`.
+4. Mantenha **Request Phase** selecionado.
+5. Em **Criteria**, mantenha `${uri}` e **starts with** e digite `/` como argumento.
+6. Em **Behaviors**, troque **Deliver** por **Set Connector** e selecione `cached-site` no campo que ele adiciona.
+7. Selecione **+ Add Behavior**. No comportamento novo, selecione **Set Cache Policy** e selecione `cached-site` no campo que ele adiciona.
+8. Selecione **Save**.
+
+A regra aparece na fase de requisição da aba **Rules Engine**.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Crie a Application:
+
+```bash
+azion create application --name cached-site --active true
+```
+
+```text
+Created Application with ID 1794600035
+```
+
+Guarde o ID. Substitua `1794600035` pelo seu ID:
+
+```bash
+APPLICATION_ID=1794600035
+```
+
+Escreva a cache setting num arquivo `cache.json`:
+
+```bash
+cat > cache.json <<'EOF'
+{
+  "name": "cached-site",
+  "browser_cache": { "behavior": "override", "max_age": 60 },
+  "modules": {
+    "cache": { "behavior": "override", "max_age": 3600, "stale_cache": { "enabled": true } }
+  }
+}
+EOF
+```
+
+Crie a cache setting na Application:
+
+```bash
+azion create cache-setting --application-id $APPLICATION_ID --file cache.json
+```
+
+```text
+Created Cache Settings configuration with ID 394590
+```
+
+Guarde o ID. Substitua `394590` pelo seu ID:
+
+```bash
+CACHE_SETTING_ID=394590
+```
+
+Escreva a regra num arquivo `rule.json`. Em todos os caminhos, ela define o Connector e a cache setting:
+
+```bash
+cat > rule.json <<EOF
+{
+  "name": "Serve and cache the bucket",
+  "criteria": [[{ "variable": "\${uri}", "conditional": "if", "operator": "starts_with", "argument": "/" }]],
+  "behaviors": [
+    { "type": "set_connector", "attributes": { "value": $CONNECTOR_ID } },
+    { "type": "set_cache_policy", "attributes": { "value": $CACHE_SETTING_ID } }
+  ]
+}
+EOF
+```
+
+Crie a regra na fase de requisição:
+
+```bash
+azion create rules-engine --application-id $APPLICATION_ID --phase request --file rule.json
+```
+
+```text
+Created Rules Engine with ID 1547942
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Crie a Application:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "cached-site"}' \
+| tee application.json
+```
+
+```json
+{"state":"pending","data":{"id":1794600036,...,"modules":{"cache":{"enabled":true},...},"active":true,...}}
+```
+
+```bash
+APPLICATION_ID=$(jq .data.id application.json)
+```
+
+Crie a cache setting na Application:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications/$APPLICATION_ID/cache_settings \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "cached-site", "browser_cache": {"behavior": "override", "max_age": 60}, "modules": {"cache": {"behavior": "override", "max_age": 3600, "stale_cache": {"enabled": true}}}}' \
+| tee cache.json
+```
+
+```json
+{"state":"executed","data":{"id":394591,...,"browser_cache":{"behavior":"override","max_age":60},"modules":{"cache":{"behavior":"override","max_age":3600,"stale_cache":{"enabled":true},...},...},...}}
+```
+
+```bash
+CACHE_SETTING_ID=$(jq .data.id cache.json)
+```
+
+Adicione a regra que define o Connector e a cache setting em todos os caminhos:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/applications/$APPLICATION_ID/request_rules \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"Serve and cache the bucket\", \"criteria\": [[{\"variable\": \"\${uri}\", \"conditional\": \"if\", \"operator\": \"starts_with\", \"argument\": \"/\"}]], \"behaviors\": [{\"type\": \"set_connector\", \"attributes\": {\"value\": $CONNECTOR_ID}}, {\"type\": \"set_cache_policy\", \"attributes\": {\"value\": $CACHE_SETTING_ID}}]}"
+```
+
+```json
+{"state":"pending","data":{"id":1547943,"name":"Serve and cache the bucket","active":true,...,"behaviors":[{"type":"set_connector","attributes":{"value":235617}},{"type":"set_cache_policy","attributes":{"value":394591}}],...}}
+```
+
+</Fragment>
+
+</Tabs>
+
+A Application lê cada requisição do bucket por meio do Connector e guarda uma cópia de cada resposta no cache.
+
+---
+
+## 5. Crie o Workload
+
+O Workload guarda o domínio, e o deployment dele define a Application que responde às requisições dele.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+Para criar o Workload e o deployment dele:
+
+1. Acesse [Azion Console](https://console.azion.com/) > **Workloads**.
+2. Selecione **+ Workload**.
+3. Em **Name**, digite `cached-site`.
+4. Em **Deployment Settings**, selecione `cached-site` em **Application**.
+5. Selecione **Save**.
+
+A lista de Workloads mostra o domínio na coluna **Workload Domain**, no formato `xxxxxxxxxxx.map.azionedge.net`.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Crie o Workload:
+
+```bash
+azion create workload --name cached-site
+```
+
+```text
+Created Workload with ID 1794600630
+```
+
+Guarde o ID. Substitua `1794600630` pelo seu ID:
+
+```bash
+WORKLOAD_ID=1794600630
+```
+
+Crie o deployment do Workload, que define a Application:
+
+```bash
+azion create workload-deployment --workload-id $WORKLOAD_ID --name cached-site --strategy-type default --application-id $APPLICATION_ID
+```
+
+```text
+Created Workload Deployment with ID 361455
+```
+
+Leia o domínio do Workload:
+
+```bash
+DOMAIN=$(azion describe workload --workload-id $WORKLOAD_ID --format json | jq -r .workload_domain)
+echo $DOMAIN
+```
+
+```text
+qo18fn5hs3c.map.azionedge.net
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Crie o Workload:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/workloads \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data '{"name": "cached-site"}' \
+| tee workload.json
+```
+
+```json
+{"state":"pending","data":{"id":1794600631,...,"workload_domain":"b8dwzmvwqjg.map.azionedge.net",...}}
+```
+
+```bash
+WORKLOAD_ID=$(jq .data.id workload.json)
+DOMAIN=$(jq -r .data.workload_domain workload.json)
+```
+
+Crie o deployment do Workload, que define a Application:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/workloads/$WORKLOAD_ID/deployments \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"name\": \"cached-site\", \"strategy\": {\"type\": \"default\", \"attributes\": {\"application\": $APPLICATION_ID}}}"
+```
+
+```json
+{"state":"pending","data":{"id":361456,"current":true,"active":true,"strategy":{"type":"default","attributes":{"application":1794600036,"firewall":null,"custom_page":null}},...}}
+```
+
+</Fragment>
+
+</Tabs>
+
+O seu domínio tem o mesmo formato dos exemplos, com outras letras.
+
+---
+
+## 6. Peça a página ao cache
+
+Um Workload novo pode levar cerca de dez minutos para se propagar pela rede da Azion. Até lá, o domínio responde `404` com uma página de erro em HTML, e pode alternar entre `404` e a página por alguns minutos.
+
+Se você usou o Console, defina antes `DOMAIN` com o seu domínio, com `DOMAIN=<your-domain>`. Envie uma requisição à página:
+
+```bash
+curl "https://$DOMAIN/index.html"
+```
+
+Repita a requisição a cada minuto até a página voltar três vezes seguidas:
+
+```html
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Cached site</title></head><body><h1>Version 1</h1></body></html>
+```
+
+Para ver se o cache respondeu, envie o header de requisição `Pragma: azion-debug-cache`. Com ele, a resposta traz os headers `x-cache` do cache da Azion. Peça a página e imprima os headers de cache dela:
+
+```bash
+curl --silent --output /dev/null --dump-header - --header 'Pragma: azion-debug-cache' "https://$DOMAIN/index.html" | grep -i -E '^(x-cache|x-cache-valid|cache-control):'
+```
+
+```text
+x-cache: MISS from 179.191.172.49 with HTTP/2.0
+x-cache-valid: 3600
+cache-control: max-age=60
+```
+
+Cada resposta traz três headers:
+
+- **`x-cache`** nomeia o servidor que respondeu e o que ele fez. `MISS` significa que o servidor não tinha cópia: ele leu a página do bucket e guardou uma cópia. `HIT` significa que o servidor respondeu da cópia dele, sem ler o bucket.
+- **`x-cache-valid`** é o tempo, em segundos, que o servidor guarda a cópia: os 3600 segundos da cache setting.
+- **`cache-control`** traz os 60 segundos que um navegador guarda a página.
+
+Cada servidor guarda a própria cópia, e as suas requisições podem chegar a mais de um servidor. Um servidor responde `MISS` na primeira vez que recebe a página e `HIT` depois disso. Peça a página 20 vezes e conte as respostas:
+
+```bash
+for i in $(seq 20); do
+  curl --silent --output /dev/null --dump-header - --header 'Pragma: azion-debug-cache' "https://$DOMAIN/index.html" | grep -i '^x-cache:' | cut -d ' ' -f 2
+done | sort | uniq -c
+```
+
+```text
+  20 HIT
+```
+
+A sua contagem pode incluir algumas respostas `MISS`, uma para cada servidor que recebeu a página pela primeira vez. As requisições também deixam uma cópia da `Version 1` em cada servidor que alcançam. Se as contagens somarem menos de 20, algumas requisições receberam a página `404` porque o Workload ainda está se propagando: espere um minuto e execute o loop de novo.
+
+O cache responde a página a partir das cópias dele.
+
+---
+
+## 7. Publique uma nova versão e purgue a cópia antiga
+
+Escreva a segunda versão da página sobre o `index.html`:
+
+```bash
+echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Cached site</title></head><body><h1>Version 2</h1></body></html>' > index.html
+```
+
+Envie-a para a mesma chave. O envio substitui o objeto no bucket:
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+Para enviar a página nova no Azion Console:
+
+1. Acesse [Azion Console](https://console.azion.com/) > **Object Storage**.
+2. Na lista de buckets, selecione o nome do seu bucket.
+3. Arraste o `index.html` novo para a área com o texto **Drag files here to add them to your bucket**.
+
+O Console substitui o objeto sem pedir confirmação, e a coluna **Last Modified** do `index.html` mostra a hora do envio.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Execute o comando de envio de novo:
+
+```bash
+azion create storage object --bucket-name $BUCKET --object-key index.html --source index.html
+```
+
+```text
+Object created successfully
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Envie a requisição de envio de novo:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/storage/buckets/$BUCKET/objects/index.html \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: text/html' \
+  --data-binary @index.html
+```
+
+```json
+{"state":"executed","data":{"object_key":"index.html"}}
+```
+
+</Fragment>
+
+</Tabs>
+
+Peça a página 10 vezes e conte as versões nas respostas:
+
+```bash
+for i in $(seq 10); do
+  curl --silent "https://$DOMAIN/index.html" | grep -o 'Version [0-9]'
+done | sort | uniq -c
+```
+
+```text
+  10 Version 1
+```
+
+O bucket guarda a `Version 2`, mas um servidor que tem uma cópia da `Version 1` continua respondendo com ela até a cópia expirar, até uma hora depois. Só um servidor sem cópia lê o bucket e responde `Version 2`, então a sua contagem pode incluir algumas. Um total abaixo de 10 significa que algumas requisições receberam a página `404`; execute o loop de novo. Até as cópias expirarem, os seus leitores podem receber qualquer uma das versões.
+
+Purgue a cópia antiga da página do cache. O purge recebe a URL sem o esquema, então purga as cópias HTTP e HTTPS:
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+Para purgar a página no Azion Console:
+
+1. Acesse [Azion Console](https://console.azion.com/) > **Real-Time Purge**.
+2. Selecione **+ Purge**.
+3. Em **Layer Settings**, mantenha **Cache** selecionado.
+4. Em **Purge Type**, selecione **URL**.
+5. Em **Arguments List**, digite o seu domínio seguido de `/index.html`, no formato `xxxxxxxxxxx.map.azionedge.net/index.html`.
+6. Selecione **Save**.
+
+O purge aparece na lista do **Real-Time Purge**, com **Cache** em **Layer** e **Url** em **Type**.
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Purgue a página com a Azion CLI:
+
+```bash
+azion purge --urls "$DOMAIN/index.html"
+```
+
+```text
+Purge carried out successfully
+```
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Purgue a página com uma requisição `POST` ao endpoint de purge:
+
+```bash
+curl --silent https://api.azion.com/v4/workspace/purge/url \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --data "{\"items\": [\"$DOMAIN/index.html\"], \"layer\": \"cache\"}"
+```
+
+```json
+{"state":"executed","data":{"items":["b8dwzmvwqjg.map.azionedge.net/index.html"],"layer":"cache"}}
+```
+
+</Fragment>
+
+</Tabs>
+
+Alguns segundos depois do purge, conte as versões de novo:
+
+```bash
+for i in $(seq 10); do
+  curl --silent "https://$DOMAIN/index.html" | grep -o 'Version [0-9]'
+done | sort | uniq -c
+```
+
+```text
+  10 Version 2
+```
+
+Toda resposta traz a `Version 2`. O purge removeu as cópias da `Version 1`, então a primeira requisição a cada servidor lê a página nova do bucket, e as seguintes respondem da cópia nova. Um purge leva tempo para se propagar: se a contagem ainda incluir a `Version 1`, espere alguns segundos e execute o loop de novo.
+
+---
+
+## 8. (Opcional) Exclua os recursos
+
+O site continua no ar no seu domínio depois do tutorial. Se você quiser remover os recursos, exclua-os nesta ordem: o Workload, a Application, o Connector e a página. Excluir o Workload também exclui o deployment dele, e excluir a Application também exclui a cache setting e a regra dela. O Connector só é excluído depois da Application, porque a regra da Application o referencia.
+
+Um bucket só é excluído quando está vazio e nenhum objeto foi removido dele nas últimas 24 horas. Para remover também o bucket, exclua primeiro a página e o bucket um dia depois.
+
+<Tabs client:visible sharedStore="interface">
+
+<Fragment slot="panel.console">
+
+### Console
+
+Para excluir o Workload:
+
+1. Acesse [Azion Console](https://console.azion.com/) > **Workloads**.
+2. Na linha `cached-site`, abra o menu de ações e selecione **Delete**.
+3. Na caixa de diálogo **Delete Workload**, digite `cached-site`.
+4. Selecione **Delete**.
+
+Repita os passos em **Applications** para a Application `cached-site` e depois em **Connectors** para o Connector `cached-site`. Se a Application ainda existir, o Console recusa a exclusão do Connector com esta mensagem:
+
+```text
+Cannot delete an Connector referenced by another resource. References: EdgeApplicationRuleEngine - id: 1547941
+```
+
+Para excluir a página:
+
+1. Acesse [Azion Console](https://console.azion.com/) > **Object Storage**.
+2. Na lista de buckets, selecione o nome do seu bucket.
+3. Na linha `index.html`, abra o menu de ações e selecione **Delete**.
+4. Na caixa de diálogo **Delete File**, digite `index.html`.
+5. Selecione **Delete**.
+
+Um dia depois, exclua o bucket:
+
+1. Acesse [Azion Console](https://console.azion.com/) > **Object Storage**.
+2. Na lista de buckets, abra o menu de ações do seu bucket e selecione **Delete**.
+3. Na caixa de diálogo **Delete bucket**, digite o nome do seu bucket.
+4. Confirme a exclusão.
+
+Antes de passarem as 24 horas, o Console responde com este erro:
+
+```text
+Unable to delete a non-empty bucket. Additionally, objects deleted within the last 24 hours are also taken into consideration.
+```
+
+</Fragment>
+
+<Fragment slot="panel.cli">
+
+### CLI
+
+Exclua o Workload, a Application e o Connector:
+
+```bash
+azion delete workload --workload-id $WORKLOAD_ID
+```
+
+```text
+Workload 1794600630 was successfully deleted
+```
+
+```bash
+azion delete application --application-id $APPLICATION_ID
+```
+
+```text
+Application 1794600035 was successfully deleted
+```
+
+```bash
+azion delete connector --connector-id $CONNECTOR_ID
+```
+
+```text
+Connector 235616 was successfully deleted
+```
+
+Exclua a página:
+
+```bash
+azion delete storage object --bucket-name $BUCKET --object-key index.html
+```
+
+```text
+Object index.html was deleted successfully
+```
+
+Agende a exclusão do bucket. O `--yes` responde à pergunta de que o bucket não está vazio:
+
+```bash
+azion delete storage bucket --name $BUCKET --yes
+```
+
+```text
+Delete all objects from bucket
+Deleting objects...
+Bucket deletion was scheduled successfully
+```
+
+Logo depois do comando, o bucket ainda aparece em `azion list storage bucket`.
+
+</Fragment>
+
+<Fragment slot="panel.api">
+
+### API
+
+Exclua o Workload, a Application, o Connector e a página:
+
+```bash
+for resource in workloads/$WORKLOAD_ID applications/$APPLICATION_ID connectors/$CONNECTOR_ID storage/buckets/$BUCKET/objects/index.html; do
+  curl --silent --request DELETE https://api.azion.com/v4/workspace/$resource \
+    --header "Authorization: Token $AZION_API_TOKEN"
+  echo
+done
+```
+
+```text
+{"state":"pending"}
+{"state":"pending"}
+{"state":"pending"}
+{"state":"pending"}
+```
+
+Um dia depois, exclua o bucket:
+
+```bash
+curl --silent --request DELETE https://api.azion.com/v4/workspace/storage/buckets/$BUCKET \
+  --header "Authorization: Token $AZION_API_TOKEN"
+```
+
+Antes de passarem as 24 horas, a chamada responde `400` com o código `17006`:
+
+```json
+{"errors":[{"code":"17006","title":"Cannot Delete Non Empty Bucket","detail":"Unable to delete a non-empty bucket. Additionally, objects deleted within the last 24 hours are also taken into consideration.","status":"400","source":{"pointer":"/data"}}]}
+```
+
+</Fragment>
+
+</Tabs>
+
+A conta não guarda mais o Workload, a Application, o Connector nem a página. A remoção do Workload também se propaga, então o domínio pode continuar respondendo por alguns minutos.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Cache settings" href="/pt-br/documentacao/plataforma/applications/cache/cache-settings/" label="Todos os campos de uma cache setting, incluindo as chaves de cache por query string e cookies." />
+  <DocCard title="Real-Time Purge" href="/pt-br/documentacao/plataforma/applications/cache/real-time-purge/" label="Purgue por URL, por chave de cache ou por wildcard, e escolha a camada de cache." />
+  <DocCard title="Purgue páginas quando a origem publica uma mudança" href="/pt-br/documentacao/guias/performance-e-confiabilidade/cache-e-purge/purgar-ao-publicar/" label="Purgue as páginas alteradas sempre que a sua origem publica uma nova versão." />
+  <DocCard title="Tiered Cache" href="/pt-br/documentacao/plataforma/applications/cache/tiered-cache/" label="Adicione uma segunda camada de cache entre o primeiro cache e o bucket." />
+</DocCardGroup>

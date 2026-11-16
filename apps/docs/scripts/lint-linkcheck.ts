@@ -105,7 +105,11 @@ const linkChecker = new LinkChecker({
 			externalSitePathnames: MARKETING_SITE_PATHNAMES,
 		}),
 		new SameLanguage({
-			ignoredLinkPathnames: ['/lighthouse/'],
+			ignoredLinkPathnames: [
+				'/lighthouse/',
+				// The Marketplace Agreement is published in English only, so pt-br pages link it on purpose.
+				'/en/documentation/agreements/marketplace-agreement/',
+			],
 		}),
 		new CanonicalUrl({
 			ignoreMissingCanonicalUrl: ['/lighthouse/'],
