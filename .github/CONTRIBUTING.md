@@ -35,7 +35,7 @@ pnpm dev                         # local preview
 pnpm build:local     # build + frontmatter validation (CI runs this too)
 pnpm lint:slugcheck  # permalink rules
 pnpm lint:changelog  # release notes entries (see below)
-pnpm lint:codeblocks <files>  # code samples parse (see below)
+pnpm lint:codeblocks # code samples parse (see below)
 ```
 
 - Changed a permalink or moved a page? **Add the redirect in this PR**, in the highest-numbered file of `apps/docs/redirects/{en,pt-br}/`, and list it on the redirect row of the PR checklist.
@@ -90,7 +90,9 @@ a `json` block is JSON, a JavaScript or TypeScript block has no syntax errors, a
 a `curl --data` is JSON. `pnpm lint:codeblocks <files>` checks the pages you pass it, and every page
 when you pass none. It accepts the conventions the docs use on purpose:
 
-- a bare `<placeholder>` where a value goes, such as `"id": <rule-id>`;
+- in a `json` block or a `curl` body, a bare `<placeholder>` where a value goes, such as
+  `"id": <your-rule-id>`. In JavaScript and TypeScript, a placeholder goes inside a string:
+  `'<your-token>'`;
 - `...` or `…` for members, elements, or statements left out;
 - a fragment: object members without their braces, or the body of a class or interface;
 - `diff` in the fence meta (` ```javascript diff `), which checks the removed and the added side;
@@ -98,6 +100,9 @@ when you pass none. It accepts the conventions the docs use on purpose:
 
 A block that is partial on purpose, such as a function split across two steps, takes `nolint` in its
 fence meta (` ```typescript nolint `). Nothing renders the meta.
+
+A method signature alone, such as `async fetch(request, env, ctx)`, is not JavaScript. Give it an
+elided body, `async fetch(request, env, ctx) { … }`, and the block parses.
 
 On a PR, the **Code blocks** check runs the same script over the pages the PR changes and annotates
 each finding on its line. It does not block the merge: you decide whether to fix the sample there.

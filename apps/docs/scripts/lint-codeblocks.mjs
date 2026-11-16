@@ -15,7 +15,9 @@ import { visit } from 'unist-util-visit';
  *
  * The check reads the conventions the docs use on purpose and does not count them as errors:
  *
- * - a bare `<placeholder>` where a value goes, such as `"id": <rule-id>`;
+ * - in a `json` block or a `curl` body, a bare `<placeholder>` where a value goes, such as
+ *   `"id": <your-rule-id>`. JavaScript and TypeScript have no such form: a placeholder there goes
+ *   inside a string, `'<your-token>'`;
  * - an elision, `...` or `…`, standing for members, elements, or statements left out;
  * - a fragment: the members of an object without its braces, an object literal, or the body of a
  *   class or interface;
