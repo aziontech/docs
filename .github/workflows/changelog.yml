@@ -1,0 +1,70 @@
+# Checks the entries of the changelog pages a PR changes: every entry keeps a unique, double-quoted
+# anchor that matches its date and the newest-first order, and an entry dated after the check was added follows
+# the rest of the style guide's Changelog rules (label, one tag from a closed list, version, closing
+# link). See apps/docs/scripts/lint-changelog.mjs for the rules and the closed tag list.
+#
+# Advisory on purpose. A finding turns this check red and annotates the lines, but the check is not
+# a required status check and must not become one: the PR author decides whether to fix it. It is a
+# workflow of its own, outside the CI gate, for that reason.
+name: Changelog entries
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'apps/docs/src/content/docs/en/pages/main-menu/release-notes/**'
+      - 'apps/docs/src/content/docs/pt-br/pages/menu-principal/release-notes/**'
+      - 'apps/docs/src/content/docs/en/pages/changelog/**'
+      - 'apps/docs/src/content/docs/pt-br/pages/changelog/**'
+      - 'apps/docs/scripts/lint-changelog.mjs'
+      - '.github/workflows/changelog.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changelog:
+    name: Changelog entries
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # On a PR, only the changelog pages it changes: a finding then belongs to a page the author
+      # touched. A PR that changes the script or this workflow, and a manual run, check every
+      # changelog page.
+      - name: Collect changed changelog pages
+        id: pages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # The diff goes to a file first: a failed diff must fail the step, not read as "no page
+        # changed". Only grep's "no match" is tolerated.
+        run: |
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" > changed.txt
+          grep -E '^apps/docs/src/content/docs/(en/pages/main-menu/release-notes|pt-br/pages/menu-principal/release-notes|en/pages/changelog|pt-br/pages/changelog)/.*\.mdx$' changed.txt > changed-pages.txt || true
+          if grep -qxE 'apps/docs/scripts/lint-changelog\.mjs|\.github/workflows/changelog\.yml' changed.txt; then
+            : > changed-pages.txt
+          fi
+          echo "count=$(wc -l < changed-pages.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/setup
+
+      - name: Lint the changelog entries
+        env:
+          EVENT: ${{ github.event_name }}
+          COUNT: ${{ steps.pages.outputs.count }}
+        run: |
+          if [ "$EVENT" = pull_request ] && [ "$COUNT" != 0 ]; then
+            tr '\n' '\0' < changed-pages.txt | xargs -0 node apps/docs/scripts/lint-changelog.mjs
+          else
+            node apps/docs/scripts/lint-changelog.mjs
+          fi

@@ -11,7 +11,7 @@ import remarkMdx from 'remark-mdx';
 
 import type { Lang } from '../../data/docs-home/types';
 
-import { callout, calloutTitle, handlers, type Context, type TwinData } from './handlers';
+import { callout, calloutTitle, handlers, linkList, type Context, type TwinData } from './handlers';
 import {
 	asBlocks,
 	childElements,
@@ -52,7 +52,6 @@ const serializer = remark()
 			// Two lists in a row (cards, then related items) stay apart without an HTML comment.
 			bulletOther: '*',
 			bulletOrdered: '.',
-			bulletOrderedOther: ')',
 			emphasis: '*',
 			strong: '*',
 			fence: '`',
@@ -173,7 +172,7 @@ async function convert(
 				const [first, ...rest] = node.children ?? [];
 				const labelled = (first?.data as { directiveLabel?: boolean })?.directiveLabel;
 				const title = labelled ? plainText(first) : calloutTitle(options.lang, String(node.name));
-				return callout(title, await ctx.transform(labelled ? rest : node.children ?? []));
+				return callout(title, await ctx.transform(labelled ? rest : (node.children ?? [])));
 			}
 			case 'leafDirective':
 				return [paragraph([text(sourceOf(node, source))])];
@@ -216,6 +215,8 @@ async function convert(
 /** The page body as plain Markdown, without the title line (the route writes it). */
 export async function mdxToMarkdown(body: string, options: TwinOptions): Promise<string> {
 	const children = await convert(body.replace(FRONTMATTER, ''), options, new Map());
+	const hub = options.data?.hub;
+	if (hub?.length) children.push(linkList(hub, (href) => twinHref(href, options.hasTwin)));
 	const root = { type: 'root', children } as Parameters<typeof serializer.stringify>[0];
 	return serializer.stringify(root);
 }

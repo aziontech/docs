@@ -21,7 +21,7 @@ const NOWRAP_CODE_MAX = 48;
 const unbreakable = (value: string) => value.length <= NOWRAP_CODE_MAX && !/\s/.test(value);
 
 const addClass = (node: Element, className: string) => {
-	node.properties = { ...node.properties, className };
+	node.properties = { ...node.properties, className: [className] };
 };
 
 /*
@@ -37,7 +37,7 @@ const addCellClass = (cell: Element, baseClass: string) => {
 			? baseClass.replace('text-start', align === 'center' ? 'text-center' : 'text-end')
 			: baseClass;
 	const rest = inline.replace(/text-align:\s*[a-z]+;?\s*/, '').trim();
-	cell.properties = { ...cell.properties, className };
+	cell.properties = { ...cell.properties, className: [className] };
 	delete cell.properties.align;
 	if (rest) cell.properties.style = rest;
 	else delete cell.properties.style;
@@ -96,7 +96,7 @@ export default function rehypeDocTable() {
 			parent.children[index] = {
 				type: 'element',
 				tagName: 'div',
-				properties: { 'data-doc-block': '', className: 'w-full overflow-x-auto' },
+				properties: { 'data-doc-block': '', className: ['w-full', 'overflow-x-auto'] },
 				children: [node],
 				position: node.position,
 			};

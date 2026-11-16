@@ -1,5 +1,5 @@
-import type { Document, Element } from 'domhandler';
-import htmlparser2 from 'htmlparser2';
+import { isTag, type Document, type Element } from 'domhandler';
+import * as htmlparser2 from 'htmlparser2';
 
 export interface AllPagesByPathname {
 	[key: string]: HtmlPage;
@@ -91,7 +91,8 @@ export class HtmlPage {
 		let el: Element | null = start;
 		while (el) {
 			if (test(el)) return el;
-			el = htmlparser2.DomUtils.getParent(el);
+			const parent = htmlparser2.DomUtils.getParent(el);
+			el = parent && isTag(parent) ? parent : null;
 		}
 		return null;
 	}

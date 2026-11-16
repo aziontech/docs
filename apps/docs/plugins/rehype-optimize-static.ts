@@ -17,7 +17,7 @@ export function rehypeOptimizeStatic(): Transformer<Root, Root> {
 		const allPossibleElements = new Set<Node>();
 		const elementStack: Node[] = [];
 
-		walk(tree, {
+		walk(tree as Node, {
 			enter(node) {
 				// @ts-expect-error test tagName naively
 				const isHeading = node.tagName && headingRe.test(node.tagName);
