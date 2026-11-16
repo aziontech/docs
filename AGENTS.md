@@ -45,6 +45,10 @@ preferences.
   `anchor`, one tag from a closed list, and a closing link to a page in the same language. Run
   `pnpm lint:changelog`; the rules and the tag list are in
   [CONTRIBUTING.md](.github/CONTRIBUTING.md#changelog-entries). Never rewrite an older entry.
+- **Code samples parse.** A `json` block is JSON, a JavaScript or TypeScript block has no syntax
+  errors, and the body of a `curl --data` is JSON. Run `pnpm lint:codeblocks <files>` on the
+  pages you changed; the conventions it accepts are in
+  [CONTRIBUTING.md](.github/CONTRIBUTING.md#code-samples).
 - Do not name competitors anywhere: not in pages, not in commit messages, not in pull request
   descriptions.
 
@@ -62,6 +66,7 @@ pnpm lint:slugcheck      # permalink rules
 pnpm lint:navcheck       # navigation trees
 pnpm lint:links          # internal links, without a build
 pnpm lint:changelog      # release notes entries: anchors, order, tags, closing link
+pnpm lint:codeblocks     # code samples parse: JSON, JS/TS, curl bodies
 pnpm format              # prettier
 ```
 

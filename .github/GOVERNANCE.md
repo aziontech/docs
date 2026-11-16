@@ -98,6 +98,12 @@ line and turns red when it finds one. It never blocks the merge: the author deci
 the entry in the same PR. It runs outside the CI gate and is not a required check, and it should
 stay that way.
 
+**Code blocks** is advisory, and it is not a ratchet. It parses the code samples on the pages
+a PR changes (JSON blocks, JavaScript and TypeScript syntax, and the JSON body of a `curl --data`),
+annotates each finding on its line, and turns red when it finds one. It never blocks the merge: the
+author decides whether to fix the sample in the same PR. It runs outside the CI gate and is not a
+required check, and it should stay that way.
+
 ### Checks that ratchet
 
 Five checks carry more debt than any one PR can clear, so they are frozen at a baseline in
