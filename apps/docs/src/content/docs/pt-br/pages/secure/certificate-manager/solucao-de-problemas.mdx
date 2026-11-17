@@ -1,0 +1,95 @@
+---
+title: Solucione problemas do Certificate Manager
+description: Corrija um certificado Let's Encrypt que fica pendente ou falha na emissão, uma solicitação de certificado recusada e uma chave privada recusada.
+meta_tags: 'certificate manager, troubleshooting, lets encrypt, pending certificate, failed certificate, status_detail, acme challenge, private key, csr, permission'
+namespace: documentation_products_certificate_manager_troubleshooting
+permalink: /documentacao/plataforma/certificate-manager/solucao-de-problemas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+
+Estes sintomas afetam [Certificate Manager](/pt-br/documentacao/plataforma/certificate-manager/), o recurso da plataforma que armazena os certificados que um Workload usa para TLS e informa o estado de cada um no campo `status`. Eles cobrem um certificado Let's Encrypt que não é emitido e uma solicitação ou um envio que a API recusa. Um certificado recusado em uma configuração do Workload é um sintoma de Workloads, em [Solucione problemas de Workloads](/pt-br/documentacao/plataforma/workloads/solucao-de-problemas/#um-certificado-e-recusado-em-uma-configuracao-do-workload). Para saber onde Certificate Manager age sobre uma requisição, consulte [Caminho da requisição](/pt-br/documentacao/plataforma/certificate-manager/#caminho-da-requisicao).
+
+---
+
+## Um certificado fica pendente
+
+Um certificado Let's Encrypt não sai do status `pending` ou `challenge_verification`. No Azion Console, o campo **Digital Certificate** do Workload avisa "This certificate is pending validation and HTTPS may not work until it’s validated".
+
+Um dos nomes falha no desafio. No HTTP-01, o Let's Encrypt busca um arquivo em cada hostname, então todo nome precisa apontar para a Azion. No DNS-01, ele lê um registro `_acme-challenge` no DNS do domínio, como explica [Validação de domínio](/pt-br/documentacao/plataforma/certificate-manager/emissao-e-renovacao/#validacao-de-dominio).
+
+- **Verifique os nomes**: um certificado solicitado pelo formulário do Workload no Azion Console cobre os **Domains** do Workload, então confirme que cada um está correto.
+- **Aponte todo nome para a Azion no HTTP-01**, incluindo os nomes alternativos.
+- **Adicione o CNAME do DNS-01 em outro provedor de DNS**: dê a ele o nome `_acme-challenge.<your-domain>`, com o valor `<your-domain>.letsencrypt.azion.com`. No Edge DNS, a própria Azion escreve o registro.
+- **Verifique os registros CNAME de novo se o certificado continuar falhando**: a Azion tenta de novo uma emissão que falhou em intervalos crescentes, como lista [Tempo de emissão e novas tentativas](/pt-br/documentacao/plataforma/certificate-manager/emissao-e-renovacao/#tempo-de-emissao-e-novas-tentativas).
+
+Depois que uma tentativa posterior valida, o certificado aparece como `active` enquanto um Workload o usa, ou `inactive` até lá. Para os registros passo a passo, consulte [Solicite um certificado Let's Encrypt](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/como-gerar-um-certificado-lets-encrypt/).
+
+---
+
+## Uma solicitação de certificado é recusada com This account cannot use certain common or alternative names
+
+Uma solicitação Let's Encrypt, uma solicitação de assinatura de certificado (CSR) ou o salvamento de um domínio novo no Azion Console falha com `This account cannot use certain common or alternative names because it does not have permission for their domain names.`
+
+A solicitação traz um nome em um domínio para o qual a conta não tem permissão. Um hostname `azion.app` também é recusado, mesmo um que um Workload da conta tenha, como lista [Erros](/pt-br/documentacao/plataforma/certificate-manager/certificados/#erros).
+
+- **Nomeie apenas hostnames em domínios para os quais a sua conta tem permissão**, em `common_name` e `alternative_names`.
+- **Não solicite certificado para um hostname `azion.app`**: com `tls.certificate` definido como `null`, o Workload apresenta o certificado SAN da Azion, que cobre o hostname `azion.app` e o workload domain.
+- **Remova o domínio recusado de Domains no Azion Console**: adicionar um domínio troca **Digital Certificate** de _Azion (SAN)_ para _New Let's Encrypt Certificate (DNS-01)_. **Save** então solicita esse certificado antes de salvar o Workload e não salva nada quando a solicitação é recusada.
+
+Uma solicitação aceita retorna o `id` do certificado com o status `pending`, e Azion Console mostra "Your workload has been updated".
+
+---
+
+## A emissão de um certificado falha
+
+Um certificado Let's Encrypt aparece como `failed`. No Azion Console, o campo **Digital Certificate** do Workload avisa "This digital certificate failed and HTTPS cannot be used until the issue is resolved".
+
+A validação falhou, e a Azion guarda o motivo no campo `status_detail` do certificado. Um valor nomeia o hostname cujo registro deve ser verificado:
+
+```text
+An error has occurred while issuing the requested certificate. Please verify the following domains CNAME: www.example.com
+```
+
+Outro valor não nomeia hostname, então verifique todos os nomes do certificado, como lista [Um certificado fica pendente](#um-certificado-fica-pendente):
+
+```text
+domain ownership validation failed - verify DNS records or HTTP challenge accessibility
+```
+
+Leia `status_detail` em qualquer interface e corrija o registro ou o nome para o qual ele aponta:
+
+- **Azion Console**: em **Certificate Manager**, o ícone de erro do certificado o mostra.
+- **Azion CLI**: `azion describe digital-certificate --digital-certificate-id <certificate-id> --format json` o imprime ao lado de `status`.
+- **API**: `GET /v4/workspace/tls/certificates/<certificate-id>` o retorna com o certificado.
+
+Uma tentativa posterior no [cronograma de novas tentativas](/pt-br/documentacao/plataforma/certificate-manager/emissao-e-renovacao/#tempo-de-emissao-e-novas-tentativas) pode então emitir o certificado, e um certificado emitido em uso aparece como `active`, com `status_detail` em `""`.
+
+---
+
+## Uma chave privada enviada é recusada
+
+O envio de um certificado de servidor falha com `The provided private key is invalid. Please check the key and try again.`
+
+A API não consegue ler a `private_key` que chegou com o certificado, como lista [Erros](/pt-br/documentacao/plataforma/certificate-manager/certificados/#erros).
+
+- **Envie a chave que corresponde ao certificado**.
+- **Envie a chave em PEM**, com as linhas `-----BEGIN` e `-----END` e sem passphrase, como lista [Algoritmos de chave e formatos](/pt-br/documentacao/plataforma/certificate-manager/certificados/#algoritmos-de-chave-e-formatos).
+- **Escreva a chave como uma única string JSON em um corpo de API**, com cada quebra de linha escrita como `\n`.
+
+Azion CLI então imprime `Created Digital Certificate with ID <certificate-id>`, e o certificado aparece como `inactive` até que um Workload o use.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Certificados" href="/pt-br/documentacao/plataforma/certificate-manager/certificados/#erros">Os tipos, os status e os formatos de chave de certificado, com cada erro que um envio ou uma solicitação retorna.</DocItem>
+  <DocItem title="Emissão e renovação" href="/pt-br/documentacao/plataforma/certificate-manager/emissao-e-renovacao/">Como cada desafio valida um nome e o cronograma que a Azion segue quando uma tentativa falha.</DocItem>
+  <DocItem title="Envie um certificado digital" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/certificado-digital/">Os passos para enviar um certificado de servidor com a chave privada dele e vinculá-lo a um Workload.</DocItem>
+  <DocItem title="Boas práticas do Certificate Manager" href="/pt-br/documentacao/plataforma/certificate-manager/boas-praticas/">Mantenha o registro de desafio no lugar e substitua um certificado enviado antes que ele expire.</DocItem>
+</ItemList>
+</FrameBox>

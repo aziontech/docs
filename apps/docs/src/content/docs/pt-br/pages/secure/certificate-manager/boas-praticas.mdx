@@ -1,0 +1,97 @@
+---
+title: Boas práticas do Certificate Manager
+description: Substitua certificados antes que expirem, mantenha os registros de renovação no lugar e limite o alcance de uma chave privada ou de uma credencial de DNS.
+meta_tags: 'certificate manager, best practices, certificate replacement, lets encrypt, renewal, acme challenge, dns-01, validation levels, wildcard certificate'
+namespace: documentation_products_certificate_manager_best_practices
+permalink: /documentacao/plataforma/certificate-manager/boas-praticas/
+---
+
+import FrameBox from '@aziontech/webkit/frame-box'
+import ItemList from '@aziontech/webkit/item-list'
+import DocItem from '@aziontech/webkit/doc-item'
+import Code from '~/components/webkit/CodeBlock.vue'
+
+Um certificado deixa de proteger o tráfego no dia em que expira, e uma renovação automática falha quando o registro que prova o controle do domínio desaparece. Uma chave privada ou uma credencial de DNS com alcance demais transforma um único vazamento na exposição de todos os nomes que ela cobre.
+
+Estas práticas se aplicam aos certificados que [Certificate Manager](/pt-br/documentacao/plataforma/certificate-manager/), um recurso da plataforma, armazena para um [Workload](/pt-br/documentacao/plataforma/workloads/). Em ordem, elas são: substituir um certificado de servidor antes que ele expire, manter o registro de desafio de um domínio hospedado fora do Edge DNS, escolher um certificado validado por domínio a menos que precise de mais, limitar as credenciais de DNS-01 aos registros de desafio e manter certificados wildcard fora de sistemas críticos de produção.
+
+Vincular um certificado altera o Workload, e essa mudança leva vários minutos para alcançar toda a infraestrutura distribuída da Azion, sem duração garantida. Até lá, as requisições podem encontrar a configuração antiga ou a nova, então uma verificação desta página só vale quando requisições repetidas concordam. Para mais informações, consulte [Propagação](/pt-br/documentacao/plataforma/workloads/como-funciona/#propagacao).
+
+---
+
+## Substitua um certificado de servidor antes que ele expire
+
+Um certificado de servidor enviado nunca se renova sozinho e, depois que a data em `validity` passa, ele deixa de proteger o tráfego. Trocar enquanto o certificado antigo ainda é válido deixa tempo para confirmar o novo e para voltar atrás se ele falhar. O custo é a entrada antiga, que permanece em Certificate Manager até que você a exclua.
+
+A Azion renova os certificados Let's Encrypt que gerencia, como descreve [Renovação](/pt-br/documentacao/plataforma/certificate-manager/emissao-e-renovacao/#renovacao), então esta prática trata dos certificados que você envia. Depois de enviar o novo certificado, aponte `tls.certificate` para o ID dele com este corpo para `azion update workload --file`:
+
+<Code client:visible lang="json" code={`{
+  "id": <workload-id>,
+  "tls": { "certificate": <new-certificate-id>, "ciphers": 7, "minimum_version": "tls_1_3" }
+}`} />
+
+Substitua `7` e `tls_1_3` pelos valores de `ciphers` e `minimum_version` que o Workload já tem, para que o certificado seja o único valor que muda. A CLI responde `Updated Workload with ID <workload-id>`.
+
+Para verificar, execute `azion list digital-certificate --details`: o novo certificado aparece como `active`, e o antigo aparece como `inactive` quando nenhum Workload o usa mais. Exclua a entrada antiga depois que o novo certificado estiver `active` e a mudança tiver se propagado. Para o envio em si, consulte [Envie um certificado digital](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/certificado-digital/).
+
+---
+
+## Mantenha o registro de desafio de um domínio hospedado fora do Edge DNS
+
+A Azion renova um certificado Let's Encrypt gerenciado antes que ele expire, executando o desafio dele de novo. Para um certificado DNS-01 cuja zona está no [Edge DNS](/pt-br/documentacao/plataforma/edge-dns/), a própria Azion escreve o registro `_acme-challenge`. Em outro provedor de DNS, o desafio depende de um registro que você adicionou, e excluir esse registro faz a próxima renovação falhar, então o certificado expira.
+
+O registro é um registro canonical name (CNAME) chamado `_acme-challenge.<your-domain>`, que aponta para `<your-domain>.letsencrypt.azion.com`. Mantenha-o no seu provedor enquanto um Workload usar o certificado.
+
+A renovação começa 30 dias antes do fim da validade de 90 dias. Para verificar, confirme antes disso que o CNAME ainda existe e que o status do certificado em Certificate Manager não é `failed`. Para o registro a criar, consulte [Solicite um certificado Let's Encrypt](/pt-br/documentacao/guias/seguranca-de-aplicacoes/tls-e-certificados/como-gerar-um-certificado-lets-encrypt/).
+
+---
+
+## Escolha um certificado validado por domínio, a menos que precise de mais
+
+A autoridade certificadora (CA) que emite um certificado que você envia valida a solicitação em um de três níveis:
+
+- Domain Validation (DV) confirma o seu direito de usar o domínio.
+- Organization Validation (OV) acrescenta verificações sobre a organização solicitante.
+- Extended Validation (EV) pede documentos que comprovem a existência física, jurídica e operacional da organização.
+
+Use DV na maioria dos casos. OV e EV dão mais trabalho para obter, e as verificações extras atestam a sua organização, não o domínio. Peça OV ou EV somente quando um requisito que você consiga nomear exigir essas verificações. Para os três níveis, consulte [Níveis de validação](/pt-br/documentacao/plataforma/certificate-manager/certificados/#niveis-de-validacao).
+
+---
+
+## Limite as credenciais de DNS-01 aos registros de desafio
+
+Esta prática vale quando o seu cliente Automatic Certificate Management Environment (ACME), como o Certbot, obtém um certificado para uma zona fora do Edge DNS. Um certificado Let's Encrypt que a Azion gerencia não precisa dela, porque basta o único CNAME de [Mantenha o registro de desafio de um domínio hospedado fora do Edge DNS](#mantenha-o-registro-de-desafio-de-um-dominio-hospedado-fora-do-edge-dns).
+
+O seu cliente ACME escreve o registro `_acme-challenge` no provedor de DNS, então guarda as credenciais de API do provedor. Credenciais que alcançam todos os registros dão a quem as obtiver o controle do domínio e de todos os registros dele.
+
+Restrinja essas credenciais a registros `_acme-challenge`, para que um vazamento exponha apenas o desafio. O custo é uma credencial separada, que você cria e mantém só para esse cliente. Para verificar, confirme no seu provedor que as permissões da credencial nomeiam apenas registros `_acme-challenge`.
+
+---
+
+## Mantenha certificados wildcard fora de sistemas críticos de produção
+
+Um certificado wildcard, como um para `*.example.com`, cobre subdomínios como `blog.example.com` com uma única chave privada. Quando essa chave vaza, ou o certificado é revogado, todos os subdomínios que ele cobre são afetados de uma vez. Um certificado wildcard é adequado quando:
+
+- A gestão centralizada é uma prioridade.
+- A mesma equipe gerencia os subdomínios.
+- Existe uma arquitetura de proxy reverso bem definida.
+- As suas políticas de segurança permitem o compartilhamento controlado de chaves.
+
+Sob requisitos mais rígidos, dê a cada sistema crítico de produção um certificado próprio, mantenha certificados separados para ambientes de desenvolvimento e deixe o wildcard para serviços de menor criticidade. O custo é uma substituição por certificado em vez de uma substituição para todos. Para saber como a Azion emite um nome wildcard, consulte [Certificados wildcard](/pt-br/documentacao/plataforma/certificate-manager/emissao-e-renovacao/#certificados-wildcard).
+
+Mantenha a chave privada de um wildcard em Certificate Manager, vinculada a Workloads, em vez de copiá-la para vários servidores. Depois de salva, a chave não pode ser lida de volta pelo Azion Console nem pela API.
+
+Para verificar, liste os Workloads que usam cada certificado wildcard com `GET /v4/workspace/workloads?digital_certificate_id=<certificate-id>` e dê a qualquer Workload crítico de produção um certificado próprio.
+
+---
+
+## Recursos relacionados
+
+<FrameBox>
+<ItemList>
+  <DocItem title="Certificados" href="/pt-br/documentacao/plataforma/certificate-manager/certificados/">Os tipos, os status e os níveis de validação de certificado por trás destas práticas.</DocItem>
+  <DocItem title="Emissão e renovação" href="/pt-br/documentacao/plataforma/certificate-manager/emissao-e-renovacao/">Como a Azion valida, emite e renova um certificado Let's Encrypt, e quando deixa de renovar um certificado.</DocItem>
+  <DocItem title="Como Certificate Manager funciona" href="/pt-br/documentacao/plataforma/certificate-manager/como-funciona/">Como um Workload vincula cada certificado e por que o certificado e o Workload são verificados separadamente.</DocItem>
+  <DocItem title="Solucione problemas do Certificate Manager" href="/pt-br/documentacao/plataforma/certificate-manager/solucao-de-problemas/">Sintomas de um certificado que fica pendente, falha na emissão ou é recusado, para quando uma prática foi ignorada.</DocItem>
+</ItemList>
+</FrameBox>
