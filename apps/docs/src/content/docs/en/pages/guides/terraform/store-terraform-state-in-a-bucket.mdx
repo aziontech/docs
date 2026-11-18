@@ -1,0 +1,254 @@
+---
+title: Store Terraform state in a bucket
+description: >-
+  Keep the Terraform state in an Azion Object Storage bucket with the S3
+  backend, so every machine and pipeline reads the same state.
+meta_tags: 'terraform, terraform state, remote state, s3 backend, object storage, bucket, s3 credential, azion terraform provider'
+namespace: docs_guides_store_terraform_state_in_a_bucket
+permalink: /documentation/guides/application-development/automation/store-terraform-state-in-a-bucket/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import Code from '~/components/webkit/CodeBlock.vue'
+
+You can keep the Terraform state of an [Azion Terraform Provider](/en/documentation/devtools/terraform/) configuration in an [Object Storage](/en/documentation/platform/object-storage/) bucket. Terraform reaches the bucket through its S3 backend and the [S3-compatible endpoint](/en/documentation/guides/application-development/data/use-s3-compatible-tools-with-object-storage/) of Object Storage. Every machine and pipeline that runs the configuration then reads and writes the same state.
+
+---
+
+## Prerequisites
+
+- Terraform 1.17.2 or later. To install it, refer to [Install Terraform](/en/documentation/devtools/terraform/getting-started/#install-terraform).
+- A personal token in the `AZION_API_TOKEN` environment variable. To create a token, refer to [Manage personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
+- `curl`, to create the bucket and the credential with the [Azion API](/en/documentation/devtools/api/).
+
+---
+
+## Create the bucket and a credential
+
+The state lives in a bucket. Terraform signs its requests with the key pair of an S3 credential that reaches that bucket.
+
+:::caution
+The credential needs the `listBuckets` capability. Without it, the S3 endpoint answers `403` for an object that does not exist yet. `terraform init` then fails with `HeadObject, https response error StatusCode: 403`.
+:::
+
+To create the bucket and the credential:
+
+1. Create the bucket with a `POST` request to the buckets endpoint. `restricted` keeps any [Application](/en/documentation/platform/applications/) from serving it. Replace `tfstate-12550216201` with a bucket name of your own in every step:
+
+   <Code client:visible lang="bash" code={`curl --silent https://api.azion.com/v4/workspace/storage/buckets \\
+   \x20 --header "Authorization: Token $AZION_API_TOKEN" \\
+   \x20 --header 'Content-Type: application/json' \\
+   \x20 --data '{"name": "tfstate-12550216201", "workloads_access": "restricted"}'`} />
+
+   ```json
+   {
+     "state": "executed",
+     "data": {
+       "name": "tfstate-12550216201",
+       "workloads_access": "restricted",
+       ...
+     }
+   }
+   ```
+
+2. Create a credential that reaches only that bucket, with a `POST` request to the credentials endpoint:
+
+   <Code client:visible lang="bash" code={`curl --silent https://api.azion.com/v4/workspace/storage/credentials \\
+   \x20 --header "Authorization: Token $AZION_API_TOKEN" \\
+   \x20 --header 'Content-Type: application/json' \\
+   \x20 --data '{"name": "terraform-state", "capabilities": ["listBuckets", "listFiles", "readFiles", "writeFiles", "deleteFiles"], "buckets": ["tfstate-12550216201"]}'`} />
+
+   ```json
+   {
+     "state": "executed",
+     "data": {
+       "id": 6356,
+       "name": "terraform-state",
+       "access_key": "[ACCESS KEY]",
+       "secret_key": "[SECRET KEY]",
+       "capabilities": ["listBuckets", "listFiles", "readFiles", "writeFiles", "deleteFiles"],
+       "buckets": ["tfstate-12550216201"],
+       "expiration_date": null,
+       ...
+     }
+   }
+   ```
+
+3. Copy `data.access_key` and `data.secret_key`. This response is the only one that returns `secret_key`.
+
+The account holds an empty bucket and a credential that reads and writes it.
+
+---
+
+## Configure the backend
+
+The S3 backend reads the key pair from the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables, so the key pair stays out of the configuration.
+
+To configure the backend:
+
+1. In the terminal that runs Terraform, store the key pair. Replace the two values with the keys of your credential:
+
+   <Code client:visible lang="bash" code={`export AWS_ACCESS_KEY_ID="[ACCESS KEY]"
+   export AWS_SECRET_ACCESS_KEY="[SECRET KEY]"`} />
+
+   The key pair stays set for every command you run from this terminal, until the terminal closes.
+
+2. Add a `backend "s3"` block to the `terraform` block of your configuration. `region`, `endpoints.s3`, and `use_path_style` point the backend at the Object Storage endpoint. `key` is the path of the state object in the bucket:
+
+   <Code client:visible lang="hcl" fileName="main.tf" code={`terraform {
+   \x20 required_providers {
+   \x20   azion = {
+   \x20     source  = "aziontech/azion"
+   \x20     version = "2.10.0"
+   \x20   }
+   \x20 }
+
+   \x20 backend "s3" {
+   \x20   bucket = "tfstate-12550216201"
+   \x20   key    = "storefront/terraform.tfstate"
+   \x20   region = "us-east-005"
+
+   \x20   endpoints = {
+   \x20     s3 = "https://s3.us-east-005.azionstorage.net"
+   \x20   }
+
+   \x20   use_path_style              = true
+   \x20   skip_credentials_validation = true
+   \x20   skip_region_validation      = true
+   \x20   skip_requesting_account_id  = true
+   \x20 }
+   }
+
+   provider "azion" {}
+
+   resource "azion_network_list" "office" {
+   \x20 results = {
+   \x20   name  = "office-addresses"
+   \x20   type  = "ip_cidr"
+   \x20   items = ["192.0.2.10/32"]
+   \x20 }
+   }`} />
+
+The configuration names the bucket that holds its state. The `azion_network_list` resource stands for the resources of your own configuration.
+
+Each of the three `skip_*` arguments is required:
+
+| Argument left out | `terraform init` fails with |
+| --- | --- |
+| `skip_credentials_validation` | `validating provider credentials: retrieving caller identity from STS` |
+| `skip_region_validation` | `Invalid region value` |
+| `skip_requesting_account_id` | `Retrieving AWS account details: AWS account ID not previously found` |
+
+---
+
+## Initialize the backend and apply
+
+`terraform init` connects to the bucket. From then on, `terraform plan` reads the state from the bucket, and `terraform apply` also writes it back.
+
+To initialize the backend and apply:
+
+1. Initialize the configuration:
+
+   <Code client:visible lang="bash" code={`terraform init`} />
+
+   ```text
+   Initializing the backend...
+
+   Successfully configured the backend "s3"! Terraform will automatically
+   use this backend unless the backend configuration changes.
+   ...
+   Terraform has been successfully initialized!
+   ```
+
+2. Apply the configuration, and enter `yes` when Terraform asks:
+
+   <Code client:visible lang="bash" code={`terraform apply`} />
+
+   ```text
+   Plan: 1 to add, 0 to change, 0 to destroy.
+   azion_network_list.office: Creating...
+   azion_network_list.office: Creation complete after 2s [id=72652]
+
+   Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+   ```
+
+3. List the objects of the bucket:
+
+   <Code client:visible lang="bash" code={`curl --silent https://api.azion.com/v4/workspace/storage/buckets/tfstate-12550216201/objects \\
+   \x20 --header "Authorization: Token $AZION_API_TOKEN"`} />
+
+   ```json
+   {
+     "continuation_token": null,
+     "results": [
+       {
+         "key": "storefront/terraform.tfstate",
+         "last_modified": "2026-11-18T15:56:45.698000Z",
+         "size": 1114,
+         "is_folder": false
+       }
+     ]
+   }
+   ```
+
+The state is the `storefront/terraform.tfstate` object of the bucket, and the working directory holds no `terraform.tfstate` file. Another machine with the same configuration and key pair runs `terraform init` and reads the same state.
+
+:::caution
+Object Storage does not support the lock file of the S3 backend. With `use_lockfile = true`, Terraform fails with `Error acquiring the state lock`, because the endpoint answers the lock request with `501` and `NotImplemented`. Without a lock, two runs started together can overwrite each other's state. Run one Terraform command at a time against a state, for example from a single pipeline job.
+:::
+
+---
+
+## Move an existing state into the bucket
+
+Run `terraform init -migrate-state` to copy the state of a local `terraform.tfstate` file into the bucket that a new `backend "s3"` block names.
+
+To move the state, from a terminal that holds the key pair in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`:
+
+1. Add a `backend "s3"` block to the configuration, with a `key` of its own, as in [Configure the backend](#configure-the-backend).
+
+2. Initialize the configuration with `-migrate-state`:
+
+   <Code client:visible lang="bash" code={`terraform init -migrate-state`} />
+
+   Terraform asks whether to copy the local state to the bucket:
+
+   ```text
+   Initializing the backend...
+   Do you want to copy existing state to the new backend?
+     Pre-existing state was found while migrating the previous "local" backend to the
+     newly configured "s3" backend. No existing state was found in the newly
+     configured "s3" backend. Do you want to copy this state to the new "s3"
+     backend? Enter "yes" to copy and "no" to start with an empty state.
+
+     Enter a value:
+   ```
+
+3. Enter `yes`:
+
+   ```text
+   Successfully configured the backend "s3"! Terraform will automatically
+   use this backend unless the backend configuration changes.
+   ...
+   Terraform has been successfully initialized!
+   ```
+
+4. Check that the moved state matches the account:
+
+   <Code client:visible lang="bash" code={`terraform plan`} />
+
+   ```text
+   No changes. Your infrastructure matches the configuration.
+   ```
+
+The state is in the bucket. The local `terraform.tfstate` file is empty, and `terraform.tfstate.backup` keeps the previous copy.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Terraform Provider best practices" href="/en/documentation/devtools/terraform/best-practices/" label="Split files by role, keep secrets out of version control, and pin the provider version." />
+  <DocCard title="Use S3-compatible tools with Object Storage" href="/en/documentation/guides/application-development/data/use-s3-compatible-tools-with-object-storage/" label="Every capability of a credential, the S3 endpoint, and the clients that reach it." />
+</DocCardGroup>

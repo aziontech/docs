@@ -1,0 +1,244 @@
+---
+title: Gerencie um Firewall e um WAF com Terraform
+description: >-
+  Declare um Firewall, as regras dele e a ordem delas, e um rule set de WAF com
+  o Azion Terraform Provider, depois vincule o Firewall a um Workload.
+meta_tags: 'terraform, firewall, waf, rules engine, rule order, set_waf, deny, workload deployment, azion terraform provider'
+namespace: docs_guides_manage_a_firewall_and_waf_with_terraform
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/automacao/gerencie-um-firewall-e-um-waf-com-terraform/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+import Code from '~/components/webkit/CodeBlock.vue'
+
+Você pode declarar um [Firewall](/pt-br/documentacao/plataforma/firewall/), as regras dele, a ordem dessas regras e um rule set de [Web Application Firewall (WAF)](/pt-br/documentacao/plataforma/firewall/waf/) com o [Azion Terraform Provider](/pt-br/documentacao/devtools/terraform/). Um Firewall inspeciona as requisições recebidas por um [Workload](/pt-br/documentacao/plataforma/workloads/) depois que o deployment desse Workload define esse Firewall. Os exemplos negam todo caminho que começa com `/admin` e aplicam o rule set de WAF em modo _Blocking_ a todos os outros caminhos.
+
+---
+
+## Pré-requisitos
+
+- Terraform 1.17.2 ou posterior. Para instalá-lo, consulte [Instale o Terraform](/pt-br/documentacao/devtools/terraform/getting-started/#instale-o-terraform).
+- Um personal token na variável de ambiente `AZION_API_TOKEN`. Para defini-la, consulte [Informe o seu personal token](/pt-br/documentacao/devtools/terraform/getting-started/#informe-o-seu-personal-token).
+- Uma configuração do Terraform que gerencia um Workload, a [Application](/pt-br/documentacao/plataforma/applications/) dele e o `azion_workload_deployment` dele. Para escrever uma, consulte [Gerencie uma Application com Terraform](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/automacao/gerencie-uma-aplicacao-com-terraform/). Os exemplos usam os nomes de recurso dessa página: `hello` para o Workload e a Application, e `run_function` para a regra dela.
+
+---
+
+## Declare o Firewall, as regras dele e o rule set de WAF
+
+O lado do Firewall na configuração declara cinco recursos de quatro tipos:
+
+- `azion_waf` é o rule set de WAF: as famílias de ameaças que ele pontua e a sensibilidade de cada uma. O recurso `azion_waf_rule_set` do provider gerencia exceções, não esse rule set.
+- `azion_firewall_main_setting` é o Firewall, com o WAF ativado em `modules`.
+- Cada `azion_firewall_rule_engine` é uma regra do Firewall. `Deny /admin` responde `403` a todo caminho que começa com `/admin`. `Apply storefront-waf` executa o rule set de WAF em modo _Blocking_ em todos os outros caminhos.
+- `azion_firewall_rule_engine_order` lista os IDs das regras na ordem em que o Firewall as avalia.
+
+No diretório da sua configuração, crie um arquivo `firewall.tf`:
+
+<Code client:visible lang="hcl" fileName="firewall.tf" code={`resource "azion_waf" "site" {
+\x20 result = {
+\x20   name   = "storefront-waf"
+\x20   active = true
+\x20   engine_settings = {
+\x20     engine_version = "2021-Q3"
+\x20     type           = "score"
+\x20     attributes = {
+\x20       rulesets = [1]
+\x20       thresholds = [
+\x20         {
+\x20           threshold = {
+\x20             threat      = "sql_injection"
+\x20             sensitivity = "high"
+\x20           }
+\x20         },
+\x20         {
+\x20           threshold = {
+\x20             threat      = "cross_site_scripting"
+\x20             sensitivity = "high"
+\x20           }
+\x20         }
+\x20       ]
+\x20     }
+\x20   }
+\x20 }
+}
+
+resource "azion_firewall_main_setting" "site" {
+\x20 data = {
+\x20   name   = "storefront-firewall"
+\x20   active = true
+\x20   modules = {
+\x20     waf = {
+\x20       enabled = true
+\x20     }
+\x20   }
+\x20 }
+}
+
+resource "azion_firewall_rule_engine" "deny_admin" {
+\x20 firewall_id = azion_firewall_main_setting.site.data.id
+\x20 results = {
+\x20   name   = "Deny /admin"
+\x20   active = true
+\x20   behaviors = [
+\x20     {
+\x20       behavior = {
+\x20         type = "deny"
+\x20       }
+\x20     }
+\x20   ]
+\x20   criteria = [
+\x20     {
+\x20       entries = [
+\x20         {
+\x20           criterion = {
+\x20             variable    = "$\${request_uri}"
+\x20             operator    = "starts_with"
+\x20             conditional = "if"
+\x20             argument    = "/admin"
+\x20           }
+\x20         }
+\x20       ]
+\x20     }
+\x20   ]
+\x20 }
+}
+
+resource "azion_firewall_rule_engine" "waf" {
+\x20 firewall_id = azion_firewall_main_setting.site.data.id
+\x20 results = {
+\x20   name   = "Apply storefront-waf"
+\x20   active = true
+\x20   behaviors = [
+\x20     {
+\x20       behavior = {
+\x20         type = "set_waf"
+\x20         attributes = {
+\x20           waf_id = azion_waf.site.result.id
+\x20           mode   = "blocking"
+\x20         }
+\x20       }
+\x20     }
+\x20   ]
+\x20   criteria = [
+\x20     {
+\x20       entries = [
+\x20         {
+\x20           criterion = {
+\x20             variable    = "$\${request_uri}"
+\x20             operator    = "starts_with"
+\x20             conditional = "if"
+\x20             argument    = "/"
+\x20           }
+\x20         }
+\x20       ]
+\x20     }
+\x20   ]
+\x20 }
+}
+
+resource "azion_firewall_rule_engine_order" "site" {
+\x20 firewall_id = azion_firewall_main_setting.site.data.id
+\x20 order = [
+\x20   azion_firewall_rule_engine.deny_admin.results.id,
+\x20   azion_firewall_rule_engine.waf.results.id,
+\x20 ]
+}`} />
+
+`engine_version`, `engine_settings.type` e `rulesets` aceitam um valor cada, o do exemplo. O exemplo declara duas das oito famílias de ameaças em `thresholds`, e o rule set guarda só as famílias declaradas. Para cada ameaça e sensibilidade, consulte [Rule sets](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/).
+
+`$${request_uri}` escreve a variável literal `${request_uri}`: o `$` duplo impede que o Terraform a leia como uma interpolação.
+
+Para mudar a ordem depois, reordene os IDs da lista `order` e execute `terraform apply`. O plano altera um recurso.
+
+A configuração declara um Firewall que avalia `Deny /admin` primeiro e `Apply storefront-waf` depois.
+
+---
+
+## Vincule o Firewall ao Workload
+
+Um Firewall inspeciona as requisições recebidas por um Workload depois que o deployment desse Workload define esse Firewall, no atributo `firewall` ao lado de `application`.
+
+Para vincular o Firewall:
+
+1. Altere o recurso `azion_workload_deployment` da sua configuração conforme este bloco:
+
+   <Code client:visible lang="hcl" code={`resource "azion_workload_deployment" "hello" {
+   \x20 workload_id = azion_workload.hello.workload.id
+   \x20 deployment = {
+   \x20   name    = "hello-terraform"
+   \x20   active  = true
+   \x20   current = true
+   \x20   strategy = {
+   \x20     type = "default"
+   \x20     attributes = {
+   \x20       application = azion_application_main_setting.hello.application.application_id
+   \x20       firewall    = azion_firewall_main_setting.site.data.id
+   \x20     }
+   \x20   }
+   \x20 }
+   \x20 depends_on = [
+   \x20   azion_application_rule_engine.run_function,
+   \x20   azion_firewall_rule_engine_order.site,
+   \x20 ]
+   }`} />
+
+   O bloco define `firewall` em `strategy` e acrescenta a ordem das regras a `depends_on`. Assim, o Terraform altera o deployment só depois que as regras existem na ordem delas.
+
+2. Verifique a configuração:
+
+   <Code client:visible lang="bash" code={`terraform validate`} />
+
+   ```text
+   Success! The configuration is valid.
+   ```
+
+3. Aplique a configuração e digite `yes` quando o Terraform perguntar. O plano cria os cinco recursos do Firewall e altera o deployment existente sem recriá-lo:
+
+   <Code client:visible lang="bash" code={`terraform apply`} />
+
+   ```text
+   Plan: 5 to add, 1 to change, 0 to destroy.
+   ...
+   azion_firewall_main_setting.site: Creation complete after 2s [id=104405]
+   azion_waf.site: Creation complete after 2s [id=49819]
+   azion_firewall_rule_engine.deny_admin: Creation complete after 2s [id=104405/170305]
+   azion_firewall_rule_engine.waf: Creation complete after 2s [id=104405/170306]
+   azion_firewall_rule_engine_order.site: Creation complete after 2s [id=104405]
+   azion_workload_deployment.hello: Modifications complete after 2s [id=1795012149/362301]
+
+   Apply complete! Resources: 5 added, 1 changed, 0 destroyed.
+   ```
+
+O deployment do Workload define a Application e o Firewall. O Firewall tem duas regras, na ordem `Deny /admin`, `Apply storefront-waf`.
+
+---
+
+## Verifique as regras
+
+`Deny /admin` responde `403` a todo caminho que começa com `/admin`. O rule set de WAF em modo _Blocking_ responde `400` com uma página **Bad Request** quando o score de uma família de ameaças alcança o limite dela. Uma requisição que nenhuma regra interrompe chega à Application.
+
+Para verificar as regras, envie três requisições ao domínio do seu Workload. Substitua `<your-workload-domain>` por esse domínio:
+
+<Code client:visible lang="bash" code={`curl --silent --output /dev/null --write-out '%{http_code}\\n' "https://<your-workload-domain>/"
+curl --silent --output /dev/null --write-out '%{http_code}\\n' "https://<your-workload-domain>/admin"
+curl --silent --output /dev/null --write-out '%{http_code}\\n' "https://<your-workload-domain>/?id=1%27%20OR%20%271%27=%271"`} />
+
+```text
+200
+403
+400
+```
+
+A Application responde `/` e `Deny /admin` recusa `/admin`. O rule set de WAF bloqueia a requisição cuja query string `id` carrega um padrão de SQL injection.
+
+Um Firewall adicionado a um Workload que já atende requisições pode levar cerca de 10 minutos para entrar em vigor. Até lá, `/admin` e a requisição com SQL injection podem alternar entre o `200` da Application e os códigos das regras. Repita as requisições a cada minuto até que cada uma retorne o seu código três vezes seguidas.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Recursos de segurança do Terraform" href="/pt-br/documentacao/devtools/terraform/security/" label="Cada recurso de Firewall, WAF e Network List do provider, com um exemplo." />
+  <DocCard title="Score e modos do WAF" href="/pt-br/documentacao/plataforma/firewall/waf/score-e-modos/" label="Como os limites e a sensibilidade decidem quais requisições o WAF bloqueia." />
+</DocCardGroup>
