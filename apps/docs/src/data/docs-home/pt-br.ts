@@ -237,7 +237,7 @@ export const ptBr: DocsHomeContent = {
 				links: [
 					{
 						label: 'DDoS Protection',
-						href: '/pt-br/documentacao/plataforma/workloads/#ddos-protection',
+						href: '/pt-br/documentacao/plataforma/workloads/ddos-protection/ddos-mitigation/',
 					},
 					{
 						label: 'WAF Rule Sets',
