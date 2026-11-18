@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.6.0](https://github.com/aziontech/docs/compare/docs-v2.5.0...docs-v2.6.0) (2026-11-18)
+
+
+### Features
+
+* **platform:** give Certificate Manager and Custom Pages their own sections and rework Workloads ([#2659](https://github.com/aziontech/docs/issues/2659)) ([e466394](https://github.com/aziontech/docs/commit/e466394bdc8b0f004f0bfee891b69b308070f409))
+
+
+### Bug Fixes
+
+* **architectures:** point Deploy buttons at the gallery template slugs ([#2614](https://github.com/aziontech/docs/issues/2614)) ([1b7b8cc](https://github.com/aziontech/docs/commit/1b7b8ccfab30378fffb00bf7d253bfff0671493b))
+* **guides:** correct the Account Lockout samples and move the Entra SCIM calls to API v4 ([#2657](https://github.com/aziontech/docs/issues/2657)) ([fe8c834](https://github.com/aziontech/docs/commit/fe8c8344ee664e771ce3104497d0952c2bdb5651))
+* **opennext:** migrate the OpenNext guide to the v4 azion.config.js format ([#2651](https://github.com/aziontech/docs/issues/2651)) ([8e99774](https://github.com/aziontech/docs/commit/8e99774071216475001ec77d8b4979a3d548d01c))
+* **samples:** make code samples parse on six page pairs ([#2628](https://github.com/aziontech/docs/issues/2628)) ([1d091e7](https://github.com/aziontech/docs/commit/1d091e704a0857ed9be84d07e67db56556e2cdf6))
+
+
+### Documentation
+
+* **applications:** rework the Applications section to the current style guide ([#2660](https://github.com/aziontech/docs/issues/2660)) ([e714cd2](https://github.com/aziontech/docs/commit/e714cd285a057251b99076de8c55087bd24b803d))
+* **firewall:** retire the WAF and Bot Manager examples hubs ([#2656](https://github.com/aziontech/docs/issues/2656)) ([5ef4155](https://github.com/aziontech/docs/commit/5ef4155e51ff1f091909546d125d6a0e30c7b096))
+* **style-guide:** reshape the Overview and say each fact once ([#2658](https://github.com/aziontech/docs/issues/2658)) ([539f41b](https://github.com/aziontech/docs/commit/539f41b1b4c69041502397adf017cf4b0cce8347))
+* **templates:** point the remaining Deploy links to the March 2026 catalog ([#2599](https://github.com/aziontech/docs/issues/2599)) ([0d8178e](https://github.com/aziontech/docs/commit/0d8178e94c5092df6bafa5aa045f434f0d558166))
+
 ## [2.5.0](https://github.com/aziontech/docs/compare/docs-v2.4.4...docs-v2.5.0) (2026-11-16)
 
 
