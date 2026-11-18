@@ -1,9 +1,9 @@
 ---
 title: Retrieval-augmented assistant on platform-hosted models
 description: >-
-  Run a retrieval-augmented assistant on Azion, with a function that reasons
-  over vector search results from SQL Database and models on AI Inference.
-meta_tags: 'reference architecture, retrieval-augmented assistant, RAG, AI agent, ReAct agent, copilot, vector search, SQL Database, AI Inference'
+  Run a retrieval-augmented assistant on Azion, with a function that retrieves
+  passages from SQL Database and calls models on AI Inference.
+meta_tags: 'reference architecture, retrieval-augmented assistant, RAG, AI agent, copilot, vector search, SQL Database, AI Inference'
 namespace: docs_arch_AI_agent_copilot
 permalink: /documentation/use-cases/build-and-run-ai-workloads/ai-agent-copilot-assistant/
 ---
@@ -12,21 +12,9 @@ import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
 
-A copilot is an assistant that sits inside a product and answers questions about it in plain language. It guides a user through a complex task instead of returning a list of search results. What it answers depends on what that user is doing. This design builds one on a ReAct agent, which reasons about each request and then acts on it by calling a tool. Use it when the answers live in your own documents and data rather than in a model's training set. The design implements the use case [Build and run customer support AI assistants](/en/documentation/use-cases/build-and-run-ai-workloads/build-and-run-customer-support-ai-assistants/).
+A copilot is an assistant that sits inside a product and answers questions about it in plain language. It guides a user through a complex task instead of returning a list of search results. What it answers depends on what that user is doing. This design builds one with retrieval-augmented generation (RAG): a function retrieves the passages that match a question, and a model answers from them. Use it when the answers live in your own documents and data rather than in a model's training set. The design implements the use case [Build and run customer support AI assistants](/en/documentation/use-cases/build-and-run-ai-workloads/build-and-run-customer-support-ai-assistants/).
 
-ReAct stands for reasoning and acting. The agent does not answer from the prompt alone. It reads the request, decides whether it can already answer, and calls a tool when it cannot. Each tool call returns data the agent reads before it decides again. The loop ends when the agent holds an adequate response, or when it runs out of ways to find one and returns an error instead.
-
-This loop is a pattern rather than an Azion design, and it looks the same wherever it runs.
-
-```mermaid
-%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
-flowchart TD
-  User["User asks a question"] -->|"Request"| Agent["Agent reasons about what it needs"]
-  Agent -->|"Needs more information"| Tools["Tools: search, databases, documents"]
-  Tools -->|"Retrieved data"| Agent
-  Agent -->|"Holds an adequate response"| Answer["Answer returned to the user"]
-  Agent -->|"Finds no response"| Error["Error message returned to the user"]
-```
+The assistant makes one pass per question. It embeds the question, retrieves the nearest passages, and calls the chat model once, so every answer takes the same three calls. It runs no agent loop, in which a model chooses tools and decides when to stop. For that design, refer to [Build AI agents](/en/documentation/use-cases/build-and-run-ai-workloads/build-ai-agents/).
 
 ---
 
@@ -39,45 +27,43 @@ Solid arrows carry the request, and dotted arrows carry the response. Each label
 flowchart TD
   User(["User"])
   App["application"]
-  Fn["function with the agent's logic"]
+  Fn["assistant function"]
   Embed["AI Inference: embedding model"]
   DB[("SQL Database")]
-  Tools[["external tools and documents"]]
   Chat["AI Inference: chat model"]
-  User -->|"1, 2. request"| App
-  App -->|"3, 4. Run Function"| Fn
-  Fn -->|"5. question"| Embed
-  Fn -->|"5. vector search"| DB
-  Fn -->|"5. tool call"| Tools
+  User -->|"1. question"| App
+  App -->|"2. Run Function"| Fn
+  Fn -->|"3. question"| Embed
+  Fn -->|"4. vector search"| DB
   Fn -->|"5. prompt"| Chat
-  Embed -.->|"5. vector"| Fn
-  DB -.->|"5. matching passages"| Fn
-  Tools -.->|"5. retrieved data"| Fn
+  Embed -.->|"3. vector"| Fn
+  DB -.->|"4. matching passages"| Fn
   Chat -.->|"5. answer"| Fn
-  Fn -.->|"6. answer or error"| App
-  App -.->|"6. answer or error"| User
+  Fn -.->|"6. answer, sources"| App
+  App -.->|"6. answer, sources"| User
 ```
 
 ### Dataflow
 
-1. The user sends a request to the application that hosts the copilot.
-2. The healthiest data center in the network attends to the request.
-3. The application processes it, running any rule configured on it.
-4. The application calls the function that holds the AI agent's logic, and the reasoning loop starts.
-5. The agent analyzes the context of the query and consults its external tools and resources: semantic or vector search engines, databases, and documents. It keeps retrieving until the data it holds is relevant enough to answer with.
-6. A suitable response travels back to the user along the same path. When the agent finds none, the flow ends with an error message informing the user of the issue.
+1. A user sends a question to the application that hosts the copilot, and a data center near the user receives the request.
+2. The application runs its rules, and a rule runs the assistant function with the _Run Function_ behavior.
+3. The function sends the question to the embedding model on AI Inference, which returns the question's vector.
+4. The function asks the vector index in SQL Database for the passages nearest to that vector, and the database returns them.
+5. The function sends the passages and the question to the chat model on AI Inference, which returns an answer written from them.
+6. The function returns the answer and its sources to the application, which delivers them to the user.
 
-The agent reads from the stores and tools once per pass through the loop. How many passes a request takes is decided by the agent, not fixed at deployment.
+The function reads the database once and calls each model once per question, in an order fixed in its code. No step depends on a decision the model makes. A model call that fails ends inside the function, so the failure flow stays inside Azion.
 
 ---
 
 ## Components
 
-- [Applications](/en/documentation/platform/applications/): builds and hosts the application that answers the user's request from Azion's distributed infrastructure. The rules you configure here run before the agent does, so a request can be authenticated or rejected before it reaches your code.
-- [Functions](/en/documentation/platform/functions/): executes code close to the end user, which is where the reasoning loop and the custom logic for handling requests and responses live. One execution holds the whole loop, so the prompt, the tool calls, and the decision to stop all sit in the same place.
-- [SQL Database](/en/documentation/platform/sql-database/): a SQL solution designed for serverless applications. It holds the knowledge base the agent reads. That is what keeps the answers tied to your own data rather than to what the model learned in training.
-- [Vector search](/en/documentation/platform/sql-database/vector-search/): lets you implement semantic search engines over the records in SQL Database. A question and a passage match here when they mean the same thing, so the agent retrieves context that a keyword query would miss.
-- **Azion's distributed infrastructure**: the highly distributed architecture every part above runs on. The copilot has no region to choose, because whichever data center is healthiest is the one that answers.
+- [Applications](/en/documentation/platform/applications/): builds and hosts the application that answers the user's request from Azion's distributed infrastructure. The rules you configure here run before the function does, so a request can be authenticated or rejected before it reaches your code.
+- [Functions](/en/documentation/platform/functions/): runs the assistant function close to the end user. The function embeds the question, retrieves the passages, assembles the prompt, and calls the chat model. One execution holds the whole pass, so retrieval and generation sit in the same place.
+- [AI Inference](/en/documentation/platform/ai-inference/): runs the embedding model that turns the question into a vector, and the chat model that writes the answer. The function reaches both with `Azion.AI.run`, so its code names no host and holds no model credential.
+- [SQL Database](/en/documentation/platform/sql-database/): a SQL solution designed for serverless applications. It holds the knowledge base the function reads. That is what keeps the answers tied to your own data rather than to what the model learned in training.
+- [Vector search](/en/documentation/platform/sql-database/vector-search/): lets you implement semantic search engines over the records in SQL Database. A question and a passage match here when they mean the same thing, so the function retrieves context that a keyword query would miss.
+- **Azion's distributed infrastructure**: the highly distributed architecture every part above runs on. The design has no region to choose. A data center near the user answers the request, and you select none of them.
 
 ---
 
@@ -85,10 +71,10 @@ The agent reads from the stores and tools once per pass through the loop. How ma
 
 - [Build and run customer support AI assistants](/en/documentation/use-cases/build-and-run-ai-workloads/build-and-run-customer-support-ai-assistants/) - builds this design end to end, with the passages table, the ingestion function, and the assistant function.
 - [Applications quickstart](/en/documentation/platform/applications/quickstart/) - creates the application that receives the request.
-- [Create a database](/en/documentation/guides/application-development/data/manage-sql-database/) - creates the SQL Database the agent consults.
-- [Functions quickstart](/en/documentation/platform/functions/quickstart/) - writes the function that carries the agent's logic.
+- [Create a database](/en/documentation/guides/application-development/data/manage-sql-database/) - creates the SQL Database the assistant reads.
+- [Functions quickstart](/en/documentation/platform/functions/quickstart/) - writes the function that carries the assistant's logic.
 - [Instantiate functions](/en/documentation/guides/application-development/getting-started/instantiate-functions/) - attaches that function to the application.
-- [Vector search guide](/en/documentation/guides/application-development/data/sql-database-vector-search/) - builds the semantic queries the agent runs against the knowledge base.
+- [Vector search guide](/en/documentation/guides/application-development/data/sql-database-vector-search/) - builds the semantic queries the function runs against the knowledge base.
 
 ---
 
@@ -96,7 +82,7 @@ The agent reads from the stores and tools once per pass through the loop. How ma
 
 <FrameBox>
 <ItemList>
-  <DocItem title="AI Inference" href="/en/documentation/platform/ai-inference/">The models Azion runs, for the reasoning step the agent depends on.</DocItem>
+  <DocItem title="AI Inference" href="/en/documentation/platform/ai-inference/">The models Azion runs, for the embedding and the answer this design depends on.</DocItem>
   <DocItem title="Model invocation" href="/en/documentation/platform/ai-inference/model-invocation/">The request body a function sends when it calls a model.</DocItem>
   <DocItem title="SQL Database" href="/en/documentation/platform/sql-database/">The store that holds the knowledge base and its embeddings.</DocItem>
   <DocItem title="Real-Time Metrics" href="/en/documentation/platform/real-time-metrics/">The traffic and performance of the application that serves the copilot.</DocItem>
