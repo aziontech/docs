@@ -1,0 +1,222 @@
+---
+title: Page through a list with filters and ordering
+description: >-
+  Filter, sort, and page through an Azion API v4 list response with search,
+  fields, ordering, and page_size, and read every page in a shell script.
+meta_tags: 'azion api, api v4, pagination, page, page_size, search, fields, ordering, next, curl, jq, network list'
+namespace: docs_guides_page_through_a_list_with_filters_and_ordering
+permalink: /documentation/guides/application-development/automation/page-through-a-list-with-filters-and-ordering/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+You can narrow, sort, and page through an [Azion API](/en/documentation/devtools/api/) v4 list with query parameters, and read every page in a script. For what each parameter does and its limits, refer to [Pagination and query parameters](/en/documentation/devtools/api/#pagination-and-query-parameters).
+
+The examples list five [Network Lists](/en/documentation/platform/firewall/network-shield/network-lists/) whose names start with `warehouse-`, so your own results differ.
+
+---
+
+## Prerequisites
+
+- A personal token. To create one, refer to [Manage personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
+- `curl`, to call the API, and `jq`, to read the JSON responses.
+- Bash, to run the script in the last section.
+
+---
+
+## Filter and sort one page
+
+The `search` parameter narrows the list to the results that match a term. The `fields` parameter asks for the fields you name, and a resource can return a few more. The `ordering` parameter sorts the results by one field.
+
+On Network Lists, `search` matches part of a name in any letter case: `search=LIS` finds `warehouse-lisbon`. It also matches the list type, so `search=ip_cidr` returns every list of that type. The addresses inside a list are outside the search: `search=192.0.2.3` returns no results, although one of the lists holds that address.
+
+Send a `GET` request for the Network Lists that match `warehouse`, with IDs and names, sorted by name. Replace the token with your own:
+
+```bash
+export AZION_API_TOKEN="[TOKEN VALUE]"
+curl --silent "https://api.azion.com/v4/workspace/network_lists?search=warehouse&fields=id,name&ordering=name" \
+  --header "Authorization: Token $AZION_API_TOKEN"
+```
+
+```json
+{
+  "count": 5,
+  "total_pages": 1,
+  "page": 1,
+  "page_size": 10,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 72648,
+      "name": "warehouse-austin",
+      "is_versioned": false,
+      "version": null
+    },
+    {
+      "id": 72650,
+      "name": "warehouse-berlin",
+      "is_versioned": false,
+      "version": null
+    },
+    {
+      "id": 72647,
+      "name": "warehouse-lisbon",
+      "is_versioned": false,
+      "version": null
+    },
+    {
+      "id": 72644,
+      "name": "warehouse-sao-paulo",
+      "is_versioned": false,
+      "version": null
+    },
+    {
+      "id": 72649,
+      "name": "warehouse-tokyo",
+      "is_versioned": false,
+      "version": null
+    }
+  ]
+}
+```
+
+`count` is 5, and the results come in name order. On a Network List, `fields=id,name` also returns `is_versioned` and `version`. To sort in descending order, put a `-` before the field, as in `ordering=-name`.
+
+---
+
+## Read the list one page at a time
+
+`page_size` sets how many results a page holds, and `page` selects the page. The response carries `total_pages`, and `next` holds the full URL of the following page, with the same query parameters.
+
+To read the list two results at a time:
+
+1. Request the first page. Replace the token with your own:
+
+   ```bash
+   export AZION_API_TOKEN="[TOKEN VALUE]"
+   curl --silent "https://api.azion.com/v4/workspace/network_lists?search=warehouse&fields=id,name&ordering=name&page_size=2" \
+     --header "Authorization: Token $AZION_API_TOKEN"
+   ```
+
+   ```json
+   {
+     "count": 5,
+     "total_pages": 3,
+     "page": 1,
+     "page_size": 2,
+     "next": "https://api.azion.com/v4/workspace/network_lists?fields=id%2Cname&ordering=name&page=2&page_size=2&search=warehouse",
+     "previous": null,
+     "results": [
+       {
+         "id": 72648,
+         "name": "warehouse-austin",
+         "is_versioned": false,
+         "version": null
+       },
+       {
+         "id": 72650,
+         "name": "warehouse-berlin",
+         "is_versioned": false,
+         "version": null
+       }
+     ]
+   }
+   ```
+
+2. Request the last page, which `total_pages` gives as `3`:
+
+   ```bash
+   curl --silent "https://api.azion.com/v4/workspace/network_lists?search=warehouse&fields=id,name&ordering=name&page_size=2&page=3" \
+     --header "Authorization: Token $AZION_API_TOKEN"
+   ```
+
+   ```json
+   {
+     "count": 5,
+     "total_pages": 3,
+     "page": 3,
+     "page_size": 2,
+     "next": null,
+     "previous": "https://api.azion.com/v4/workspace/network_lists?fields=id%2Cname&ordering=name&page=2&page_size=2&search=warehouse",
+     "results": [
+       {
+         "id": 72649,
+         "name": "warehouse-tokyo",
+         "is_versioned": false,
+         "version": null
+       }
+     ]
+   }
+   ```
+
+On the last page, `next` is `null`.
+
+Two bounds apply to these parameters. A `page` past `total_pages` returns `404` with code `10004`. A `page_size` above 100 returns `400` with code `10097` and the `detail` value `Page size must be between 0 and 100.` For both bounds, refer to [Limits](/en/documentation/devtools/api/#limits).
+
+---
+
+## Read every page in a script
+
+A script that follows `next` until it is `null` reads every page of the list, one request per page. Each request counts against the rate limit, so a larger `page_size`, up to 100, reads the list in fewer requests.
+
+Create a `list-all.sh` file. It prints the ID and the name of each result, one per line:
+
+```bash title="list-all.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+
+url="https://api.azion.com/v4/workspace/network_lists?search=warehouse&fields=id,name&ordering=name&page_size=2"
+
+while [ "$url" != "null" ]; do
+  page=$(curl --silent --show-error --fail "$url" --header "Authorization: Token $AZION_API_TOKEN")
+  echo "$page" | jq -r '.results[] | "\(.id)\t\(.name)"'
+  url=$(echo "$page" | jq -r '.next')
+done
+```
+
+To run the script:
+
+1. Make the script executable:
+
+   ```bash
+   chmod +x list-all.sh
+   ```
+
+   The command prints nothing, and the file becomes executable.
+
+2. Store your token. Replace the token with your own:
+
+   ```bash
+   export AZION_API_TOKEN="[TOKEN VALUE]"
+   ```
+
+   The command prints nothing, and the token is available to the commands you run next in this shell.
+
+3. Run the script:
+
+   ```bash
+   ./list-all.sh
+   ```
+
+   ```text
+   72648	warehouse-austin
+   72650	warehouse-berlin
+   72647	warehouse-lisbon
+   72644	warehouse-sao-paulo
+   72649	warehouse-tokyo
+   ```
+
+The script reads the three pages and prints the five Network Lists in name order.
+
+When a request fails, `--fail` makes `curl` exit with an error, and `set -e` stops the script. `--show-error` prints the status of the failed request. With a token the API does not accept, the script stops at the first request and prints an error such as `curl: (56) The requested URL returned error: 401`.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Azion API glossary" href="/en/documentation/devtools/api/glossary/" label="What page, page_size, fields, search, and ordering mean in the API v4." />
+  <DocCard title="Change one setting with a PATCH request" href="/en/documentation/guides/application-development/automation/change-one-setting-with-a-patch-request/" label="Change a resource you found in a list without replacing its other settings." />
+</DocCardGroup>

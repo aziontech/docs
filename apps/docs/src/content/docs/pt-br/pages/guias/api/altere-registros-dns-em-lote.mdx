@@ -1,0 +1,260 @@
+---
+title: Altere registros DNS em lote
+description: >-
+  Crie registros do Edge DNS a partir de um arquivo JSON e atualize e exclua
+  vários registros de uma zona com loops de shell sobre a API v4 da Azion.
+meta_tags: 'azion api, api v4, edge dns, dns records, bulk, batch, curl, jq, zone'
+namespace: docs_guides_change_dns_records_in_bulk
+permalink: /documentacao/guias/desenvolvimento-de-aplicacoes/automacao/altere-registros-dns-em-lote/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+Você pode criar, atualizar e excluir vários registros do [Edge DNS](/pt-br/documentacao/plataforma/edge-dns/) de uma zona com loops de shell sobre a [API da Azion](/pt-br/documentacao/devtools/api/) v4. O endpoint de registros recebe um registro por requisição, por isso cada loop envia uma requisição por registro. Para adicionar, editar ou excluir um único registro pelo Azion Console, pela CLI ou pela API, consulte [Adicione, edite ou exclua um registro](/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/adicionar-registros/).
+
+---
+
+## Pré-requisitos
+
+- Um personal token. Para criar um, consulte [Gerencie personal tokens](/pt-br/documentacao/guias/plataforma/conta-e-billing/personal-tokens/).
+- A permissão **Edit Edge DNS**, que requer **View Edge DNS**. Consulte [Permissões de equipes](/pt-br/documentacao/fundamentos/teams-permissions/).
+- `curl`, para chamar a API, e `jq`, para ler o arquivo de registros e as respostas da API.
+- Uma zona no Edge DNS. Para criar uma, consulte [Crie uma zona](/pt-br/documentacao/plataforma/edge-dns/primeiros-passos/#crie-uma-zona). Os exemplos usam uma zona para o domínio `storefront-docs-example.com`.
+
+---
+
+## Encontre o ID da zona
+
+Todo caminho de registro leva o ID da zona dele.
+
+Para encontrar o ID da zona:
+
+1. Guarde o seu token em uma variável do shell. Substitua o valor pelo seu token:
+
+   ```bash
+   export AZION_API_TOKEN="[TOKEN VALUE]"
+   ```
+
+2. Busque o seu domínio nas zonas. Substitua o domínio pelo seu:
+
+   ```bash
+   curl --silent "https://api.azion.com/v4/workspace/dns/zones?fields=id,domain&search=storefront-docs-example.com" \
+     --header "Authorization: Token $AZION_API_TOKEN"
+   ```
+
+   ```json
+   {
+     "count": 1,
+     "total_pages": 1,
+     "page": 1,
+     "page_size": 10,
+     "next": null,
+     "previous": null,
+     "results": [
+       {
+         "id": 8066,
+         "domain": "storefront-docs-example.com"
+       }
+     ]
+   }
+   ```
+
+3. Guarde o `id` da zona cujo `domain` é o seu. Substitua o valor por esse `id`, ou o shell recusa a linha:
+
+   ```bash
+   ZONE_ID=<your-zone-id>
+   ```
+
+`ZONE_ID` guarda o ID da zona, e toda requisição deste guia lê essa variável.
+
+---
+
+## Crie registros a partir de um arquivo
+
+Um arquivo JSON guarda um objeto por registro. Cada objeto precisa de `name`, `type` e `rdata`, e este arquivo também define `ttl`, que tem 3.600 segundos como padrão. Para o formato do valor de cada tipo de registro, consulte [Tipos de registro](/pt-br/documentacao/plataforma/edge-dns/tipos-de-registro/).
+
+:::caution[Atenção]
+Um valor de CNAME ou MX não leva ponto no final. A API recusa esse valor com `400` e o código `19002`, `Invalid Domain Name`. Por exemplo, ela recusa o valor de CNAME `storefront-docs-example.com.` e o valor de MX `20 mail2.storefront-docs-example.com.`.
+:::
+
+Para criar os registros:
+
+1. Crie um arquivo `records.json` com os registros. Substitua os nomes e os valores pelos seus:
+
+   ```json title="records.json"
+   [
+     {
+       "name": "www",
+       "type": "CNAME",
+       "rdata": ["storefront-docs-example.com"],
+       "ttl": 3600
+     },
+     {
+       "name": "shop",
+       "type": "A",
+       "rdata": ["192.0.2.10", "192.0.2.11"],
+       "ttl": 300
+     },
+     {
+       "name": "api",
+       "type": "A",
+       "rdata": ["192.0.2.20"],
+       "ttl": 300
+     },
+     {
+       "name": "@",
+       "type": "MX",
+       "rdata": ["10 mail.storefront-docs-example.com"],
+       "ttl": 3600
+     },
+     {
+       "name": "@",
+       "type": "TXT",
+       "rdata": ["v=spf1 -all"],
+       "ttl": 3600
+     }
+   ]
+   ```
+
+2. Envie uma requisição `POST` por registro. O loop imprime uma linha por registro, com o nome e o tipo do arquivo e `errors` preenchido quando a API o recusa. Substitua os dois valores pelos seus:
+
+   ```bash
+   export AZION_API_TOKEN="[TOKEN VALUE]"
+   ZONE_ID=<your-zone-id>
+   jq -c '.[]' records.json | while read -r record; do
+     curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records" \
+       --header "Authorization: Token $AZION_API_TOKEN" \
+       --header 'Content-Type: application/json' \
+       --data "$record" \
+     | jq -c --argjson record "$record" '{name: $record.name, type: $record.type, id: .data.id, errors}'
+   done
+   ```
+
+   ```text
+   {"name":"www","type":"CNAME","id":612498,"errors":null}
+   {"name":"shop","type":"A","id":612499,"errors":null}
+   {"name":"api","type":"A","id":612500,"errors":null}
+   {"name":"@","type":"MX","id":612501,"errors":null}
+   {"name":"@","type":"TXT","id":612502,"errors":null}
+   ```
+
+A zona guarda um registro por objeto do arquivo. Um registro recusado não interrompe o loop: a linha dele traz o erro, e o próximo registro é enviado.
+
+Você pode rodar o loop de novo depois de corrigir um registro recusado. Um registro com a política padrão `simple` não é criado duas vezes.
+
+Um segundo registro simple com o mesmo nome e o mesmo tipo é recusado com o código `19004`, `Record Already Exists`. Um segundo CNAME com o mesmo nome é recusado com o código `19014`, `CNAME Record Name Conflict`. Em uma segunda execução do mesmo arquivo, o loop imprime:
+
+```text
+{"name":"www","type":"CNAME","id":null,"errors":[{"code":"19014","title":"CNAME Record Name Conflict","detail":"A CNAME with this name already exists for this sub-domain.","status":"400","source":{"pointer":"/data"}}]}
+{"name":"shop","type":"A","id":null,"errors":[{"code":"19004","title":"Record Already Exists","detail":"There is already another record matching those data.","status":"400","source":{"pointer":"/data"}}]}
+...
+```
+
+Registros weighted podem compartilhar um nome e um tipo, por isso remova do arquivo os que já existem antes de rodar o loop de novo.
+
+Um nome que um resolver consultou antes de o registro existir recebe `NXDOMAIN` por até uma hora. Para corrigir, consulte [Um registro novo retorna NXDOMAIN](/pt-br/documentacao/plataforma/edge-dns/solucao-de-problemas/#um-registro-novo-retorna-nxdomain).
+
+---
+
+## Atualize vários registros
+
+Um loop lista os registros, seleciona com o `jq` os que vão mudar e envia uma requisição `PATCH` para cada um. Um corpo de `PATCH` leva só os campos a alterar, por isso os demais campos do registro mantêm os seus valores.
+
+Defina o TTL de todo registro A da zona como 600 segundos. Substitua os dois valores pelos seus:
+
+```bash
+export AZION_API_TOKEN="[TOKEN VALUE]"
+ZONE_ID=<your-zone-id>
+curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records?page_size=100&fields=id,type" \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+| jq -r '.results[] | select(.type == "A") | .id' \
+| while read -r record_id; do
+  curl --silent --request PATCH "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records/$record_id" \
+    --header "Authorization: Token $AZION_API_TOKEN" \
+    --header 'Content-Type: application/json' \
+    --data '{"ttl": 600}' \
+  | jq -c '{name: .data.name, type: .data.type, ttl: .data.ttl, errors}'
+done
+```
+
+```text
+{"name":"shop","type":"A","ttl":600,"errors":null}
+{"name":"api","type":"A","ttl":600,"errors":null}
+```
+
+Todo registro A da zona tem um TTL de 600 segundos, e os outros campos dele mantêm os valores. A requisição de listagem lê até 100 registros, o máximo de uma página. Uma zona com mais registros precisa de uma requisição de listagem por página, com o parâmetro `page`.
+
+Uma alteração em um registro pode levar alguns minutos para chegar a todos os nameservers, e os resolvers mantêm o valor antigo até o TTL dele expirar.
+
+---
+
+## Exclua vários registros
+
+Um loop lista os registros, seleciona todo registro com um dado nome, seja qual for o tipo, e envia uma requisição `DELETE` para cada um.
+
+:::caution[Atenção]
+Um registro excluído não pode ser restaurado. Para um registro weighted, defina antes o peso dele como `0`, como explica [Defina o peso 0 antes de excluir um registro com política Weighted](/pt-br/documentacao/plataforma/edge-dns/boas-praticas/#defina-o-peso-0-antes-de-excluir-um-registro-com-politica-weighted).
+:::
+
+Para excluir os registros chamados `api` e `shop`:
+
+1. Liste os registros chamados `api` e `shop` antes de excluí-los. Substitua os dois valores pelos seus:
+
+   ```bash
+   export AZION_API_TOKEN="[TOKEN VALUE]"
+   ZONE_ID=<your-zone-id>
+   curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records?page_size=100&fields=id,name,type,rdata,ttl" \
+     --header "Authorization: Token $AZION_API_TOKEN" \
+   | jq -c '.results[] | select(.name == "api" or .name == "shop")'
+   ```
+
+   ```text
+   {"id":612499,"name":"shop","ttl":600,"type":"A","rdata":["192.0.2.10","192.0.2.11"]}
+   {"id":612500,"name":"api","ttl":600,"type":"A","rdata":["192.0.2.20"]}
+   ```
+
+2. Exclua os registros que a lista mostra:
+
+   ```bash
+   curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records?page_size=100&fields=id,name" \
+     --header "Authorization: Token $AZION_API_TOKEN" \
+   | jq -r '.results[] | select(.name == "api" or .name == "shop") | .id' \
+   | while read -r record_id; do
+     curl --silent --request DELETE "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records/$record_id" \
+       --header "Authorization: Token $AZION_API_TOKEN"
+     echo " $record_id"
+   done
+   ```
+
+   ```text
+   {"state":"executed"} 612499
+   {"state":"executed"} 612500
+   ```
+
+Verifique os registros que restam na zona. Substitua os dois valores pelos seus:
+
+```bash
+export AZION_API_TOKEN="[TOKEN VALUE]"
+ZONE_ID=<your-zone-id>
+curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records?page_size=100&fields=id,name,type,rdata,ttl" \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+| jq -c '.results[]'
+```
+
+```text
+{"id":612498,"name":"www","ttl":3600,"type":"CNAME","rdata":["storefront-docs-example.com"]}
+{"id":612501,"name":"@","ttl":3600,"type":"MX","rdata":["10 mail.storefront-docs-example.com"]}
+{"id":612502,"name":"@","ttl":3600,"type":"TXT","rdata":["v=spf1 -all"]}
+```
+
+A zona não guarda mais os registros chamados `api` e `shop`.
+
+---
+
+## Próximos passos
+
+<DocCardGroup cols={2}>
+  <DocCard title="Solucionar problemas da Azion API" href="/pt-br/documentacao/devtools/api/solucao-de-problemas/" label="Causas e correções das respostas 400, 401, 404 e 405 da API v4." />
+  <DocCard title="Consulte uma zona com o dig" href="/pt-br/documentacao/guias/seguranca-de-aplicacoes/dns/executar-o-comando-dig/" label="Verifique o que os nameservers da Azion respondem para os registros que você alterou." />
+</DocCardGroup>

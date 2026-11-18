@@ -1,0 +1,260 @@
+---
+title: Change DNS records in bulk
+description: >-
+  Create Edge DNS records from a JSON file, then update and delete many records
+  of a zone, with shell loops over the Azion API v4.
+meta_tags: 'azion api, api v4, edge dns, dns records, bulk, batch, curl, jq, zone'
+namespace: docs_guides_change_dns_records_in_bulk
+permalink: /documentation/guides/application-development/automation/change-dns-records-in-bulk/
+---
+
+import DocCardGroup from '@aziontech/webkit/doc-card-group'
+import DocCard from '@aziontech/webkit/doc-card'
+
+You can create, update, and delete many [Edge DNS](/en/documentation/platform/edge-dns/) records of a zone with shell loops over the [Azion API](/en/documentation/devtools/api/) v4. The records endpoint takes one record per request, so each loop sends one request per record. To add, edit, or delete a single record from Azion Console, the CLI, or the API, refer to [Add, edit, or delete a record](/en/documentation/guides/application-security/dns/add-records/).
+
+---
+
+## Prerequisites
+
+- A personal token. To create one, refer to [Manage personal tokens](/en/documentation/guides/platform/account-and-billing/personal-tokens/).
+- The **Edit Edge DNS** permission, which requires **View Edge DNS**. Refer to [Teams permissions](/en/documentation/fundamentals/teams-permissions/).
+- `curl`, to call the API, and `jq`, to read the records file and the API responses.
+- A zone in Edge DNS. To create one, refer to [Create a zone](/en/documentation/platform/edge-dns/quickstart/#create-a-zone). The examples use a zone for the domain `storefront-docs-example.com`.
+
+---
+
+## Find the ID of the zone
+
+Every record path carries the ID of its zone.
+
+To find the ID of the zone:
+
+1. Store your token in a shell variable. Replace the value with your token:
+
+   ```bash
+   export AZION_API_TOKEN="[TOKEN VALUE]"
+   ```
+
+2. Search the zones for your domain. Replace the domain with your own:
+
+   ```bash
+   curl --silent "https://api.azion.com/v4/workspace/dns/zones?fields=id,domain&search=storefront-docs-example.com" \
+     --header "Authorization: Token $AZION_API_TOKEN"
+   ```
+
+   ```json
+   {
+     "count": 1,
+     "total_pages": 1,
+     "page": 1,
+     "page_size": 10,
+     "next": null,
+     "previous": null,
+     "results": [
+       {
+         "id": 8066,
+         "domain": "storefront-docs-example.com"
+       }
+     ]
+   }
+   ```
+
+3. Store the `id` of the zone whose `domain` is yours. Replace the value with that `id`, or the shell refuses the line:
+
+   ```bash
+   ZONE_ID=<your-zone-id>
+   ```
+
+`ZONE_ID` holds the ID of the zone, and every request in this guide reads it.
+
+---
+
+## Create records from a file
+
+A JSON file holds one object per record. Each object needs `name`, `type`, and `rdata`, and this file also sets `ttl`, which defaults to 3600 seconds. For the value format of each record type, refer to [Record types](/en/documentation/platform/edge-dns/record-types/).
+
+:::caution
+A CNAME or MX value carries no trailing dot. The API refuses one with `400` and code `19002`, `Invalid Domain Name`. For example, it refuses the CNAME value `storefront-docs-example.com.` and the MX value `20 mail2.storefront-docs-example.com.`.
+:::
+
+To create the records:
+
+1. Create a `records.json` file with the records. Replace the names and values with your own:
+
+   ```json title="records.json"
+   [
+     {
+       "name": "www",
+       "type": "CNAME",
+       "rdata": ["storefront-docs-example.com"],
+       "ttl": 3600
+     },
+     {
+       "name": "shop",
+       "type": "A",
+       "rdata": ["192.0.2.10", "192.0.2.11"],
+       "ttl": 300
+     },
+     {
+       "name": "api",
+       "type": "A",
+       "rdata": ["192.0.2.20"],
+       "ttl": 300
+     },
+     {
+       "name": "@",
+       "type": "MX",
+       "rdata": ["10 mail.storefront-docs-example.com"],
+       "ttl": 3600
+     },
+     {
+       "name": "@",
+       "type": "TXT",
+       "rdata": ["v=spf1 -all"],
+       "ttl": 3600
+     }
+   ]
+   ```
+
+2. Send one `POST` request per record. The loop prints one line per record, with the name and type from the file and `errors` set when the API refuses it. Replace the two values with your own:
+
+   ```bash
+   export AZION_API_TOKEN="[TOKEN VALUE]"
+   ZONE_ID=<your-zone-id>
+   jq -c '.[]' records.json | while read -r record; do
+     curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records" \
+       --header "Authorization: Token $AZION_API_TOKEN" \
+       --header 'Content-Type: application/json' \
+       --data "$record" \
+     | jq -c --argjson record "$record" '{name: $record.name, type: $record.type, id: .data.id, errors}'
+   done
+   ```
+
+   ```text
+   {"name":"www","type":"CNAME","id":612498,"errors":null}
+   {"name":"shop","type":"A","id":612499,"errors":null}
+   {"name":"api","type":"A","id":612500,"errors":null}
+   {"name":"@","type":"MX","id":612501,"errors":null}
+   {"name":"@","type":"TXT","id":612502,"errors":null}
+   ```
+
+The zone holds one record per object of the file. A refused record does not stop the loop: its line carries the error, and the next record is sent.
+
+You can run the loop again after you fix a refused record. A record with the default `simple` policy is not created twice.
+
+A second simple record with the same name and type is refused with code `19004`, `Record Already Exists`. A second CNAME with the same name is refused with code `19014`, `CNAME Record Name Conflict`. On a second run of the same file, the loop prints:
+
+```text
+{"name":"www","type":"CNAME","id":null,"errors":[{"code":"19014","title":"CNAME Record Name Conflict","detail":"A CNAME with this name already exists for this sub-domain.","status":"400","source":{"pointer":"/data"}}]}
+{"name":"shop","type":"A","id":null,"errors":[{"code":"19004","title":"Record Already Exists","detail":"There is already another record matching those data.","status":"400","source":{"pointer":"/data"}}]}
+...
+```
+
+Weighted records can share a name and type, so remove the ones that already exist from the file before you run the loop again.
+
+A name that a resolver queried before its record existed is answered `NXDOMAIN` for up to one hour. To fix it, refer to [A new record returns NXDOMAIN](/en/documentation/platform/edge-dns/troubleshooting/#a-new-record-returns-nxdomain).
+
+---
+
+## Update several records
+
+A loop lists the records, selects the ones to change with `jq`, and sends one `PATCH` request to each. A `PATCH` body carries only the fields to change, so every other field of the record keeps its value.
+
+Set the TTL of every A record of the zone to 600 seconds. Replace the two values with your own:
+
+```bash
+export AZION_API_TOKEN="[TOKEN VALUE]"
+ZONE_ID=<your-zone-id>
+curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records?page_size=100&fields=id,type" \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+| jq -r '.results[] | select(.type == "A") | .id' \
+| while read -r record_id; do
+  curl --silent --request PATCH "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records/$record_id" \
+    --header "Authorization: Token $AZION_API_TOKEN" \
+    --header 'Content-Type: application/json' \
+    --data '{"ttl": 600}' \
+  | jq -c '{name: .data.name, type: .data.type, ttl: .data.ttl, errors}'
+done
+```
+
+```text
+{"name":"shop","type":"A","ttl":600,"errors":null}
+{"name":"api","type":"A","ttl":600,"errors":null}
+```
+
+Every A record of the zone has a TTL of 600 seconds, and its other fields keep their values. The list request reads up to 100 records, the most a page holds. A zone with more records needs one list request per page, with the `page` parameter.
+
+A changed record can take a few minutes to reach every nameserver, and resolvers keep the old value until its TTL runs out.
+
+---
+
+## Delete several records
+
+A loop lists the records, selects every record with a given name, whatever its type, and sends one `DELETE` request to each.
+
+:::caution
+A deleted record cannot be restored. For a weighted record, first set its weight to `0`, as [Set a weight of 0 before you delete a weighted record](/en/documentation/platform/edge-dns/best-practices/#set-a-weight-of-0-before-you-delete-a-weighted-record) explains.
+:::
+
+To delete the records named `api` and `shop`:
+
+1. List the records named `api` and `shop` before you delete them. Replace the two values with your own:
+
+   ```bash
+   export AZION_API_TOKEN="[TOKEN VALUE]"
+   ZONE_ID=<your-zone-id>
+   curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records?page_size=100&fields=id,name,type,rdata,ttl" \
+     --header "Authorization: Token $AZION_API_TOKEN" \
+   | jq -c '.results[] | select(.name == "api" or .name == "shop")'
+   ```
+
+   ```text
+   {"id":612499,"name":"shop","ttl":600,"type":"A","rdata":["192.0.2.10","192.0.2.11"]}
+   {"id":612500,"name":"api","ttl":600,"type":"A","rdata":["192.0.2.20"]}
+   ```
+
+2. Delete the records that the list shows:
+
+   ```bash
+   curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records?page_size=100&fields=id,name" \
+     --header "Authorization: Token $AZION_API_TOKEN" \
+   | jq -r '.results[] | select(.name == "api" or .name == "shop") | .id' \
+   | while read -r record_id; do
+     curl --silent --request DELETE "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records/$record_id" \
+       --header "Authorization: Token $AZION_API_TOKEN"
+     echo " $record_id"
+   done
+   ```
+
+   ```text
+   {"state":"executed"} 612499
+   {"state":"executed"} 612500
+   ```
+
+Check the records that remain in the zone. Replace the two values with your own:
+
+```bash
+export AZION_API_TOKEN="[TOKEN VALUE]"
+ZONE_ID=<your-zone-id>
+curl --silent "https://api.azion.com/v4/workspace/dns/zones/$ZONE_ID/records?page_size=100&fields=id,name,type,rdata,ttl" \
+  --header "Authorization: Token $AZION_API_TOKEN" \
+| jq -c '.results[]'
+```
+
+```text
+{"id":612498,"name":"www","ttl":3600,"type":"CNAME","rdata":["storefront-docs-example.com"]}
+{"id":612501,"name":"@","ttl":3600,"type":"MX","rdata":["10 mail.storefront-docs-example.com"]}
+{"id":612502,"name":"@","ttl":3600,"type":"TXT","rdata":["v=spf1 -all"]}
+```
+
+The zone no longer holds the records named `api` and `shop`.
+
+---
+
+## Next steps
+
+<DocCardGroup cols={2}>
+  <DocCard title="Troubleshoot Azion API" href="/en/documentation/devtools/api/troubleshooting/" label="Causes and fixes for the 400, 401, 404, and 405 responses of the API v4." />
+  <DocCard title="Query a zone with dig" href="/en/documentation/guides/application-security/dns/run-the-dig-command/" label="Check what Azion's nameservers answer for the records you changed." />
+</DocCardGroup>
