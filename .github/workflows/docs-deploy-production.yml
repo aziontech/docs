@@ -83,13 +83,14 @@ jobs:
             exit 1
           fi
 
-          if [ "$TRIGGER" != "release" ] && [ "$TRIGGER" != "manual" ]; then
+          if [ "$TRIGGER" != "release" ] && [ "$TRIGGER" != "manual" ] && [ "$TRIGGER" != "rollback" ]; then
             echo "::error::production.json trigger '${TRIGGER}' is not handled by this workflow"
             exit 1
           fi
 
           VERSION="$(jq -r '.release.version' "$MANIFEST")"
           PREVIOUS="$(jq -r '.deploy.previousVersion // empty' "$MANIFEST")"
+          REASON="$(jq -r '.deploy.reason // empty' "$MANIFEST" | tr '\r\n' '  ')"
 
           version_gt() {
             local -a a b
@@ -102,7 +103,13 @@ jobs:
             return 1
           }
 
-          if [ -n "$PREVIOUS" ] && ! version_gt "$VERSION" "$PREVIOUS"; then
+          if [ "$TRIGGER" = "rollback" ]; then
+            # A rollback goes strictly backwards from what the manifest replaced.
+            if [ -z "$PREVIOUS" ] || ! version_gt "$PREVIOUS" "$VERSION"; then
+              echo "::error::a rollback must go to a version older than ${PREVIOUS:-none}, got ${VERSION}: this is not a rollback"
+              exit 1
+            fi
+          elif [ -n "$PREVIOUS" ] && ! version_gt "$VERSION" "$PREVIOUS"; then
             echo "::error::${VERSION} is not newer than ${PREVIOUS}: a downgrade is a rollback, not a promotion"
             exit 1
           fi
@@ -119,7 +126,13 @@ jobs:
               echo "::error::latest production deployment has ref '${LIVE_TAG}', expected ${TAG_PREFIX}X.Y.Z"
               exit 1
             fi
-            if version_gt "$LIVE" "$VERSION"; then
+            if [ "$TRIGGER" = "rollback" ]; then
+              # Not above what is live: the same version is allowed, to redo a rollback that failed.
+              if version_gt "$VERSION" "$LIVE"; then
+                echo "::error::production runs ${LIVE}; ${VERSION} is newer, so it is not a rollback"
+                exit 1
+              fi
+            elif version_gt "$LIVE" "$VERSION"; then
               echo "::error::production runs ${LIVE}; ${VERSION} would be a downgrade"
               exit 1
             fi
@@ -132,6 +145,7 @@ jobs:
             echo "node_version=$(jq -r '.build.nodeVersion' "$MANIFEST")"
             echo "cli_version=$(jq -r '.build.cliVersion' "$MANIFEST")"
             echo "trigger=${TRIGGER}"
+            echo "reason=${REASON}"
             echo "previous_version=${PREVIOUS}"
             echo "stage_deployment_id=$(jq -r '.stage.deploymentId' "$MANIFEST")"
             echo "url=$(jq -r '.workloads.url' "${STATE_DIR}/azion.json")"
@@ -329,6 +343,7 @@ jobs:
           URL: ${{ steps.release.outputs.url }}
           REQUESTED_BY: ${{ github.actor }}
           TRIGGER: ${{ steps.release.outputs.trigger }}
+          REASON: ${{ steps.release.outputs.reason }}
         run: |
           set -euo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
@@ -344,6 +359,7 @@ jobs:
               --arg by "$REQUESTED_BY" \
               --arg trigger "$TRIGGER" \
               --arg previous "$PREVIOUS_VERSION" \
+              --arg reason "$REASON" \
               --arg manifest "$GITHUB_SHA" \
               --argjson stage "$STAGE_DEPLOYMENT_ID" \
               '{
@@ -361,6 +377,7 @@ jobs:
                    requestedBy: $by,
                    trigger: $trigger,
                    previousVersion: (if $previous == "" then null else $previous end),
+                   reason: (if $reason == "" then null else $reason end),
                    manifestCommit: $manifest,
                    stageDeploymentId: $stage
                  }
@@ -391,6 +408,7 @@ jobs:
             echo "| URL | ${URL} |"
             echo "| Deployment | [\`${DEPLOYMENT_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/deployments/production) |"
             echo "| Trigger | ${TRIGGER}, by ${REQUESTED_BY} |"
+            if [ -n "$REASON" ]; then echo "| Reason | ${REASON} |"; fi
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "Recorded deployment ${DEPLOYMENT_ID}: production <- ${RELEASE_TAG}"

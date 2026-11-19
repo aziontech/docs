@@ -8,18 +8,24 @@ on:
         required: true
         type: string
       promote:
-        description: Open the production promotion PR after a green stage deploy (a release always does; tick this only to promote a hand-run redeploy)
+        description: Open the production promotion PR after a green stage deploy (a release or a rollback always does; tick this only to promote a hand-run redeploy)
         required: false
         default: false
         type: boolean
       trigger:
-        description: What started this deploy. release-please passes `release`; leave `manual` for a hand-run redeploy
+        description: What started this deploy. release-please passes `release`; leave `manual` for a hand-run redeploy; `rollback` returns production to an older tag and requires a reason
         required: false
         default: manual
         type: choice
         options:
           - manual
           - release
+          - rollback
+      reason:
+        description: Why production is going back to this tag. Required when trigger is rollback, ignored otherwise
+        required: false
+        default: ''
+        type: string
 
 permissions: {}
 
@@ -49,10 +55,20 @@ jobs:
       - name: Validate release tag
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
+          TRIGGER: ${{ inputs.trigger }}
+          REASON: ${{ inputs.reason }}
         run: |
           set -euo pipefail
           if [[ ! "$RELEASE_TAG" =~ ^${TAG_PREFIX}[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::release_tag must be ${TAG_PREFIX}X.Y.Z, got '${RELEASE_TAG}'"
+            exit 1
+          fi
+          if [ "$TRIGGER" = "rollback" ] && [ -z "${REASON//[[:space:]]/}" ]; then
+            echo "::error::a rollback needs a reason: fill the 'reason' input before running it"
+            exit 1
+          fi
+          if [ "$TRIGGER" != "rollback" ] && [ -n "$REASON" ]; then
+            echo "::error::only a rollback carries a reason; clear the 'reason' input or set trigger to rollback"
             exit 1
           fi
 
@@ -197,7 +213,8 @@ jobs:
           CLI_VERSION: ${{ steps.cli.outputs.cli_version }}
           URL: ${{ steps.release.outputs.url }}
           REQUESTED_BY: ${{ github.actor }}
-          TRIGGER: ${{ inputs.trigger == 'release' && 'release' || 'manual' }}
+          TRIGGER: ${{ inputs.trigger }}
+          REASON: ${{ inputs.reason }}
         run: |
           set -euo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
@@ -212,6 +229,7 @@ jobs:
               --arg dir "$STATE_DIR" \
               --arg by "$REQUESTED_BY" \
               --arg trigger "$TRIGGER" \
+              --arg reason "$REASON" \
               '{
                  ref: $ref,
                  environment: "stage",
@@ -224,7 +242,8 @@ jobs:
                    cliVersion: $cli,
                    configDir: $dir,
                    requestedBy: $by,
-                   trigger: $trigger
+                   trigger: $trigger,
+                   reason: (if $reason == "" then null else $reason end)
                  }
                }' \
               | gh api "repos/${GITHUB_REPOSITORY}/deployments" --input - --jq '.id'
@@ -250,6 +269,7 @@ jobs:
             echo "| URL | ${URL} |"
             echo "| Deployment | [\`${DEPLOYMENT_ID}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/deployments/stage) |"
             echo "| Trigger | ${TRIGGER}, by ${REQUESTED_BY} |"
+            if [ -n "$REASON" ]; then echo "| Reason | ${REASON} |"; fi
           } >> "$GITHUB_STEP_SUMMARY"
 
           echo "Recorded deployment ${DEPLOYMENT_ID}: stage <- ${RELEASE_TAG}"
@@ -257,7 +277,7 @@ jobs:
   promote:
     name: Open production promotion PR
     needs: deploy
-    if: inputs.trigger == 'release' || inputs.promote
+    if: inputs.trigger == 'release' || inputs.trigger == 'rollback' || inputs.promote
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -284,6 +304,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
+          TRIGGER: ${{ inputs.trigger }}
         run: |
           set -euo pipefail
           VERSION="${RELEASE_TAG#"$TAG_PREFIX"}"
@@ -299,6 +320,18 @@ jobs:
             done
             return 1
           }
+
+          if [ "$TRIGGER" = "rollback" ]; then
+            # A rollback goes strictly backwards. The same or a newer version is a promotion.
+            if [ -z "$CURRENT" ] || ! version_gt "$CURRENT" "$VERSION"; then
+              echo "::error::a rollback must go to a version older than what production records (${CURRENT:-none}), got ${VERSION}"
+              exit 1
+            fi
+            # Skip the check for a newer open promotion PR below: the open PRs are for
+            # versions being abandoned, and the step that opens this PR closes them.
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if [ -n "$CURRENT" ] && ! version_gt "$VERSION" "$CURRENT"; then
             echo "Production already records ${CURRENT}; ${RELEASE_TAG} is not newer: no promotion"
@@ -366,13 +399,15 @@ jobs:
             echo "log_url=$(jq -r '.log_url' <<<"$STATUS")"
             echo "deployed_at=$(jq -r '.created_at' <<<"$STATUS")"
             echo "trigger=$(jq -r '.payload.trigger // "release"' <<<"$DEPLOYMENT")"
+            echo "reason=$(jq -r '.payload.reason // empty' <<<"$DEPLOYMENT" | tr '\r\n' '  ')"
           } >> "$GITHUB_OUTPUT"
 
       - name: Write production manifest
         if: steps.gate.outputs.skip == 'false'
         env:
           DEPLOY_STATE: ready
-          DEPLOY_TRIGGER: ${{ steps.stage.outputs.trigger == 'manual' && 'manual' || 'release' }}
+          DEPLOY_TRIGGER: ${{ steps.stage.outputs.trigger == 'rollback' && 'rollback' || steps.stage.outputs.trigger == 'manual' && 'manual' || 'release' }}
+          DEPLOY_REASON: ${{ steps.stage.outputs.trigger == 'rollback' && steps.stage.outputs.reason || '' }}
           DEPLOY_REQUESTED_BY: ${{ github.actor }}
           RELEASE_VERSION: ${{ needs.deploy.outputs.version }}
           RELEASE_GIT_TAG: ${{ inputs.release_tag }}
@@ -395,12 +430,20 @@ jobs:
           SOURCE_COMMIT: ${{ steps.stage.outputs.source_commit }}
           STAGE_DEPLOYMENT_ID: ${{ steps.stage.outputs.deployment_id }}
           STAGE_LOG_URL: ${{ steps.stage.outputs.log_url }}
+          TRIGGER: ${{ steps.stage.outputs.trigger }}
+          REASON: ${{ steps.stage.outputs.reason }}
         run: |
           set -euo pipefail
 
           REPO="$GITHUB_REPOSITORY"
           BRANCH="promote/production-${RELEASE_TAG}"
-          TITLE="chore(deploy): promote ${RELEASE_TAG} to production"
+          if [ "$TRIGGER" = "rollback" ]; then
+            TITLE="chore(deploy): roll back production to ${RELEASE_TAG}"
+            LEAD="Rolls production **back** to **${RELEASE_TAG}**. Reason: ${REASON}"
+          else
+            TITLE="chore(deploy): promote ${RELEASE_TAG} to production"
+            LEAD="Promotes **${RELEASE_TAG}** to production."
+          fi
           CHANGED="$(git status --porcelain)"
 
           if [ "$CHANGED" != " M deployments/production.json" ]; then
@@ -419,7 +462,7 @@ jobs:
           git push --force "https://github.com/${REPO}.git" "HEAD:refs/heads/${BRANCH}"
 
           BODY="$(cat <<EOF
-          Promotes **${RELEASE_TAG}** to production. Merging this PR **is** the production deploy: \`docs-deploy-production.yml\` runs on the push to \`main\`.
+          ${LEAD} Merging this PR **is** the production deploy: \`docs-deploy-production.yml\` runs on the push to \`main\`.
 
           | | |
           | --- | --- |
