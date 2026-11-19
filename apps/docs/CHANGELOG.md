@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.7.0](https://github.com/aziontech/docs/compare/docs-v2.6.0...docs-v2.7.0) (2026-11-19)
+
+
+### Features
+
+* **guides:** add how-tos for the Azion API v4, Terraform, and Azion Lib ([#2665](https://github.com/aziontech/docs/issues/2665)) ([4ee042b](https://github.com/aziontech/docs/commit/4ee042be58763cf9b497c97ba6231ab6ec480139))
+
+
+### Bug Fixes
+
+* **ai-inference:** correct the copilot and upload-inspection designs and the dimensions row ([#2675](https://github.com/aziontech/docs/issues/2675)) ([055ceb6](https://github.com/aziontech/docs/commit/055ceb688ab76df8cd6206b06ecdd7e2676852b3))
+* **cli:** document the --cascade and --secret defaults from the CLI source ([#2663](https://github.com/aziontech/docs/issues/2663)) ([4ab0b16](https://github.com/aziontech/docs/commit/4ab0b16f222a48d80bc07a9a84cd37f0d0b4a725))
+* **cli:** remove flags and commands the CLI does not support from the reference ([#2678](https://github.com/aziontech/docs/issues/2678)) ([3eb881c](https://github.com/aziontech/docs/commit/3eb881cc2556eceee9c5d99f63ede91c478517e4))
+* **edge-pulse:** list the data the tag sends and register pulseEvents as API-only ([#2672](https://github.com/aziontech/docs/issues/2672)) ([cb8a77b](https://github.com/aziontech/docs/commit/cb8a77bdfc574b471b9dfaf57bdb94609510da75))
+* **firewall:** correct the 24003 fix, the domains bound, and Bot Manager Lite for APIs ([#2664](https://github.com/aziontech/docs/issues/2664)) ([9af5d62](https://github.com/aziontech/docs/commit/9af5d62f89e2c7060a3d2af89361c3c1adfe1f3c))
+* **marketplace:** run the Leakstream response function on the firewall event ([#2670](https://github.com/aziontech/docs/issues/2670)) ([d52f938](https://github.com/aziontech/docs/commit/d52f938f0c13f41247253145666898640078e31a))
+* **observe:** correct the payload, WAF ranking, and activation facts on four pages ([#2676](https://github.com/aziontech/docs/issues/2676)) ([1b2ded6](https://github.com/aziontech/docs/commit/1b2ded662aaf3d668f95ef33f56ef819395d06ae))
+* **pricing:** move Connectors pricing to Build and fix Managed Configurations ([#2667](https://github.com/aziontech/docs/issues/2667)) ([f848cd7](https://github.com/aziontech/docs/commit/f848cd72ca6c56c2ba642a3040581853625a5814))
+* **sql:** describe the SQL library failure as one top-level error ([#2662](https://github.com/aziontech/docs/issues/2662)) ([743c83b](https://github.com/aziontech/docs/commit/743c83be1ae71d36b15cc6f3a990978de6c3efe6))
+* **store:** correct the Azion.Storage citation and the bucket operations in the S3 classes ([#2674](https://github.com/aziontech/docs/issues/2674)) ([c2ea4d2](https://github.com/aziontech/docs/commit/c2ea4d227edd7114a7c7a1ce5fe2476821856c1b))
+* **support:** move the troubleshooting query to workloadEvents and match the ticket form ([#2668](https://github.com/aziontech/docs/issues/2668)) ([dcc131d](https://github.com/aziontech/docs/commit/dcc131d316b1a937c999e7d4fc9d2d8e8902daf5))
+
+
+### Documentation
+
+* **sql:** retire the EdgeSQL Shell pages and every mention of the tool ([#2671](https://github.com/aziontech/docs/issues/2671)) ([7aedfb7](https://github.com/aziontech/docs/commit/7aedfb76dc338e39a2f1c2ab83942b16b17a2c0a))
+
 ## [2.6.0](https://github.com/aziontech/docs/compare/docs-v2.5.0...docs-v2.6.0) (2026-11-18)
 
 
