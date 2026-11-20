@@ -99,7 +99,7 @@ As opções de conexão de um connector do tipo `http` definem como o connector 
 
 | Console | Campo da API | Tipo | Padrão | Descrição |
 | --- | --- | --- | --- | --- |
-| **Host** | `attributes.connection_options.host` | string | `${host}` | 1 a 255 caracteres. O header `Host` enviado à origem. `${host}` envia o host que o cliente requisitou, e um valor literal é enviado como está. Um valor vazio é recusado com `10018`. |
+| **Host** | `attributes.connection_options.host` | string | `${host}` | 1 a 255 caracteres. O header `Host` e o valor de Server Name Indication (SNI) enviados à origem. `${host}` envia o host que o cliente requisitou, e um valor literal é enviado como está. Um valor vazio é recusado com `10018`. |
 | **Path** | `attributes.connection_options.path_prefix` | string | `""`, sem prefixo | Até 255 caracteres, começando com `/`. Adicionado antes do caminho da requisição. Um valor sem a barra inicial é recusado com `28009`. |
 | **Transport Protocol Policy**, com _Preserve_, _Force HTTPS_ e _Force HTTP_ | `attributes.connection_options.transport_policy` | enum | `preserve` | `preserve` mantém o esquema que o cliente usou. `force_https` se conecta à origem apenas por HTTPS, e `force_http` apenas por HTTP. |
 | **DNS Resolution Policy**, com _IPv4 and IPv6_ e _Force IPv4_ | `attributes.connection_options.dns_resolution` | enum | `both` | `both` se conecta por IPv4 ou IPv6. `force_ipv4` se conecta apenas por IPv4. |
@@ -109,6 +109,8 @@ As opções de conexão de um connector do tipo `http` definem como o connector 
 | **Real Port Header** | `attributes.connection_options.real_port_header` | string | `X-Real-PORT` | 1 a 100 caracteres. O nome do header que leva a porta do cliente até a origem. |
 
 O valor de `host` decide qual nome a origem vê. Por exemplo, com o padrão `${host}`, um cliente que requisita `www.example.com` faz o connector enviar `Host: www.example.com`. Com `"host": "origin.example.com"`, o connector envia `Host: origin.example.com` em toda requisição. Uma origem que roteia requisições por nome pode não responder ao host do cliente, então envie o nome da própria origem como valor literal. Azion Console valida **Host** com `Host must be a valid hostname, IP address, or variable.`
+
+Por HTTPS, o Connector também envia o valor de `host` como valor de SNI, o nome do servidor do seu handshake de Transport Layer Security (TLS). Com o padrão `${host}`, o nome do servidor e o header `Host` levam o hostname que o cliente requisitou. Com um valor literal como `origin.example.com`, os dois levam esse valor. O campo `host` define os dois: um Connector não tem um campo separado para o nome do servidor.
 
 O valor de `path_prefix` vai na frente do caminho que o cliente requisitou. Com `/anything`, uma requisição para `/get` chega à origem como `/anything/get`. Para **Path**, Azion Console diz "Use '/' for the root path." e valida o campo com `Path must start with a forward slash (/)`.
 
@@ -151,6 +153,12 @@ Origin Shield protege a origem de um connector do tipo `http` de duas formas. Or
 
 Com `enabled` definido como `true`, `config` deve conter pelo menos uma chave, e com `hmac.enabled` definido como `true`, `hmac.config` deve estar presente. Caso contrário, a API recusa a requisição com `28014`. Desativar HMAC remove as credenciais armazenadas, então você as informa de novo quando o ativa outra vez.
 
+A API retorna a `access_key` e a `secret_key` do HMAC em texto simples, exatamente como você as enviou. Três respostas trazem os dois valores:
+
+- A resposta do `POST` que cria o Connector.
+- A resposta de um `GET` do Connector por ID.
+- A listagem que `GET /v4/workspace/connectors` retorna.
+
 As credenciais HMAC pertencem a uma conta no provedor de object storage que guarda o conteúdo privado. Por exemplo, um connector que lê um bucket privado pelo endpoint S3 `s3.us-east-005.azionstorage.net` envia `region` `us-east-005`, `service` `s3` e uma credencial com escopo nesse bucket. Com HMAC desativado, esse endpoint responde `401`. Para saber como Origin IP ACL e HMAC protegem a origem, consulte [Origin IP ACL e HMAC](/pt-br/documentacao/plataforma/connectors/origin-shield/origin-ip-acl-e-hmac/).
 
 ---
@@ -173,6 +181,10 @@ O seletor de bucket lista os buckets da sua conta, e **Create Object Storage** c
   "attributes": { "bucket": "my-bucket", "prefix": "images/" }
 }
 ```
+
+A barra inicial e a barra final de `prefix` são opcionais, porque o Connector junta `prefix` e o caminho da requisição com uma única barra. `images`, `images/`, `/images` e `/images/` são equivalentes: com qualquer um deles, uma requisição para `/logo.png` recebe o objeto `images/logo.png`. Com `images/icons`, a mesma requisição recebe o objeto `images/icons/logo.png`. A API armazena o valor como você o enviou e não o normaliza.
+
+O caminho da requisição leva apenas a parte da chave do objeto que vem depois do prefixo. Uma requisição cujo caminho repete o prefixo, como `/images/logo.png` com o prefixo `images`, recebe `404` com um corpo XML `NoSuchKey`.
 
 ---
 
@@ -207,11 +219,13 @@ A API recusa cada requisição abaixo com HTTP `400` e não cria nem altera nada
 | `28001` | `Invalid address format. Must be a valid IPv4, IPv6, or CNAME.` | Um endereço carrega um protocolo ou uma porta, como `https://origin.example.com` ou `origin.example.com:443`. | Envie apenas o hostname ou o endereço IP, e defina as portas em `http_port` e `https_port`. |
 | `28004` | `To use more than one address, you must enable the Load Balancer module.` | O connector tem dois ou mais endereços e Load Balancer está desativado, na criação ou quando você desativa Load Balancer. | Ative Load Balancer no connector, ou mantenha um endereço. |
 | `28011` | `When the Load Balancer module is enabled, you can use up to 15 addresses.` | O connector tem 16 ou mais endereços. | Mantenha 15 endereços ou menos. |
+| `28012` | `At least one active address is required.` | Um `POST` ou um `PATCH` envia o único endereço com `active` `false`. | Envie o endereço com `active` `true`. |
 | `28005` | `Backup addresses are not allowed when using 'ip_hash' as load balance method.` | Um endereço tem `server_role` `backup` e o método é `ip_hash`. | Defina o endereço como `primary`, ou escolha `round_robin` ou `least_conn`. |
 | `28014` | `Module configuration must be provided when 'enabled' is true.` | Load Balancer ou Origin Shield tem `enabled` `true` sem `config`, com um `config` vazio ou com `null`; ou HMAC está ativado sem `hmac.config`. | Envie `config` com pelo menos uma chave, ou `hmac.config` com as credenciais. |
 | `28009` | `Invalid path format. Must be a valid path.` | `path_prefix` não começa com `/`. | Comece o valor com `/`, como `/anything`. |
 | `28007` | `Invalid bucket name Storage Connector.` | `bucket` nomeia um bucket que não existe na conta. | Crie o bucket primeiro, ou envie o nome de um bucket existente. |
 | `28000` | `Cannot delete an Connector referenced by another resource. References: EdgeApplicationRuleEngine - id: <rule-id>` | Um `DELETE` tem como alvo um connector para o qual uma regra ainda aponta; a mensagem nomeia a regra. | Aponte a regra para outro connector, ou exclua a regra, e então repita o `DELETE`. |
+| `28008` | `Cannot deactivate an Connector referenced by another resource. References: EdgeApplicationRuleEngine - id: <rule-id>` | Um `PATCH` envia `active` `false` para um Connector para o qual uma regra ainda aponta. A mensagem nomeia a regra. | Aponte a regra para outro Connector, ou exclua a regra, e então repita o `PATCH`. |
 | `10018` | `This field may not be blank.` | `host` ou `prefix` é uma string vazia. | Envie um valor, ou deixe `prefix` de fora. |
 | `10059` | `This field is required.` | Um connector do tipo `live_ingest` não tem `region`. | Envie `region` com um dos cinco valores. |
 | `10039` | `"preserve" is not a valid choice.` | Um campo enum contém um valor fora da sua lista; a mensagem cita o valor, como `"http2"` para `http_version_policy` ou `"eu-west-1"` para `region`. | Envie um valor da lista do campo. |
@@ -220,6 +234,8 @@ A API recusa cada requisição abaixo com HTTP `400` e não cria nem altera nada
 | `10046` | `Ensure this field has no more than 255 characters.` | `name` tem mais de 255 caracteres. | Encurte o nome para 255 caracteres ou menos. |
 
 Azion CLI imprime a mesma mensagem dentro do seu próprio erro. Para `28000`, isso é `Error: Failed to delete the Connector: [...]`.
+
+A entrada de `28012` no array `errors` leva o `title` `Active Address Required`, e a entrada de `28008` leva `Cannot Deactivate Referenced Connector`.
 
 ---
 
