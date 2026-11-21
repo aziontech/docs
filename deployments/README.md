@@ -22,6 +22,32 @@ The pipeline is ported from `aziontech/azion-console-kit` (its ADR-0002 has the 
    push to `main` that touches `production.json`, re-checks the stage evidence, deploys the same
    tag to `docs-prod` and records a production deployment.
 
+## Rolling back
+
+Going back to an older version uses the same path as a promotion: stage, then an approved pull
+request. There is no direct dispatch to production.
+
+1. Run *Deploy docs (stage)* with `release_tag` set to the older tag, `trigger` = `rollback` and a
+   `reason`. Without a reason the run fails before the build. The stage rebuilds and verifies the tag,
+   and records its own Deployment.
+2. The `promote` job accepts a version **strictly lower** than the one in `production.json` and only
+   on `trigger=rollback`; the same or a higher version fails. It closes any open promotion PR for a
+   newer version as superseded and opens `promote/production-docs-vX.Y.Z` titled
+   `chore(deploy): roll back production to docs-vX.Y.Z`.
+3. Merging that PR runs `docs-deploy-production.yml`, which allows the downgrade only for
+   `trigger=rollback`, and refuses a rollback to a version above what production runs now. Redoing a
+   rollback that failed is accepted: the version equals the last one published.
+
+| Trigger | Manifest version | Result in `docs-deploy-production.yml` |
+| --- | --- | --- |
+| `release` / `manual` | above `previousVersion` and not below the last published | proceeds |
+| `release` / `manual` | below | refused: a downgrade |
+| `rollback` | strictly below `previousVersion` and not above the last published | proceeds |
+| `rollback` | equal to or above `previousVersion` | refused: not a rollback |
+
+The `reason` is kept in the manifest and in the production Deployment payload. Fixing forward with a
+new `fix` release is still the default; roll back when the fix cannot wait.
+
 ## Stage is not here
 
 There is no `stage.json`. `main` is protected by a ruleset (pull request, code owner review, no
@@ -63,6 +89,8 @@ keeps the two builds comparable is that the inputs are pinned and recorded: `bui
 
 - **Nobody edits `production.json` by hand.** Rerun *Deploy docs (stage)* for the tag with
   **promote** ticked to regenerate the promotion PR.
+- **A rollback always carries a reason** and goes through stage and a promotion PR, never a direct
+  production dispatch.
 - **The promotion PR touches exactly one file.** The deploy's `paths:` filter depends on it.
 - **The promotion PR was opened with the workflow token**, so its required checks do not start on
   their own: close and reopen it before merging.
