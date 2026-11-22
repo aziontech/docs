@@ -1,6 +1,7 @@
 import { appendFileSync } from 'node:fs';
 import process from 'node:process';
 import { en, pt } from '../../redirects/index.js';
+import { conversionErrors, sourceOf, toQueryTolerantEntries } from './query-tolerant.mjs';
 
 const MASSIVE_REDIRECT_FUNCTION_ID = 12;
 const SIZE_LIMIT_BYTES = 300 * 1024;
@@ -35,6 +36,10 @@ const TARGETS = [
 ];
 
 const dryRun = process.argv.includes('--dry-run');
+const validateOnly = process.argv.includes('--validate');
+// Rollback switch: MASSIVE_REDIRECT_FORMAT=exact publishes the files as written
+// (plain `from`), which is how the instances were served before the conversion.
+const exactFormat = process.env.MASSIVE_REDIRECT_FORMAT === 'exact';
 const apiUrl = (process.env.AZION_API_URL || 'https://api.azionapi.net').replace(/\/$/, '');
 const token = process.env.AZION_TOKEN;
 const applicationId = process.env.AZION_APPLICATION_ID;
@@ -51,11 +56,9 @@ const canonical = (value) =>
 					Object.keys(v)
 						.sort()
 						.map((k) => [k, v[k]])
-			  )
+				)
 			: v
 	);
-
-const sourceOf = (entry) => entry.from ?? `regex:${entry.from_regex}`;
 
 function validateRedirects(location, entries) {
 	const errors = [];
@@ -132,7 +135,42 @@ function describeChange(current, next) {
 	return { before: before.size, after: after.size, added, removed };
 }
 
+// The files keep plain `from` entries; what reaches the instances is the
+// query-tolerant form (see query-tolerant.mjs), so the size limit applies to it.
+function prepare(target) {
+	if (exactFormat) {
+		const validated = validateRedirects(target.file, target.entries);
+		return { entries: target.entries, bytes: validated.bytes, errors: validated.errors };
+	}
+	const entries = Array.isArray(target.entries) ? toQueryTolerantEntries(target.entries) : [];
+	const validated = validateRedirects(target.file, entries);
+	const errors = [
+		...(Array.isArray(target.entries) ? conversionErrors(target.file, target.entries) : []),
+		...validated.errors,
+	];
+	return { entries, bytes: validated.bytes, errors };
+}
+
+function validateFiles() {
+	const errors = [];
+	for (const target of TARGETS) {
+		const prepared = prepare(target);
+		errors.push(...prepared.errors);
+		console.log(
+			`${target.file}: ${prepared.entries.length} redirects, ${(prepared.bytes / 1024).toFixed(
+				1
+			)} KB of 300 KB as published`
+		);
+	}
+	if (errors.length) {
+		for (const error of errors) console.error(`::error::${error}`);
+		fail(`${errors.length} problem(s) found in the redirect files`);
+	}
+}
+
 async function main() {
+	if (validateOnly) return validateFiles();
+
 	if (!token)
 		fail('AZION_TOKEN is not set: pass the token of the account that owns the application');
 	if (!/^\d+$/.test(applicationId ?? ''))
@@ -142,8 +180,8 @@ async function main() {
 	const plan = [];
 	const errors = [];
 	for (const target of TARGETS) {
-		const validated = validateRedirects(target.file, target.entries);
-		errors.push(...validated.errors);
+		const prepared = prepare(target);
+		errors.push(...prepared.errors);
 
 		let instance;
 		try {
@@ -162,7 +200,12 @@ async function main() {
 				`instance ${target.instanceId} runs function ${instance.edge_function_id}, expected Massive Redirect (${MASSIVE_REDIRECT_FUNCTION_ID})`
 			);
 		}
-		plan.push({ ...target, bytes: validated.bytes, current: instance.args });
+		plan.push({
+			...target,
+			entries: prepared.entries,
+			bytes: prepared.bytes,
+			current: instance.args,
+		});
 	}
 
 	if (errors.length) {
