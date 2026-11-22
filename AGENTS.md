@@ -71,7 +71,7 @@ pnpm format              # prettier
 ```
 
 Run a script of another app with `pnpm -F <app> <script>`, for example
-`pnpm -F redirects-massive test`.
+`pnpm -F docs test:redirects`.
 
 ## Pull requests
 

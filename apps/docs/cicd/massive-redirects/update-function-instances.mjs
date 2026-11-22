@@ -1,10 +1,10 @@
 import { appendFileSync } from 'node:fs';
 import process from 'node:process';
 import { en, pt } from '../../redirects/index.js';
-import { conversionErrors, sourceOf, toQueryTolerantEntries } from './query-tolerant.mjs';
+import { sourceOf } from './query-tolerant.mjs';
+import { prepareEntries } from './validate.mjs';
 
 const MASSIVE_REDIRECT_FUNCTION_ID = 12;
-const SIZE_LIMIT_BYTES = 300 * 1024;
 const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_ATTEMPTS = 4;
 
@@ -58,33 +58,6 @@ const canonical = (value) =>
 			: v
 	);
 
-function validateRedirects(location, entries) {
-	const errors = [];
-	const bytes = Buffer.byteLength(JSON.stringify(entries));
-	if (bytes > SIZE_LIMIT_BYTES) {
-		errors.push(
-			`${location} is ${(bytes / 1024).toFixed(1)} KB, over the 300 KB Massive Redirect limit`
-		);
-	}
-
-	if (!Array.isArray(entries) || entries.length === 0) {
-		return { errors: [`${location}: expected a non-empty array of redirects`], bytes };
-	}
-
-	entries.forEach((entry, index) => {
-		const hasFrom = typeof entry?.from === 'string';
-		const hasRegex = typeof entry?.from_regex === 'string';
-		const hasMoved = typeof entry?.moved === 'string';
-		const hasFound = typeof entry?.found === 'string';
-		if (hasFrom === hasRegex)
-			errors.push(`${location}[${index}]: needs exactly one of "from" / "from_regex"`);
-		if (hasMoved === hasFound)
-			errors.push(`${location}[${index}]: needs exactly one of "moved" / "found"`);
-	});
-
-	return { errors, bytes };
-}
-
 async function request(method, path, body) {
 	const url = `${apiUrl}/edge_applications/${applicationId}/functions_instances/${path}`;
 	for (let attempt = 1; ; attempt++) {
@@ -133,19 +106,7 @@ function describeChange(current, next) {
 	return { before: before.size, after: after.size, added, removed };
 }
 
-function prepare(target) {
-	if (exactFormat) {
-		const validated = validateRedirects(target.file, target.entries);
-		return { entries: target.entries, bytes: validated.bytes, errors: validated.errors };
-	}
-	const entries = Array.isArray(target.entries) ? toQueryTolerantEntries(target.entries) : [];
-	const validated = validateRedirects(target.file, entries);
-	const errors = [
-		...(Array.isArray(target.entries) ? conversionErrors(target.file, target.entries) : []),
-		...validated.errors,
-	];
-	return { entries, bytes: validated.bytes, errors };
-}
+const prepare = (target) => prepareEntries(target.file, target.entries, { exact: exactFormat });
 
 function validateFiles() {
 	const errors = [];
