@@ -37,8 +37,6 @@ const TARGETS = [
 
 const dryRun = process.argv.includes('--dry-run');
 const validateOnly = process.argv.includes('--validate');
-// Rollback switch: MASSIVE_REDIRECT_FORMAT=exact publishes the files as written
-// (plain `from`), which is how the instances were served before the conversion.
 const exactFormat = process.env.MASSIVE_REDIRECT_FORMAT === 'exact';
 const apiUrl = (process.env.AZION_API_URL || 'https://api.azionapi.net').replace(/\/$/, '');
 const token = process.env.AZION_TOKEN;
@@ -135,8 +133,6 @@ function describeChange(current, next) {
 	return { before: before.size, after: after.size, added, removed };
 }
 
-// The files keep plain `from` entries; what reaches the instances is the
-// query-tolerant form (see query-tolerant.mjs), so the size limit applies to it.
 function prepare(target) {
 	if (exactFormat) {
 		const validated = validateRedirects(target.file, target.entries);

@@ -11,9 +11,6 @@ import {
 const SIZE_LIMIT_BYTES = 300 * 1024;
 const QUERY = '?utm_source=chatgpt.com';
 
-// Mirrors massive_redirect() in the Lua function: the URL it compares carries the
-// query string; `from` is compared by equality, `from_regex` with ngx.re.match(url, re,
-// "io"); the destination goes through order_values_to_unpack + string.format.
 function luaFormat(template, captures) {
 	const order = [];
 	const format = template.replace(/%(\d+)\$/g, (_m, i) => {
@@ -31,7 +28,6 @@ function massiveRedirect(url, entries) {
 		if (entry.from !== undefined && url === entry.from) return destination;
 		if (entry.from_regex !== undefined) {
 			const m = url.match(new RegExp(entry.from_regex, 'i'));
-			// ngx.re.match returns `false` for a group that did not participate.
 			if (m)
 				return luaFormat(
 					destination,
@@ -153,10 +149,6 @@ describe.each([
 	});
 });
 
-// Each language runs two rules in a row (00, then 01); when both match, the later one
-// sets the Location. A visitor then follows the Location until nothing matches. The
-// regex is case-insensitive (the function's "i" flag), so a hop can be skipped, but
-// the page a visitor lands on must not change.
 const HOPS = 10;
 
 function land(url, instances) {

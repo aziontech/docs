@@ -1,7 +1,3 @@
-// After the args are published: an old docs URL with a query string must answer 301
-// to its destination, carrying the query. One check per language. The redirect used
-// must already answer 301 without a query (a redirect added since the last deploy may
-// still have its old page live), so the check with a query proves only the query.
 import process from 'node:process';
 import { en, pt } from '../../redirects/index.js';
 
@@ -18,8 +14,6 @@ async function head(url) {
 	return { status: response.status, location: response.headers.get('location') };
 }
 
-// The last instance runs last, so its Location is the one served. Skip destinations
-// that are themselves sources (chains) or carry a #fragment.
 async function pick(files, prefix) {
 	const sources = new Set(files.flat().map((entry) => entry.from));
 	const candidates = files
@@ -41,7 +35,6 @@ async function pick(files, prefix) {
 }
 
 async function check({ from, moved }) {
-	// A query nobody requested before, so no cached 404 answers for it.
 	const query = `?utm_source=chatgpt.com&deploy_check=${Date.now()}`;
 	const { status, location } = await head(`${from}${query}`);
 	return {
