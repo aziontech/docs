@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.7.0](https://github.com/aziontech/docs/compare/docs-v2.6.0...docs-v2.7.0) (2026-11-23)
+
+
+### Features
+
+* **guides:** add how-tos for the Azion API v4, Terraform, and Azion Lib ([#2665](https://github.com/aziontech/docs/issues/2665)) ([4ee042b](https://github.com/aziontech/docs/commit/4ee042be58763cf9b497c97ba6231ab6ec480139))
+
+
+### Bug Fixes
+
+* **ai-inference:** correct the copilot and upload-inspection designs and the dimensions row ([#2675](https://github.com/aziontech/docs/issues/2675)) ([055ceb6](https://github.com/aziontech/docs/commit/055ceb688ab76df8cd6206b06ecdd7e2676852b3))
+* **cli:** document the --cascade and --secret defaults from the CLI source ([#2663](https://github.com/aziontech/docs/issues/2663)) ([4ab0b16](https://github.com/aziontech/docs/commit/4ab0b16f222a48d80bc07a9a84cd37f0d0b4a725))
+* **cli:** remove flags and commands the CLI does not support from the reference ([#2678](https://github.com/aziontech/docs/issues/2678)) ([3eb881c](https://github.com/aziontech/docs/commit/3eb881cc2556eceee9c5d99f63ede91c478517e4))
+* **docs:** add verified product behavior to 23 pages across six sections ([#2679](https://github.com/aziontech/docs/issues/2679)) ([e96e46e](https://github.com/aziontech/docs/commit/e96e46ede792259528559908f24a474fba451cae))
+* **edge-pulse:** list the data the tag sends and register pulseEvents as API-only ([#2672](https://github.com/aziontech/docs/issues/2672)) ([cb8a77b](https://github.com/aziontech/docs/commit/cb8a77bdfc574b471b9dfaf57bdb94609510da75))
+* **firewall:** correct the 24003 fix, the domains bound, and Bot Manager Lite for APIs ([#2664](https://github.com/aziontech/docs/issues/2664)) ([9af5d62](https://github.com/aziontech/docs/commit/9af5d62f89e2c7060a3d2af89361c3c1adfe1f3c))
+* **functions:** condition firewall ctx.args on the build and finish the review follow-ups ([#2690](https://github.com/aziontech/docs/issues/2690)) ([2239d45](https://github.com/aziontech/docs/commit/2239d45b8d3412c31a2292ff67f4138a9d98ef6e))
+* **functions:** correct the handler contract for env, ctx, Args, and the firewall handler ([#2688](https://github.com/aziontech/docs/issues/2688)) ([bdfdb25](https://github.com/aziontech/docs/commit/bdfdb25329f5b637e7b54d799d7a04d58c29a562))
+* **marketplace:** run the Leakstream response function on the firewall event ([#2670](https://github.com/aziontech/docs/issues/2670)) ([d52f938](https://github.com/aziontech/docs/commit/d52f938f0c13f41247253145666898640078e31a))
+* **object-storage:** state the billing class of ListObjects on S3 compatibility ([#2687](https://github.com/aziontech/docs/issues/2687)) ([8159068](https://github.com/aziontech/docs/commit/81590689980763b80bb5af625f9cb1802fd65103))
+* **observe:** correct the payload, WAF ranking, and activation facts on four pages ([#2676](https://github.com/aziontech/docs/issues/2676)) ([1b2ded6](https://github.com/aziontech/docs/commit/1b2ded662aaf3d668f95ef33f56ef819395d06ae))
+* **pricing:** move Connectors pricing to Build and fix Managed Configurations ([#2667](https://github.com/aziontech/docs/issues/2667)) ([f848cd7](https://github.com/aziontech/docs/commit/f848cd72ca6c56c2ba642a3040581853625a5814))
+* **redirects:** match docs redirects when the URL has a query string ([#2681](https://github.com/aziontech/docs/issues/2681)) ([89032d8](https://github.com/aziontech/docs/commit/89032d87f2acdc17e40f86083c6390640b2a0adc))
+* **sql:** describe the SQL library failure as one top-level error ([#2662](https://github.com/aziontech/docs/issues/2662)) ([743c83b](https://github.com/aziontech/docs/commit/743c83be1ae71d36b15cc6f3a990978de6c3efe6))
+* **store:** correct the Azion.Storage citation and the bucket operations in the S3 classes ([#2674](https://github.com/aziontech/docs/issues/2674)) ([c2ea4d2](https://github.com/aziontech/docs/commit/c2ea4d227edd7114a7c7a1ce5fe2476821856c1b))
+* **support:** move the troubleshooting query to workloadEvents and match the ticket form ([#2668](https://github.com/aziontech/docs/issues/2668)) ([dcc131d](https://github.com/aziontech/docs/commit/dcc131d316b1a937c999e7d4fc9d2d8e8902daf5))
+
+
+### Documentation
+
+* **functions:** move the fetch samples to the ES Modules handler ([#2686](https://github.com/aziontech/docs/issues/2686)) ([18ecaeb](https://github.com/aziontech/docs/commit/18ecaeb733009f6aca8dfc76e5b35b95ff2d4bdb))
+* **sql:** retire the EdgeSQL Shell pages and every mention of the tool ([#2671](https://github.com/aziontech/docs/issues/2671)) ([7aedfb7](https://github.com/aziontech/docs/commit/7aedfb76dc338e39a2f1c2ab83942b16b17a2c0a))
+* **style-guide:** describe the redirect check and the query string match ([#2682](https://github.com/aziontech/docs/issues/2682)) ([3e28dd2](https://github.com/aziontech/docs/commit/3e28dd205bad4da4127ee749c8baeb346d5a10aa))
+* **use-cases:** add Prisma Postgres to external database designs ([#2680](https://github.com/aziontech/docs/issues/2680)) ([c713cb3](https://github.com/aziontech/docs/commit/c713cb3b770208743f17c6c57ede9c3aaa29c58b))
+
 ## [2.6.0](https://github.com/aziontech/docs/compare/docs-v2.5.0...docs-v2.6.0) (2026-11-18)
 
 
