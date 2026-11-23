@@ -1,9 +1,10 @@
 import { appendFileSync } from 'node:fs';
 import process from 'node:process';
 import { en, pt } from '../../redirects/index.js';
+import { sourceOf } from './query-tolerant.mjs';
+import { prepareEntries } from './validate.mjs';
 
 const MASSIVE_REDIRECT_FUNCTION_ID = 12;
-const SIZE_LIMIT_BYTES = 300 * 1024;
 const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_ATTEMPTS = 4;
 
@@ -35,6 +36,8 @@ const TARGETS = [
 ];
 
 const dryRun = process.argv.includes('--dry-run');
+const validateOnly = process.argv.includes('--validate');
+const exactFormat = process.env.MASSIVE_REDIRECT_FORMAT === 'exact';
 const apiUrl = (process.env.AZION_API_URL || 'https://api.azionapi.net').replace(/\/$/, '');
 const token = process.env.AZION_TOKEN;
 const applicationId = process.env.AZION_APPLICATION_ID;
@@ -51,38 +54,9 @@ const canonical = (value) =>
 					Object.keys(v)
 						.sort()
 						.map((k) => [k, v[k]])
-			  )
+				)
 			: v
 	);
-
-const sourceOf = (entry) => entry.from ?? `regex:${entry.from_regex}`;
-
-function validateRedirects(location, entries) {
-	const errors = [];
-	const bytes = Buffer.byteLength(JSON.stringify(entries));
-	if (bytes > SIZE_LIMIT_BYTES) {
-		errors.push(
-			`${location} is ${(bytes / 1024).toFixed(1)} KB, over the 300 KB Massive Redirect limit`
-		);
-	}
-
-	if (!Array.isArray(entries) || entries.length === 0) {
-		return { errors: [`${location}: expected a non-empty array of redirects`], bytes };
-	}
-
-	entries.forEach((entry, index) => {
-		const hasFrom = typeof entry?.from === 'string';
-		const hasRegex = typeof entry?.from_regex === 'string';
-		const hasMoved = typeof entry?.moved === 'string';
-		const hasFound = typeof entry?.found === 'string';
-		if (hasFrom === hasRegex)
-			errors.push(`${location}[${index}]: needs exactly one of "from" / "from_regex"`);
-		if (hasMoved === hasFound)
-			errors.push(`${location}[${index}]: needs exactly one of "moved" / "found"`);
-	});
-
-	return { errors, bytes };
-}
 
 async function request(method, path, body) {
 	const url = `${apiUrl}/edge_applications/${applicationId}/functions_instances/${path}`;
@@ -132,7 +106,28 @@ function describeChange(current, next) {
 	return { before: before.size, after: after.size, added, removed };
 }
 
+const prepare = (target) => prepareEntries(target.file, target.entries, { exact: exactFormat });
+
+function validateFiles() {
+	const errors = [];
+	for (const target of TARGETS) {
+		const prepared = prepare(target);
+		errors.push(...prepared.errors);
+		console.log(
+			`${target.file}: ${prepared.entries.length} redirects, ${(prepared.bytes / 1024).toFixed(
+				1
+			)} KB of 300 KB as published`
+		);
+	}
+	if (errors.length) {
+		for (const error of errors) console.error(`::error::${error}`);
+		fail(`${errors.length} problem(s) found in the redirect files`);
+	}
+}
+
 async function main() {
+	if (validateOnly) return validateFiles();
+
 	if (!token)
 		fail('AZION_TOKEN is not set: pass the token of the account that owns the application');
 	if (!/^\d+$/.test(applicationId ?? ''))
@@ -142,8 +137,8 @@ async function main() {
 	const plan = [];
 	const errors = [];
 	for (const target of TARGETS) {
-		const validated = validateRedirects(target.file, target.entries);
-		errors.push(...validated.errors);
+		const prepared = prepare(target);
+		errors.push(...prepared.errors);
 
 		let instance;
 		try {
@@ -162,7 +157,12 @@ async function main() {
 				`instance ${target.instanceId} runs function ${instance.edge_function_id}, expected Massive Redirect (${MASSIVE_REDIRECT_FUNCTION_ID})`
 			);
 		}
-		plan.push({ ...target, bytes: validated.bytes, current: instance.args });
+		plan.push({
+			...target,
+			entries: prepared.entries,
+			bytes: prepared.bytes,
+			current: instance.args,
+		});
 	}
 
 	if (errors.length) {
