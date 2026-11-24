@@ -49,6 +49,17 @@ export default {
 	'leftSidebar.backToDocs': 'Back to Docs',
 	'leftSidebar.backTo': 'Back to {name}',
 	'leftSidebar.theme': 'Theme',
+	// Version select and stage tags in the rail
+	'versionSelect.helpHeadline': 'Which version does my account run?',
+	'versionSelect.helpTip':
+		'If the Azion Console menu lists Workloads, your account runs API v4. If it does not, it runs API v3.',
+	'versionSelect.helpCta': "Find your account's API version",
+	'versionSelect.helpHref': '/en/documentation/fundamentals/account-api-version/',
+	'versionSelect.current': 'Latest',
+	'versionSelect.label': 'Platform version',
+	'versionSelect.stage.experimental': 'Experimental',
+	'versionSelect.stage.preview': 'Preview',
+	'versionSelect.stage.deprecated': 'Deprecated',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Last updated',
 	'pageHeader.copy': 'Copy as Markdown',
@@ -175,4 +186,27 @@ export default {
 		'Azion earns Frost & Sullivan’s 2023 North American New Product Innovation Award in the edge serverless industry.',
 	'topbar.link': 'https://www.azion.com/en/blog/azion-frost-sullivan-award/',
 	'topbar.cta': 'Check it out!',
+
+	// Page availability (versions and release stage block, wrong-version banner)
+	'pageAvailability.versionsLabel': 'Applies to',
+	'pageAvailability.selected': 'selected version',
+	'pageAvailability.stage.experimental': 'Experimental',
+	'pageAvailability.stage.preview': 'Preview',
+	'pageAvailability.stage.deprecated': 'Deprecated',
+	'pageAvailability.stageHelp': 'About this release stage',
+	'pageAvailability.stageTip.experimental':
+		'Limited to a closed group of customers by invitation, it can be unstable, has no SLA, and is not recommended for production.',
+	'pageAvailability.stageTip.preview':
+		'Ready for broader testing and use, with no SLA unless the release terms say otherwise.',
+	'pageAvailability.stageTip.deprecated':
+		'Scheduled for termination and removal, with no SLA and no commitment to fix bugs, so copy your data or migrate before the notified end-of-life date.',
+	'pageAvailability.stageCta': 'About release stages',
+	'pageAvailability.stageHref': '/en/documentation/agreements/tos/#13-product-release-stages',
+	'pageAvailability.banner.message': 'This page documents {version}, which is deprecated.',
+	'pageAvailability.banner.counterpart': 'For {version}, see',
+	'pageAvailability.versionHelp.headline': 'Which version does my account run?',
+	'pageAvailability.versionHelp.tip':
+		'If the Azion Console menu lists Workloads, your account runs API v4. If it does not, it runs API v3.',
+	'pageAvailability.versionHelp.cta': "Find your account's API version",
+	'pageAvailability.versionHelp.href': '/en/documentation/fundamentals/account-api-version/',
 };

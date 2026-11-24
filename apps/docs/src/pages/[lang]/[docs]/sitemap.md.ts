@@ -2,7 +2,7 @@ import type { APIRoute, GetStaticPaths } from 'astro';
 
 import { DOCS_BASE } from '~/nav/resolve';
 import { LANGS, type Lang } from '~/nav/schema';
-import { getMachineIndex } from '~/util/machineIndex';
+import { availabilityTag, getMachineIndex } from '~/util/machineIndex';
 
 /** sitemap.md at the docs root: one entry per page with the metadata an agent filters
  * on before fetching (type, section, topics, last change, summary), all of it already
@@ -44,7 +44,8 @@ export const GET: APIRoute = async ({ params }) => {
 	for (const tree of index.trees) {
 		lines.push(`## ${tree.title}`, '');
 		for (const page of tree.pages) {
-			lines.push(`- [${page.title.trim()}](${page.url})`);
+			const tag = availabilityTag(page, lang);
+			lines.push(`- [${page.title.trim()}](${page.url})${tag ? ` ${tag}` : ''}`);
 			if (page.kind) lines.push(`  - ${l.type}: ${page.kind}`);
 			lines.push(`  - ${l.section}: ${page.section.join(' > ')}`);
 			if (page.topics.length) lines.push(`  - ${l.topics}: ${page.topics.join(', ')}`);

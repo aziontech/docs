@@ -49,6 +49,17 @@ export default UIDictionary({
 	'leftSidebar.backToDocs': 'Voltar para Docs',
 	'leftSidebar.backTo': 'Voltar para {name}',
 	'leftSidebar.theme': 'Tema',
+	// Version select and stage tags in the rail
+	'versionSelect.helpHeadline': 'Qual versão a minha conta usa?',
+	'versionSelect.helpTip':
+		'Se o menu do Azion Console lista Workloads, a sua conta usa a API v4. Se não lista, usa a API v3.',
+	'versionSelect.helpCta': 'Descubra a versão da API da sua conta',
+	'versionSelect.helpHref': '/pt-br/documentacao/fundamentos/account-api-version/',
+	'versionSelect.current': 'Mais recente',
+	'versionSelect.label': 'Versão da plataforma',
+	'versionSelect.stage.experimental': 'Experimental',
+	'versionSelect.stage.preview': 'Preview',
+	'versionSelect.stage.deprecated': 'Descontinuada',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Última atualização',
 	'pageHeader.copy': 'Copiar como Markdown',
@@ -161,4 +172,28 @@ export default UIDictionary({
 		'Azion ganha o Prêmio Norte-Americano de Inovação de Novos Produtos 2023 da Frost & Sullivan na categoria edge serverless.',
 	'topbar.cta': 'Confira!',
 	'topbar.link': 'https://www.azion.com/pt-br/blog/azion-premio-frost-sullivan/',
+
+	// Disponibilidade da página (bloco de versões e estágio de lançamento, faixa de versão não vigente)
+	'pageAvailability.versionsLabel': 'Aplica-se a',
+	'pageAvailability.selected': 'versão selecionada',
+	'pageAvailability.stage.experimental': 'Experimental',
+	'pageAvailability.stage.preview': 'Preview',
+	'pageAvailability.stage.deprecated': 'Descontinuada',
+	'pageAvailability.stageHelp': 'Sobre este estágio de lançamento',
+	'pageAvailability.stageTip.experimental':
+		'Limitado, por convite, a um grupo fechado de clientes, pode ser instável, não tem SLA e não é recomendado para produção.',
+	'pageAvailability.stageTip.preview':
+		'Pronto para testes e uso mais amplo, sem SLA, salvo se os termos da liberação disserem outra coisa.',
+	'pageAvailability.stageTip.deprecated':
+		'Programado para encerramento e remoção, sem SLA e sem compromisso de corrigir bugs, então copie seus dados ou migre antes da data de End-of-Life notificada.',
+	'pageAvailability.stageCta': 'Sobre os estágios de lançamento',
+	'pageAvailability.stageHref':
+		'/pt-br/documentacao/contratos/tds/#13-estagios-de-liberacao-de-produtos',
+	'pageAvailability.banner.message': 'Esta página documenta a {version}, que está descontinuada.',
+	'pageAvailability.banner.counterpart': 'Para a {version}, veja',
+	'pageAvailability.versionHelp.headline': 'Qual versão a minha conta usa?',
+	'pageAvailability.versionHelp.tip':
+		'Se o menu do Azion Console lista Workloads, a sua conta usa a API v4. Se não lista, usa a API v3.',
+	'pageAvailability.versionHelp.cta': 'Descubra a versão da API da sua conta',
+	'pageAvailability.versionHelp.href': '/pt-br/documentacao/fundamentos/account-api-version/',
 });

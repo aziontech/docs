@@ -29,6 +29,8 @@
 				:trees="visibleTrees"
 				:drillable="drillable"
 				:no-matches-label="noMatchesLabel"
+				:stage-labels="stages"
+				:version-labels="versionLabels"
 				@navigate="onNavigate"
 			/>
 		</MenuGroup>
@@ -48,6 +50,8 @@
 							:trees="visibleTrees"
 							:drillable="drillable"
 							:no-matches-label="noMatchesLabel"
+							:stage-labels="stages"
+							:version-labels="versionLabels"
 							@navigate="onNavigate"
 						/>
 					</MenuGroup>
@@ -71,6 +75,8 @@ import MenuSubTrigger from '@aziontech/webkit/menu-sub-trigger';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import DocsSidebarRows from './DocsSidebarRows.vue';
+
+import type { PlatformVersion, Stage } from '~/nav/versions';
 
 import type { MenuGroupNode, MenuNode, SidebarParent } from '~/nav/resolve';
 
@@ -101,6 +107,12 @@ interface Props {
 	backHref?: string;
 	/** A nested tree's parent: the level the page's own tree is pushed onto, above the catalog. */
 	parentLevel?: SidebarParent | null;
+	/** The platform version whose rows show; the host owns the choice and passes it in. */
+	version?: PlatformVersion;
+	/** Words for the stage tags. */
+	stageLabels?: Record<Stage, string>;
+	/** Short names for the version tags (`v3`, `v4`). */
+	versionLabels?: Record<PlatformVersion, string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -118,9 +130,54 @@ const props = withDefaults(defineProps<Props>(), {
 	levelHref: '',
 	backHref: '',
 	parentLevel: null,
+	version: 'v4',
+	stageLabels: () => ({
+		experimental: 'Experimental',
+		preview: 'Preview',
+		deprecated: 'Deprecated',
+	}),
+	versionLabels: () => ({ v3: 'v3', v4: 'v4' }),
 });
 
 const query = computed(() => props.filter.trim().toLowerCase());
+
+// The server renders with the current version, so rows of another version are already out of the
+// served markup; a stored choice reaches this prop in the mount tick.
+const stages = computed(() => props.stageLabels);
+const versionLabels = computed(() => props.versionLabels);
+
+/** No restriction (absent or empty) means every version. */
+const matchesVersion = (versions: PlatformVersion[] | undefined) =>
+	!versions || versions.length === 0 || versions.includes(props.version);
+
+/**
+ * Rows that apply to the chosen version. The page being read defines the version, so its own row
+ * and the rows above it always match; nothing needs holding in place.
+ */
+function byVersion(nodes: MenuNode[]): MenuNode[] {
+	return nodes.flatMap((node) => {
+		if (!matchesVersion(node.versions)) return [];
+		if (!node.children?.length) return [node];
+		const children = byVersion(node.children);
+		if (children.length) return [{ ...node, children }];
+		// A parent whose rows are all out stays only as the link it is, never as an empty fold.
+		return node.href ? [{ ...node, children: undefined }] : [];
+	});
+}
+
+function groupsByVersion(groups: MenuGroupNode[] | null | undefined): MenuGroupNode[] {
+	return (groups ?? [])
+		.map((group) => ({ ...group, items: byVersion(group.items) }))
+		.filter((group) => group.items.length > 0);
+}
+
+const pageGroups = computed(() => groupsByVersion(props.groups));
+const catalog = computed(() => (props.catalogGroups ? groupsByVersion(props.catalogGroups) : null));
+const fetchedTrees = computed<Record<string, MenuGroupNode[]>>(() =>
+	Object.fromEntries(
+		Object.entries(trees.value).map(([id, groups]) => [id, groupsByVersion(groups)])
+	)
+);
 
 const path = ref<string[]>([]);
 const drilled = ref(false);
@@ -137,8 +194,8 @@ function prune(nodes: MenuNode[]): MenuNode[] {
 }
 
 const visibleGroups = computed(() => {
-	if (!query.value) return props.groups;
-	return props.groups
+	if (!query.value) return pageGroups.value;
+	return pageGroups.value
 		.map((group) => ({ ...group, items: prune(group.items) }))
 		.filter((group) => group.items.length > 0);
 });
@@ -170,9 +227,9 @@ function loadTrees() {
 }
 
 const visibleTrees = computed<Record<string, MenuGroupNode[]>>(() => {
-	if (!query.value) return trees.value;
+	if (!query.value) return fetchedTrees.value;
 	const out: Record<string, MenuGroupNode[]> = {};
-	for (const [id, groups] of Object.entries(trees.value)) {
+	for (const [id, groups] of Object.entries(fetchedTrees.value)) {
 		out[id] = groups
 			.map((group) => ({ ...group, items: prune(group.items) }))
 			.filter((group) => group.items.length > 0);
@@ -180,11 +237,11 @@ const visibleTrees = computed<Record<string, MenuGroupNode[]>>(() => {
 	return out;
 });
 
-const hasCatalog = computed(() => Boolean(props.catalogGroups?.length));
+const hasCatalog = computed(() => Boolean(catalog.value?.length));
 
 const rootGroups = computed<MenuGroupNode[]>(() => {
 	if (!hasCatalog.value) return visibleGroups.value;
-	return drilled.value ? (props.catalogGroups ?? []) : visibleGroups.value;
+	return drilled.value ? (catalog.value ?? []) : visibleGroups.value;
 });
 
 /** Only over a catalog, and only while levels can open: a failed load mounts the page's tree
@@ -192,7 +249,7 @@ const rootGroups = computed<MenuGroupNode[]>(() => {
 const parent = computed(() => (hasCatalog.value && drillable.value ? props.parentLevel : null));
 
 const visibleParentGroups = computed<MenuGroupNode[]>(() => {
-	const groups = parent.value?.groups ?? [];
+	const groups = groupsByVersion(parent.value?.groups);
 	if (!query.value) return groups;
 	return groups
 		.map((group) => ({ ...group, items: prune(group.items) }))
@@ -245,7 +302,7 @@ const backText = computed(() => {
  * the client has, so the first paint draws the tree at the root with this row above it. The stack
  * is mounted only when the reader leaves, never on hydration: served and hydrated markup match.
  */
-const flatBack = computed(() => hasCatalog.value && !drilled.value && props.groups.length > 0);
+const flatBack = computed(() => hasCatalog.value && !drilled.value && pageGroups.value.length > 0);
 
 /** What Back reads once the stack is mounted, so the row and the level name the same place. */
 const flatBackText = computed(() =>

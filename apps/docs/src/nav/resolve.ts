@@ -10,12 +10,26 @@ import type {
 	NavVideos,
 	TopNav,
 } from './schema';
+import {
+	CURRENT_VERSION,
+	VERSION_IDS,
+	sortVersions,
+	type PageAvailability,
+	type PlatformVersion,
+	type Stage,
+} from './versions';
 
 export interface PageFacts {
 	permalink?: string;
 	title?: string;
 	description?: string;
 	updated?: string;
+	/** Frontmatter: the platform versions the page is compatible with; overrides its tree's. */
+	versions?: PlatformVersion[];
+	/** Frontmatter: the page's release stage; overrides its tree's. */
+	stage?: Stage;
+	/** Frontmatter: the equivalent page (a namespace) in each version where this page does not apply. */
+	counterpart?: Partial<Record<PlatformVersion, string>>;
 }
 
 export type PageIndex = Map<string, Partial<Record<Lang, PageFacts>>>;
@@ -28,6 +42,12 @@ export interface MenuNode {
 	target?: '_self' | '_blank';
 	tagValue?: string;
 	opensTree?: string;
+	/** Only when the row restricts: the page's own versions, else its tree's. Absent means every version. */
+	versions?: PlatformVersion[];
+	/** Only when the row's own page restricts by frontmatter, not when it merely inherits its tree's restriction. */
+	ownVersions?: PlatformVersion[];
+	/** Only when the row stands for a staged tree or a page that declares its own stage. */
+	stage?: Stage;
 	children?: MenuNode[];
 }
 
@@ -319,6 +339,43 @@ interface MenuContext {
 	treeId: string | null;
 }
 
+/** The versions a row restricts to (page frontmatter, else the tree it sits in or opens); undefined = all. */
+function nodeVersions(
+	data: NavData,
+	node: NavNode,
+	lang: Lang,
+	owner: NavTree | undefined
+): PlatformVersion[] | undefined {
+	const target = node.tree && !node.page ? data.trees.get(node.tree) : undefined;
+	const declared =
+		(node.page ? pageFacts(data, node.page, lang)?.versions : undefined) ??
+		target?.versions ??
+		(target ? undefined : owner?.versions);
+	if (!declared?.length) return undefined;
+	const sorted = sortVersions(declared);
+	return sorted.length === VERSION_IDS.length ? undefined : sorted;
+}
+
+/** The stage a row shows: the tree it opens, or the page's own frontmatter stage. Never inherited by every row of a staged tree. */
+function nodeStage(data: NavData, node: NavNode, lang: Lang): Stage | undefined {
+	if (node.page) return pageFacts(data, node.page, lang)?.stage;
+	return node.tree ? data.trees.get(node.tree)?.stage : undefined;
+}
+
+/**
+ * The versions the row tags itself with: the ones its own page declares in frontmatter (not
+ * inherited from a tree), minus the current platform version, which is the default and needs no
+ * tag. Undefined = nothing to tag.
+ */
+function nodeOwnVersions(data: NavData, node: NavNode, lang: Lang): PlatformVersion[] | undefined {
+	const declared = node.page ? pageFacts(data, node.page, lang)?.versions : undefined;
+	if (!declared?.length) return undefined;
+	const sorted = sortVersions(declared);
+	if (sorted.length === VERSION_IDS.length) return undefined;
+	const tagged = sorted.filter((version) => version !== CURRENT_VERSION);
+	return tagged.length ? tagged : undefined;
+}
+
 function toMenuNodes(
 	data: NavData,
 	nodes: NavNode[],
@@ -335,7 +392,12 @@ function toMenuNodes(
 		const label = nodeLabel(data, node, lang);
 		if (!label) return;
 
-		if (node.hidden) {
+		const versions = nodeVersions(data, node, lang, owner);
+		const stage = nodeStage(data, node, lang);
+		const ownVersions = nodeOwnVersions(data, node, lang);
+
+		// A hidden row that declares versions is emitted so the client can filter it; one without stays hidden.
+		if (node.hidden && !versions) {
 			const href = nodeHref(data, node, lang, owner);
 			if (href && normalize(href) === ctx.activePath) ctx.expanded.push(...ancestors);
 			return;
@@ -370,9 +432,20 @@ function toMenuNodes(
 					target: external ? '_blank' : '_self',
 					tagValue,
 					opensTree,
+					...(versions && { versions }),
+					...(ownVersions && { ownVersions }),
+					...(stage && { stage }),
 				});
 			}
-			out.push({ id, label, icon: node.icon, children });
+			out.push({
+				id,
+				label,
+				icon: node.icon,
+				children,
+				...(versions && { versions }),
+				...(ownVersions && { ownVersions }),
+				...(stage && { stage }),
+			});
 			return;
 		}
 
@@ -384,6 +457,9 @@ function toMenuNodes(
 			target: external ? '_blank' : '_self',
 			tagValue,
 			opensTree,
+			...(versions && { versions }),
+			...(ownVersions && { ownVersions }),
+			...(stage && { stage }),
 		});
 	});
 
@@ -737,6 +813,65 @@ export function resolveHubList(
 			},
 		];
 	});
+}
+
+/**
+ * What a page tells the version select and the page header: its compatible versions (its own,
+ * else its tree's, else all), its stage, and where each incompatible version's equivalent lives.
+ */
+export function resolvePageAvailability(
+	data: NavData,
+	index: NavIndex,
+	pathname: string,
+	lang: Lang
+): PageAvailability {
+	const activePath = normalize(pathname);
+	const location = index.get(activePath);
+	const tree = location ? data.trees.get(location.treeId) : undefined;
+
+	let namespace = location?.node.page;
+	if (!namespace) {
+		for (const [key, entry] of data.pages) {
+			const permalink = entry[lang]?.permalink ?? entry.en?.permalink;
+			if (permalink && `/${lang}${withSlashes(permalink)}` === activePath) {
+				namespace = key;
+				break;
+			}
+		}
+	}
+	const facts = namespace ? pageFacts(data, namespace, lang) : undefined;
+
+	const versions = sortVersions(facts?.versions ?? tree?.versions ?? VERSION_IDS);
+	const stage = facts?.stage ?? tree?.stage;
+
+	const counterparts: PageAvailability['counterparts'] = {};
+	for (const version of VERSION_IDS) {
+		if (versions.includes(version)) continue;
+		const pageTarget = facts?.counterpart?.[version];
+		if (pageTarget) {
+			const href = pageHref(data, pageTarget, lang);
+			if (href) {
+				counterparts[version] = {
+					href,
+					label: pageFacts(data, pageTarget, lang)?.title ?? pageTarget,
+				};
+				continue;
+			}
+		}
+		const treeTarget = tree?.counterpart?.[version];
+		const target = treeTarget ? data.trees.get(treeTarget) : undefined;
+		const href = target ? treeHref(data, target, lang) : undefined;
+		if (target && href)
+			counterparts[version] = { href, label: text(target.title, lang) ?? target.id };
+	}
+
+	const home = `/${lang}/${DOCS_BASE[lang]}/`;
+	const homes = Object.fromEntries(VERSION_IDS.map((id) => [id, home])) as Record<
+		PlatformVersion,
+		string
+	>;
+
+	return { versions, ...(stage && { stage }), counterparts, homes };
 }
 
 export interface Crumb {

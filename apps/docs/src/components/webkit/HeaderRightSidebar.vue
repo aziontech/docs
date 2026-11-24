@@ -24,6 +24,13 @@
 					</PanelHeader>
 				</div>
 
+				<div
+					v-if="menuGroups?.length && $slots['version-select']"
+					class="w-full px-(--spacing-md) pt-(--spacing-md)"
+				>
+					<slot name="version-select" />
+				</div>
+
 				<div class="flex min-h-0 w-full grow flex-col">
 					<ScrollArea tabindex="-1">
 						<div class="p-(--spacing-md) text-body-sm">
@@ -42,6 +49,9 @@
 								:level-href="menuHeader?.href ?? ''"
 								:back-href="menuHeader?.backHref ?? ''"
 								:parent-level="menuParent"
+								:version="version"
+								:stage-labels="stageLabels"
+								:version-labels="versionLabels"
 							/>
 
 							<DocsSidebarMenu
@@ -91,10 +101,14 @@ import type {
 	SidebarHeader as SidebarHeaderModel,
 	SidebarParent,
 } from '~/nav/resolve';
+import type { PlatformVersion, Stage } from '~/nav/versions';
+import type { VersionPayload } from '~/components/LeftSidebar/VersionSelect.vue';
 
 defineSlots<{
 	/** The drawer's scrolling body, below the menus. */
 	'main-content'(): unknown;
+	/** The version select, above the menus. */
+	'version-select'(): unknown;
 }>();
 
 withDefaults(
@@ -137,15 +151,45 @@ withDefaults(
 
 const open = ref(false);
 
+// The drawer mounts away from the rail, so it follows the choice through what the composable
+// reflects on <html> (set before paint and on every change), and reads the stage words from the
+// JSON the rail's server render leaves in the page.
+const version = ref<PlatformVersion>('v4');
+const stageLabels = ref<Record<Stage, string> | undefined>(undefined);
+const versionLabels = ref<Record<PlatformVersion, string> | undefined>(undefined);
+let watcher: MutationObserver | null = null;
+
+function readVersion() {
+	const value = document.documentElement.getAttribute('data-platform-version');
+	version.value = value === 'v3' || value === 'v4' ? value : 'v4';
+}
+
 function onPaletteOpen() {
 	open.value = false;
 }
 
 onMounted(() => {
 	window.addEventListener('docs:palette-open', onPaletteOpen);
+	readVersion();
+	watcher = new MutationObserver(readVersion);
+	watcher.observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: ['data-platform-version'],
+	});
+	try {
+		const raw = document.getElementById('docs-page-availability')?.textContent;
+		if (raw) {
+			const labels = (JSON.parse(raw) as VersionPayload).labels;
+			stageLabels.value = labels.stages;
+			versionLabels.value = labels.short;
+		}
+	} catch {
+		// no payload: the stage tags keep their default words
+	}
 });
 
 onBeforeUnmount(() => {
 	window.removeEventListener('docs:palette-open', onPaletteOpen);
+	watcher?.disconnect();
 });
 </script>

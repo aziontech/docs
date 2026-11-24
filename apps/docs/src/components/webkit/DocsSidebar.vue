@@ -6,6 +6,10 @@
 		collapsible
 		:aria-label="ariaLabel"
 	>
+		<template v-if="$slots['version-select']" #header>
+			<slot name="version-select" />
+		</template>
+
 		<DocsSidebarMenu
 			presentation
 			:groups="groups"
@@ -21,6 +25,9 @@
 			:level-href="header?.href ?? ''"
 			:back-href="header?.backHref ?? ''"
 			:parent-level="parentLevel"
+			:version="version"
+			:stage-labels="stageLabels"
+			:version-labels="versionLabels"
 		/>
 
 		<template #footer>
@@ -41,6 +48,7 @@ import type {
 	SidebarHeader as SidebarHeaderModel,
 	SidebarParent,
 } from '~/nav/resolve';
+import type { PlatformVersion, Stage } from '~/nav/versions';
 
 withDefaults(
 	defineProps<{
@@ -56,6 +64,12 @@ withDefaults(
 		backLabel?: string;
 		backToPattern?: string;
 		parentLevel?: SidebarParent | null;
+		/** The platform version whose rows show; the host owns the choice. */
+		version?: PlatformVersion;
+		/** Words for the stage tags. */
+		stageLabels?: Record<Stage, string>;
+		/** Short names for the version tags (`v3`, `v4`). */
+		versionLabels?: Record<PlatformVersion, string>;
 	}>(),
 	{
 		activeId: '',
@@ -69,8 +83,20 @@ withDefaults(
 		backLabel: '',
 		backToPattern: 'Back to {name}',
 		parentLevel: null,
+		version: 'v4',
+		stageLabels: () => ({
+			experimental: 'Experimental',
+			preview: 'Preview',
+			deprecated: 'Deprecated',
+		}),
+		versionLabels: () => ({ v3: 'v3', v4: 'v4' }),
 	}
 );
+
+defineSlots<{
+	/** The version select, above the menu. */
+	'version-select'(): unknown;
+}>();
 
 const filter = ref('');
 
