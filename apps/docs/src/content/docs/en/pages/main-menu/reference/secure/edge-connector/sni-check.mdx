@@ -1,72 +1,101 @@
 ---
 title: SNI Check
-description: See when Azion answers an HTTPS request with 421 Misdirected Request because the SNI and Host header match no certificate on the workload.
+description: See when Azion answers an HTTPS request to a Workload with 421 Misdirected Request, the checks that decide it, and who turns enforcement on.
 meta_tags: 'SNI, TLS, HTTPS, certificate, misdirected request, 421, SNI spoofing, security, Connectors, Firewall'
 namespace: documentation_products_secure_edge_connector_sni_check
 permalink: /documentation/platform/connectors/sni-check/
 ---
-
 import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
 
-**SNI Check** is a security enforcement mechanism built into the Azion Web Platform that validates the Server Name Indication (SNI) field of incoming HTTPS requests against the TLS certificate configured for the matching workload. When a mismatch is detected and the certificate cannot cover the requested hostname, the platform returns an HTTP `421 Misdirected Request` response, preventing the request from being served under an incorrect security context.
+An HTTPS client names the host it wants twice. In the TLS handshake, it sends the hostname as the Server Name Indication (SNI), before the server sends its certificate. The server uses that name to choose a certificate, so one IP address can serve many hostnames, each with its own certificate.
+
+Each request on the connection then names a host again, in its `Host` header. When the certificate does not cover that host, the request is misdirected: it would be served under a certificate that was never issued for its host. A server can refuse such a request with `421 Misdirected Request`.
+
+**SNI Check** is a Feature of the Azion Platform that takes this decision for each HTTPS request to a [Workload](/en/documentation/platform/workloads/). It acts before any [Application](/en/documentation/platform/applications/) or Connector runs, so a refused request never reaches your origin. For where it acts on a request, refer to the [Connectors request path](/en/documentation/platform/connectors/#request-path).
+
+The sections cover the order of the checks, how a certificate covers a host, and enforcement.
 
 ---
 
-## What is SNI and why it matters
+## Order of the checks
 
-**Server Name Indication (SNI)** is a TLS extension that allows a client to specify the hostname it intends to reach during the TLS handshake, before the server sends its certificate. This enables a single server to host multiple TLS-enabled workloads on the same IP address, each with its own certificate.
+SNI Check runs its checks in a fixed order, and the first check that settles the request decides the outcome. Most outcomes let the request continue to the Application that the Workload's deployment sets, and two end in a `421`.
 
-On the Azion Web Platform, each workload is associated with a [Certificate Manager](/en/documentation/platform/certificate-manager/certificates/) entry. When a client establishes a TLS connection, the platform uses the SNI value to select the appropriate certificate. If the HTTP `Host` header used in the subsequent request does not match the certificate's covered names (Common Name or Subject Alternative Names), the request is considered misdirected.
+Solid arrows carry the request, and dotted arrows carry the response. Each label starts with the number of its step in the list after the diagram.
+
+```mermaid
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+flowchart TD
+  Client(["Client"])
+  WL["Workload: SNI Check"]
+  Scheme{"HTTPS?"}
+  Same{"Host equals SNI?"}
+  Empty{"SNI empty?"}
+  Latest{"Latest platform version?"}
+  Domain{"Domain for the SNI?"}
+  EnforceA{"Enforcement on?"}
+  Session{"TLS session data?"}
+  Managed{"Azion-managed certificate?"}
+  Covers{"Certificate covers Host?"}
+  EnforceB{"Enforcement on?"}
+  App["Application"]
+  Client -->|"1. request"| WL
+  WL -->|"1. check"| Scheme
+  Scheme -->|"1. no"| App
+  Scheme -->|"2. yes"| Same
+  Same -->|"2. yes"| App
+  Same -->|"3. no"| Empty
+  Empty -->|"3. yes"| App
+  Empty -->|"4. no"| Latest
+  Latest -->|"4. yes"| Domain
+  Domain -->|"4. yes"| App
+  Domain -->|"5, 6. no"| EnforceA
+  EnforceA -.->|"5. 421"| Client
+  EnforceA -->|"6. no"| App
+  Latest -->|"7. no"| Session
+  Session -->|"7. missing"| App
+  Session -->|"8. present"| Managed
+  Managed -->|"8. yes"| App
+  Managed -->|"9. no"| Covers
+  Covers -->|"9. yes"| App
+  Covers -->|"10, 11. no"| EnforceB
+  EnforceB -.->|"10. 421"| Client
+  EnforceB -->|"11. no"| App
+```
+
+1. The client sends a request to a domain of the Workload. A plain HTTP request skips SNI Check and continues to the Application.
+2. Over HTTPS, SNI Check compares the `Host` header with the SNI value, `ssl_server_name`, without regard to letter case. When the two match, the request continues.
+3. When the client sent no SNI value, so `ssl_server_name` is empty, the request continues.
+4. When the Workload is on the latest platform version and has a domain for the SNI value, the request continues.
+5. When the Workload is on the latest platform version, no domain matches, and enforcement is on, Azion answers `421 Misdirected Request`.
+6. With enforcement off, that request continues.
+7. Otherwise, when the TLS session data is unavailable, the request continues.
+8. When the certificate is an Azion-managed certificate, the request continues.
+9. When `X509_check_host` confirms that the certificate covers the `Host` header, the request continues.
+10. When none of these checks lets the request through and enforcement is on, Azion answers `421 Misdirected Request`.
+11. With enforcement off, the request continues.
 
 ---
 
-## Request routing decision algorithm
+## Host coverage by a certificate
 
-For every incoming request, the platform applies the following decision logic to determine whether to serve the request normally or return a `421` response:
+A Workload serves HTTPS with a certificate from [Certificate Manager](/en/documentation/platform/certificate-manager/certificates/). A certificate covers the hostnames in its Common Name (CN) and in its Subject Alternative Names (SANs).
 
-![Request routing decision algorithm](/assets/docs/images/uploads/request-decision.png)
+`X509_check_host`, a function of [OpenSSL](https://www.openssl.org/docs/man3.0/man3/X509_check_host.html), takes the decision of step 9. It checks whether the `Host` header falls within the CN or the SANs of the certificate. For example, a certificate for `example.com` does not cover a request for `api.other-domain.com`, so that request receives `421 Misdirected Request` when enforcement is on.
 
-### Decision steps explained
-
-| Step | Condition | Outcome |
-|------|-----------|---------|
-| 1 | Request is not HTTPS | Proceed normally — SNI check does not apply to plain HTTP |
-| 2 | `Host` header matches `ssl_server_name` (case-insensitive) | Proceed normally — SNI and Host are consistent |
-| 3 | `ssl_server_name` is empty | Proceed normally — no SNI was sent by the client |
-| 4 | Workload is on the latest platform version and has a domain configured for the SNI value | Proceed normally — the SNI resolves to a known workload |
-| 5 | Workload is on the latest platform version, no domain matches, and enforcement is enabled | Return `421 Misdirected Request` |
-| 6 | Workload is on the latest platform version, no domain matches, and enforcement is disabled | Proceed normally |
-| 7 | TLS session data is unavailable | Proceed normally — the platform fails open to avoid disrupting legitimate traffic |
-| 8 | Certificate is an Azion-managed certificate | Proceed normally — Azion certificates are trusted by the platform |
-| 9 | `X509_check_host` confirms the Host is valid for the certificate | Proceed normally — the certificate covers the requested hostname |
-| 10 | None of the above conditions are met and enforcement is enabled | Return `421 Misdirected Request` |
-| 11 | None of the above conditions are met and enforcement is disabled | Proceed normally |
-
-### The X509_check_host enforcement
-
-The validation step uses OpenSSL's [`X509_check_host`](https://www.openssl.org/docs/man3.0/man3/X509_check_host.html) function to verify whether the `Host` header value is covered by the certificate's CN (Common Name) or SANs (Subject Alternative Names). This check is enforced for all workloads on the Azion Web Platform when SNI Check enforcement is enabled.
-
-If the hostname is not within the certificate's scope — for example, the certificate covers `example.com` but the request targets `api.other-domain.com` — the platform returns `421 Misdirected Request`.
-
-For more information on finding and fixing the requests that receive a `421` response, refer to [Troubleshoot Connectors](/en/documentation/platform/connectors/troubleshooting/#a-request-receives-421-misdirected-request).
-
-:::note
-The comparison between `Host` and `ssl_server_name` is performed in a case-insensitive manner. Differences in letter casing alone do not trigger a `421` response.
-:::
-
-:::note
-When TLS session data cannot be retrieved, the platform proceeds normally rather than blocking the request. This fail-open behavior prevents legitimate traffic from being disrupted due to transient infrastructure conditions.
-:::
+Two checks let a request through before step 9 tests its certificate. An Azion-managed certificate passes at step 8. A request without TLS session data passes at step 7, because SNI Check fails open: a transient infrastructure condition never blocks legitimate traffic. The cost is that such a request is not checked at all.
 
 ---
 
-## Enforcement scope
+## Enforcement
 
-Enforcing strict SNI validation significantly reduces the risk of **SNI Spoofing** attacks. In this attack, a malicious actor manipulates the SNI field to route a TLS connection through a certificate that does not legitimately cover the target hostname. By returning `421 Misdirected Request` in these cases, the Azion Web Platform ensures that each HTTPS request is served only under a valid and appropriate security context.
+Enforcement decides whether a failed check refuses the request. With enforcement off, steps 6 and 11 let the request continue, so SNI Check refuses nothing. Enforcement has no setting in Azion Console or in the API. To turn it on or off for your Workloads, contact [Azion Support](/en/documentation/support/).
 
-SNI Check enforcement is not configurable through the Azion Console or the API. To enable or disable it for your workloads, contact [Azion Support](https://www.azion.com/en/support/).
+Enforcement protects against SNI spoofing, an attack that changes the SNI value so a TLS connection runs under a certificate that does not cover the target host. With enforcement on, a request that fails the checks is refused instead of served under a certificate that does not cover its host.
+
+The same check also refuses legitimate clients that reuse one connection for several hostnames, through connection pooling or HTTP/2 multiplexing. To find those requests and fix the certificate or the client, refer to [A request receives 421 Misdirected Request](/en/documentation/platform/connectors/troubleshooting/#a-request-receives-421-misdirected-request).
 
 ---
 
@@ -74,9 +103,9 @@ SNI Check enforcement is not configurable through the Azion Console or the API. 
 
 <FrameBox>
 <ItemList>
-  <DocItem title="Certificates" href="/en/documentation/platform/certificate-manager/certificates/">The certificates whose Common Name and Subject Alternative Names decide which hostnames pass the check.</DocItem>
-  <DocItem title="Troubleshoot Connectors" href="/en/documentation/platform/connectors/troubleshooting/#a-request-receives-421-misdirected-request">How to find the requests that receive a 421 response and fix the certificate or the hostname.</DocItem>
-  <DocItem title="Real-Time Events" href="/en/documentation/platform/real-time-events/">The logs that show the host and the TLS server name of each request.</DocItem>
-  <DocItem title="Connectors" href="/en/documentation/platform/connectors/">What a connector does once a request passes the check and reaches your application.</DocItem>
+  <DocItem title="Certificates" href="/en/documentation/platform/certificate-manager/certificates/">The certificates a Workload uses, and the names in each one that step 9 tests.</DocItem>
+  <DocItem title="Troubleshoot Connectors" href="/en/documentation/platform/connectors/troubleshooting/">The fixes for a 421 response and for the other errors between a rule and your origin.</DocItem>
+  <DocItem title="Real-Time Events" href="/en/documentation/platform/real-time-events/">The logs that show the host and the SNI value of each request.</DocItem>
+  <DocItem title="Connectors" href="/en/documentation/platform/connectors/">Where a request goes after SNI Check lets it through, from the rule to your origin.</DocItem>
 </ItemList>
 </FrameBox>
