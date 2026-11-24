@@ -21,7 +21,7 @@ export const ptBr: PlatformTopologyContent = {
 					{
 						id: 'domains',
 						label: 'Domínios',
-						href: '/pt-br/documentacao/plataforma/workloads/domains/',
+						href: '/pt-br/documentacao/plataforma/domains/',
 					},
 					{
 						id: 'certificate-manager',
