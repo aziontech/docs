@@ -237,6 +237,33 @@ describe('mdxToMarkdown', () => {
 		);
 	});
 
+	test('turns each tab of a tabbed Code into a labeled fence', async () => {
+		const out = await convert(
+			[
+				'<Code client:visible tabs={[',
+				"  { label: 'npm', lang: 'bash', code: 'npm install azion' },",
+				"  { label: 'Yarn', lang: 'bash', code: `yarn add azion\n` },",
+				']} />',
+			].join('\n')
+		);
+		expect(out).toBe(
+			[
+				'**npm**',
+				'',
+				'```bash',
+				'npm install azion',
+				'```',
+				'',
+				'**Yarn**',
+				'',
+				'```bash',
+				'yarn add azion',
+				'```',
+				'',
+			].join('\n')
+		);
+	});
+
 	test('turns a changelog entry into a dated section with its version and tags', async () => {
 		const out = await convert(
 			[
