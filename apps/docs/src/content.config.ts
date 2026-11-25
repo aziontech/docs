@@ -25,6 +25,7 @@ export const baseSchema = z.object({
 				'gemini',
 				'cursor',
 				'windsurf',
+				'devin',
 				'opencode',
 				'copilot',
 				'warp',
