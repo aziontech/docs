@@ -11,14 +11,22 @@
 
 		<div v-if="!mounted && drilled" class="flex flex-col">
 			<div class="mb-(--spacing-sm) flex h-8 items-center">
-				<Skeleton width="8rem" height="2rem" />
+				<Skeleton :width="skeletonBackWidth" height="2rem" />
 			</div>
 			<div
-				v-for="(width, index) in skeletonRows"
-				:key="index"
-				class="flex h-8 items-center px-(--spacing-sm)"
+				v-for="(group, groupIndex) in skeletonGroups"
+				:key="groupIndex"
+				class="flex flex-col"
+				:class="groupIndex > 0 ? 'my-(--spacing-sm)' : ''"
 			>
-				<Skeleton :width="width" height="0.75rem" />
+				<div
+					v-for="(row, index) in group"
+					:key="index"
+					class="flex h-8 min-w-0 items-center"
+					:style="{ paddingInlineStart: row.inset, paddingInlineEnd: 'var(--spacing-sm)' }"
+				>
+					<Skeleton :width="row.width" height="0.75rem" />
+				</div>
 			</div>
 		</div>
 
@@ -252,24 +260,23 @@ const pushedDrill = computed(() => path.value.length > (drilled.value ? 1 : 0));
 
 const mounted = ref(false);
 
-const SKELETON_WIDTHS = ['60%', '45%', '70%', '50%', '65%'];
+const skeletonBackWidth = computed(() => `calc(2.75rem + ${backText.value.length} * 0.46rem)`);
 
-const skeletonRows = computed(() => {
+const skeletonGroups = computed(() => {
 	const open = new Set(props.initialExpanded);
-	const count = (nodes: MenuNode[]): number =>
-		nodes.reduce(
-			(total, node) =>
-				total + 1 + (node.children?.length && open.has(node.id) ? count(node.children) : 0),
-			0
-		);
-	const total = props.groups.reduce(
-		(sum, group) => sum + (group.label ? 1 : 0) + count(group.items),
-		0
-	);
-	return Array.from(
-		{ length: total },
-		(_, index) => SKELETON_WIDTHS[index % SKELETON_WIDTHS.length]
-	);
+	const bar = (label: string, scale: number, depth: number) => ({
+		width: `min(${label.length * scale}rem, 100%)`,
+		inset: `calc(var(--spacing-sm) + ${depth} * (var(--spacing-sm) + var(--spacing-xs)))`,
+	});
+	const rows = (nodes: MenuNode[], depth: number): ReturnType<typeof bar>[] =>
+		nodes.flatMap((node) => [
+			bar(node.label, 0.46, depth),
+			...(node.children?.length && open.has(node.id) ? rows(node.children, depth + 1) : []),
+		]);
+	return props.groups.map((group) => [
+		...(group.label ? [bar(group.label, 0.42, 0)] : []),
+		...rows(group.items, 0),
+	]);
 });
 
 function foldIds(nodes: MenuNode[], out: string[] = []): string[] {
