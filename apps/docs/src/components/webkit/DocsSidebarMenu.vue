@@ -9,25 +9,8 @@
 	>
 		<MenuBack>{{ backText }}</MenuBack>
 
-		<div v-if="!mounted && drilled" class="flex flex-col">
-			<div class="mb-(--spacing-sm) flex h-8 items-center">
-				<Skeleton :width="skeletonBackWidth" height="2rem" />
-			</div>
-			<div
-				v-for="(group, groupIndex) in skeletonGroups"
-				:key="groupIndex"
-				class="flex flex-col"
-				:class="groupIndex > 0 ? 'my-(--spacing-sm)' : ''"
-			>
-				<div
-					v-for="(row, index) in group"
-					:key="index"
-					class="flex h-8 min-w-0 items-center"
-					:style="{ paddingInlineStart: row.inset, paddingInlineEnd: 'var(--spacing-sm)' }"
-				>
-					<Skeleton :width="row.width" height="0.75rem" />
-				</div>
-			</div>
+		<div v-if="!mounted && drilled" class="mb-(--spacing-sm) flex h-8 items-center">
+			<Skeleton :width="skeletonBackWidth" height="2rem" />
 		</div>
 
 		<MenuGroup
@@ -192,9 +175,11 @@ const hasCatalog = computed(() => Boolean(props.catalogGroups?.length));
 
 const drilled = computed(() => hasCatalog.value && props.groups.length > 0);
 
+const mounted = ref(false);
+
 const rootGroups = computed<MenuGroupNode[]>(() => {
 	if (!hasCatalog.value) return visibleGroups.value;
-	return drilled.value ? (props.catalogGroups ?? []) : visibleGroups.value;
+	return drilled.value && mounted.value ? (props.catalogGroups ?? []) : visibleGroups.value;
 });
 
 /** Only over a catalog, and only while levels can open: a failed load mounts the page's tree
@@ -211,7 +196,7 @@ const visibleParentGroups = computed<MenuGroupNode[]>(() => {
 
 /** The level over the catalog: the parent tree's when nested, else the page's own. */
 const levelGroups = computed<MenuGroupNode[]>(() => {
-	if (!drilled.value) return [];
+	if (!drilled.value || !mounted.value) return [];
 	return parent.value ? visibleParentGroups.value : visibleGroups.value;
 });
 
@@ -250,7 +235,8 @@ const backText = computed(() => {
 	return name ? props.backToPattern.replace('{name}', name) : props.backLabel;
 });
 
-if (drilled.value) {
+function enterLevel() {
+	if (!drilled.value) return;
 	if (parent.value) trees.value = { [parent.value.tree]: props.groups };
 	path.value = parent.value ? [LEVEL_ID, parent.value.drillId] : [LEVEL_ID];
 }
@@ -258,26 +244,13 @@ if (drilled.value) {
 /** A level the reader pushed, above the product level the page mounts at. */
 const pushedDrill = computed(() => path.value.length > (drilled.value ? 1 : 0));
 
-const mounted = ref(false);
+const skeletonBackText = computed(() =>
+	parent.value ? props.backToPattern.replace('{name}', parent.value.title) : props.backLabel
+);
 
-const skeletonBackWidth = computed(() => `calc(2.75rem + ${backText.value.length} * 0.46rem)`);
-
-const skeletonGroups = computed(() => {
-	const open = new Set(props.initialExpanded);
-	const bar = (label: string, scale: number, depth: number) => ({
-		width: `min(${label.length * scale}rem, 100%)`,
-		inset: `calc(var(--spacing-sm) + ${depth} * (var(--spacing-sm) + var(--spacing-xs)))`,
-	});
-	const rows = (nodes: MenuNode[], depth: number): ReturnType<typeof bar>[] =>
-		nodes.flatMap((node) => [
-			bar(node.label, 0.46, depth),
-			...(node.children?.length && open.has(node.id) ? rows(node.children, depth + 1) : []),
-		]);
-	return props.groups.map((group) => [
-		...(group.label ? [bar(group.label, 0.42, 0)] : []),
-		...rows(group.items, 0),
-	]);
-});
+const skeletonBackWidth = computed(
+	() => `calc(2.75rem + ${skeletonBackText.value.length} * 0.44rem)`
+);
 
 function foldIds(nodes: MenuNode[], out: string[] = []): string[] {
 	for (const node of nodes) {
@@ -294,6 +267,7 @@ const menuRef = ref<{ $el?: HTMLElement; pop?: () => void } | null>(null);
 const expanded = ref<string[]>([...props.initialExpanded]);
 
 onMounted(() => {
+	enterLevel();
 	mounted.value = true;
 	loadTrees();
 });
