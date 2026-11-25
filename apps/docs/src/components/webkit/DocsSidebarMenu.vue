@@ -184,7 +184,7 @@ const hasCatalog = computed(() => Boolean(props.catalogGroups?.length));
 
 const rootGroups = computed<MenuGroupNode[]>(() => {
 	if (!hasCatalog.value) return visibleGroups.value;
-	return drilled.value ? props.catalogGroups ?? [] : visibleGroups.value;
+	return drilled.value ? (props.catalogGroups ?? []) : visibleGroups.value;
 });
 
 /** Only over a catalog, and only while levels can open: a failed load mounts the page's tree
@@ -235,8 +235,8 @@ const backText = computed(() => {
 				? props.levelLabel
 				: ''
 			: below === LEVEL_ID
-			? baseLabel.value
-			: drillLabels.value.get(below) ?? '';
+				? baseLabel.value
+				: (drillLabels.value.get(below) ?? '');
 	return name ? props.backToPattern.replace('{name}', name) : props.backLabel;
 });
 
