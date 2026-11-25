@@ -8,8 +8,6 @@
 import WebkitCodeBlock from '@aziontech/webkit/code-block';
 import { computed, useId } from 'vue';
 
-// The bar on top of a code block names its language when the block carries no
-// file name. Tags are the fence's info string; unknown tags show as written.
 const LABELS: Record<string, string> = {
 	bash: 'Shell',
 	sh: 'Shell',
@@ -49,28 +47,18 @@ function codeLanguageLabel(lang: string | undefined, locale = 'en'): string | un
 }
 
 interface CodeTab {
-	/** Tab label, such as `npm`. */
 	label: string;
-	/** Source to render in this tab. */
 	code: string;
-	/** Highlighting language of this tab. */
 	lang?: string;
 }
 
 interface Props {
-	/** Source to render. Ignored when `tabs` is set. */
 	code?: string;
-	/** Highlighting language; also names the bar on top of a multi-line block. */
 	lang?: string;
-	/** Shown in the bar on top, in place of the language name. */
 	fileName?: string;
-	/** Numbers each line. Defaults to on for a multi-line block, off for one line. */
 	showLineNumbers?: boolean;
-	/** Page locale, for the bar's language name. */
 	locale?: string;
-	/** Reads the first column of each line as a diff marker: `+` added, `-` removed, a space unchanged. */
 	diff?: boolean;
-	/** One tab per version of the same code, such as an install command per package manager. Replaces `code` and `lang`. */
 	tabs?: CodeTab[];
 }
 
@@ -88,8 +76,6 @@ const trim = (value: string) => value.replace(/^\n+/, '').replace(/\s+$/, '') ||
 
 const raw = computed(() => trim(props.code));
 
-// A diff block keeps its markers out of the code: each line loses its first column,
-// and `+` or `-` there becomes a line change webkit draws in its diff layout.
 const parsed = computed(() => {
 	if (!props.diff) return { code: raw.value, lineChanges: undefined };
 	const lineChanges: { line: number; change: 'added' | 'removed' }[] = [];
@@ -109,17 +95,13 @@ const multiline = computed(() =>
 		: source.value.includes('\n')
 );
 
-// A one-liner follows webkit's single-line story: no bar, no gutter. A multi-line
-// block gets both, the bar naming the language when no file name is given.
 const lineNumbers = computed(() => props.showLineNumbers ?? multiline.value);
-// webkit's diff layout has no bar on top.
 const barLabel = computed(() =>
 	props.diff
 		? undefined
 		: props.fileName || (multiline.value ? codeLanguageLabel(props.lang, props.locale) : undefined)
 );
 
-// webkit builds each tab's id from its value, so two tabbed blocks on one page need distinct values.
 const uid = useId();
 
 const webkitTabs = computed(() =>
