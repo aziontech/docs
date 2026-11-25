@@ -9,6 +9,19 @@
 	>
 		<MenuBack>{{ backText }}</MenuBack>
 
+		<div v-if="!mounted && drilled" class="flex flex-col">
+			<div class="mb-(--spacing-sm) flex h-8 items-center">
+				<Skeleton width="8rem" height="2rem" />
+			</div>
+			<div
+				v-for="(width, index) in skeletonRows"
+				:key="index"
+				class="flex h-8 items-center px-(--spacing-sm)"
+			>
+				<Skeleton :width="width" height="0.75rem" />
+			</div>
+		</div>
+
 		<MenuGroup
 			v-for="(group, index) in rootGroups"
 			:key="group.label ?? index"
@@ -58,6 +71,7 @@ import MenuRoot from '@aziontech/webkit/menu-root';
 import MenuSub from '@aziontech/webkit/menu-sub';
 import MenuSubContent from '@aziontech/webkit/menu-sub-content';
 import MenuSubTrigger from '@aziontech/webkit/menu-sub-trigger';
+import Skeleton from '@aziontech/webkit/skeleton';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import DocsSidebarRows from './DocsSidebarRows.vue';
@@ -236,6 +250,28 @@ if (drilled.value) {
 /** A level the reader pushed, above the product level the page mounts at. */
 const pushedDrill = computed(() => path.value.length > (drilled.value ? 1 : 0));
 
+const mounted = ref(false);
+
+const SKELETON_WIDTHS = ['60%', '45%', '70%', '50%', '65%'];
+
+const skeletonRows = computed(() => {
+	const open = new Set(props.initialExpanded);
+	const count = (nodes: MenuNode[]): number =>
+		nodes.reduce(
+			(total, node) =>
+				total + 1 + (node.children?.length && open.has(node.id) ? count(node.children) : 0),
+			0
+		);
+	const total = props.groups.reduce(
+		(sum, group) => sum + (group.label ? 1 : 0) + count(group.items),
+		0
+	);
+	return Array.from(
+		{ length: total },
+		(_, index) => SKELETON_WIDTHS[index % SKELETON_WIDTHS.length]
+	);
+});
+
 function foldIds(nodes: MenuNode[], out: string[] = []): string[] {
 	for (const node of nodes) {
 		if (node.children?.length) {
@@ -251,6 +287,7 @@ const menuRef = ref<{ $el?: HTMLElement; pop?: () => void } | null>(null);
 const expanded = ref<string[]>([...props.initialExpanded]);
 
 onMounted(() => {
+	mounted.value = true;
 	loadTrees();
 });
 
