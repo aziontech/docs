@@ -1,11 +1,12 @@
 ---
 title: SQL Database API
 description: >-
-  Referência da SQL Database API: abra uma réplica de leitura em uma function,
-  execute queries com parâmetros, prepare statements e leia as linhas retornadas.
+  Abra uma réplica de leitura em uma function, execute e prepare queries, leia as
+  linhas retornadas e escreva linhas com useExecute do @aziontech/sql.
 meta_tags: >-
   azion runtime, sql database api, Azion.Sql, Database.open, réplica de leitura,
-  query, prepare, statement, linhas, functions
+  query, prepare, statement, linhas, functions, @aziontech/sql, useExecute,
+  useQuery, insert, update, escrita
 namespace: documentation_runtime_edge_sql
 permalink: /documentacao/devtools/runtime/api-reference/sql-database/
 ---
@@ -13,6 +14,7 @@ permalink: /documentacao/devtools/runtime/api-reference/sql-database/
 import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
+import Code from '~/components/webkit/CodeBlock.vue'
 
 A SQL Database API do Azion Runtime permite que uma function leia um banco de dados do [SQL Database](/pt-br/documentacao/plataforma/sql-database/). A function abre o banco de dados pelo nome, executa queries SQL com parâmetros posicionais ou nomeados, prepara statements e lê o resultado linha a linha. Cinco objetos compõem a API: `Database`, `Connection`, `Statement`, `Rows` e `Row`.
 
@@ -207,6 +209,85 @@ id|name
 3|User3
 4|User4
 ```
+
+---
+
+## Escritas a partir de uma function
+
+Uma function escreve linhas pela Azion API com `useExecute`, do pacote [`@aziontech/sql`](/pt-br/documentacao/devtools/azion-lib/sql/). `useQuery`, do mesmo pacote, lê as linhas de volta. Os dois recebem o banco de dados pelo nome e se autenticam com o seu personal token.
+
+Instale o pacote na pasta do projeto da function:
+
+<Code client:visible lang="bash" code={`npm install @aziontech/sql`} />
+
+O `npm` adiciona `@aziontech/sql` às `dependencies` do `package.json`, e o build do projeto empacota o pacote na function. Para fazer o build e o deploy de um projeto de function, consulte [Faça o deploy de uma function com a Azion CLI](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/deploy-function-with-cli/).
+
+O pacote lê o token de `process.env.AZION_TOKEN`, e em uma function com deploy feito `process.env` contém as variáveis de ambiente da sua conta. Crie uma variável secreta chamada `AZION_TOKEN` com o seu [personal token](/pt-br/documentacao/fundamentos/personal-tokens/) antes de fazer o deploy da function. Uma function só lê uma variável nova depois de um novo deploy. Para mais informações, consulte [Variáveis de ambiente](/pt-br/documentacao/plataforma/functions/environment-variables/).
+
+Toda function com deploy feito na conta recebe a variável `AZION_TOKEN`. A conta do token precisa de **Edit SQL Database** para escrever linhas e de **View SQL Database** para lê-las. Para mais informações, consulte [Autenticação](/pt-br/documentacao/plataforma/sql-database/bancos-de-dados-e-consultas/#autenticacao).
+
+Passe `external: true` nas opções de cada chamada, para que a chamada vá para a Azion API. Em uma function com deploy feito, uma chamada sem essa opção passa pelo `Azion.Sql`, e `useQuery` lê uma réplica que pode retornar as linhas de antes de uma escrita recente.
+
+Esta function mantém a contagem das requisições que recebe na linha `/home` de uma tabela `page_views` no seu banco de dados. A primeira requisição cria a tabela e a linha, e cada requisição soma um à contagem e retorna a linha:
+
+<Code client:visible lang="javascript" code={`import { useExecute, useQuery } from '@aziontech/sql';
+
+const DATABASE = '<your-database-name>';
+
+export default {
+\x20 async fetch(request, env, ctx) {
+\x20   const { error: writeError } = await useExecute(
+\x20     DATABASE,
+\x20     [
+\x20       'CREATE TABLE IF NOT EXISTS page_views (path TEXT PRIMARY KEY, views INTEGER NOT NULL)',
+\x20       "INSERT INTO page_views (path, views) VALUES ('/home', 0) ON CONFLICT (path) DO NOTHING",
+\x20       "UPDATE page_views SET views = views + 1 WHERE path = '/home'",
+\x20     ],
+\x20     { external: true },
+\x20   );
+\x20   if (writeError) {
+\x20     console.log(writeError.operation, writeError.message);
+\x20     return Response.json({ error: 'The write failed' }, { status: 500 });
+\x20   }
+
+\x20   const { data, error: readError } = await useQuery(
+\x20     DATABASE,
+\x20     ["SELECT path, views FROM page_views WHERE path = '/home'"],
+\x20     { external: true },
+\x20   );
+\x20   if (readError) {
+\x20     console.log(readError.operation, readError.message);
+\x20     return Response.json({ error: 'The read failed' }, { status: 500 });
+\x20   }
+
+\x20   return Response.json(data.toObject().results[0].rows[0]);
+\x20 },
+};`} />
+
+Substitua `<your-database-name>` pelo nome do seu banco de dados. A primeira requisição para a function com deploy feito retorna a linha com a contagem `1`, e a segunda retorna `2`:
+
+```json
+{
+  "path": "/home",
+  "views": 1
+}
+```
+
+`useExecute` resolve para `{ data, error }`, e `data.results` contém uma entrada por instrução com o verbo dela, como `INSERT` ou `UPDATE`. A entrada não traz a quantidade de linhas escritas, e um `UPDATE` que não corresponde a nenhuma linha ainda retorna o estado `executed`. Para confirmar uma escrita, leia a linha de volta com `useQuery`, como a function faz.
+
+As instruções de uma chamada rodam em ordem e param na primeira que falha. As instruções anteriores continuam aplicadas, e as seguintes não rodam.
+
+Uma chamada que falha retorna `error`, com `message` e `operation`, e deixa `data` sem valor. A function registra os dois campos no log e responde com o status `500`. Entre as mensagens que uma chamada pode retornar estão:
+
+| `error.message` | `error.operation` | Causa |
+| --- | --- | --- |
+| `Authentication credentials were not provided.` | `get databases` | Nenhuma variável `AZION_TOKEN` chegou à function com deploy feito. |
+| `Invalid authentication credentials.` | `get databases` | `AZION_TOKEN` não contém um personal token válido. |
+| `Database <name> not found` | `apiQuery` | Nenhum banco de dados da conta tem esse nome. |
+| Uma mensagem do banco de dados, como `no such table: <table>` | `apiQuery` | Uma instrução falhou. |
+| `Only write statements are allowed` | `execute database` | A chamada de `useExecute` traz só instruções de leitura. |
+
+`useQuery` lança `Only read statements are allowed` em vez de retornar `error` quando nenhuma instrução da chamada é um `SELECT` ou um `PRAGMA`.
 
 ---
 

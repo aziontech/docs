@@ -1,11 +1,12 @@
 ---
 title: SQL Database API
 description: >-
-  SQL Database API reference: open a read replica from a function, run queries
-  with parameters, prepare statements, and read the rows they return.
+  Open a read replica from a function, run and prepare queries, read the rows
+  they return, and write rows with useExecute from @aziontech/sql.
 meta_tags: >-
   azion runtime, sql database api, Azion.Sql, Database.open, read replica,
-  query, prepare, statement, rows, functions
+  query, prepare, statement, rows, functions, @aziontech/sql, useExecute,
+  useQuery, insert, update, write
 namespace: documentation_runtime_edge_sql
 permalink: /documentation/devtools/runtime/api-reference/sql-database/
 ---
@@ -13,6 +14,7 @@ permalink: /documentation/devtools/runtime/api-reference/sql-database/
 import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
+import Code from '~/components/webkit/CodeBlock.vue'
 
 The Azion Runtime SQL Database API lets a function read an [SQL Database](/en/documentation/platform/sql-database/) database. The function opens the database by name, runs SQL queries with positional or named parameters, prepares statements, and reads the result row by row. Five objects make up the API: `Database`, `Connection`, `Statement`, `Rows`, and `Row`.
 
@@ -207,6 +209,85 @@ id|name
 3|User3
 4|User4
 ```
+
+---
+
+## Writes from a function
+
+A function writes rows through the Azion API with `useExecute`, from the [`@aziontech/sql`](/en/documentation/devtools/azion-lib/sql/) package. `useQuery`, from the same package, reads the rows back. Both take the database by its name and authenticate with your personal token.
+
+Install the package in the folder of the function project:
+
+<Code client:visible lang="bash" code={`npm install @aziontech/sql`} />
+
+`npm` adds `@aziontech/sql` to the `dependencies` of `package.json`, and the build of the project bundles the package into the function. To build and deploy a function project, refer to [Deploy a function with Azion CLI](/en/documentation/guides/application-development/functions-and-runtime/deploy-function-with-cli/).
+
+The package reads the token from `process.env.AZION_TOKEN`, and in a deployed function `process.env` holds the environment variables of your account. Create a secret variable named `AZION_TOKEN` with your [personal token](/en/documentation/fundamentals/personal-tokens/) before you deploy the function. A function reads a new variable only after it is deployed again. For more information, refer to [Environment variables](/en/documentation/platform/functions/environment-variables/).
+
+Every deployed function of the account receives the `AZION_TOKEN` variable. The account of the token needs **Edit SQL Database** to write rows and **View SQL Database** to read them. For more information, refer to [Authentication](/en/documentation/platform/sql-database/databases-and-queries/#authentication).
+
+Pass `external: true` in the options of each call, so that the call goes to the Azion API. Inside a deployed function, a call without it runs through `Azion.Sql` instead, and `useQuery` reads a replica that can return the rows from before a recent write.
+
+This function keeps a count of its requests in the `/home` row of a `page_views` table in your database. The first request creates the table and the row, and each request adds one to the count and returns the row:
+
+<Code client:visible lang="javascript" code={`import { useExecute, useQuery } from '@aziontech/sql';
+
+const DATABASE = '<your-database-name>';
+
+export default {
+\x20 async fetch(request, env, ctx) {
+\x20   const { error: writeError } = await useExecute(
+\x20     DATABASE,
+\x20     [
+\x20       'CREATE TABLE IF NOT EXISTS page_views (path TEXT PRIMARY KEY, views INTEGER NOT NULL)',
+\x20       "INSERT INTO page_views (path, views) VALUES ('/home', 0) ON CONFLICT (path) DO NOTHING",
+\x20       "UPDATE page_views SET views = views + 1 WHERE path = '/home'",
+\x20     ],
+\x20     { external: true },
+\x20   );
+\x20   if (writeError) {
+\x20     console.log(writeError.operation, writeError.message);
+\x20     return Response.json({ error: 'The write failed' }, { status: 500 });
+\x20   }
+
+\x20   const { data, error: readError } = await useQuery(
+\x20     DATABASE,
+\x20     ["SELECT path, views FROM page_views WHERE path = '/home'"],
+\x20     { external: true },
+\x20   );
+\x20   if (readError) {
+\x20     console.log(readError.operation, readError.message);
+\x20     return Response.json({ error: 'The read failed' }, { status: 500 });
+\x20   }
+
+\x20   return Response.json(data.toObject().results[0].rows[0]);
+\x20 },
+};`} />
+
+Replace `<your-database-name>` with the name of your database. The first request to the deployed function returns the row with a count of `1`, and the second returns `2`:
+
+```json
+{
+  "path": "/home",
+  "views": 1
+}
+```
+
+`useExecute` resolves to `{ data, error }`, and `data.results` holds one entry per statement with its verb, such as `INSERT` or `UPDATE`. The entry carries no count of the rows written, and an `UPDATE` that matches no row still returns the state `executed`. To confirm a write, read the row back with `useQuery`, as the function does.
+
+The statements of one call run in order and stop at the first that fails. The statements before it stay applied, and the ones after it do not run.
+
+A call that fails returns `error`, with `message` and `operation`, and leaves `data` unset. The function logs both fields and answers with the status `500`. Messages a call can return include:
+
+| `error.message` | `error.operation` | Cause |
+| --- | --- | --- |
+| `Authentication credentials were not provided.` | `get databases` | No `AZION_TOKEN` variable reached the deployed function. |
+| `Invalid authentication credentials.` | `get databases` | `AZION_TOKEN` does not hold a valid personal token. |
+| `Database <name> not found` | `apiQuery` | No database of the account has that name. |
+| A database message, such as `no such table: <table>` | `apiQuery` | A statement failed. |
+| `Only write statements are allowed` | `execute database` | The `useExecute` call carries only read statements. |
+
+`useQuery` throws `Only read statements are allowed` instead of returning `error` when no statement of the call is a `SELECT` or a `PRAGMA`.
 
 ---
 
