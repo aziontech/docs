@@ -1,7 +1,6 @@
 <template>
 	<MenuRoot
 		v-if="visibleGroups.length || levelGroups.length || pushedDrill"
-		:key="drilled ? 'level' : 'flat'"
 		ref="menuRef"
 		v-model:expanded="expanded"
 		v-model:path="path"
@@ -9,14 +8,6 @@
 		:aria-label="ariaLabel"
 	>
 		<MenuBack>{{ backText }}</MenuBack>
-		<MenuGroup v-if="flatBack">
-			<MenuItem
-				:label="flatBackText"
-				icon="pi pi-chevron-left"
-				:href="backHref"
-				@click="onFlatBack"
-			/>
-		</MenuGroup>
 
 		<MenuGroup
 			v-for="(group, index) in rootGroups"
@@ -63,7 +54,6 @@
 <script setup lang="ts">
 import MenuBack from '@aziontech/webkit/menu-back';
 import MenuGroup from '@aziontech/webkit/menu-group';
-import MenuItem from '@aziontech/webkit/menu-item';
 import MenuRoot from '@aziontech/webkit/menu-root';
 import MenuSub from '@aziontech/webkit/menu-sub';
 import MenuSubContent from '@aziontech/webkit/menu-sub-content';
@@ -97,8 +87,6 @@ interface Props {
 	backToPattern?: string;
 	levelLabel?: string;
 	levelHref?: string;
-	/** Where the way back leads without script: the docs root, or the parent tree's page. */
-	backHref?: string;
 	/** A nested tree's parent: the level the page's own tree is pushed onto, above the catalog. */
 	parentLevel?: SidebarParent | null;
 }
@@ -116,14 +104,12 @@ const props = withDefaults(defineProps<Props>(), {
 	backToPattern: 'Back to {name}',
 	levelLabel: '',
 	levelHref: '',
-	backHref: '',
 	parentLevel: null,
 });
 
 const query = computed(() => props.filter.trim().toLowerCase());
 
 const path = ref<string[]>([]);
-const drilled = ref(false);
 
 function prune(nodes: MenuNode[]): MenuNode[] {
 	return nodes.flatMap((node) => {
@@ -181,6 +167,8 @@ const visibleTrees = computed<Record<string, MenuGroupNode[]>>(() => {
 });
 
 const hasCatalog = computed(() => Boolean(props.catalogGroups?.length));
+
+const drilled = computed(() => hasCatalog.value && props.groups.length > 0);
 
 const rootGroups = computed<MenuGroupNode[]>(() => {
 	if (!hasCatalog.value) return visibleGroups.value;
@@ -240,28 +228,9 @@ const backText = computed(() => {
 	return name ? props.backToPattern.replace('{name}', name) : props.backLabel;
 });
 
-/**
- * Over a catalog the page's tree is a level, but a drill level renders through a teleport only
- * the client has, so the first paint draws the tree at the root with this row above it. The stack
- * is mounted only when the reader leaves, never on hydration: served and hydrated markup match.
- */
-const flatBack = computed(() => hasCatalog.value && !drilled.value && props.groups.length > 0);
-
-/** What Back reads once the stack is mounted, so the row and the level name the same place. */
-const flatBackText = computed(() =>
-	parent.value ? props.backToPattern.replace('{name}', parent.value.title) : props.backLabel
-);
-
-function onFlatBack(event: MouseEvent) {
-	event.preventDefault();
-	// A nested tree opens through its parent's row. Its rows fill that level now, so it never
-	// waits on the tree menus; their load replaces them with the same rows and ids.
-	if (parent.value) trees.value = { ...trees.value, [parent.value.tree]: props.groups };
+if (drilled.value) {
+	if (parent.value) trees.value = { [parent.value.tree]: props.groups };
 	path.value = parent.value ? [LEVEL_ID, parent.value.drillId] : [LEVEL_ID];
-	drilled.value = true;
-	// The stack mounts in place (restored levels play no entrance); one painted frame of it gives
-	// the pop a position to slide from.
-	nextTick(() => requestAnimationFrame(() => requestAnimationFrame(() => menuRef.value?.pop?.())));
 }
 
 /** A level the reader pushed, above the product level the page mounts at. */

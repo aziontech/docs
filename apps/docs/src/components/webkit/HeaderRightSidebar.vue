@@ -40,7 +40,6 @@
 								:back-to-pattern="menuBackToPattern"
 								:level-label="menuHeader?.title ?? ''"
 								:level-href="menuHeader?.href ?? ''"
-								:back-href="menuHeader?.backHref ?? ''"
 								:parent-level="menuParent"
 							/>
 

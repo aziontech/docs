@@ -7,6 +7,7 @@
 		:aria-label="ariaLabel"
 	>
 		<DocsSidebarMenu
+			ref="menuRef"
 			presentation
 			:groups="groups"
 			:active-id="activeId"
@@ -19,7 +20,6 @@
 			:back-to-pattern="backToPattern"
 			:level-label="header?.title ?? ''"
 			:level-href="header?.href ?? ''"
-			:back-href="header?.backHref ?? ''"
 			:parent-level="parentLevel"
 		/>
 
@@ -97,6 +97,31 @@ const width = ref<number | null>(null);
 /** Off while the mount restores state, so only the reader's own drags and collapses are stored. */
 let persisting = false;
 
+const menuRef = ref<{ $el?: unknown } | null>(null);
+
+function scrollActiveRowIntoView() {
+	const menu = menuRef.value?.$el;
+	const row =
+		menu instanceof HTMLElement ? menu.querySelector<HTMLElement>('[aria-current="page"]') : null;
+	const rail = row?.closest('aside');
+	if (!row || !rail) return;
+	let scroller = row.parentElement;
+	while (scroller && rail.contains(scroller)) {
+		const overflow = getComputedStyle(scroller).overflowY;
+		if (
+			(overflow === 'auto' || overflow === 'scroll') &&
+			scroller.scrollHeight > scroller.clientHeight
+		)
+			break;
+		scroller = scroller.parentElement;
+	}
+	if (!scroller || !rail.contains(scroller)) return;
+	const view = scroller.getBoundingClientRect();
+	const box = row.getBoundingClientRect();
+	if (box.top >= view.top && box.bottom <= view.bottom) return;
+	scroller.scrollTop += box.top - view.top - (view.height - box.height) / 2;
+}
+
 onMounted(() => {
 	let stored = 0;
 	try {
@@ -110,6 +135,7 @@ onMounted(() => {
 	nextTick(() => {
 		persisting = true;
 	});
+	requestAnimationFrame(scrollActiveRowIntoView);
 });
 
 watch(collapsed, (value) => {
