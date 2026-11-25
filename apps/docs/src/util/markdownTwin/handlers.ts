@@ -277,7 +277,6 @@ export const handlers: Record<string, Handler> = {
 
 	// --- Code and inline labels ------------------------------------------------------------
 	Code(node) {
-		// The same normalization CodeBlock.vue applies before rendering.
 		const trim = (value: unknown) =>
 			String(value ?? '')
 				.replace(/^\n+/, '')
@@ -286,7 +285,6 @@ export const handlers: Record<string, Handler> = {
 		if (tabs.length) return tabs.flatMap((tab) => sample(tab.label, tab.lang, trim(tab.code)));
 		return [code(str(node, 'lang'), trim(attr(node, 'code')))];
 	},
-	// `Code` is how pages import CodeBlock.vue.
 	CodeBlock(node, ctx) {
 		return handlers.Code(node, ctx);
 	},
