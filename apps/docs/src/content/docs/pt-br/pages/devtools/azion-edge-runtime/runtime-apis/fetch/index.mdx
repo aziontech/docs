@@ -3,7 +3,7 @@ title: fetch
 description: >-
   A função fetch do Azion Runtime: parâmetros, opções de requisição aceitas,
   modos de redirecionamento, timeouts, erros e o Response que ela retorna.
-meta_tags: 'fetch, fetch api, requestinit, redirect, abortsignal, timeout, subrequisição, azion runtime'
+meta_tags: 'fetch, fetch api, requestinit, redirect, abortsignal, timeout, streaming, subrequisição, azion runtime'
 namespace: documentation_products_edge_functions_runtime_apis_javascript_fetch
 permalink: /documentacao/devtools/runtime/api-reference/fetch/
 ---
@@ -49,9 +49,17 @@ O objeto `init` aceita estas opções. `method`, `headers`, `body` e `redirect` 
 
 ## Limites
 
-Cada chamada `fetch()` é executada dentro do teto de tempo de relógio da sua invocação: 5 minutos, com a espera de I/O incluída. Uma invocação também pode fazer um número limitado de chamadas `fetch()` de saída. Para os dois valores, consulte [Limites de Functions](/pt-br/documentacao/plataforma/functions/limites/).
+Em uma function após o deploy, o Azion Runtime limita quanto tempo uma chamada `fetch()` espera em três pontos:
 
-Para limitar uma única chamada, passe `AbortSignal.timeout()` como `signal` em `init`. A promise então é rejeitada com um erro cujo `name` é `TimeoutError`, que seu código captura.
+- 20 segundos para conectar ao servidor
+- 60 segundos para receber os cabeçalhos da resposta
+- 60 segundos entre dois chunks de um corpo enviado sem o cabeçalho `Content-Length`
+
+Cada limite vale para uma chamada, então o próximo `fetch()` na mesma invocação recebe o tempo inteiro de novo. O limite do corpo conta o tempo entre dois chunks, não a transferência inteira, então um corpo que continua recebendo dados pode levar mais de 60 segundos.
+
+O teto de tempo de relógio da invocação continua valendo: 5 minutos, com a espera de I/O incluída. Uma invocação também pode fazer um número limitado de chamadas `fetch()` de saída, e uma function processa um corpo até um tamanho máximo. Para esses valores, consulte [Limites de Functions](/pt-br/documentacao/plataforma/functions/limites/).
+
+Para limitar uma chamada com mais rigor, passe `AbortSignal.timeout()` como `signal` em `init`. O sinal é um prazo para a chamada inteira, com o corpo incluído, então ele também interrompe um corpo que ainda está recebendo dados. Quando ele expira, o `fetch()`, o `read()` ou o `text()` pendente é rejeitado com um erro cujo `name` é `TimeoutError`, que seu código captura. Um sinal mais longo que esses três limites não os estende.
 
 ---
 
@@ -61,12 +69,14 @@ A promise que `fetch()` retorna é rejeitada com estes erros em uma function ap�
 
 | Erro | Causa | O que fazer |
 | --- | --- | --- |
-| `TimeoutError: Signal timed out.` | O `AbortSignal.timeout()` passado como `signal` expirou antes de a resposta chegar. O erro é uma `DOMException` cujo `name` é `TimeoutError`. | Capture a rejeição e verifique `error.name`, ou passe um timeout maior. |
+| `TimeoutError: Signal timed out.` | O `AbortSignal.timeout()` passado como `signal` expirou antes de a resposta chegar, ou enquanto seu código lia o corpo. No segundo caso, `read()` ou `text()` é rejeitado com esse erro. O erro é uma `DOMException` cujo `name` é `TimeoutError`. | Capture a rejeição e verifique `error.name`, ou passe um timeout maior. |
 | `TypeError: Fetch failed: Encountered redirect while redirect mode is set to 'error'` | O servidor respondeu com um redirecionamento, e `redirect` é `error`. | Defina `redirect` como `follow` ou `manual`, ou capture a rejeição. |
 
 ---
 
-## Exemplo
+## Exemplos
+
+### Retornar a resposta de outro servidor
 
 Este handler `fetch` responde a cada requisição com a resposta que `fetch()` recebe de `https://example.com`:
 
@@ -92,6 +102,42 @@ O handler retorna uma resposta com este status, este tipo de conteúdo e este co
  "body": "<!doctype html><html lang=en><head><meta charset=utf-8><link rel=icon href=data:,><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Example Domain</title>…"
 }
 ```
+
+### Parar de ler um corpo lento em streaming
+
+Este handler `fetch` dá 5 segundos para a chamada inteira ler um corpo que um servidor envia em streaming. O sinal cobre os cabeçalhos e o corpo, então o handler captura o `TimeoutError` nas duas fases. Um erro do servidor, como um `503`, recebe uma resposta `502` antes de o handler ler o corpo:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    let received = 0
+    try {
+      const response = await fetch("https://<your-streaming-origin>/", {
+        signal: AbortSignal.timeout(5000)
+      })
+      if (!response.ok) {
+        return new Response(`The server answered with status ${response.status}`, { status: 502 })
+      }
+      const reader = response.body.getReader()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        received += value.byteLength
+      }
+      return new Response(`Body complete. Bytes received: ${received}`)
+    } catch (error) {
+      if (error.name === "TimeoutError") {
+        return new Response(`Timed out after 5 seconds. Bytes received: ${received}`, { status: 504 })
+      }
+      throw error
+    }
+  }
+}
+```
+
+Substitua `<your-streaming-origin>` pelo host de um servidor que envia o corpo da resposta em streaming.
+
+Quando o sinal expira antes de o corpo terminar, o handler responde com o status `504` e os bytes que leu até então, como `Timed out after 5 seconds. Bytes received: 2`. Um corpo que termina em até 5 segundos recebe o status `200` e `Body complete. Bytes received:` seguido do total.
 
 ---
 

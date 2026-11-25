@@ -3,7 +3,7 @@ title: fetch
 description: >-
   The fetch function of Azion Runtime: its parameters, the request options it
   accepts, redirect modes, timeouts, errors, and the Response it returns.
-meta_tags: 'fetch, fetch api, requestinit, redirect, abortsignal, timeout, sub-request, azion runtime'
+meta_tags: 'fetch, fetch api, requestinit, redirect, abortsignal, timeout, streaming, sub-request, azion runtime'
 namespace: documentation_products_edge_functions_runtime_apis_javascript_fetch
 permalink: /documentation/devtools/runtime/api-reference/fetch/
 ---
@@ -49,9 +49,17 @@ The `init` object takes these options. `method`, `headers`, `body`, and `redirec
 
 ## Limits
 
-Each `fetch()` call runs inside the wall-clock ceiling of its invocation: 5 minutes, I/O wait included. One invocation can also make a limited number of outbound `fetch()` calls. For both values, refer to [Functions limits](/en/documentation/platform/functions/limits/).
+In a deployed function, Azion Runtime limits how long one `fetch()` call waits at three points:
 
-To bound a single call, pass `AbortSignal.timeout()` as `signal` in `init`. The promise then rejects with an error whose `name` is `TimeoutError`, which your code catches.
+- 20 seconds to connect to the server
+- 60 seconds to receive the response headers
+- 60 seconds between two chunks of a body sent without a `Content-Length` header
+
+Each limit applies to one call, so the next `fetch()` in the same invocation gets the full time again. The limit on the body counts the time between two chunks, not the whole transfer, so a body that keeps receiving data can take longer than 60 seconds.
+
+The wall-clock ceiling of the invocation still applies: 5 minutes, I/O wait included. One invocation can also make a limited number of outbound `fetch()` calls, and a function processes a body up to a maximum size. For these values, refer to [Functions limits](/en/documentation/platform/functions/limits/).
+
+To bound a call more tightly, pass `AbortSignal.timeout()` as `signal` in `init`. The signal is a deadline for the whole call, the body included, so it also stops a body that is still receiving data. When it expires, the pending `fetch()`, `read()`, or `text()` rejects with an error whose `name` is `TimeoutError`, which your code catches. A signal longer than these three limits does not extend them.
 
 ---
 
@@ -61,12 +69,14 @@ The promise that `fetch()` returns rejects with these errors in a deployed funct
 
 | Error | Cause | What to do |
 | --- | --- | --- |
-| `TimeoutError: Signal timed out.` | The `AbortSignal.timeout()` passed as `signal` expired before the response arrived. The error is a `DOMException` whose `name` is `TimeoutError`. | Catch the rejection and check `error.name`, or pass a longer timeout. |
+| `TimeoutError: Signal timed out.` | The `AbortSignal.timeout()` passed as `signal` expired before the response arrived, or while your code read the body. In the second case, `read()` or `text()` rejects with this error. The error is a `DOMException` whose `name` is `TimeoutError`. | Catch the rejection and check `error.name`, or pass a longer timeout. |
 | `TypeError: Fetch failed: Encountered redirect while redirect mode is set to 'error'` | The server answered with a redirect, and `redirect` is `error`. | Set `redirect` to `follow` or `manual`, or catch the rejection. |
 
 ---
 
-## Example
+## Examples
+
+### Return the response of another server
 
 This `fetch` handler answers every request with the response that `fetch()` receives from `https://example.com`:
 
@@ -92,6 +102,42 @@ The handler returns a response with this status, this content type, and this bod
  "body": "<!doctype html><html lang=en><head><meta charset=utf-8><link rel=icon href=data:,><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Example Domain</title>…"
 }
 ```
+
+### Stop reading a slow streamed body
+
+This `fetch` handler gives the whole call 5 seconds to read a body that a server streams. The signal covers the headers and the body, so the handler catches the `TimeoutError` in either phase. A server error, such as a `503`, gets a `502` answer before the handler reads the body:
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    let received = 0
+    try {
+      const response = await fetch("https://<your-streaming-origin>/", {
+        signal: AbortSignal.timeout(5000)
+      })
+      if (!response.ok) {
+        return new Response(`The server answered with status ${response.status}`, { status: 502 })
+      }
+      const reader = response.body.getReader()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        received += value.byteLength
+      }
+      return new Response(`Body complete. Bytes received: ${received}`)
+    } catch (error) {
+      if (error.name === "TimeoutError") {
+        return new Response(`Timed out after 5 seconds. Bytes received: ${received}`, { status: 504 })
+      }
+      throw error
+    }
+  }
+}
+```
+
+Replace `<your-streaming-origin>` with the host of a server that streams its response body.
+
+When the signal expires before the body ends, the handler answers with status `504` and the bytes it read until then, such as `Timed out after 5 seconds. Bytes received: 2`. A body that ends within 5 seconds gets status `200` and `Body complete. Bytes received:` followed by the total.
 
 ---
 
