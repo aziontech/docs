@@ -26,7 +26,7 @@
 
 				<div class="flex min-h-0 w-full grow flex-col">
 					<ScrollArea tabindex="-1">
-						<div class="p-(--spacing-md) text-body-sm">
+						<div class="flex flex-col gap-(--spacing-md) p-(--spacing-md) text-body-sm">
 							<DocsSidebarMenu
 								v-if="menuGroups?.length"
 								:groups="menuGroups"
@@ -47,7 +47,6 @@
 								v-if="directoryGroups?.length"
 								:groups="directoryGroups"
 								:aria-label="directoryAriaLabel"
-								class="mt-(--spacing-md)"
 							/>
 
 							<slot name="main-content" />
