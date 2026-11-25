@@ -1,8 +1,8 @@
 ---
 title: Boas práticas de Firewall
 description: >-
-  Dimensione bursts de rate limit, dê um resultado por caminho da função, espere
-  a propagação e leia antes o que WAF, Network Shield e Bot Manager detectam.
+  Dimensione bursts de rate limit, dê um resultado por caminho de Function,
+  espere a propagação e leia antes o que WAF, Network Shield e Bot Manager detectam.
 meta_tags: 'firewall, best practices, rules engine, functions, waf, network shield, bot manager, logging, allowlist'
 namespace: documentation_products_firewall_best_practices
 permalink: /documentacao/plataforma/firewall/boas-praticas/
@@ -14,32 +14,51 @@ import DocItem from '@aziontech/webkit/doc-item'
 
 Uma camada de segurança à frente de uma aplicação decide o que chega a ela antes que a aplicação veja uma requisição. Quando essa camada está errada, um cliente recebe um erro que ninguém consegue explicar, ou um ataque que a camada deveria impedir chega à aplicação. Poucos desses erros vêm de um único valor errado. A maioria vem de três hábitos: julgar uma alteração antes que ela chegue ao tráfego, escrever código cujo resultado depende de qual branch foi executado e recusar tráfego antes que alguém tenha lido o que uma proteção detecta.
 
-Estas práticas se aplicam a um [firewall](/pt-br/documentacao/plataforma/firewall/), às regras do [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/) que ele executa e às funções e aos produtos que essas regras invocam. Os mecanismos por trás delas estão em [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/), e o valor de cada limite está em [Limites de Firewall](/pt-br/documentacao/plataforma/firewall/limites/).
+Estas práticas se aplicam a um [Firewall](/pt-br/documentacao/plataforma/firewall/), às regras do [Rules Engine para Firewall](/pt-br/documentacao/plataforma/firewall/rules-engine/) que ele executa e às Function Instances, aos rule sets do WAF e às Network Lists que essas regras usam. Os mecanismos por trás delas estão em [Como Firewall funciona](/pt-br/documentacao/plataforma/firewall/como-funciona/), e o valor de cada limite está em [Limites de Firewall](/pt-br/documentacao/plataforma/firewall/limites/).
 
-As cinco primeiras práticas se aplicam a todo firewall, e depois delas vem uma seção por produto habilitado em um firewall. Cada exemplo mostra somente a parte de uma regra, de um corpo de requisição ou de um objeto de argumentos que a prática dele altera. O corpo completo de uma regra está em [Corresponda à requisição, e não à query string dela](/pt-br/documentacao/plataforma/firewall/boas-praticas/#corresponda-a-requisicao-e-nao-a-query-string-dela).
+As cinco primeiras práticas se aplicam a todo Firewall. Depois delas vem uma seção para cada recurso da plataforma aninhado ao Firewall: WAF, Network Shield e Bot Manager. Cada exemplo mostra somente a parte de uma regra, de um corpo de requisição ou de um objeto de argumentos que a prática dele altera. O corpo completo de uma regra está em [Corresponda à requisição, e não à query string dela](/pt-br/documentacao/plataforma/firewall/boas-praticas/#corresponda-a-requisicao-e-nao-a-query-string-dela).
 
 ---
-## Compartilhe um firewall entre workloads com a mesma política de segurança
+## Compartilhe um Firewall entre Workloads com a mesma política de segurança
 
-Um workload usa um firewall por meio do deployment dele: o campo **Firewall** de **Deployment Settings** no Azion Console. Workloads que seguem a mesma política de segurança podem compartilhar um firewall, portanto a política é escrita uma vez e alterada em um só lugar. Todo workload que a compartilha indica o mesmo firewall no deployment dele. O custo é o alcance: uma alteração feita para um workload se aplica a todos eles. Um workload com uma política diferente, como um ambiente de teste, precisa de um firewall próprio. Para o deployment e os campos dele, consulte [Workloads](/pt-br/documentacao/plataforma/workloads/).
+Um Workload usa um Firewall por meio do deployment dele, que define o Firewall e a Application juntos. Workloads que seguem a mesma política de segurança podem compartilhar um Firewall, portanto a política é escrita uma vez e alterada em um só lugar. O custo é o alcance: uma alteração feita para um Workload se aplica a todos eles, e um Workload cuja política é diferente, como um ambiente de teste, precisa de um Firewall próprio.
+
+Todo Workload que compartilha o Firewall carrega o mesmo ID em `strategy.attributes.firewall` no deployment dele, como nesta parte de um corpo para `POST /v4/workspace/workloads/<workload-id>/deployments`:
+
+```json
+{
+  "strategy": {
+    "type": "default",
+    "attributes": { "application": <application-id>, "firewall": <firewall-id> }
+  }
+}
+```
+
+Leia de volta os deployments de cada Workload para confirmar que o ID de `firewall` corresponde. Para definir um Firewall em um Workload, consulte [Defina um Firewall em um Workload](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/proteja-seu-dominio/), e para o deployment e os campos dele, [Workloads](/pt-br/documentacao/plataforma/workloads/).
 
 ---
 
 ## Mantenha o burst de um rate limit em até dez vezes a taxa média
 
-_Set Rate Limit_ não precisa de nenhum produto, e o `maximum_burst_size` dele é quantas requisições extras ele coloca em fila em um pico curto e libera na taxa. A Azion recomenda um burst de no máximo dez vezes o `average_rate_limit`. Nessa proporção, a fila guarda 10 segundos de tráfego, portanto a última requisição de um burst completo espera até 10 segundos. [Set Rate Limit](/pt-br/documentacao/plataforma/firewall/rules-engine/#set-rate-limit) mostra os dois em `10`: 10 requisições por segundo por endereço IP de cliente e um pico de mais 10.
+_Set Rate Limit_ coloca em fila até `maximum_burst_size` requisições de um pico curto e as libera na taxa `average_rate_limit`. Mantenha o burst em no máximo dez vezes a taxa média: nessa proporção, a fila guarda cerca de 10 segundos de tráfego, e a última requisição de um burst completo espera esse tempo. Este comportamento mantém 10 requisições por segundo por endereço IP de cliente, com um pico de mais 100:
+
+```json
+{ "type": "set_rate_limit", "attributes": { "type": "second", "limit_by": "client_ip", "average_rate_limit": 10, "maximum_burst_size": 100 } }
+```
+
+A API exige `maximum_burst_size` para uma taxa `second` e o recusa para uma taxa `minute`. Com uma taxa de 1 por segundo e um burst de 10, 25 requisições simultâneas receberam 12 respostas distribuídas ao longo de 11 segundos e 13 respostas `429` imediatas, cada uma com `retry-after: 1`. Para todos os campos, consulte [Set Rate Limit](/pt-br/documentacao/plataforma/firewall/rules-engine/#set-rate-limit).
 
 Somente as requisições que chegam ao mesmo tempo além do burst recebem `429`. Um burst menor que os picos dos seus clientes recusa requisições simultâneas legítimas, e um burst maior atrasa por mais tempo a última delas.
 
 ---
 
-## Dê um único resultado a cada caminho de uma função no firewall
+## Dê um único resultado a cada caminho de uma Function no Firewall
 
-Uma função em um firewall encerra cada requisição com um método de resultado, como `event.continue()`, `event.deny()` ou `event.drop()`, e Rules Engine para Firewall continua a partir desse resultado. Uma função que chama `event.drop()` dentro de um `if` e depois segue para `event.continue()` alcança os dois resultados em toda requisição que atende à condição. O desfecho dessa requisição deixa de ser previsível. Coloque o segundo resultado em um branch `else`, para que cada requisição alcance exatamente um:
+Uma Function em um Firewall encerra cada requisição com um método de resultado, como `event.continue()`, `event.deny()` ou `event.drop()`, e Rules Engine para Firewall continua a partir desse resultado. Uma Function que chama `event.drop()` dentro de um `if` e depois segue para `event.continue()` alcança dois resultados em toda requisição que atende à condição. Essa requisição não foi descartada nem liberada: ela recebeu `500` e a página de erro padrão, assim como com `event.deny()` seguido de `event.continue()`. Coloque o segundo resultado em um branch `else`, para que cada requisição alcance exatamente um:
 
 ```javascript
 addEventListener("firewall", (event) => {
-  if (someCondition) {
+  if (event.request.headers.get("x-block") === "1") {
     event.drop();
   } else {
     event.continue();
@@ -47,13 +66,13 @@ addEventListener("firewall", (event) => {
 });
 ```
 
-Para todos os métodos de resultado que uma função pode chamar, consulte [Functions no Firewall](/pt-br/documentacao/plataforma/firewall/functions/#metodos-do-evento).
+Com esta Function, uma requisição que carrega `x-block: 1` é descartada, e todas as outras requisições continuam. Para todos os métodos de resultado que uma Function pode chamar, consulte [Functions no Firewall](/pt-br/documentacao/plataforma/firewall/functions/#metodos-do-evento).
 
 ---
 
 ## Execute o trabalho assíncrono dentro de event.waitUntil
 
-O handler que um evento de firewall chama é síncrono. Um código que aguarda uma promise, como um `fetch` ou um timeout, pertence a uma função `async`, e o handler passa a promise dessa função para `event.waitUntil`. Sem `event.waitUntil`, a promise pode terminar em uma exceção inesperada:
+O handler que um evento de Firewall chama é síncrono. Um código que aguarda uma promise, como um `fetch` ou um timeout, pertence a uma função `async`, e o handler passa a promise dessa função para `event.waitUntil`. Um handler que responde depois de um `await` sem `event.waitUntil` encerra a requisição com `500`:
 
 ```javascript
 async function firewallHandler(event) {
@@ -64,13 +83,15 @@ async function firewallHandler(event) {
 addEventListener("firewall", (event) => event.waitUntil(firewallHandler(event)));
 ```
 
-A lógica do handler passa para uma função separada, que chama o método de resultado depois do trabalho que ela aguarda. Para o evento que uma função de firewall recebe, consulte [Functions no Firewall](/pt-br/documentacao/plataforma/firewall/functions/#o-evento-firewall).
+A lógica do handler passa para uma função separada, que chama o método de resultado depois do trabalho que ela aguarda. Para o evento que uma Function de Firewall recebe, consulte [Functions no Firewall](/pt-br/documentacao/plataforma/firewall/functions/#o-evento-firewall).
 
 ---
 
 ## Espere uma alteração se propagar antes de julgá-la
 
-A API armazena uma alteração antes que o tráfego a reflita, e responde `202` e `pending` para uma regra e `executed` para uma network list. Uma regra adicionada a um firewall que já recebe tráfego chega a ele depois de 6 min 29 s a 9 min 18 s. Uma alteração nos itens de uma lista chega depois de 46 s a cerca de 100 s. Um workload vinculado recentemente a um firewall pode levar vários minutos para aplicar a primeira regra, sem duração garantida, e a aplicação dele pode responder antes, como mostra [Propagação](/pt-br/documentacao/plataforma/firewall/como-funciona/#propagacao).
+A API armazena uma alteração antes que o tráfego a reflita, e responde `202` e `pending` para uma regra e `200` e `executed` para uma Network List. Uma regra adicionada a um Firewall que já recebe tráfego chega a ele depois de vários minutos, observados entre 262 e 319 segundos. Uma alteração nos itens de uma Network List chegou antes, depois de 41 a 156 segundos.
+
+Um Workload cujo deployment passa a definir um Firewall aplicou a primeira regra depois de 278 a 532 segundos, e a Application dele pode responder antes. Nenhuma duração é garantida, como mostra [Propagação](/pt-br/documentacao/plataforma/firewall/como-funciona/#propagacao).
 
 Enquanto uma alteração se propaga, as respostas se alternam. Uma alteração julgada antes de chegar parece uma alteração que falhou, e revertê-la inicia uma segunda propagação. De um cliente que a regra deveria recusar, repita esta requisição contra um caminho que a regra cobre até que a resposta se mantenha:
 
@@ -78,7 +99,7 @@ Enquanto uma alteração se propaga, as respostas se alternam. Uma alteração j
 curl -s -o /dev/null -w '%{http_code}\n' https://<your-workload-domain>/
 ```
 
-O comando imprime `403` para `deny`, `000` para `drop` e, nos demais casos, o status da aplicação. Para uma resposta que nunca muda, consulte [Solucionar problemas de Firewall](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/).
+O comando imprime `403` para `deny`, `000` para `drop` e, nos demais casos, o status da Application. Para uma resposta que nunca muda, consulte [Solucione problemas de Firewall](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/).
 
 ---
 
@@ -88,7 +109,13 @@ Um rule set do Web Application Firewall (WAF) que recusa demais transforma requi
 
 ### Comece em Logging e passe para Blocking depois de ler o que correspondeu
 
-O modo pertence ao comportamento _Set WAF_ da regra, `set_waf` na API, portanto um mesmo rule set pode ser executado em _Logging_ em uma regra e em _Blocking_ em outra. Em _Logging_, uma requisição que alcança um limite recebe um score, é registrada e é servida. Em _Blocking_, ela recebe `400` e uma página de erro que não nomeia nem WAF nem a regra. Comece com `mode` definido como `logging`, porque os registros desse modo são a única descrição do seu tráfego como o rule set o vê.
+O modo pertence ao comportamento _Set WAF_ da regra, `set_waf` na API, portanto um mesmo rule set pode ser executado em _Logging_ em uma regra e em _Blocking_ em outra. Em _Logging_, uma requisição que alcança um limite recebe um score, é registrada e é servida. Em _Blocking_, ela recebe `400` e uma página de erro que não nomeia nem WAF nem a regra. Comece com `mode` definido como `logging`, porque os registros desse modo são a única descrição do seu tráfego como o rule set o vê:
+
+```json
+{ "type": "set_waf", "attributes": { "waf_id": <waf-id>, "mode": "logging" } }
+```
+
+Uma requisição registrada que teria sido bloqueada registra `wafLearning` `1` e `wafAttackAction` `$LEARNING-BLOCK`, e uma requisição bloqueada registra `$BLOCK`. `wafBlock` vale `1` nos dois modos, portanto leia `wafLearning` para distingui-los.
 
 Altere `mode` para `blocking` quando os últimos 3 dias de [Tuning](/pt-br/documentacao/plataforma/firewall/waf/score-e-modos/#tuning) não tiverem nenhuma requisição que deveria ter sido servida. Para o procedimento, consulte [Ajuste um WAF rule set](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/tune-waf/).
 
@@ -104,7 +131,7 @@ Azion CLI responde `Created WAF with ID <waf-id>`, e o rule set recebe todos os 
 
 ### Envie o array thresholds completo, com cada família uma única vez
 
-Um `PATCH` que carrega `engine_settings` substitui o array `thresholds` inteiro, em vez de mesclá-lo, portanto um `PATCH` que indica duas famílias de ameaças deixa o rule set somente com essas duas. Envie todas as famílias que o rule set mantém, cada uma exatamente uma vez. Este corpo de `PATCH` para `/v4/workspace/wafs/<waf-id>` eleva SQL injection para `high` e mantém as outras sete famílias em `medium`:
+Um `PATCH` cujo `engine_settings` carrega `thresholds` substitui o array inteiro, em vez de mesclá-lo, portanto um `PATCH` que indica duas famílias de ameaças deixa o rule set somente com essas duas. Envie todas as famílias que o rule set mantém, cada uma exatamente uma vez. Este corpo de `PATCH` para `/v4/workspace/wafs/<waf-id>` eleva SQL injection para `high` e mantém as outras sete famílias em `medium`:
 
 ```json
 {
@@ -132,7 +159,7 @@ A API responde `202` com `state` igual a `pending`. Um `threat` repetido retorna
 
 ### Corresponda à requisição, e não à query string dela
 
-Um rule set do WAF atribui score somente às requisições às quais corresponde uma regra que carrega o comportamento [_Set WAF_](/pt-br/documentacao/plataforma/firewall/rules-engine/#set-waf) dele. `${request_args}` `matches` `.*` parece corresponder a toda requisição e não corresponde. Uma variável vazia não corresponde, portanto a regra ignora toda requisição sem query string: um `POST` para `/?x=1` é bloqueado, e o mesmo `POST` para `/` não é.
+Um rule set do WAF atribui score somente às requisições às quais corresponde uma regra que carrega o comportamento [_Set WAF_](/pt-br/documentacao/plataforma/firewall/rules-engine/#set-waf) dele. `${request_args}` `matches` `.*` parece cobrir toda requisição e não cobre. Uma variável vazia não corresponde, portanto a regra ignora toda requisição sem query string: um `POST` para `/?x=1` com um ataque no corpo é bloqueado, e o mesmo `POST` para `/` não é.
 
 `${request_uri}` `starts_with` `/` corresponde, sim, a toda requisição, como neste corpo completo para `POST /v4/workspace/firewalls/<firewall-id>/request_rules`:
 
@@ -151,11 +178,11 @@ Um rule set do WAF atribui score somente às requisições às quais corresponde
 }
 ```
 
-WAF é cobrado por requisições, portanto restrinja o argumento a um caminho quando você quiser um caminho. Para os critérios que uma regra de firewall aceita, consulte [Crie uma regra de firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/trabalhar-com-rules-engine/).
+WAF é cobrado por requisições, portanto restrinja o argumento a um caminho quando você quiser um caminho. Para os critérios que uma regra de Firewall aceita, consulte [Crie uma regra de Firewall](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/trabalhar-com-rules-engine/).
 
 ### Ajuste o content type e o tamanho do corpo ao que WAF interpreta
 
-WAF interpreta o corpo de um `POST` somente em [cinco content types](/pt-br/documentacao/plataforma/firewall/waf/score-e-modos/#parsing-do-corpo-da-requisicao), e somente até 131.072 bytes (128 KiB). Em _Blocking_, a regra `11` recusa um `Content-Type` ausente ou fora desse conjunto, a regra `15` um JSON inválido e a regra `2` um corpo maior, cada uma com `400`, e não com `413`.
+WAF interpreta o corpo de um `POST` somente em [cinco content types](/pt-br/documentacao/plataforma/firewall/waf/score-e-modos/#parsing-do-corpo-da-requisicao), e somente até 131.072 bytes (128 KiB). Em _Blocking_, com todas as famílias em `highest`, a regra `11` recusou um `Content-Type` ausente ou `text/plain`, a regra `15` um JSON inválido e a regra `2` um corpo de 131.073 bytes. Cada resposta foi `400`, e não `413`, e um corpo de 131.072 bytes passou.
 
 Uma API esbarra com mais frequência no limite de formato, e a correção é um corpo bem formado do tipo que ela declara. Um endpoint de upload esbarra no limite de tamanho quando um arquivo passa de 128 KiB. Indique somente os caminhos que você quer inspecionar, como `/api/` na [regra completa](/pt-br/documentacao/plataforma/firewall/boas-praticas/#corresponda-a-requisicao-e-nao-a-query-string-dela) em modo `blocking`. Um caminho dentro do critério recusa todo upload maior, e um caminho fora dele não recebe score.
 
@@ -163,22 +190,27 @@ Uma API esbarra com mais frequência no limite de formato, e a correção é um 
 
 As exceções deixam passar um tráfego específico por regras que o bloqueariam. Cada exceção reduz a proteção onde quer que ela se aplique, portanto restrinja-a ao menor número possível de regras.
 
-Uma exceção do WAF retira uma parte de uma requisição do score de uma regra interna, mas o `rule_id` e a condição dela têm padrões mais amplos. O padrão de `rule_id` é `0`, todas as regras internas, e uma chave que o valor de match da condição não carrega é descartada, e não rejeitada. A API responde `202` a `{ "match": "any_http_header_value", "name": "cookie" }` e o armazena sem o `name`, o que isenta todos os cabeçalhos da requisição sem nenhum aviso. O valor de match que indica um cabeçalho é `specific_http_header_name`:
+Uma exceção do WAF retira uma parte de uma requisição do score das regras internas, e o `rule_id` e a condição dela têm padrões mais amplos. O padrão de `rule_id` é `0`, todas as regras internas, e uma chave que o valor de match da condição não carrega é descartada, e não rejeitada. A API responde `202` a `{ "match": "any_http_header_value", "name": "cookie" }` e o armazena sem o `name`, portanto ele cobre todos os cabeçalhos da requisição sem nenhum aviso. Indique a única regra interna que o `wafMatch` do evento informa:
 
 ```json
 {
+  "name": "Session cookie trips rule 1005",
   "rule_id": 1005,
-  "conditions": [ { "match": "specific_http_header_name", "name": "cookie" } ]
+  "conditions": [ { "match": "specific_http_header_value", "value": "cookie" } ]
 }
 ```
+
+Em um teste com todas as famílias em `highest`, esta exceção eliminou uma correspondência de `1005` no cabeçalho `Cookie`, e uma correspondência de `1005` na query string continuou bloqueada. Condições de `specific_http_header_name` com `cookie` ou `HTTP_COOKIE` foram aceitas com `202`, mas não eliminaram nenhuma correspondência no cabeçalho `Cookie`. `any_http_header_value` com o `rule_id` eliminou a correspondência em todos os cabeçalhos. Envie a requisição de novo depois que a exceção se propagar e confirme no evento dela que a correspondência sumiu.
+
+Quando o falso positivo vem de um caminho, defina `path` como esse caminho de requisição exato. Nos testes, um `path` correspondeu somente de forma exata, e uma exceção sem `path` cobriu todos os caminhos.
 
 Com o `rule_id` padrão e um valor de match genérico, nenhuma família de ameaças [atribui score a essa zona](/pt-br/documentacao/plataforma/firewall/waf/score-e-modos/#excecoes). Para cada valor de match, consulte [Match zones](/pt-br/documentacao/plataforma/firewall/waf/custom-allowed-rules/#match-zones).
 
 ### Mantenha um rule set do WAF separado para cada ambiente
 
-Um rule set do WAF é compartilhado por toda regra que o indica, portanto uma exceção adicionada para um falso positivo em um ambiente de teste remove esse score em produção também. Essa exceção só é legítima dentro de um rule set que nenhum tráfego de produção usa. Mantenha um rule set por ambiente, cada um com somente as exceções que o próprio tráfego produziu.
+Um rule set do WAF é compartilhado por toda regra que o aplica, portanto uma exceção adicionada para um falso positivo em um ambiente de teste remove esse score em produção também. Essa exceção só é legítima dentro de um rule set que nenhum tráfego de produção usa. Mantenha um rule set por ambiente, cada um com somente as exceções que o próprio tráfego produziu.
 
-Um [clone](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/#clonar-um-rule-set) também copia as exceções do rule set original, portanto exclua as que o tráfego do segundo ambiente não produziu. Uma família elevada em produção passa a precisar ser elevada de novo no outro rule set, e rule sets são uma das métricas pelas quais WAF é [cobrado](/pt-br/documentacao/plataforma/firewall/limites/#waf).
+Um [clone](/pt-br/documentacao/plataforma/firewall/waf/rule-sets/#clonar-um-rule-set) também copia as exceções do rule set original, portanto exclua as que o tráfego do segundo ambiente não produziu. Uma família elevada em produção passa a precisar ser elevada de novo no outro rule set, e rule sets são uma das métricas pelas quais WAF é [cobrado](/pt-br/documentacao/fundamentos/precos/#web-application-firewall).
 
 ### Trate toda exceção do WAF como temporária e registre por que ela existe
 
@@ -188,27 +220,31 @@ Para confirmar que ela ainda é necessária, envie `{ "active": false }` em um `
 
 ### Confirme cada alteração do WAF pelos eventos que ela produz
 
-Nada em uma resposta que WAF bloqueia nomeia WAF, a regra ou o score. O cabeçalho `x-azion-request-id` dela encontra o registro no dataset `workloadEvents` de [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/), em `/v4/events/graphql`. `wafMatch` nomeia as regras internas que corresponderam, `wafScore` o score por família de ameaças e `wafAttackAction` o que WAF fez:
+Nada em uma resposta que WAF bloqueia nomeia WAF, a regra ou o score. O cabeçalho `x-azion-request-id` dela encontra o registro no dataset `workloadEvents` de [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/), em `/v4/events/graphql`. `wafMatch` nomeia as regras internas que corresponderam, `wafScore` o score por família de ameaças e `wafAttackAction` o que WAF fez. `wafLearning` vale `1` quando a regra foi executada em _Logging_:
 
 ```graphql
 query {
   workloadEvents(limit: 1, filter: { tsGte: "<start>", tsLt: "<end>", requestIdEq: "<request-id>" }) {
-    ts requestUri status upstreamStatus wafBlock wafMatch wafScore wafAttackFamily wafAttackAction
+    ts requestUri status upstreamStatus wafBlock wafLearning wafMatch wafScore wafAttackFamily wafAttackAction
   }
 }
 ```
 
-Leia o registro antes de escrever uma exceção a partir dele, porque as regras que disparam nem sempre são as que a requisição sugere. A query string `1' OR '1'='1` é capturada pelas regras `1009` e `1013`, o sinal de igual e o apóstrofo, e não por um parser de SQL injection. Para cada campo, consulte [Encontre o score de uma requisição bloqueada](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf/).
+Leia o registro antes de escrever uma exceção a partir dele, porque as regras que disparam nem sempre são as que a requisição sugere. A query string `1' OR '1'='1` é capturada pelas regras `1009` e `1013`, o sinal de igual e o apóstrofo, e não por um parser de SQL injection. Para cada campo, consulte [Encontre o score do WAF de uma requisição bloqueada](/pt-br/documentacao/guias/seguranca-de-aplicacoes/firewall-e-waf/como-encontrar-score-de-requisicoes-bloqueadas-pelo-waf/).
+
+Um registro cujos campos `waf` valem todos `-` pertence a uma requisição que WAF não inspecionou. Nos testes por trás desta página, WAF não inspecionou nenhuma requisição em uma Application sem [Connector](/pt-br/documentacao/plataforma/connectors/), e essas requisições mostraram `-`, mesmo em um caminho em _Blocking_. Antes de ler um registro vazio como uma aprovação, confirme que o caminho chega a um Connector.
 
 ---
 
 ## Network Shield
 
-Um bloqueio por endereços de rede decide quem chega ou não a uma aplicação. Amplo demais, ele recusa os seus clientes, parceiros e os monitores que informam a sua disponibilidade. Estreito demais, ele deixa passar a fonte que você queria impedir. Network Shield permite que uma regra de firewall compare um cliente com uma [network list](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/) de endereços, sistemas autônomos ou países.
+Um bloqueio por endereços de rede decide quem chega a uma aplicação. Amplo demais, ele recusa clientes, parceiros e os monitores que informam a sua disponibilidade. Estreito demais, ele deixa passar a fonte que você queria impedir. Network Shield permite que uma regra compare um cliente com uma [Network List](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/) de endereços, sistemas autônomos ou países.
 
 ### Mantenha Network Shield ativado, quer uma regra o use ou não
 
-Network Shield controla uma única coisa em um firewall: o critério _Network_, `${network}` na API. Nenhum comportamento precisa dele, e um firewall começa com ele ativado, portanto mantê-lo ativado não muda nada para uma regra sem o critério. Desativá-lo custa a próxima regra que precisar de uma lista, recusada com `400` [`25047`](/pt-br/documentacao/plataforma/firewall/rules-engine/#erros) `Missing Required Modules`. No Azion Console, o interruptor é **Main Settings** › **Modules** › **Network Shield**, e na Azion CLI é uma flag:
+Network Shield controla um critério em um Firewall: _Network_, `${network}` na API. Um Firewall novo começa com ele ativado, e mantê-lo ativado não muda nada para uma regra sem o critério. Ele também conta para a condição de toda regra: um Firewall só aceita regras enquanto pelo menos um entre WAF, Network Shield e Functions está ativado.
+
+Desativá-lo custa a próxima regra que precisar de uma lista, recusada com `400` [`25047`](/pt-br/documentacao/plataforma/firewall/rules-engine/#erros) `Missing Required Modules`. A API guarda o interruptor em `modules.network_protection.enabled`, e na Azion CLI ele é uma flag:
 
 ```bash
 azion update firewall --firewall-id <firewall-id> --network-protection true
@@ -218,13 +254,13 @@ Azion CLI responde `Updated Firewall with ID <firewall-id>`. Depois que uma regr
 
 ### Escolha o tipo de lista de acordo com o que você bloqueia
 
-O tipo de uma lista, fixado na criação, decide [quanto um item cobre](/pt-br/documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/#correspondencia-de-listas). `ip_cidr`, com itens como `198.51.100.0/24`, é adequado para fontes que você identificou pelo endereço e precisa de um item novo cada vez que uma delas muda. `asn`, com itens como `64496`, é adequado para tráfego que chega de todo um Autonomous System Number (ASN) e recusa todos os outros clientes dele. `countries`, com itens como `DE`, é adequado para uma política decidida por país e recusa todo cliente associado a ele, inclusive os seus clientes e parceiros.
+O tipo de uma lista, fixado na criação, decide [quanto um item cobre](/pt-br/documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/#comparacao-do-endereco-do-cliente). `ip_cidr`, com itens como `198.51.100.0/24`, é adequado para fontes que você identificou pelo endereço e precisa de um item novo cada vez que uma delas muda de endereço. `asn`, com itens como `64496`, é adequado para tráfego que chega de todo um Autonomous System Number (ASN) e recusa todos os outros clientes dele. `countries`, com itens como `DE`, é adequado para uma política decidida por país e recusa todo cliente associado a ele, inclusive os seus clientes e parceiros.
 
-A resolução de país e de ASN pode estar errada para alguns endereços, portanto use `ip_cidr` onde uma única correspondência errada custaria um cliente. [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/) detalha as suas requisições por endereço, rede e país. Para o formato de cada tipo e a chamada que cria uma lista, consulte [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#tipos-de-lista).
+A resolução de país e de ASN pode estar errada para alguns endereços, portanto use `ip_cidr` onde uma única correspondência errada custaria um cliente. [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-secure/) mostra os países e os endereços IP que enviam as ameaças que WAF identifica. Para o formato de cada tipo e a chamada que cria uma lista, consulte [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#tipos-de-lista).
 
 ### Permita por exceção e coloque a sua equipe na lista
 
-Rules Engine para Firewall não tem um comportamento de permissão: uma requisição que nenhuma regra impede chega à aplicação. Por isso, uma allowlist é uma regra de negação cujo operador de `${network}` é `is_not_in_list`, para o que somente clientes conhecidos devem alcançar, como uma ferramenta interna:
+Rules Engine para Firewall não tem um comportamento de permissão: uma requisição que nenhuma regra impede chega à Application. Por isso, uma allowlist é uma regra de negação cujo operador de `${network}` é `is_not_in_list`, para o que somente clientes conhecidos devem alcançar, como uma ferramenta interna:
 
 ```json
 {
@@ -233,13 +269,13 @@ Rules Engine para Firewall não tem um comportamento de permissão: uma requisi�
 }
 ```
 
-Todos os outros clientes recebem `403`, e um cliente listado só passa para a próxima regra, portanto uma regra de blocklist que também corresponde ainda o nega, como [Correspondência de listas](/pt-br/documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/#correspondencia-de-listas) explica.
+Todos os outros clientes recebem `403`, e um cliente listado só passa para a próxima regra, portanto uma regra de blocklist que também corresponde ainda o nega, como [Correspondência de listas](/pt-br/documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/#comparacao-do-endereco-do-cliente) explica.
 
-O endereço que você esquece é o que a regra recusa. Antes que uma regra a referencie, adicione a sua equipe, os seus monitores de disponibilidade e toda integração de parceiro que chama a aplicação. Dê a cada item `ip_cidr` um comentário `#` que indique a quem pertence o endereço, e atualize-o quando isso mudar. Para uma configuração completa, consulte [Permita somente os endereços de uma lista](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/allowlist/).
+O endereço que você esquece é o que a regra recusa. Antes que uma regra referencie a lista, adicione a sua equipe, os seus monitores de disponibilidade e toda integração de parceiro que chama a aplicação. Dê a cada item `ip_cidr` um comentário `#` que indique a quem pertence o endereço, e atualize-o quando isso mudar. Para uma configuração completa, consulte [Permita somente os endereços de uma lista](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/allowlist/).
 
 ### Restrinja um bloqueio ao caminho que precisa dele
 
-Uma regra cujo único critério é `${network}` age em toda requisição que o firewall dela recebe. Um segundo critério unido com `and` no mesmo bloco a restringe às requisições em que os dois são verdadeiros, portanto esta regra recusa um cliente listado somente em `/admin`:
+Uma regra cujo único critério é `${network}` age em toda requisição que o Firewall dela recebe. Um segundo critério unido com `and` no mesmo bloco a restringe às requisições em que os dois são verdadeiros, portanto esta regra recusa um cliente listado somente em `/admin`:
 
 ```json
 {
@@ -253,19 +289,19 @@ Uma regra cujo único critério é `${network}` age em toda requisição que o f
 }
 ```
 
-`starts_with` também cobre `/admin/users` e `/administrator`. Restringir o escopo limita a um caminho o que uma lista que você ainda não experimentou pode quebrar, e todos os outros caminhos continuam abertos aos clientes listados. Quando a lista recusar somente os clientes que você espera, amplie a regra ou remova o critério de caminho. Para uma configuração completa, consulte [Proteja um caminho com uma network list](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/proteger-um-caminho/).
+`starts_with` também cobre `/admin/users` e `/administrator`. Restringir o escopo limita a um caminho o que uma lista que você ainda não experimentou pode quebrar, e todos os outros caminhos continuam abertos aos clientes listados. Quando a lista recusar somente os clientes que você espera, amplie a regra ou remova o critério de caminho. Para uma configuração completa, consulte [Proteja um caminho com uma Network List](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/proteger-um-caminho/).
 
 ### Negue enquanto implanta um bloqueio e depois descarte
 
-`deny` e `drop` impedem uma requisição correspondida e não precisam de nenhum produto, e trocar um pelo outro altera somente o `type` da entrada `behaviors` da regra. Uma requisição negada recebe `HTTP/2 403` e uma página de erro padrão, com o título `Forbidden`, com o endereço comparado e o ID da requisição que `x-azion-request-id` carrega.
+`deny` e `drop` impedem uma requisição correspondida, e trocar um pelo outro altera somente o `type` da entrada `behaviors` da regra, de `{ "type": "deny" }` para `{ "type": "drop" }`. Como todo comportamento, cada um precisa somente que o Firewall tenha WAF, Network Shield ou Functions ativado. Uma requisição negada recebe `HTTP/2 403` e uma página de erro padrão, com o título `Forbidden`, com o endereço do cliente e o ID da requisição que `x-azion-request-id` carrega.
 
-Implante um bloqueio com `deny`. A página dele não nomeia nem o firewall, nem a regra, nem a lista, mas um cliente recusado por engano consegue informar o endereço dele e o ID da requisição. Quando a lista recusar somente clientes que você confirmou, passe para `drop`, que deixa de enviar a [página de erro](/pt-br/documentacao/plataforma/firewall/rules-engine/#deny-403-forbidden) em cada recusa e deixa um cliente recusado por engano sem como distinguir uma recusa de uma indisponibilidade. Para o que cada um retorna, consulte [O que o cliente recebe](/pt-br/documentacao/plataforma/firewall/como-funciona/#o-que-o-cliente-recebe).
+Implante um bloqueio com `deny`. A página dele não nomeia nem o Firewall, nem a regra, nem a lista, mas um cliente recusado por engano consegue informar o endereço dele e o ID da requisição. Quando a lista recusar somente clientes que você confirmou, passe para `drop`, que deixa de enviar a [página de erro](/pt-br/documentacao/plataforma/firewall/rules-engine/#deny-403-forbidden) em cada recusa e deixa um cliente recusado por engano sem como distinguir uma recusa de uma indisponibilidade. Para o que cada um retorna, consulte [O que o cliente recebe](/pt-br/documentacao/plataforma/firewall/como-funciona/#o-que-o-cliente-recebe).
 
-### Mantenha uma network list por finalidade e reaproveite-a
+### Mantenha uma Network List por finalidade e reutilize-a
 
-Uma regra indica a network list dela pelo ID, como o `argument` do critério `${network}`, portanto regras em qualquer número de firewalls podem indicar a mesma lista. Uma alteração nos itens dela muda aquilo a que todas elas correspondem, e chega ao tráfego antes de uma regra nova, como mostram os [tempos de propagação](/pt-br/documentacao/plataforma/firewall/boas-praticas/#espere-uma-alteracao-se-propagar-antes-de-julga-la). Ela também não acrescenta nada às regras que o seu plano inclui por firewall. Mantenha uma lista por finalidade, como as fontes que você bloqueia, a sua própria equipe ou uma política por país, com o nome dessa finalidade, porque **Select a Network** mostra o nome.
+Uma regra usa uma Network List pelo ID dela no `argument` do critério `${network}`, portanto regras em muitos Firewalls podem compartilhar uma lista. Uma alteração nos itens dela muda aquilo a que todas elas correspondem e chega ao tráfego antes de uma regra nova, como mostram os [tempos de propagação](/pt-br/documentacao/plataforma/firewall/boas-praticas/#espere-uma-alteracao-se-propagar-antes-de-julga-la). Mantenha uma lista por finalidade, como as fontes que você bloqueia, a sua própria equipe ou uma política por país, com o nome dessa finalidade, porque **Select a Network** mostra o nome.
 
-O custo é o alcance: um item adicionado para uma aplicação se aplica em todo firewall que referencia a lista. Uma lista em uso não pode ser excluída (`22018`) nem desativada (`22003`), como [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#erros) mostra.
+O custo é o alcance: um item adicionado para uma Application se aplica em todo Firewall cujas regras usam a lista. Uma lista em uso não pode ser excluída (`22018`) nem desativada (`22003`), como [Network Lists](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#erros) mostra.
 
 ### Remova itens expirados com uma gravação
 
@@ -273,7 +309,7 @@ Um item `ip_cidr` pode carregar uma data de expiração, escrita depois do ender
 
 Um `PATCH` de `{"items":["203.0.113.7 --LT2020-01-01T00:00:00Z","192.0.2.10"]}` para a lista responde `200` e armazena somente `192.0.2.10`. Para as outras regras de data de expiração, consulte [Expiração e anotações](/pt-br/documentacao/plataforma/firewall/network-shield/correspondencia-de-listas/#expiracao-e-anotacoes), e para um bloqueio temporário completo, [Bloqueie endereços até uma data](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/bloqueio-temporario/).
 
-### Substitua uma network list a partir da sua própria fonte da verdade
+### Substitua uma Network List a partir da sua própria fonte da verdade
 
 Quando outro sistema já acompanha os endereços, como um sistema de gerenciamento de informações e eventos de segurança (SIEM) ou um script, deixe esse sistema ser o dono da lista. Um `PATCH` que envia `items` substitui o array inteiro, portanto cada envio deixa exatamente o que foi enviado, e o próximo envio corrige um que falhou. Um `PATCH` de `{"items":["192.0.2.50"]}` responde `200` e deixa `192.0.2.50` como o único item, seja qual for o conteúdo anterior da lista.
 
@@ -281,23 +317,25 @@ Cada gravação também sobrescreve todos os outros editores, portanto dê a cad
 
 ### Referencie a lista mantida pela Azion, e não uma cópia
 
-Qualquer conta pode referenciar [`Azion IP Tor Exit Nodes`](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#listas-mantidas-pela-azion), a lista `2`, que a Azion mantém atualizada com endereços de exit nodes do Tor. Uma regra com `argument` definido como `2` também corresponde, portanto, aos endereços que a Azion adiciona depois, que uma cópia em uma lista própria perde depois da próxima atualização. Toda gravação na lista `2` é recusada com `22004`, portanto coloque outros endereços em uma lista própria, com uma regra própria. Para as etapas, consulte [Bloqueie exit nodes do Tor](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/bloquear-redes-tor/).
+Qualquer conta pode usar [`Azion IP Tor Exit Nodes`](/pt-br/documentacao/plataforma/firewall/network-shield/network-lists/#listas-mantidas-pela-azion), a lista `2`, que a Azion mantém atualizada com endereços de exit nodes do Tor. Uma regra com `argument` definido como `2` também corresponde, portanto, aos endereços que a Azion adiciona depois, que uma cópia em uma lista própria perde depois da próxima atualização. Toda gravação na lista `2` é recusada com `22004`, portanto coloque outros endereços em uma lista própria, com uma regra própria. Para as etapas, consulte [Bloqueie exit nodes do Tor](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/bloquear-redes-tor/).
 
-Uma origem que deve aceitar somente o tráfego da Azion segue o mesmo raciocínio, com a lista `Azion Origin Shield` que as contas com [Origin Shield](/pt-br/documentacao/plataforma/connectors/origin-shield/) recebem. Cabe a você automatizar a atualização dessa allowlist da origem, como [Libere os IPs da Azion na sua origem](/pt-br/documentacao/suporte/obter-ranges-ip-azion/) descreve.
+Uma origem que deve aceitar somente o tráfego da Azion segue o mesmo raciocínio, com a lista `Azion Origin Shield`, que aparece quando um Connector da conta tem o Origin IP ACL do [Origin Shield](/pt-br/documentacao/plataforma/connectors/origin-shield/) ativado. Cabe a você automatizar a atualização dessa allowlist da origem, como [Libere os IPs da Azion na sua origem](/pt-br/documentacao/suporte/obter-ranges-ip-azion/) descreve.
 
 ---
 
 ## Bot Manager
 
-Decidir que uma requisição veio de um programa, e não de uma pessoa, é um julgamento sobre evidências. O número que decide isso pertence ao seu próprio tráfego. Bot Manager é executado em um firewall como uma instância de função, que uma regra do Rules Engine para Firewall invoca com o comportamento _Run Function_, e recebe a configuração de um objeto JSON de [argumentos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/). Uma instância armazena qualquer chave que recebe sem verificá-la, e a função ignora uma chave que não lê.
+Decidir que uma requisição veio de um programa, e não de uma pessoa, é um julgamento sobre evidências. O número que decide isso pertence ao seu próprio tráfego.
 
-Cada exemplo abaixo mostra somente as chaves que a sua prática altera. Uma chave que uma instância não define fica ausente, então mescle cada exemplo no objeto completo que a instância já carrega.
+Bot Manager é executado em um Firewall como uma Function Instance, que o comportamento _Run Function_ de uma regra executa, e recebe a configuração de um objeto JSON de [argumentos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/). A API verifica somente se o objeto é um objeto ou um array JSON dentro do limite de tamanho. Ela armazena qualquer chave que recebe, e a Function ignora uma chave que não lê.
+
+Cada exemplo a seguir mostra somente as chaves que a prática dele altera. Uma chave que uma instância não define fica ausente, então mescle cada exemplo no objeto completo que a instância já carrega.
 
 ### Inicie Bot Manager em modo de observação
 
 O modo de observação, `action` definido como [`allow`](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#action) e `internal_logs` como `2`, atribui score a toda requisição e não recusa nenhuma. Com `2`, contra o padrão de fábrica `0`, toda requisição escreve uma linha de report, mesmo uma com score `0`. Essas linhas são a única descrição de como o seu próprio tráfego pontua. Execute a instância assim por 24 a 72 horas, tempo suficiente para cobrir os horários de pico, os crawlers semanais e os jobs noturnos. Leia `score` e `matched_rules`, porque `classified` [depende do limite](/pt-br/documentacao/plataforma/firewall/bot-manager/score-de-bots/#calculo-do-score) em vigor.
 
-No Bot Manager Lite, escreva o objeto por extenso. Uma instância criada pela API sem o campo `args` recebe os padrões de fábrica, `action` em `deny` e `threshold` em `30`, então recusa uma requisição que pontua `30` ou mais desde o início, sem janela de observação. Uma instância criada com `{}` não carrega nenhuma dessas chaves.
+No Bot Manager Lite, escreva o objeto por extenso. Uma instância criada pela API sem o campo `args` recebe os padrões de fábrica, `action` em `deny` e `threshold` em `30`, então recusa uma requisição que pontua `30` ou mais desde o momento em que é executada, sem janela de observação. Uma instância criada com `{}` não carrega nenhuma dessas chaves.
 
 As regras `18` a `26` também [vêm sem calibração](/pt-br/documentacao/plataforma/firewall/bot-manager/bot-manager-lite/#regras). A janela também serve clientes automatizados, e a rapidez com que você lê as linhas é o que a limita. Para as etapas, consulte [Execute Bot Manager em modo de observação](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/modo-de-observacao/).
 
@@ -307,11 +345,11 @@ Bot Manager Lite vem com um `threshold` de `30`, e Bot Manager documenta `18` co
 
 Um limite dentro do grupo legítimo recusa os seus clientes, e um limite além do grupo automatizado não age sobre nada. Um limite menor é adequado para uma API ou um caminho de login, onde um cliente automatizado que passa custa mais do que um cliente desafiado. Um limite maior é adequado para um público geograficamente diverso, cujas requisições parecem legitimamente incomuns. Um limite de `5` a `9` é muito rigoroso: ele recusa tráfego legítimo com formato incomum. Depois, leia as linhas `legitimate` perto do limite, e reduza-o enquanto o tráfego automatizado passar ou eleve-o enquanto requisições que você reconhece forem recusadas.
 
-### Confirme que uma alteração de argumento do Bot Manager chegou à função
+### Confirme que uma alteração de argumento do Bot Manager chegou à Function
 
-Nada valida um objeto de argumentos do Bot Manager: toda interface armazena cada chave como foi digitada. Uma chave escrita `thresold` com o valor `5` é aceita sem erro, e a instância continua sem `threshold`, a chave que a função lê. Ler a instância de volta mostra `thresold` e nenhum `threshold`, então compare cada chave com os nomes em [Campos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#campos).
+A API e a Azion CLI verificam somente o formato e o tamanho de um objeto de argumentos do Bot Manager. Elas armazenam cada chave como foi digitada, portanto uma chave escrita `thresold` com o valor `5` é aceita sem erro, e a instância continua sem `threshold`, a chave que a Function lê. Ler a instância de volta mostra `thresold` e nenhum `threshold`, então compare cada chave com os nomes em [Campos](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#campos).
 
-Depois, espere. Uma alteração de argumento chega ao caminho da requisição cerca de 105 segundos depois de salva, e uma requisição enviada antes disso é executada com os argumentos anteriores. Vistos de fora, um argumento que a função nunca leu e um que não teve efeito parecem iguais, e o primeiro é o mais comum dos dois. [Solucionar problemas de Firewall](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/) cobre um cliente cuja resposta não muda.
+Depois, espere. Em um teste com outra Function, uma alteração nos argumentos de uma instância chegou às requisições 42 segundos depois de salva, e as requisições enviadas antes disso foram executadas com os argumentos anteriores. Vistos de fora, um argumento que a Function nunca leu parece um argumento que não teve efeito, e o primeiro é o mais comum dos dois. [Solucione problemas de Firewall](/pt-br/documentacao/plataforma/firewall/solucao-de-problemas/) cobre um cliente cuja resposta não muda.
 
 ### Dê a cada instância do Bot Manager a própria log tag
 
@@ -325,11 +363,11 @@ Uma regra que corresponde a toda requisição também atribui score e registra e
 \.(png|jpg|jpeg|gif|ico|css|js|svg|woff|woff2|ttf|eot|otf|webp|avif|mp4|webm|pdf)(\?.*)?$
 ```
 
-O `(\?.*)?$` final também corresponde a um ativo solicitado com uma query string, que é como chega a maioria das versões de cache busting. Corresponda ao caminho, e não a [_Request Args_](/pt-br/documentacao/plataforma/firewall/boas-praticas/#corresponda-a-requisicao-e-nao-a-query-string-dela), que Azion Console só oferece com WAF ativado. Um formato adicionado depois recebe score até que alguém atualize o argumento, e um ativo em um caminho sem extensão nunca é capturado.
+O critério compara o caminho sem a query string: em um teste, `/a.css?v=3` foi excluído como `/a.css`, e `/page?x=1` correspondeu como `/page`. Por isso, o `(\?.*)?` final é opcional. Corresponda ao caminho, e não a [_Request Args_](/pt-br/documentacao/plataforma/firewall/boas-praticas/#corresponda-a-requisicao-e-nao-a-query-string-dela), que também precisa de WAF ativado no Firewall. Um formato adicionado depois recebe score até que alguém atualize o argumento, e um ativo em um caminho sem extensão nunca é capturado.
 
 ### Execute uma instância mais rigorosa do Bot Manager em um caminho de alto valor
 
-Uma instância carrega um limite e uma ação. Caminhos que diferem em valor, como um catálogo e um checkout, precisam de uma instância cada, com os próprios argumentos e a própria `log_tag`. O único comportamento _Run Function_ de cada regra indica um ID de instância em `value`, e não um ID de função:
+Uma instância carrega um limite e uma ação. Caminhos que diferem em valor, como um catálogo e um checkout, precisam de uma instância cada, com os próprios argumentos e a própria `log_tag`. O único comportamento _Run Function_ de cada regra executa uma instância pelo ID dela em `value`, e não por um ID de Function:
 
 ```json
 {
@@ -352,9 +390,9 @@ Um limite inicial por tipo de caminho vai de `10` a `15` onde o abuso custa mais
 
 ### Desafie em um caminho que uma pessoa usa e negue no restante
 
-`deny` retorna `403` com uma página de erro padrão que não nomeia nem Bot Manager, nem um score, nem uma regra, portanto um cliente recusado dessa forma não tem com o que agir. `redirect` envia a requisição para `redirect_to`, como `/az-request-verify`, portanto um cliente capaz de responder a um desafio tem a chance de fazê-lo. Sem um `redirect_to` válido, a função [executa `allow`](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#action), portanto confirme no log de report que a instância redireciona.
+`deny` retorna `403` com uma página de erro padrão que não nomeia nem Bot Manager, nem um score, nem uma regra, portanto um cliente recusado dessa forma não tem com o que agir. `redirect` envia a requisição para `redirect_to`, como `/az-request-verify`, portanto um cliente capaz de responder a um desafio tem a chance de fazê-lo. Sem um `redirect_to` válido, a Function [executa `allow`](/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/#action), portanto confirme no log de report que a instância redireciona.
 
-A função de desafio precisa ser executada antes do Bot Manager no Rules Engine do firewall, ou Bot Manager [redireciona de novo a requisição que volta](/pt-br/documentacao/plataforma/firewall/bot-manager/score-de-bots/#do-score-a-acao). O campo `challenge_solved` do log de report informa então se o cliente resolveu o desafio. Um consumidor de API, um health check ou um monitor não consegue passar por um desafio, portanto dê ao caminho dele `deny` ou uma instância mais rigorosa, em vez de um loop de redirecionamento. Para uma função de desafio, consulte [Proteja uma rota com um desafio ALTCHA](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/altcha/).
+A Function de desafio precisa ser executada antes do Bot Manager na ordem das regras do Firewall, ou Bot Manager [redireciona de novo a requisição que volta](/pt-br/documentacao/plataforma/firewall/bot-manager/score-de-bots/#do-score-a-acao). O campo `challenge_solved` do log de report informa então se o cliente resolveu o desafio. Um consumidor de API, um health check ou um monitor não consegue passar por um desafio, portanto dê ao caminho dele `deny` ou uma instância mais rigorosa, em vez de um loop de redirecionamento. Para uma Function de desafio, consulte [Proteja uma rota com um desafio ALTCHA](/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/functions-e-runtime/altcha/).
 
 ### Leia o que uma regra do Bot Manager detectou antes de desativá-la
 
@@ -378,7 +416,7 @@ Anote o limite ao lado de qualquer número que você tirar de um gráfico de cla
 
 As linhas de report aparecem em [Real-Time Events](/pt-br/documentacao/plataforma/real-time-events/), e [Data Stream](/pt-br/documentacao/plataforma/data-stream/endpoints/) as encaminha da fonte de dados Functions para um endpoint que você configura. [Real-Time Metrics](/pt-br/documentacao/plataforma/real-time-metrics/dashboards-secure/#bot-manager) guarda somente contagens, e as URLs que o tráfego de bots alcançou [por 60 dias](/pt-br/documentacao/plataforma/firewall/bot-manager/logs/#retencao), portanto, três meses depois, elas não têm resposta na plataforma. Uma cópia em um destino que você controla dura pelo tempo que você a mantiver.
 
-O [modo de observação](/pt-br/documentacao/plataforma/firewall/boas-praticas/#inicie-bot-manager-em-modo-de-observacao) escreve uma linha para toda requisição, portanto reduza `internal_logs` quando a janela fechar. Leia os dashboards em uma agenda, e não depois de um incidente. Revise-os semanalmente, para que uma mudança no formato do tráfego apareça antes que alguém informe um sintoma. Para ler o report log por trás deles, consulte [Monitore e calibre o Bot Manager](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/monitorar-e-calibrar-bot-manager/).
+O [modo de observação](/pt-br/documentacao/plataforma/firewall/boas-praticas/#inicie-bot-manager-em-modo-de-observacao) escreve uma linha para toda requisição, portanto reduza `internal_logs` quando a janela fechar. Leia os dashboards em uma agenda, e não depois de um incidente. Revise-os semanalmente, para que uma mudança no formato do tráfego apareça antes que alguém informe um sintoma. Para ler o log de report por trás deles, consulte [Monitore e calibre Bot Manager](/pt-br/documentacao/guias/seguranca-de-aplicacoes/bots-e-rede/monitorar-e-calibrar-bot-manager/).
 
 ---
 
@@ -386,7 +424,7 @@ O [modo de observação](/pt-br/documentacao/plataforma/firewall/boas-praticas/#
 
 <FrameBox>
 <ItemList>
-  <DocItem title="Functions no Firewall" href="/pt-br/documentacao/plataforma/firewall/functions/">O evento firewall e os métodos de resultado que uma função chama.</DocItem>
+  <DocItem title="Functions no Firewall" href="/pt-br/documentacao/plataforma/firewall/functions/">O evento de Firewall e os métodos de resultado que uma Function chama.</DocItem>
   <DocItem title="Rule sets" href="/pt-br/documentacao/plataforma/firewall/waf/rule-sets/">Os campos, as famílias de ameaças e os níveis de sensibilidade que um rule set do WAF carrega.</DocItem>
   <DocItem title="Argumentos" href="/pt-br/documentacao/plataforma/firewall/bot-manager/argumentos/">Todos os argumentos do Bot Manager, com o tipo, o padrão e os valores que cada um aceita.</DocItem>
   <DocItem title="Guias e tutoriais de Firewall" href="/pt-br/documentacao/plataforma/firewall/guias/">Os procedimentos que aplicam estas práticas, uma tarefa por guia.</DocItem>
