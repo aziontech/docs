@@ -18,7 +18,7 @@
 		xmlns="http://www.w3.org/2000/svg"
 		role="img"
 		:aria-label="mark.label"
-		:fill="mono ? 'currentColor' : mark.color ?? 'currentColor'"
+		:fill="mono ? 'currentColor' : (mark.color ?? 'currentColor')"
 		fill-rule="evenodd"
 		class="shrink-0"
 	>
@@ -127,7 +127,7 @@ const mark = computed<Mark>(() =>
 				label: base.value.label,
 				viewBox: base.value.monoViewBox ?? base.value.viewBox,
 				path: base.value.monoPath,
-		  }
+			}
 		: base.value
 );
 
