@@ -21,7 +21,7 @@ export const en: PlatformTopologyContent = {
 					{
 						id: 'domains',
 						label: 'Domains',
-						href: '/en/documentation/platform/workloads/domains/',
+						href: '/en/documentation/platform/domains/',
 					},
 					{
 						id: 'certificate-manager',

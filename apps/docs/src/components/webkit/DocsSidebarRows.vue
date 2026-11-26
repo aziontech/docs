@@ -11,6 +11,17 @@
 				<span class="flex min-w-0 items-center gap-(--spacing-xxs)">
 					<span class="min-w-0 truncate">{{ node.label }}</span>
 					<Tag v-if="node.tagValue" :label="node.tagValue" severity="info" rounded />
+					<Tag
+						v-for="own in node.ownVersions ?? []"
+						:key="own"
+						:label="versionLabels[own]"
+						severity="secondary"
+					/>
+					<Tag
+						v-if="menuStage(node)"
+						:label="stageLabels[menuStage(node)!]"
+						:severity="STAGE_SEVERITY[menuStage(node)!]"
+					/>
 				</span>
 			</MenuSubTrigger>
 			<MenuSubContent>
@@ -37,6 +48,8 @@
 						:trees="trees"
 						:drillable="drillable"
 						:no-matches-label="noMatchesLabel"
+						:stage-labels="stageLabels"
+						:version-labels="versionLabels"
 						@navigate="forward"
 					/>
 				</MenuGroup>
@@ -58,6 +71,8 @@
 					:trees="trees"
 					:drillable="drillable"
 					:no-matches-label="noMatchesLabel"
+					:stage-labels="stageLabels"
+					:version-labels="versionLabels"
 					@navigate="forward"
 				/>
 			</MenuSubContent>
@@ -72,8 +87,27 @@
 			:selected="activeId !== '' && node.id === activeId"
 			@click="emit('navigate', $event, node)"
 		>
-			<template v-if="node.tagValue || isExternal(node.href)" #tag>
-				<Tag v-if="node.tagValue" :label="node.tagValue" severity="info" rounded />
+			<template
+				v-if="node.tagValue || node.ownVersions || menuStage(node) || isExternal(node.href)"
+				#tag
+			>
+				<span
+					v-if="node.tagValue || node.ownVersions || menuStage(node)"
+					class="flex items-center gap-(--spacing-xxs)"
+				>
+					<Tag v-if="node.tagValue" :label="node.tagValue" severity="info" rounded />
+					<Tag
+						v-for="own in node.ownVersions ?? []"
+						:key="own"
+						:label="versionLabels[own]"
+						severity="secondary"
+					/>
+					<Tag
+						v-if="menuStage(node)"
+						:label="stageLabels[menuStage(node)!]"
+						:severity="STAGE_SEVERITY[menuStage(node)!]"
+					/>
+				</span>
 				<!-- A row that leaves the site carries the arrow the docs use for external links. -->
 				<i
 					v-else
@@ -95,6 +129,7 @@ import Skeleton from '@aziontech/webkit/skeleton';
 import Tag from '@aziontech/webkit/tag';
 
 import type { MenuGroupNode, MenuNode } from '~/nav/resolve';
+import type { PlatformVersion, Stage } from '~/nav/versions';
 
 defineOptions({ name: 'DocsSidebarRows', inheritAttrs: false });
 
@@ -107,6 +142,10 @@ interface Props {
 	drillable?: boolean;
 	/** Shown in a drilled level the filter emptied. */
 	noMatchesLabel?: string;
+	/** Words for the stage tags. */
+	stageLabels?: Record<Stage, string>;
+	/** Short names for the version tags (`v3`, `v4`). */
+	versionLabels?: Record<PlatformVersion, string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -114,11 +153,29 @@ const props = withDefaults(defineProps<Props>(), {
 	trees: () => ({}),
 	drillable: true,
 	noMatchesLabel: 'No rows match.',
+	stageLabels: () => ({
+		experimental: 'Experimental',
+		preview: 'Preview',
+		deprecated: 'Deprecated',
+	}),
+	versionLabels: () => ({ v3: 'v3.x', v4: 'v4.x' }),
 });
 
 const emit = defineEmits<{
 	navigate: [event: MouseEvent, node: MenuNode];
 }>();
+
+// Deprecated never tags a row: such rows are listed only under their own version, where the
+// select, the page header and the banner already say it.
+const menuStage = (node: MenuNode): Stage | undefined =>
+	node.stage === 'deprecated' ? undefined : node.stage;
+
+// Same colours as the stage tag beside the page title: a stage in progress is info, a stage on its way out a warning.
+const STAGE_SEVERITY = {
+	experimental: 'info',
+	preview: 'info',
+	deprecated: 'warning',
+} as const;
 
 function rowsFor(node: MenuNode): MenuGroupNode[] | undefined {
 	return node.opensTree ? props.trees[node.opensTree] : undefined;

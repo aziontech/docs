@@ -3,6 +3,8 @@ import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
+import { counterpartMap, platformVersionList, stageValue } from './nav/schema';
+
 export const baseSchema = z.object({
 	type: z.literal('base').optional().default('base'),
 	title: z.string(),
@@ -15,6 +17,12 @@ export const baseSchema = z.object({
 	githubURL: z.url().optional(),
 	hasREADME: z.boolean().optional(),
 	page_header: z.boolean().default(true),
+	/** Platform versions the page is compatible with; overrides its tree's. */
+	versions: platformVersionList.optional(),
+	/** Release stage of the page; overrides its tree's. Absent means generally available. */
+	stage: stageValue.optional(),
+	/** The equivalent page (a namespace) in each version where this page does not apply. */
+	counterpart: counterpartMap.optional(),
 	/** The tree id whose guides the page lists after its body; set on a section's Guides and tutorials hub. */
 	guides_hub: z.string().optional(),
 	agent: z

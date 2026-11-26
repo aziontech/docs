@@ -10,6 +10,14 @@ const localized = z.object({
 
 export type Localized = z.infer<typeof localized>;
 
+/** Kept literal so the inferred types match PlatformVersion and Stage in versions.ts. */
+const platformVersionId = z.enum(['v3', 'v4']);
+/** The platform versions a tree or page is compatible with; absent means all. */
+export const platformVersionList = z.array(platformVersionId).min(1);
+export const stageValue = z.enum(['experimental', 'preview', 'deprecated']);
+/** The equivalent in each version where the owner does not apply: a tree id on a tree, a page namespace on a page. */
+export const counterpartMap = z.partialRecord(platformVersionId, z.string().min(1));
+
 const segmentString = z.string().regex(/^[a-z0-9-]+$/);
 
 const httpUrl = z.url({ protocol: /^https?$/ });
@@ -113,6 +121,12 @@ export const navTree = z.object({
 	 * False where page names are already unique site-wide and the suffix only spends characters.
 	 */
 	titleSuffix: z.boolean().optional().default(true),
+	/** The platform versions the whole section is compatible with; absent means all. Pages inherit it and may override it in frontmatter. */
+	versions: platformVersionList.optional(),
+	/** The release stage of the whole section; absent means generally available. */
+	stage: stageValue.optional(),
+	/** The equivalent section (a tree id) in each version where this one does not apply. */
+	counterpart: counterpartMap.optional(),
 	groups: z.array(navGroup).min(1),
 });
 

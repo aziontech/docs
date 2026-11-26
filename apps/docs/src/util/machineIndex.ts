@@ -2,6 +2,14 @@ import { SITE_URL } from '~/consts';
 import { getNavData, type Lang } from '~/nav/index';
 import { DOCS_BASE, pageHref, text, type NavData } from '~/nav/resolve';
 import type { NavNode, NavTree } from '~/nav/schema';
+import {
+	PLATFORM_VERSIONS,
+	VERSION_IDS,
+	sortVersions,
+	type PageAvailability,
+	type PlatformVersion,
+	type Stage,
+} from '~/nav/versions';
 
 /** The page inventory behind llms.txt and sitemap.md: every page the navigation lists,
  * in sidebar order. Nothing reads the collection directly, so a page in no tree (an
@@ -23,6 +31,10 @@ export interface IndexedPage {
 	updated?: string;
 	/** Root group, tree title, then the labels of the row's ancestors. */
 	section: string[];
+	/** The compatible platform versions, only when the page is restricted to a subset of them. */
+	versions?: PlatformVersion[];
+	/** The release stage, only when the page is not generally available. */
+	stage?: Stage;
 }
 
 export interface IndexedGroup {
@@ -186,6 +198,10 @@ function indexTree(data: NavData, tree: NavTree, lang: Lang, rootLabel?: string)
 							(part): part is string => Boolean(part)
 						),
 					};
+					const versions = sortVersions(facts.versions ?? tree.versions ?? VERSION_IDS);
+					if (versions.length > 0 && versions.length < VERSION_IDS.length) page.versions = versions;
+					const stage = facts.stage ?? tree.stage;
+					if (stage) page.stage = stage;
 					into.pages.push(page);
 					pages.push(page);
 				}
@@ -287,8 +303,71 @@ export async function getMachineIndex(lang: Lang): Promise<MachineIndex> {
 	};
 }
 
-/** `[title](url): description` on one line, as the llms.txt convention states it. */
-export function llmsEntry(title: string, url: string, description?: string): string {
+const VERSION_LABEL = Object.fromEntries(PLATFORM_VERSIONS.map((v) => [v.id, v.label])) as Record<
+	PlatformVersion,
+	string
+>;
+
+const STAGE_LABEL: Record<Lang, Record<Stage, string>> = {
+	en: { experimental: 'Experimental', preview: 'Preview', deprecated: 'Deprecated' },
+	'pt-br': { experimental: 'Experimental', preview: 'Preview', deprecated: 'Descontinuado' },
+};
+
+const versionList = (versions: readonly PlatformVersion[], lang: Lang) =>
+	versions.map((id) => VERSION_LABEL[id]).join(lang === 'en' ? ' and ' : ' e ');
+
+/** The short tag an index entry carries when its page restricts platform versions or has a
+ * stage: `(API v3.x only, Deprecated)`, `(Preview)`. Empty for an unrestricted, generally available page. */
+export function availabilityTag(
+	page: { versions?: PlatformVersion[]; stage?: Stage },
+	lang: Lang
+): string {
+	const parts: string[] = [];
+	if (page.versions?.length)
+		parts.push(
+			lang === 'en'
+				? `${versionList(page.versions, lang)} only`
+				: `somente ${versionList(page.versions, lang)}`
+		);
+	if (page.stage) parts.push(STAGE_LABEL[lang][page.stage]);
+	return parts.length ? `(${parts.join(', ')})` : '';
+}
+
+/** The lines the generated Markdown twin carries under its title, as a blockquote. Empty for an
+ * unrestricted, generally available page. Nothing is filtered: the lines say what applies. */
+export function twinAvailabilityNote(availability: PageAvailability, lang: Lang): string {
+	const restricted =
+		availability.versions.length > 0 && availability.versions.length < VERSION_IDS.length;
+	const lines: string[] = [];
+	if (restricted) {
+		const others = VERSION_IDS.filter((id) => !availability.versions.includes(id));
+		lines.push(
+			lang === 'en'
+				? `Platform versions: this page applies to ${versionList(availability.versions, lang)} only, not to ${versionList(others, lang)}.`
+				: `Versões da plataforma: esta página vale somente para ${versionList(availability.versions, lang)}, não para ${versionList(others, lang)}.`
+		);
+		for (const id of others) {
+			const counterpart = availability.counterparts[id];
+			if (!counterpart) continue;
+			const href = `${counterpart.href.replace(/\/$/, '')}.md`;
+			lines.push(
+				lang === 'en'
+					? `Equivalent page for ${VERSION_LABEL[id]}: [${counterpart.label}](${href})`
+					: `Página equivalente para ${VERSION_LABEL[id]}: [${counterpart.label}](${href})`
+			);
+		}
+	}
+	if (availability.stage)
+		lines.push(
+			lang === 'en'
+				? `Release stage: ${STAGE_LABEL.en[availability.stage]}.`
+				: `Estágio de lançamento: ${STAGE_LABEL['pt-br'][availability.stage]}.`
+		);
+	return lines.map((line) => `> ${line}`).join('\n');
+}
+
+/** `[title](url) (tag): description` on one line, as the llms.txt convention states it. */
+export function llmsEntry(title: string, url: string, description?: string, tag?: string): string {
 	const note = description?.replace(/\s+/g, ' ').trim();
-	return `- [${title.trim()}](${url})${note ? `: ${note}` : ''}`;
+	return `- [${title.trim()}](${url})${tag ? ` ${tag}` : ''}${note ? `: ${note}` : ''}`;
 }

@@ -3,11 +3,12 @@ import { getLangFromSlug, stripLangFromSlug, getSlugFromPermalink } from '~/util
 import { docsHomeEntries } from '~/data/docs-home';
 import { ARCHITECTURES_HOME_NAMESPACE, architecturesHomeMarkdown } from '~/data/architectures-home';
 import { DEVTOOLS_HOME_NAMESPACE, devtoolsHomeMarkdown } from '~/data/devtools-home';
-import { getGuidesHome, getHubDirectory, getHubList } from '~/nav/index';
+import { getGuidesHome, getHubDirectory, getHubList, getPageAvailability } from '~/nav/index';
 import { pricingRows } from '~/data/pricing';
 import { useTranslationsForLang } from '~/i18n/util';
 import { guidesCatalog } from '~/util/guidesCatalog';
 import { mdxToMarkdown } from '~/util/markdownTwin';
+import { twinAvailabilityNote } from '~/util/machineIndex';
 
 const includes = import.meta.glob('/src/includes/**/*.{md,mdx}', {
 	query: '?raw',
@@ -200,6 +201,15 @@ export async function GET({ props }) {
 		content = getMarkdownBasedOnCards(title, description, product_cards);
 	} else if (body) {
 		content = await getPageMarkdown(page, getLangFromSlug(page.id));
+	}
+
+	// Agents have no version selector: a page restricted to some versions, or not yet GA, says so
+	// under its title. An unrestricted GA page is served untouched.
+	if (content) {
+		const lang = getLangFromSlug(page.id);
+		const { slug } = twinParams(page);
+		const note = twinAvailabilityNote(await getPageAvailability(`/${lang}/${slug}/`, lang), lang);
+		if (note) content = content.replace(/^# .*\n\n/m, (title) => `${title}${note}\n\n`);
 	}
 
 	return new Response(content, {

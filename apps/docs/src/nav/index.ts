@@ -15,6 +15,7 @@ import {
 	productFamily,
 	resolveBreadcrumb,
 	resolveHubList,
+	resolvePageAvailability,
 	resolveNeighbours,
 	resolveSidebar,
 	treeHref,
@@ -33,6 +34,7 @@ import {
 	type TopNavModel,
 	withSlashes,
 } from './resolve';
+import type { PageAvailability } from './versions';
 import rootJson from './root.json';
 import topNavJson from './topnav.json';
 import videosJson from './videos.json';
@@ -76,6 +78,9 @@ async function loadPages(): Promise<PageIndex> {
 			title: entry.data.title?.trim(),
 			description: entry.data.description?.trim(),
 			updated: pageUpdated(entry.filePath, entry.body),
+			versions: entry.data.versions,
+			stage: entry.data.stage,
+			counterpart: entry.data.counterpart,
 		};
 		const existing = pages.get(namespace) ?? {};
 		existing[lang] = facts;
@@ -201,6 +206,20 @@ export async function getNeighbours(
 	return resolveNeighbours(await getNavData(), await getNavIndex(lang), pathname, lang);
 }
 
+// The layout, the rail and the page body each ask for the same page: resolve it once.
+const cachedAvailability = new Map<string, Promise<PageAvailability>>();
+
+export function getPageAvailability(pathname: string, lang: Lang): Promise<PageAvailability> {
+	const key = `${lang}:${pathname}`;
+	let hit = cachedAvailability.get(key);
+	if (!hit) {
+		hit = (async () =>
+			resolvePageAvailability(await getNavData(), await getNavIndex(lang), pathname, lang))();
+		cachedAvailability.set(key, hit);
+	}
+	return hit;
+}
+
 export async function getNavIndex(lang: Lang): Promise<NavIndex> {
 	const hit = cachedIndex.get(lang);
 	if (hit) return hit;
@@ -285,6 +304,7 @@ export async function getTreeHref(treeId: string, lang: Lang): Promise<string | 
 }
 
 export type { Lang } from './schema';
+export type { PageAvailability, PlatformVersion, Stage } from './versions';
 export type {
 	Crumb,
 	CatalogEntry,

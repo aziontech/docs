@@ -2,7 +2,7 @@ import type { APIRoute, GetStaticPaths } from 'astro';
 
 import { SITE_URL } from '~/consts';
 import { LANGS, type Lang } from '~/nav/schema';
-import { getMachineIndex, llmsEntry } from '~/util/machineIndex';
+import { availabilityTag, getMachineIndex, llmsEntry } from '~/util/machineIndex';
 
 /**
  * The full page list, one section per navigation tree. This path predates the
@@ -192,7 +192,9 @@ export const GET: APIRoute = async ({ params }) => {
 	for (const tree of index.trees) {
 		lines.push(`## ${tree.title}`, '');
 		for (const page of tree.pages)
-			lines.push(llmsEntry(page.title, page.markdownUrl, page.description));
+			lines.push(
+				llmsEntry(page.title, page.markdownUrl, page.description, availabilityTag(page, lang))
+			);
 		lines.push('');
 	}
 	lines.push(...guidance(lang, index.docsBase));

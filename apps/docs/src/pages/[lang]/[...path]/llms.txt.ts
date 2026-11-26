@@ -2,6 +2,7 @@ import type { APIRoute, GetStaticPaths } from 'astro';
 
 import { LANGS, type Lang } from '~/nav/schema';
 import {
+	availabilityTag,
 	getMachineIndex,
 	llmsEntry,
 	type IndexedTree,
@@ -44,7 +45,9 @@ function renderTree(index: MachineIndex, tree: IndexedTree): string {
 	for (const group of tree.groups) {
 		lines.push(`## ${group.label ?? PAGES[index.lang]}`, '');
 		for (const page of group.pages)
-			lines.push(llmsEntry(page.title, page.markdownUrl, page.description));
+			lines.push(
+				llmsEntry(page.title, page.markdownUrl, page.description, availabilityTag(page, index.lang))
+			);
 		lines.push('');
 	}
 	return lines.join('\n');

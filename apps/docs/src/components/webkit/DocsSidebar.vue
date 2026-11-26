@@ -21,6 +21,9 @@
 			:level-href="header?.href ?? ''"
 			:back-href="header?.backHref ?? ''"
 			:parent-level="parentLevel"
+			:version="version"
+			:stage-labels="stageLabels"
+			:version-labels="versionLabels"
 		/>
 
 		<template #footer>
@@ -36,41 +39,28 @@ import { nextTick, onMounted, ref, watch } from 'vue';
 import DocsSidebarMenu from './DocsSidebarMenu.vue';
 import DropdownThemeSwitcher from './DropdownThemeSwitcher.vue';
 
-import type {
-	MenuGroupNode,
-	SidebarHeader as SidebarHeaderModel,
-	SidebarParent,
-} from '~/nav/resolve';
+import type { DocsSidebarProps } from './docs-sidebar-props';
 
-withDefaults(
-	defineProps<{
-		groups: MenuGroupNode[];
-		activeId?: string;
-		initialExpanded?: string[];
-		header?: SidebarHeaderModel | null;
-		ariaLabel?: string;
-		filterPlaceholder?: string;
-		noMatchesLabel?: string;
-		catalogGroups?: MenuGroupNode[] | null;
-		treesHref?: string;
-		backLabel?: string;
-		backToPattern?: string;
-		parentLevel?: SidebarParent | null;
-	}>(),
-	{
-		activeId: '',
-		initialExpanded: () => [],
-		header: null,
-		ariaLabel: 'Sidebar',
-		filterPlaceholder: 'Filter sidebar',
-		noMatchesLabel: 'No rows match.',
-		catalogGroups: null,
-		treesHref: '',
-		backLabel: '',
-		backToPattern: 'Back to {name}',
-		parentLevel: null,
-	}
-);
+withDefaults(defineProps<DocsSidebarProps>(), {
+	activeId: '',
+	initialExpanded: () => [],
+	header: null,
+	ariaLabel: 'Sidebar',
+	filterPlaceholder: 'Filter sidebar',
+	noMatchesLabel: 'No rows match.',
+	catalogGroups: null,
+	treesHref: '',
+	backLabel: '',
+	backToPattern: 'Back to {name}',
+	parentLevel: null,
+	version: 'v4',
+	stageLabels: () => ({
+		experimental: 'Experimental',
+		preview: 'Preview',
+		deprecated: 'Deprecated',
+	}),
+	versionLabels: () => ({ v3: 'v3.x', v4: 'v4.x' }),
+});
 
 const filter = ref('');
 
