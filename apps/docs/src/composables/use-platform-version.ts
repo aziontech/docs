@@ -1,4 +1,4 @@
-import { onMounted, readonly, ref, type Ref } from 'vue';
+import { computed, onMounted, readonly, ref, type Ref } from 'vue';
 
 import {
 	CURRENT_VERSION,
@@ -97,6 +97,10 @@ export function usePlatformVersion(pageVersion?: PlatformVersion): UsePlatformVe
 		const page = pageVersion ?? readPageVersion();
 		if (page) applyPageVersion(page);
 	}
+	// Each island renders what the server rendered until it mounts itself: another island may
+	// already have restored the stored choice, and reading it here would mismatch on hydration.
+	const initial = pageVersion ?? CURRENT_VERSION;
+	const hydrated = ref(false);
 	onMounted(() => {
 		if (!restored) {
 			restored = true;
@@ -104,6 +108,8 @@ export function usePlatformVersion(pageVersion?: PlatformVersion): UsePlatformVe
 			if (stored) current.value = stored;
 		}
 		reflect(current.value);
+		hydrated.value = true;
 	});
-	return { version: readonly(current) as Readonly<Ref<PlatformVersion>>, setVersion };
+	const version = computed(() => (hydrated.value ? current.value : initial));
+	return { version: version as Readonly<Ref<PlatformVersion>>, setVersion };
 }
