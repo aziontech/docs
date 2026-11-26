@@ -29,7 +29,7 @@ export const DEFAULT_VERSION_LABELS: VersionLabels = {
 	helpHref: '/en/documentation/fundamentals/account-api-version/',
 	stages: { experimental: 'Experimental', preview: 'Preview', deprecated: 'Deprecated' },
 	current: 'Latest',
-	short: { v3: 'v3', v4: 'v4' },
+	short: { v3: 'v3.x', v4: 'v4.x' },
 };
 
 /** Client only: the page's availability and labels, or null when the page has no rail. */
@@ -57,7 +57,7 @@ export function readVersionPayload(): VersionPayload | null {
 				>
 					<i class="ai ai-azion-api text-(--text-muted)" aria-hidden="true" />
 					<span class="sr-only">{{ resolvedLabels.label }}:</span>
-					<span>{{ releaseOf(version) }}</span>
+					<span>{{ shortOf(version) }}</span>
 					<i
 						class="pi pi-chevron-down text-(--text-muted) transition-transform duration-150 ease-out motion-reduce:transition-none group-data-[state=open]:rotate-180"
 						aria-hidden="true"
@@ -73,7 +73,7 @@ export function readVersionPayload(): VersionPayload | null {
 				:value="option.id"
 				:selected="option.id === version"
 			>
-				{{ option.release }}
+				{{ option.short }}
 				<template v-if="statusOf(option.id)" #right>
 					<Tag
 						:label="statusOf(option.id)?.label"
@@ -174,8 +174,8 @@ function statusOf(id: PlatformVersion) {
 }
 
 // The trigger shows the chosen release line (`v4.x`, `v3.x`); the icon says it is the API version.
-function releaseOf(id: PlatformVersion): string {
-	return PLATFORM_VERSIONS.find((entry) => entry.id === id)?.release ?? id;
+function shortOf(id: PlatformVersion): string {
+	return PLATFORM_VERSIONS.find((entry) => entry.id === id)?.short ?? id;
 }
 
 function onDropdownSelect(_event: MouseEvent | KeyboardEvent, value: string | number) {

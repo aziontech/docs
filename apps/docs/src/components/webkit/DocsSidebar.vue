@@ -85,7 +85,7 @@ withDefaults(
 			preview: 'Preview',
 			deprecated: 'Deprecated',
 		}),
-		versionLabels: () => ({ v3: 'v3', v4: 'v4' }),
+		versionLabels: () => ({ v3: 'v3.x', v4: 'v4.x' }),
 	}
 );
 

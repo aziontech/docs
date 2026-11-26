@@ -20,9 +20,13 @@
 				</span>
 				<div class="min-w-0 flex-1">
 					<span class="block text-overline-sm uppercase text-(--primary)">{{ vendor }}</span>
-					<h1 id="overview" class="m-0 text-heading-xl text-(--text-default)">
-						{{ title }}
-					</h1>
+					<!-- The stage rides on the title's line, right after the name it qualifies. -->
+					<div class="flex flex-wrap items-center gap-x-(--spacing-sm) gap-y-(--spacing-xs)">
+						<h1 id="overview" class="m-0 text-heading-xl text-(--text-default)">
+							{{ title }}
+						</h1>
+						<slot name="title-stage" />
+					</div>
 				</div>
 			</div>
 		</template>
@@ -66,6 +70,11 @@ import AgentMark, { type AgentName } from './AgentMark.vue';
 import DocPageHeader, { type DocPageHeaderLabels } from './DocPageHeader.vue';
 
 defineOptions({ name: 'AgentPageHeader', inheritAttrs: false });
+
+defineSlots<{
+	/** The page's release stage, beside the title. */
+	'title-stage'(): unknown;
+}>();
 
 interface Props {
 	title: string;

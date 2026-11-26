@@ -57,7 +57,7 @@ export default UIDictionary({
 	'versionSelect.label': 'Versão da plataforma',
 	'versionSelect.stage.experimental': 'Experimental',
 	'versionSelect.stage.preview': 'Preview',
-	'versionSelect.stage.deprecated': 'Descontinuada',
+	'versionSelect.stage.deprecated': 'Descontinuado',
 	// `<DocPageHeader>` meta line
 	'pageHeader.lastUpdated': 'Última atualização',
 	'pageHeader.copy': 'Copiar como Markdown',
@@ -174,7 +174,7 @@ export default UIDictionary({
 	// Disponibilidade da página (bloco de versões e estágio de lançamento, faixa de versão não vigente)
 	'pageAvailability.stage.experimental': 'Experimental',
 	'pageAvailability.stage.preview': 'Preview',
-	'pageAvailability.stage.deprecated': 'Descontinuada',
+	'pageAvailability.stage.deprecated': 'Descontinuado',
 	'pageAvailability.stageHelp': 'Sobre este estágio de lançamento',
 	'pageAvailability.stageTip.experimental':
 		'Limitado, por convite, a um grupo fechado de clientes, pode ser instável, não tem SLA e não é recomendado para produção.',
