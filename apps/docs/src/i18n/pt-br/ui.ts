@@ -187,4 +187,5 @@ export default UIDictionary({
 		'/pt-br/documentacao/contratos/tds/#13-estagios-de-liberacao-de-produtos',
 	'pageAvailability.banner.message': 'Esta página documenta a {version}, que está descontinuada.',
 	'pageAvailability.banner.action': 'Ir para {name}',
+	'pageAvailability.banner.actionVersion': 'Ir para a versão {version}',
 });

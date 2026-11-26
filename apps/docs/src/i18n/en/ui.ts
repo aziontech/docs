@@ -200,4 +200,5 @@ export default {
 	'pageAvailability.stageHref': '/en/documentation/agreements/tos/#13-product-release-stages',
 	'pageAvailability.banner.message': 'This page documents {version}, which is deprecated.',
 	'pageAvailability.banner.action': 'Go to {name}',
+	'pageAvailability.banner.actionVersion': 'Go to the {version} version',
 };

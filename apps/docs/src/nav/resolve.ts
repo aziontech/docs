@@ -1047,6 +1047,8 @@ export function productLabels(data: NavData, lang: Lang): Map<string, string> {
 		for (const { node } of walkTree(tree, lang)) {
 			if (node.product && !out.has(node.product))
 				out.set(node.product, nodeLabel(data, node, lang));
+	/** The versions the page declares, only when it is restricted to a subset of them. */
+	versions?: PlatformVersion[];
 		}
 	}
 	return out;
@@ -1100,11 +1102,16 @@ export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): Guid
 
 	for (const video of data.videos ?? []) {
 		const products = video.products ?? [];
+					const versions =
+						facts?.versions && facts.versions.length < VERSION_IDS.length
+							? facts.versions
+							: undefined;
 		push({
 			label: text(video.title, lang) ?? video.href,
 			href: video.href,
 			description: text(video.description, lang),
 			kind: video.kind ?? 'tutorial',
+						...(versions && { versions }),
 			products,
 			topic: products[0] ? productLabel(products[0]) : 'YouTube',
 			external: true,

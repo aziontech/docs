@@ -154,7 +154,16 @@
 						:label="entry.description"
 						:href="entry.href"
 						:target="entry.external ? '_blank' : '_self'"
-					/>
+					>
+						<!-- A guide for an older version shares its title with the current one: the tag,
+						     the same one the menu shows, tells the two cards apart. -->
+						<template v-if="entry.versionTag" #default>
+							<span class="flex flex-col items-start gap-(--spacing-xs)">
+								<Tag :label="entry.versionTag" severity="secondary" rounded />
+								<span>{{ entry.description }}</span>
+							</span>
+						</template>
+					</DocCard>
 				</DocCardGroup>
 				<Paginator v-if="pageCount > 1" :aria-label="labels.pagination">
 					<template #info>{{ rangeLabel }}</template>
@@ -214,11 +223,7 @@ export const PAGE_SIZE = 24;
 
 /** The content types the guides tree files a page under: the catalog kinds a guide can be. */
 export type GuideKind =
-	| 'tutorial'
-	| 'how-to-guide'
-	| 'multi-product-guide'
-	| 'use-case'
-	| 'architecture';
+	'tutorial' | 'how-to-guide' | 'multi-product-guide' | 'use-case' | 'architecture';
 
 /** One catalogued page: what it takes to filter it and to draw its card. */
 export interface GuidesEntry {
@@ -231,6 +236,8 @@ export interface GuidesEntry {
 	external?: boolean;
 	/** Set when the entry is a video rather than a page; the kind says what it teaches. */
 	format?: 'video';
+	/** The version tag (`v3.x`) of a guide the current version does not cover. */
+	versionTag?: string;
 }
 
 /** Every string the surface renders, resolved on the server. */
@@ -267,6 +274,7 @@ import InputText from '@aziontech/webkit/input-text';
 import Message from '@aziontech/webkit/message';
 import Paginator from '@aziontech/webkit/paginator';
 import Skeleton from '@aziontech/webkit/skeleton';
+import Tag from '@aziontech/webkit/tag';
 import { computed, onMounted, onScopeDispose, ref, useAttrs, useId, watch, watchEffect } from 'vue';
 
 defineOptions({ name: 'GuidesHome', inheritAttrs: false });

@@ -8,7 +8,7 @@
 		severity="warning"
 		size="medium"
 		:closable="false"
-		:action-label="counterpart ? fill(labels.bannerAction, { name: counterpart.label }) : ''"
+		:action-label="actionLabel"
 		@action="goToCounterpart"
 	>
 		{{ fill(labels.bannerMessage, { version: labelOf(notCurrent) }) }}
@@ -33,6 +33,8 @@ export interface PageAvailabilityLabels {
 	bannerMessage: string;
 	/** Template with `{name}`: the action that opens the equivalent page in the current version. */
 	bannerAction: string;
+	/** Template with `{version}`: the same action when the equivalent page shares this page's title. */
+	bannerActionVersion: string;
 }
 
 // Astro hands an island's `slot="details"` to the component as an attribute; it must not reach the root.
@@ -41,6 +43,8 @@ defineOptions({ name: 'PageAvailability', inheritAttrs: false });
 const props = defineProps<{
 	availability: PageAvailability;
 	labels: PageAvailabilityLabels;
+	/** The page's title: an equivalent page with the same one is named by its version instead. */
+	title: string;
 }>();
 
 const labelOf = (id: PlatformVersion) =>
@@ -55,6 +59,15 @@ const notCurrent = computed(() => {
 	return only && only !== CURRENT_VERSION ? only : undefined;
 });
 const counterpart = computed(() => props.availability.counterparts[CURRENT_VERSION]);
+
+// "Go to Workloads" names a different product; "Go to How to provision files" would name this page.
+const actionLabel = computed(() => {
+	const target = counterpart.value;
+	if (!target) return '';
+	return target.label === props.title
+		? fill(props.labels.bannerActionVersion, { version: labelOf(CURRENT_VERSION) })
+		: fill(props.labels.bannerAction, { name: target.label });
+});
 
 function goToCounterpart() {
 	if (counterpart.value) window.location.assign(counterpart.value.href);
