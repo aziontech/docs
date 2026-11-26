@@ -1,7 +1,7 @@
 ---
-title: Firewall best practices
+title: Best practices for Firewall
 description: >-
-  Size rate-limit bursts, give each function path one outcome, wait for
+  Size rate-limit bursts, give each Function path one outcome, wait for
   propagation, and read what WAF, Network Shield, and Bot Manager match first.
 meta_tags: 'firewall, best practices, rules engine, functions, waf, network shield, bot manager, logging, allowlist'
 namespace: documentation_products_firewall_best_practices
@@ -14,32 +14,51 @@ import DocItem from '@aziontech/webkit/doc-item'
 
 A security layer in front of an application decides what reaches it before the application sees a request. When that layer is wrong, a customer receives an error nobody can explain, or an attack reaches the application it was meant to stop. Few of those mistakes come from one wrong value. Most come from three habits: judging a change before it reaches traffic, writing code whose outcome depends on which branch ran, and refusing traffic before anyone has read what a protection matches.
 
-These practices apply to a [firewall](/en/documentation/platform/firewall/), the [Rules Engine for Firewall](/en/documentation/platform/firewall/rules-engine/) rules it runs, and the functions and Products those rules invoke. The mechanisms behind them are on [How Firewall works](/en/documentation/platform/firewall/how-it-works/), and the value of every bound is on [Firewall limits](/en/documentation/platform/firewall/limits/).
+These practices apply to a [Firewall](/en/documentation/platform/firewall/), the [Rules Engine for Firewall](/en/documentation/platform/firewall/rules-engine/) rules it runs, and the Function Instances, WAF rule sets, and Network Lists those rules use. The mechanisms behind them are on [How Firewall works](/en/documentation/platform/firewall/how-it-works/), and the value of every bound is on [Firewall limits](/en/documentation/platform/firewall/limits/).
 
-The first five practices apply to every firewall, and one section per Product enabled on a firewall follows. Each sample shows only the part of a rule, a request body, or an arguments object that its practice changes. The complete body of a rule is in [Match the request, not its query string](/en/documentation/platform/firewall/best-practices/#match-the-request-not-its-query-string).
+The first five practices apply to every Firewall. One section follows for each nested Platform Resource: WAF, Network Shield, and Bot Manager. Each sample shows only the part of a rule, a request body, or an arguments object that its practice changes. The complete body of a rule is in [Match the request, not its query string](/en/documentation/platform/firewall/best-practices/#match-the-request-not-its-query-string).
 
 ---
-## Share one firewall among workloads with the same security policy
+## Share one Firewall among Workloads with the same security policy
 
-A workload uses a firewall through its deployment: the **Firewall** field of **Deployment Settings** in Azion Console. Workloads that follow the same security policy can share one firewall, so the policy is written once and changed in one place. Every workload that shares it names the same firewall on its deployment. The cost is reach: a change made for one workload applies to all of them. A workload whose policy differs, such as a test environment, needs a firewall of its own. For the deployment and its fields, refer to [Workloads](/en/documentation/platform/workloads/).
+A Workload uses a Firewall through its deployment, which sets the Firewall and the Application together. Workloads that follow the same security policy can share one Firewall, so the policy is written once and changed in one place. The cost is reach: a change made for one Workload applies to all of them, and a Workload whose policy differs, such as a test environment, needs a Firewall of its own.
+
+Every Workload that shares the Firewall carries the same ID in `strategy.attributes.firewall` on its deployment, as in this part of a body for `POST /v4/workspace/workloads/<workload-id>/deployments`:
+
+```json
+{
+  "strategy": {
+    "type": "default",
+    "attributes": { "application": <application-id>, "firewall": <firewall-id> }
+  }
+}
+```
+
+Read the deployments of each Workload back to confirm that the `firewall` ID matches. To set a Firewall on a Workload, refer to [Set a Firewall on a Workload](/en/documentation/guides/application-security/firewall-and-waf/firewall-protect-your-domain/), and for the deployment and its fields, to [Workloads](/en/documentation/platform/workloads/).
 
 ---
 
 ## Keep a rate limit's burst within ten times its average rate
 
-_Set Rate Limit_ needs no Product, and its `maximum_burst_size` is how many extra requests it queues in a short peak and releases at the rate. Azion recommends a burst of at most ten times `average_rate_limit`. At that ratio the queue holds 10 seconds of traffic, so the last request of a full burst waits up to 10 seconds. [Set Rate Limit](/en/documentation/platform/firewall/rules-engine/#set-rate-limit) shows both at `10`: 10 requests per second per client IP address, and a peak of 10 more.
+_Set Rate Limit_ queues up to `maximum_burst_size` requests of a short peak and releases them at `average_rate_limit`. Keep the burst at most ten times the average rate: at that ratio the queue holds about 10 seconds of traffic, and the last request of a full burst waits that long. This behavior keeps 10 requests per second per client IP address, with a peak of 100 more:
+
+```json
+{ "type": "set_rate_limit", "attributes": { "type": "second", "limit_by": "client_ip", "average_rate_limit": 10, "maximum_burst_size": 100 } }
+```
+
+The API requires `maximum_burst_size` for a `second` rate and refuses it for a `minute` rate. With a rate of 1 per second and a burst of 10, 25 simultaneous requests received 12 answers spread over 11 seconds and 13 immediate `429` responses, each with `retry-after: 1`. For every field, refer to [Set Rate Limit](/en/documentation/platform/firewall/rules-engine/#set-rate-limit).
 
 Only requests that arrive at once beyond the burst receive `429`. A burst smaller than your clients' peaks refuses legitimate concurrent requests, and a larger one delays the last of them longer.
 
 ---
 
-## Give every path through a firewall function one outcome
+## Give every path through a Firewall Function one outcome
 
-A function on a firewall ends each request with an outcome method, such as `event.continue()`, `event.deny()`, or `event.drop()`, and Rules Engine for Firewall resumes from that outcome. A function that calls `event.drop()` inside an `if` and then falls through to `event.continue()` reaches both outcomes on every request that meets the condition. The result of that request is no longer predictable. Put the second outcome in an `else` branch, so each request reaches exactly one:
+A Function on a Firewall ends each request with an outcome method, such as `event.continue()`, `event.deny()`, or `event.drop()`, and Rules Engine for Firewall resumes from that outcome. A Function that calls `event.drop()` inside an `if` and then falls through to `event.continue()` reaches two outcomes on every request that meets the condition. Such a request was neither dropped nor passed: it received `500` and the default error page, as did `event.deny()` followed by `event.continue()`. Put the second outcome in an `else` branch, so each request reaches exactly one:
 
 ```javascript
 addEventListener("firewall", (event) => {
-  if (someCondition) {
+  if (event.request.headers.get("x-block") === "1") {
     event.drop();
   } else {
     event.continue();
@@ -47,13 +66,13 @@ addEventListener("firewall", (event) => {
 });
 ```
 
-For every outcome method a function can call, refer to [Functions for Firewall](/en/documentation/platform/firewall/functions/#event-methods).
+With this Function, a request that carries `x-block: 1` is dropped, and every other request continues. For every outcome method a Function can call, refer to [Functions for Firewall](/en/documentation/platform/firewall/functions/#event-methods).
 
 ---
 
 ## Run asynchronous work inside event.waitUntil
 
-The handler a firewall event calls is synchronous. Code that awaits a promise, such as a `fetch` or a timeout, belongs in an `async` function, and the handler passes that function's promise to `event.waitUntil`. Without `event.waitUntil`, the promise can end in an unexpected exception:
+The handler that a Firewall event calls is synchronous. Code that awaits a promise, such as a `fetch` or a timeout, belongs in an `async` function, and the handler passes that function's promise to `event.waitUntil`. A handler that answers after an `await` without `event.waitUntil` ends the request with `500`:
 
 ```javascript
 async function firewallHandler(event) {
@@ -64,13 +83,15 @@ async function firewallHandler(event) {
 addEventListener("firewall", (event) => event.waitUntil(firewallHandler(event)));
 ```
 
-The handler's logic moves into a separate function, which calls the outcome method after the work it waits for. For the event a firewall function receives, refer to [Functions for Firewall](/en/documentation/platform/firewall/functions/#the-firewall-event).
+The handler's logic moves into a separate function, which calls the outcome method after the work it waits for. For the event a Firewall Function receives, refer to [Functions for Firewall](/en/documentation/platform/firewall/functions/#the-firewall-event).
 
 ---
 
 ## Wait for a change to propagate before you judge it
 
-The API stores a change before traffic reflects it, answering `202` and `pending` for a rule and `executed` for a network list. A rule added to a firewall already in traffic reaches it after 6 min 29 s to 9 min 18 s. A change to a list's items arrives after 46 s to about 100 s. A workload newly bound to a firewall can take several minutes to enforce its first rule, with no duration guaranteed, and its application can answer first, as [Propagation](/en/documentation/platform/firewall/how-it-works/#propagation) shows.
+The API stores a change before traffic reflects it, answering `202` and `pending` for a rule and `200` and `executed` for a Network List. A rule added to a Firewall already in traffic reaches it after several minutes, observed at 262 to 319 seconds. A change to a Network List's items arrived sooner, after 41 to 156 seconds.
+
+A Workload whose deployment newly sets a Firewall enforced its first rule after 278 to 532 seconds, and its Application can answer first. No duration is guaranteed, as [Propagation](/en/documentation/platform/firewall/how-it-works/#propagation) shows.
 
 While a change propagates, answers alternate. A change judged before it arrives looks like one that failed, and reverting it starts a second propagation. From a client the rule should refuse, repeat this request against a path the rule covers until the answer holds:
 
@@ -78,7 +99,7 @@ While a change propagates, answers alternate. A change judged before it arrives 
 curl -s -o /dev/null -w '%{http_code}\n' https://<your-workload-domain>/
 ```
 
-It prints `403` for `deny`, `000` for `drop`, and the application's status otherwise. For an answer that never changes, refer to [Troubleshoot Firewall](/en/documentation/platform/firewall/troubleshooting/).
+It prints `403` for `deny`, `000` for `drop`, and the Application's status otherwise. For an answer that never changes, refer to [Troubleshoot Firewall](/en/documentation/platform/firewall/troubleshooting/).
 
 ---
 
@@ -88,7 +109,13 @@ A Web Application Firewall (WAF) rule set that refuses too much turns legitimate
 
 ### Start in Logging and move to Blocking after you read what matched
 
-The mode belongs to the rule's _Set WAF_ behavior, `set_waf` in the API, so one rule set can run in _Logging_ on one rule and _Blocking_ on another. In _Logging_, a request that reaches a threshold is scored, recorded, and served. In _Blocking_, it receives `400` and an error page that names neither WAF nor the rule. Start with `mode` set to `logging`, because its records are the only description of your traffic as the rule set sees it.
+The mode belongs to the rule's _Set WAF_ behavior, `set_waf` in the API, so one rule set can run in _Logging_ on one rule and _Blocking_ on another. In _Logging_, a request that reaches a threshold is scored, recorded, and served. In _Blocking_, it receives `400` and an error page that names neither WAF nor the rule. Start with `mode` set to `logging`, because its records are the only description of your traffic as the rule set sees it:
+
+```json
+{ "type": "set_waf", "attributes": { "waf_id": <waf-id>, "mode": "logging" } }
+```
+
+A logged request that would have been blocked records `wafLearning` `1` and `wafAttackAction` `$LEARNING-BLOCK`, and a blocked one records `$BLOCK`. `wafBlock` reads `1` in both modes, so read `wafLearning` to tell them apart.
 
 Change `mode` to `blocking` once the last 3 days of [Tuning](/en/documentation/platform/firewall/waf/scoring-and-modes/#tuning) hold no request that should have been served. For the procedure, refer to [Tune a WAF rule set](/en/documentation/guides/application-security/firewall-and-waf/tune-waf/).
 
@@ -104,7 +131,7 @@ The CLI answers `Created WAF with ID <waf-id>`, and the rule set takes every oth
 
 ### Send the complete thresholds array, with each family once
 
-A `PATCH` that carries `engine_settings` replaces the whole `thresholds` array rather than merging it, so a `PATCH` naming two threat families leaves the rule set holding those two. Send every family the rule set keeps, each exactly once. This `PATCH` body for `/v4/workspace/wafs/<waf-id>` raises SQL injection to `high` and keeps the other seven families at `medium`:
+A `PATCH` whose `engine_settings` carries `thresholds` replaces the whole array rather than merging it, so a `PATCH` naming two threat families leaves the rule set holding those two. Send every family the rule set keeps, each exactly once. This `PATCH` body for `/v4/workspace/wafs/<waf-id>` raises SQL injection to `high` and keeps the other seven families at `medium`:
 
 ```json
 {
@@ -132,7 +159,7 @@ The API answers `202` with a `state` of `pending`. A repeated `threat` returns `
 
 ### Match the request, not its query string
 
-A WAF rule set scores only the requests a rule carrying its [_Set WAF_](/en/documentation/platform/firewall/rules-engine/#set-waf) behavior matches. `${request_args}` `matches` `.*` reads as every request and is not one. An empty variable does not match, so the rule skips every request without a query string: a `POST` to `/?x=1` is blocked, and the same `POST` to `/` is not.
+A WAF rule set scores only the requests a rule carrying its [_Set WAF_](/en/documentation/platform/firewall/rules-engine/#set-waf) behavior matches. `${request_args}` `matches` `.*` reads as every request and is not one. An empty variable does not match, so the rule skips every request without a query string: a `POST` to `/?x=1` with an attack in its body is blocked, and the same `POST` to `/` is not.
 
 `${request_uri}` `starts_with` `/` does match every request, as in this complete body for `POST /v4/workspace/firewalls/<firewall-id>/request_rules`:
 
@@ -151,11 +178,11 @@ A WAF rule set scores only the requests a rule carrying its [_Set WAF_](/en/docu
 }
 ```
 
-WAF is billed on requests, so narrow the argument to a path when you mean a path. For the criteria a firewall rule accepts, refer to [Create a firewall rule](/en/documentation/guides/application-security/firewall-and-waf/work-with-rules-engine/).
+WAF is billed on requests, so narrow the argument to a path when you mean a path. For the criteria a firewall rule accepts, refer to [Create a Firewall rule](/en/documentation/guides/application-security/firewall-and-waf/work-with-rules-engine/).
 
 ### Match the content type and the body size to what WAF parses
 
-WAF parses a `POST` body only in [five content types](/en/documentation/platform/firewall/waf/scoring-and-modes/#request-body-parsing), and only up to 131,072 bytes (128 KiB). In _Blocking_, rule `11` refuses a missing or other `Content-Type`, rule `15` invalid JSON, and rule `2` a larger body, each with `400` rather than `413`.
+WAF parses a `POST` body only in [five content types](/en/documentation/platform/firewall/waf/scoring-and-modes/#request-body-parsing), and only up to 131,072 bytes (128 KiB). In _Blocking_, with every family at `highest`, rule `11` refused a missing or `text/plain` `Content-Type`, rule `15` invalid JSON, and rule `2` a body of 131,073 bytes. Each answer was `400`, not `413`, and a body of 131,072 bytes passed.
 
 An API meets the format bound most often, and the fix is a well-formed body of the type it declares. An upload endpoint meets the size bound once a file passes 128 KiB. Name only the paths you want inspected, such as `/api/` on [the complete rule](/en/documentation/platform/firewall/best-practices/#match-the-request-not-its-query-string) in `blocking` mode. A path inside the criterion refuses every larger upload, and a path outside it is not scored.
 
@@ -163,22 +190,27 @@ An API meets the format bound most often, and the fix is a well-formed body of t
 
 Exceptions let specific traffic through rules that would otherwise block it. Each exception lowers protection wherever it applies, so scope it to as few rules as possible.
 
-A WAF exception removes one part of a request from the scoring of one internal rule, but its `rule_id` and its condition both default wider. `rule_id` defaults to `0`, every internal rule, and a key that the condition's match value does not carry is dropped rather than rejected. The API answers `202` to `{ "match": "any_http_header_value", "name": "cookie" }` and stores it without the `name`, which exempts every request header with no warning. The match value that names one header is `specific_http_header_name`:
+A WAF exception removes one part of a request from the scoring of internal rules, and its `rule_id` and its condition both default wider. `rule_id` defaults to `0`, every internal rule, and a key that the condition's match value does not carry is dropped rather than rejected. The API answers `202` to `{ "match": "any_http_header_value", "name": "cookie" }` and stores it without the `name`, so it covers every request header with no warning. Name the one internal rule that the event's `wafMatch` reports:
 
 ```json
 {
+  "name": "Session cookie trips rule 1005",
   "rule_id": 1005,
-  "conditions": [ { "match": "specific_http_header_name", "name": "cookie" } ]
+  "conditions": [ { "match": "specific_http_header_value", "value": "cookie" } ]
 }
 ```
+
+In a test with every family at `highest`, this exception cleared a `1005` match on the `Cookie` header, and a `1005` match in the query string was still blocked. Conditions of `specific_http_header_name` with `cookie` or `HTTP_COOKIE` were accepted with `202`, yet they cleared no match on the `Cookie` header. `any_http_header_value` with the `rule_id` cleared the match on every header. Send the request again after the exception propagates, and confirm in its event that the match is gone.
+
+When the false positive comes from one path, set `path` to that exact request path. In tests, a `path` matched only exactly, and an exception with no `path` covered every path.
 
 With the default `rule_id` and a generic match value, no threat family [scores that zone](/en/documentation/platform/firewall/waf/scoring-and-modes/#exceptions). For every match value, refer to [Match zones](/en/documentation/platform/firewall/waf/custom-allowed-rules/#match-zones).
 
 ### Keep a separate WAF rule set for each environment
 
-A WAF rule set is shared by every rule that names it, so an exception added for a false positive in a test environment removes that scoring in production too. That exception is legitimate only inside a rule set that no production traffic uses. Keep one rule set per environment, each carrying only the exceptions its own traffic produced.
+A WAF rule set is shared by every rule that applies it, so an exception added for a false positive in a test environment removes that scoring in production too. That exception is legitimate only inside a rule set that no production traffic uses. Keep one rule set per environment, each carrying only the exceptions its own traffic produced.
 
-A [clone](/en/documentation/platform/firewall/waf/rules-set/#clone-a-rule-set) also copies the source's exceptions, so delete the ones the second environment's traffic did not produce. A family raised in production then has to be raised again in the other rule set, and rule sets are one of the metrics WAF is [billed on](/en/documentation/platform/firewall/limits/#waf).
+A [clone](/en/documentation/platform/firewall/waf/rules-set/#clone-a-rule-set) also copies the source's exceptions, so delete the ones the second environment's traffic did not produce. A family raised in production then has to be raised again in the other rule set, and rule sets are one of the metrics WAF is [billed on](/en/documentation/fundamentals/pricing/#web-application-firewall).
 
 ### Treat every WAF exception as temporary and record why it exists
 
@@ -188,27 +220,31 @@ To confirm it is still needed, `PATCH` it with `{ "active": false }`, [wait for 
 
 ### Confirm each WAF change against the events it produces
 
-Nothing in a response that WAF blocks names WAF, the rule, or the score. Its `x-azion-request-id` header finds the record in the `workloadEvents` dataset of [Real-Time Events](/en/documentation/platform/real-time-events/), at `/v4/events/graphql`. `wafMatch` names the internal rules that matched, `wafScore` the score per threat family, and `wafAttackAction` what WAF did:
+Nothing in a response that WAF blocks names WAF, the rule, or the score. Its `x-azion-request-id` header finds the record in the `workloadEvents` dataset of [Real-Time Events](/en/documentation/platform/real-time-events/), at `/v4/events/graphql`. `wafMatch` names the internal rules that matched, `wafScore` the score per threat family, and `wafAttackAction` what WAF did. `wafLearning` reads `1` when the rule ran in _Logging_:
 
 ```graphql
 query {
   workloadEvents(limit: 1, filter: { tsGte: "<start>", tsLt: "<end>", requestIdEq: "<request-id>" }) {
-    ts requestUri status upstreamStatus wafBlock wafMatch wafScore wafAttackFamily wafAttackAction
+    ts requestUri status upstreamStatus wafBlock wafLearning wafMatch wafScore wafAttackFamily wafAttackAction
   }
 }
 ```
 
 Read the record before you write an exception from it, because the rules that fire are not always the ones the request suggests. The query string `1' OR '1'='1` is caught by rules `1009` and `1013`, the equal sign and the apostrophe, not by a SQL injection parser. For each field, refer to [Find the WAF score of a blocked request](/en/documentation/guides/application-security/firewall-and-waf/how-to-find-waf-score/).
 
+A record whose `waf` fields all read `-` belongs to a request that WAF did not inspect. In the tests behind this page, WAF inspected no request on an Application with no [Connector](/en/documentation/platform/connectors/), and those requests showed `-`, even on a path in _Blocking_. Before you read an empty record as a pass, confirm that the path reaches a Connector.
+
 ---
 
 ## Network Shield
 
-A block on network addresses decides who reaches an application at all. Drawn too wide, it turns away customers, partners, and the monitors that report your availability. Drawn too narrow, it lets through the source you meant to stop. Network Shield lets a firewall rule match a client against a [network list](/en/documentation/platform/firewall/network-shield/network-lists/) of addresses, autonomous systems, or countries.
+A block on network addresses decides who reaches an application at all. Drawn too wide, it turns away customers, partners, and the monitors that report your availability. Drawn too narrow, it lets through the source you meant to stop. Network Shield lets a rule match a client against a [Network List](/en/documentation/platform/firewall/network-shield/network-lists/) of addresses, autonomous systems, or countries.
 
 ### Leave Network Shield on, whether or not a rule uses it
 
-Network Shield gates one thing on a firewall: the _Network_ criterion, `${network}` in the API. No behavior needs it, and a firewall starts with it on, so leaving it on changes nothing for a rule without the criterion. Turning it off costs the next rule that needs a list, refused with `400` [`25047`](/en/documentation/platform/firewall/rules-engine/#errors) `Missing Required Modules`. In Azion Console the switch is **Main Settings** › **Modules** › **Network Shield**, and in the Azion CLI it is one flag:
+Network Shield gates one criterion on a Firewall: _Network_, `${network}` in the API. A new Firewall starts with it on, and leaving it on changes nothing for a rule without the criterion. It also counts toward the condition for every rule: a Firewall accepts rules only while at least one of WAF, Network Shield, or Functions is on.
+
+Turning it off costs the next rule that needs a list, refused with `400` [`25047`](/en/documentation/platform/firewall/rules-engine/#errors) `Missing Required Modules`. The API holds the switch in `modules.network_protection.enabled`, and in the Azion CLI it is one flag:
 
 ```bash
 azion update firewall --firewall-id <firewall-id> --network-protection true
@@ -218,13 +254,13 @@ The CLI answers `Updated Firewall with ID <firewall-id>`. Once a rule uses `${ne
 
 ### Match the list type to what you are blocking
 
-A list's type, fixed at creation, decides [how much one entry covers](/en/documentation/platform/firewall/network-shield/list-matching/#list-matching). `ip_cidr`, with items such as `198.51.100.0/24`, suits sources you identified by address, and needs a new entry each time one moves. `asn`, with items such as `64496`, suits traffic from across one Autonomous System Number (ASN), and refuses every other client on it. `countries`, with items such as `DE`, suits a policy decided by country, and refuses every client resolved there, customers and partners included.
+A list's type, fixed at creation, decides [how much one entry covers](/en/documentation/platform/firewall/network-shield/list-matching/#client-address-comparison). `ip_cidr`, with items such as `198.51.100.0/24`, suits sources you identified by address, and needs a new entry each time one moves. `asn`, with items such as `64496`, suits traffic from across one Autonomous System Number (ASN), and refuses every other client on it. `countries`, with items such as `DE`, suits a policy decided by country, and refuses every client resolved there, customers and partners included.
 
-Country and ASN resolution can be wrong for some addresses, so use `ip_cidr` where one wrong match would cost you a customer. [Real-Time Metrics](/en/documentation/platform/real-time-metrics/) breaks your requests down by address, network, and country. For the format of each type and the call that creates a list, refer to [Network Lists](/en/documentation/platform/firewall/network-shield/network-lists/#list-types).
+Country and ASN resolution can be wrong for some addresses, so use `ip_cidr` where one wrong match would cost you a customer. [Real-Time Metrics](/en/documentation/platform/real-time-metrics/secure-dashboards/) shows the countries and the IP addresses that send the threats WAF identifies. For the format of each type and the call that creates a list, refer to [Network Lists](/en/documentation/platform/firewall/network-shield/network-lists/#list-types).
 
 ### Allow by exception, and put your team on the list
 
-Rules Engine for Firewall has no allow behavior: a request that no rule stops reaches the application. An allowlist is therefore a deny rule whose `${network}` operator is `is_not_in_list`, for what only known clients should reach, such as an internal tool:
+Rules Engine for Firewall has no allow behavior: a request that no rule stops reaches the Application. An allowlist is therefore a deny rule whose `${network}` operator is `is_not_in_list`, for what only known clients should reach, such as an internal tool:
 
 ```json
 {
@@ -233,13 +269,13 @@ Rules Engine for Firewall has no allow behavior: a request that no rule stops re
 }
 ```
 
-Every other client receives `403`, and a listed client is only passed to the next rule, so a blocklist rule that also matches still denies it, as [List matching](/en/documentation/platform/firewall/network-shield/list-matching/#list-matching) explains.
+Every other client receives `403`, and a listed client is only passed to the next rule, so a blocklist rule that also matches still denies it, as [List matching](/en/documentation/platform/firewall/network-shield/list-matching/#client-address-comparison) explains.
 
 The address you forget is the one the rule refuses. Before a rule references it, add your team, your availability monitors, and every partner integration that calls the application. Give each `ip_cidr` entry a `#` comment naming whose address it is, and update it when that changes. For a complete configuration, refer to [Allow only the addresses in a list](/en/documentation/guides/application-security/bots-and-network/allowlist/).
 
 ### Scope a block to the path that needs it
 
-A rule whose only criterion is `${network}` acts on every request its firewall receives. A second criterion joined with `and` in the same block narrows it to the requests where both hold, so this rule refuses a listed client on `/admin` only:
+A rule whose only criterion is `${network}` acts on every request its Firewall receives. A second criterion joined with `and` in the same block narrows it to the requests where both hold, so this rule refuses a listed client on `/admin` only:
 
 ```json
 {
@@ -253,19 +289,19 @@ A rule whose only criterion is `${network}` acts on every request its firewall r
 }
 ```
 
-`starts_with` also covers `/admin/users` and `/administrator`. Scoping limits what a list you have not tried yet can break to one path, and every other path stays open to the listed clients. Once the list refuses only the clients you expect, widen the rule or remove the path criterion. For a complete configuration, refer to [Guard one path with a network list](/en/documentation/guides/application-security/bots-and-network/guard-one-path/).
+`starts_with` also covers `/admin/users` and `/administrator`. Scoping limits what a list you have not tried yet can break to one path, and every other path stays open to the listed clients. Once the list refuses only the clients you expect, widen the rule or remove the path criterion. For a complete configuration, refer to [Guard one path with a Network List](/en/documentation/guides/application-security/bots-and-network/guard-one-path/).
 
 ### Deny while you roll a block out, then drop
 
-`deny` and `drop` both stop a matched request and need no Product, and swapping one for the other changes only the `type` of the rule's `behaviors` entry. A denied request receives `HTTP/2 403` and a default error page, headed `Forbidden`, with the matched address and the request ID that `x-azion-request-id` carries.
+`deny` and `drop` both stop a matched request, and swapping one for the other changes only the `type` of the rule's `behaviors` entry, from `{ "type": "deny" }` to `{ "type": "drop" }`. Like every behavior, each needs only that the Firewall has WAF, Network Shield, or Functions on. A denied request receives `HTTP/2 403` and a default error page, headed `Forbidden`, with the client address and the request ID that `x-azion-request-id` carries.
 
-Roll a block out with `deny`. Its page names neither the firewall, the rule, nor the list, yet a client refused by mistake can report its address and request ID. Once the list refuses only clients you have confirmed, switch to `drop`, which stops sending the [error page](/en/documentation/platform/firewall/rules-engine/#deny-403-forbidden) on every refusal and leaves a client refused by mistake unable to tell a refusal from an outage. For what each returns, refer to [What the client receives](/en/documentation/platform/firewall/how-it-works/#what-the-client-receives).
+Roll a block out with `deny`. Its page names neither the Firewall, the rule, nor the list, yet a client refused by mistake can report its address and request ID. Once the list refuses only clients you have confirmed, switch to `drop`, which stops sending the [error page](/en/documentation/platform/firewall/rules-engine/#deny-403-forbidden) on every refusal and leaves a client refused by mistake unable to tell a refusal from an outage. For what each returns, refer to [What the client receives](/en/documentation/platform/firewall/how-it-works/#what-the-client-receives).
 
-### Keep one network list per purpose, and reuse it
+### Keep one Network List per purpose, and reuse it
 
-A rule names its network list by ID, as the `argument` of its `${network}` criterion, so rules on any number of firewalls can name the same list. A change to its items changes what all of them match, and reaches traffic sooner than a new rule, as the [propagation times](/en/documentation/platform/firewall/best-practices/#wait-for-a-change-to-propagate-before-you-judge-it) show. It also adds nothing to the rules your plan includes per firewall. Keep one list per purpose, such as the sources you block, your own team, or a country policy, named for it, because **Select a Network** shows the name.
+A rule uses a Network List by its ID in the `argument` of its `${network}` criterion, so rules on many Firewalls can share one list. A change to its items changes what all of them match, and reaches traffic sooner than a new rule, as the [propagation times](/en/documentation/platform/firewall/best-practices/#wait-for-a-change-to-propagate-before-you-judge-it) show. Keep one list per purpose, such as the sources you block, your own team, or a country policy, named for it, because **Select a Network** shows the name.
 
-The cost is reach: an entry added for one application applies on every firewall that references the list. A list in use can be neither deleted (`22018`) nor deactivated (`22003`), as [Network Lists](/en/documentation/platform/firewall/network-shield/network-lists/#errors) shows.
+The cost is reach: an entry added for one Application applies on every Firewall whose rules use the list. A list in use can be neither deleted (`22018`) nor deactivated (`22003`), as [Network Lists](/en/documentation/platform/firewall/network-shield/network-lists/#errors) shows.
 
 ### Remove expired entries with a write
 
@@ -273,7 +309,7 @@ An `ip_cidr` entry can carry a due date, written as `--LT` and a UTC date and ti
 
 A `PATCH` of `{"items":["203.0.113.7 --LT2020-01-01T00:00:00Z","192.0.2.10"]}` to the list answers `200` and stores `192.0.2.10` alone. For the other due-date rules, refer to [Expiration and annotations](/en/documentation/platform/firewall/network-shield/list-matching/#expiration-and-annotations), and for a complete temporary block, to [Block addresses until a date](/en/documentation/guides/application-security/bots-and-network/temporary-block/).
 
-### Replace a network list from your own source of truth
+### Replace a Network List from your own source of truth
 
 When another system already tracks the addresses, such as a security information and event management (SIEM) system or a script, let it own the list. A `PATCH` that sends `items` replaces the whole array, so each push leaves exactly what was sent, and the next push repairs one that failed. A `PATCH` of `{"items":["192.0.2.50"]}` answers `200` and leaves `192.0.2.50` as the only item, whatever the list held.
 
@@ -281,15 +317,17 @@ Each write also overwrites every other editor, so give each list one owner. The 
 
 ### Reference the Azion-maintained list, not a copy
 
-Any account can reference [`Azion IP Tor Exit Nodes`](/en/documentation/platform/firewall/network-shield/network-lists/#azion-maintained-lists), list `2`, which Azion keeps refreshed with Tor exit node addresses. A rule with `argument` set to `2` therefore also matches the addresses Azion adds later, which a copy in a list of your own misses after the next refresh. Any write to list `2` is refused with `22004`, so put other addresses in a list of your own, with its own rule. For the steps, refer to [Block Tor exit nodes](/en/documentation/guides/application-security/bots-and-network/block-tor-networks/).
+Any account can use [`Azion IP Tor Exit Nodes`](/en/documentation/platform/firewall/network-shield/network-lists/#azion-maintained-lists), list `2`, which Azion keeps refreshed with Tor exit node addresses. A rule with `argument` set to `2` therefore also matches the addresses Azion adds later, which a copy in a list of your own misses after the next refresh. Any write to list `2` is refused with `22004`, so put other addresses in a list of your own, with its own rule. For the steps, refer to [Block Tor exit nodes](/en/documentation/guides/application-security/bots-and-network/block-tor-networks/).
 
-An origin that should accept only Azion's traffic follows the same reasoning, with the `Azion Origin Shield` list that [Origin Shield](/en/documentation/platform/connectors/origin-shield/) accounts receive. Keeping that origin allowlist current is yours to automate, as [Allow Azion's IP ranges at your origin](/en/documentation/support/retrieve-azion-ip-ranges/) describes.
+An origin that should accept only Azion's traffic follows the same reasoning, with the `Azion Origin Shield` list, which appears once a Connector of the account has the Origin IP ACL of [Origin Shield](/en/documentation/platform/connectors/origin-shield/) on. Keeping that origin allowlist current is yours to automate, as [Allow Azion's IP ranges at your origin](/en/documentation/support/retrieve-azion-ip-ranges/) describes.
 
 ---
 
 ## Bot Manager
 
-Deciding that a request came from a program rather than from a person is a judgment about evidence. The number that settles it belongs to your own traffic. Bot Manager runs on a firewall as a function instance, which a Rules Engine for Firewall rule invokes with its _Run Function_ behavior, and it takes its configuration from a JSON [arguments](/en/documentation/platform/firewall/bot-manager/arguments/) object. An instance stores any key it receives without checking it, and the function ignores a key it does not read.
+Deciding that a request came from a program rather than from a person is a judgment about evidence. The number that settles it belongs to your own traffic.
+
+Bot Manager runs on a Firewall as a Function Instance, which a rule's _Run Function_ behavior runs, and it takes its configuration from a JSON [arguments](/en/documentation/platform/firewall/bot-manager/arguments/) object. The API checks only that the object is a JSON object or array within the size bound. It stores any key it receives, and the Function ignores a key it does not read.
 
 Each sample below shows only the keys its practice changes. A key an instance does not set stays absent, so merge each sample into the full object the instance already carries.
 
@@ -307,11 +345,11 @@ Bot Manager Lite ships a `threshold` of `30`, and Bot Manager documents `18` to 
 
 A threshold inside the legitimate cluster refuses customers, and one past the automated cluster acts on nothing. A lower one suits an API or a login path, where a passing automated client costs more than a challenged customer. A higher one suits a geographically diverse audience whose requests legitimately look unusual. A threshold of `5` to `9` is very strict: it refuses legitimate traffic of an unusual shape. Then read the `legitimate` lines near the threshold, and lower it while automated traffic passes or raise it while requests you recognize are refused.
 
-### Confirm that a Bot Manager argument change reached the function
+### Confirm that a Bot Manager argument change reached the Function
 
-Nothing validates a Bot Manager arguments object: every interface stores each key as typed. A key written as `thresold` with the value `5` is accepted with no error, and the instance still has no `threshold`, the key the function reads. Reading the instance back shows `thresold` and no `threshold`, so compare each key with the names in [Fields](/en/documentation/platform/firewall/bot-manager/arguments/#fields).
+The API and the Azion CLI check only the shape and the size of a Bot Manager arguments object. They store each key as typed, so a key written as `thresold` with the value `5` is accepted with no error, and the instance still has no `threshold`, the key the Function reads. Reading the instance back shows `thresold` and no `threshold`, so compare each key with the names in [Fields](/en/documentation/platform/firewall/bot-manager/arguments/#fields).
 
-Then wait. An argument change reaches the request path about 105 seconds after it is saved, and a request sent sooner runs on the arguments that preceded it. From outside, an argument the function never read looks like one that had no effect, and it is the more common of the two. [Troubleshoot Firewall](/en/documentation/platform/firewall/troubleshooting/) covers a client whose answer does not change.
+Then wait. In a test on another Function, a change to an instance's arguments reached requests 42 seconds after it was saved, and requests sent sooner ran on the previous arguments. From outside, an argument the function never read looks like one that had no effect, and it is the more common of the two. [Troubleshoot Firewall](/en/documentation/platform/firewall/troubleshooting/) covers a client whose answer does not change.
 
 ### Give every Bot Manager instance its own log tag
 
@@ -325,11 +363,11 @@ A rule that matches every request also scores and logs images, stylesheets, scri
 \.(png|jpg|jpeg|gif|ico|css|js|svg|woff|woff2|ttf|eot|otf|webp|avif|mp4|webm|pdf)(\?.*)?$
 ```
 
-The trailing `(\?.*)?$` also matches an asset requested with a query string, as most cache-busting versions are. Match the path, not [_Request Args_](/en/documentation/platform/firewall/best-practices/#match-the-request-not-its-query-string), which also needs WAF on in Azion Console. A format added later is scored until someone updates the argument, and an asset on a path with no extension is never matched.
+The criterion compares the path without its query string: in a test, `/a.css?v=3` was excluded like `/a.css`, and `/page?x=1` was matched like `/page`. The trailing `(\?.*)?` is therefore optional. Match the path, not [_Request Args_](/en/documentation/platform/firewall/best-practices/#match-the-request-not-its-query-string), which also needs WAF on the Firewall. A format added later is scored until someone updates the argument, and an asset on a path with no extension is never matched.
 
 ### Run a stricter Bot Manager instance on a high-value path
 
-One instance carries one threshold and one action. Paths that differ in value, such as a catalog and a checkout, need an instance each, with its own arguments and `log_tag`. Each rule's one _Run Function_ behavior names an instance ID in `value`, not a function ID:
+One instance carries one threshold and one action. Paths that differ in value, such as a catalog and a checkout, need an instance each, with its own arguments and `log_tag`. Each rule's one _Run Function_ behavior runs an instance by its ID in `value`, not by a Function ID:
 
 ```json
 {
@@ -352,9 +390,9 @@ A starting threshold per kind of path runs from `10` to `15` where abuse costs m
 
 ### Challenge on a path a person uses, and deny on the rest
 
-`deny` returns `403` with a default error page that names neither Bot Manager, a score, nor a rule, so a customer refused that way has nothing to act on. `redirect` sends the request to `redirect_to`, such as `/az-request-verify`, so a client able to answer a challenge gets the chance. With no valid `redirect_to`, the function [runs `allow`](/en/documentation/platform/firewall/bot-manager/arguments/#action), so confirm in the report log that the instance redirects.
+`deny` returns `403` with a default error page that names neither Bot Manager, a score, nor a rule, so a customer refused that way has nothing to act on. `redirect` sends the request to `redirect_to`, such as `/az-request-verify`, so a client able to answer a challenge gets the chance. With no valid `redirect_to`, the Function [runs `allow`](/en/documentation/platform/firewall/bot-manager/arguments/#action), so confirm in the report log that the instance redirects.
 
-The challenge function has to run before Bot Manager in the firewall's Rules Engine, or Bot Manager [redirects the returning request again](/en/documentation/platform/firewall/bot-manager/bot-scoring/#from-score-to-action). The report log's `challenge_solved` then says whether the client solved it. An API consumer, a health check, or a monitor cannot pass a challenge, so give its path `deny` or a stricter instance rather than a redirect loop. For a challenge function, refer to [Protect a route with an ALTCHA challenge](/en/documentation/guides/application-development/functions-and-runtime/altcha/).
+The challenge Function has to run before Bot Manager in the Firewall's rule order, or Bot Manager [redirects the returning request again](/en/documentation/platform/firewall/bot-manager/bot-scoring/#from-score-to-action). The report log's `challenge_solved` then says whether the client solved it. An API consumer, a health check, or a monitor cannot pass a challenge, so give its path `deny` or a stricter instance rather than a redirect loop. For a challenge Function, refer to [Protect a route with an ALTCHA challenge](/en/documentation/guides/application-development/functions-and-runtime/altcha/).
 
 ### Read what a Bot Manager rule matched before you disable it
 
@@ -386,7 +424,7 @@ Report lines surface in [Real-Time Events](/en/documentation/platform/real-time-
 
 <FrameBox>
 <ItemList>
-  <DocItem title="Functions for Firewall" href="/en/documentation/platform/firewall/functions/">The firewall event and the outcome methods a function calls.</DocItem>
+  <DocItem title="Functions for Firewall" href="/en/documentation/platform/firewall/functions/">The Firewall event and the outcome methods a Function calls.</DocItem>
   <DocItem title="Rule sets" href="/en/documentation/platform/firewall/waf/rules-set/">The fields, threat families, and sensitivity levels a WAF rule set carries.</DocItem>
   <DocItem title="Arguments" href="/en/documentation/platform/firewall/bot-manager/arguments/">Every Bot Manager argument, with its type, its default, and the values it accepts.</DocItem>
   <DocItem title="Firewall guides and tutorials" href="/en/documentation/platform/firewall/guides/">The procedures that apply these practices, one task per guide.</DocItem>

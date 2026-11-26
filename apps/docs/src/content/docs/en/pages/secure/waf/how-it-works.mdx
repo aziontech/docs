@@ -11,47 +11,65 @@ import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
 
-A web application firewall decides on accumulated evidence rather than on one suspicious pattern. Each attack pattern a request matches adds to a score, and a mode decides what happens once a score reaches its threshold. For where WAF acts in a firewall's request path, refer to the [WAF overview](/en/documentation/platform/firewall/waf/#request-path).
+A web application firewall decides on accumulated evidence rather than on one suspicious pattern. Each attack pattern a request matches adds to a score, and a mode decides what happens once a score reaches its threshold. On a Firewall, a rule's _Set WAF_ behavior applies a rule set to the requests the rule matches, at the point the [WAF overview](/en/documentation/platform/firewall/waf/#request-path) shows.
 
-The sections cover scoring and sensitivity, modes, request body parsing, exceptions, tuning, and where a match is reported.
+The sections cover scoring and sensitivity, modes, how _Set WAF_ resolves when several rules carry it, request body parsing, exceptions, tuning, and where a match is reported.
 
 ---
 
 ## Scoring and sensitivity
 
-WAF does not decide on one rule match. Each internal rule that matches a request adds to the score of the threat family that rule belongs to, so one weak signal scores low and several score high. A request is blocked when a family's score reaches that family's threshold.
+WAF does not decide on one rule match. Each internal rule that matches a request adds to the score of the threat family that rule belongs to, so one weak signal scores low and several score high. The mode acts when a family's score reaches that family's threshold.
 
 The scores are kept per family, and each one is compared with its own threshold. For example, the query string `1' OR '1'='1` can match internal rules of two families on the same argument, and it then carries one score for SQL injection and another for cross-site scripting.
 
-You never write a threshold as a number. You choose a sensitivity level for each family, and the level fixes the score at which that family blocks. Every family starts at `medium`, and the scale runs against the word: a higher sensitivity is a lower threshold. At `highest` a score of 4 blocks, so less evidence refuses more requests, while at `lowest` a request needs a score of 40. For the five levels and their scores, refer to [WAF rule sets](/en/documentation/platform/firewall/waf/rules-set/#sensitivity-levels).
+You never write a threshold as a number. You choose a sensitivity level for each family, and the level fixes the score at which that family blocks. Every family starts at `medium`, and the scale runs against the word: a higher sensitivity is a lower threshold.
 
-Sensitivity cuts both ways. Raising it catches attacks that carry less evidence. It also blocks legitimate requests that carry a little of the same evidence, such as an apostrophe in a search term. Lowering it keeps that traffic moving and lets through any attack whose score stays under the threshold. The level is set per family, so you can raise the families your application has no reason to resemble and leave the others.
+At `highest` a score of 4 blocks, so less evidence refuses more requests, while at `lowest` a request needs a score of 40. For the five levels and their scores, refer to [WAF rule sets](/en/documentation/platform/firewall/waf/rules-set/#sensitivity-levels).
+
+Sensitivity cuts both ways. Raising it catches attacks that carry less evidence, and it also blocks legitimate requests that carry a little of the same evidence, such as an apostrophe in a search term. Lowering it keeps that traffic moving and lets through any attack whose score stays under the threshold. The level is set per family, so you can raise the families your application has no reason to resemble and leave the others.
 
 ---
 
 ## Modes
 
-The mode belongs to the rule's _Set WAF_ behavior, not to the rule set. In _Logging_, a request that reaches a threshold is scored and recorded, and the application receives it as though nothing had matched. In _Blocking_, that request is refused before it reaches the application. The API takes the mode as `logging` or `blocking`, and it is required: a _Set WAF_ behavior without one is refused with `10059`.
+The mode belongs to the rule's _Set WAF_ behavior, not to the rule set. In _Logging_, a request that reaches a threshold is scored and recorded, and the Application receives it as though nothing had matched. In _Blocking_, that request is refused before it reaches the Application. The API takes the mode as `logging` or `blocking`, and it is required: a _Set WAF_ behavior without one is refused with `10059`.
 
-Keeping the rule set apart from the rule lets one rule set run in _Logging_ on one rule and in _Blocking_ on another, over paths you choose. It costs an object and a step: a rule set that no rule references inspects nothing, however carefully its families are set.
+Keeping the rule set apart from the rule lets one rule set run in _Logging_ on one rule and in _Blocking_ on another, over paths you choose. It costs an entity and a step: a rule set that no rule references inspects nothing, however carefully its families are set.
 
 A blocked request receives `400` and Azion's default error page, headed **Bad Request**. Nothing in the response names WAF, the rule, or the score: no header carries them, and the page has no message of its own. The page's Status Code row reads `0`, the status of an origin the request never reached.
 
+In tests, WAF inspected no request on an Application with no [Connector](/en/documentation/platform/connectors/): it inspected nothing in 19 minutes, in either mode. On an Application that sent its other paths to a Connector, WAF also inspected and blocked a request that a Function answered. A WAF test against an Application with no Connector therefore shows no block and records no match.
+
 Each mode trades one risk for another. _Logging_ records everything that would have been blocked without refusing a legitimate request, and it protects nothing while it runs. _Blocking_ protects, and every false positive becomes a `400` that a user sees, with nothing in it to explain why.
 
-One internal rule is not fully held back by the mode. Rule 13, invalid POST format, blocks some requests even when the rule set runs in _Logging_. For what each internal rule matches, refer to [WAF rule sets](/en/documentation/platform/firewall/waf/rules-set/#internal-rules).
+One internal rule was not held back by the mode in tests. Rule `13`, invalid POST format, refused a `multipart/form-data` body whose part carried no `Content-Disposition` header with `400` under _Logging_, and the event recorded `$LEARNING-BLOCK`. In the same test, rules `2`, `11`, `14`, and `15` matched under _Logging_ and the request passed. For what each internal rule matches, refer to [WAF rule sets](/en/documentation/platform/firewall/waf/rules-set/#internal-rules).
 
 Other Azion surfaces call the _Logging_ mode learning. [Real-Time Events](/en/documentation/platform/real-time-events/) reports it in the `wafLearning` field, the [Data Stream](/en/documentation/platform/data-stream/) payload carries `waf_learning`, and `azion.config.js` sets it as `learning` in the `mode` of the `set_waf` behavior. The API itself refuses `learning` as a mode, with `10039`.
 
 ---
 
+## How Set WAF resolves across firewalls
+
+Each Firewall resolves its own _Set WAF_ behaviors. In a test, two Firewalls each carried a rule with the same criteria, and each rule's _Set WAF_ behavior applied a different rule set. The rule on the second Firewall was created later. The Workload whose deployment set the first Firewall still refused a matching attack in _Blocking_, and the Workload of the second Firewall recorded the same request in _Logging_.
+
+Inside one Firewall, the later rule decided. Two rules of one Firewall matched the same request, with the same criteria in one test and different criteria in another. Their _Set WAF_ behaviors applied different rule sets or modes. The request was scored once, with the rule set and the mode of the later rule, which was also the rule created later.
+
+The earlier rule stayed active, and the API reported no error for either rule.
+
+Give each request one _Set WAF_ behavior on a Firewall. When two kinds of request need different rule sets, write criteria that no request matches together, by path or by host. Otherwise, place the narrower rule after the broader one, because the later rule applied in tests.
+
+---
+
 ## Request body parsing
 
-WAF reads a request body only in the formats it can take apart. On a `POST`, it parses the body when `Content-Type` is `application/x-www-form-urlencoded`, `multipart/form-data`, `application/json`, `application/vnd.api+json`, or `application/csp-report`. Parsing lets a rule address one field of the body, and it lets an exception name one field to leave alone.
+WAF reads a request body only in the formats it can take apart. In tests, it parsed a `POST` body sent as `application/x-www-form-urlencoded`, `multipart/form-data`, `application/json`, or `application/csp-report`. A body sent as `application/vnd.api+json` was not parsed. Parsing lets a rule address one field of the body, and it lets an exception name one field to leave alone.
 
-A body in any other format does not pass unexamined. An unknown or missing `Content-Type` on a `POST` is a finding in its own right for the protocol-compliance rules. A rule set can therefore refuse that request with the same `400`, even when its body is benign. Internal rule `11` makes that refusal, recorded as `wafMatch` `0:11:BODY:-` with `wafAttackFamily` `$OTHERS`. Rule `15` refuses an `application/json` body that does not parse, such as `AAAA`, so the client receives a `400` from the firewall rather than a parse error from the application.
+A body in any other format does not pass unexamined. An unknown or missing `Content-Type` on a `POST` is a finding in its own right for the protocol-compliance rules, so a rule set in _Blocking_ refuses that request with the same `400`, even when its body is benign. Internal rule `11` makes that refusal, recorded as `wafMatch` `0:11:BODY:-` with `wafAttackFamily` `$OTHERS`.
 
-Parsing also stops at a size. A body larger than 131,072 bytes, which is 128 KiB, is refused rather than passed through uninspected. For that bound, refer to [Firewall limits](/en/documentation/platform/firewall/limits/#waf).
+Rule `15` refuses an `application/json` body that does not parse, such as `AAAA`. The client receives a `400` from the Firewall rather than a parse error from the Application.
+
+Parsing also stops at a size. A body larger than 131,072 bytes, which is 128 KiB, matches internal rule `2` rather than passing through uninspected. In _Blocking_, the request is refused with `400`, and in _Logging_ it is recorded and passes. For that bound, refer to [Firewall limits](/en/documentation/platform/firewall/limits/#waf).
 
 Reading only these formats keeps the inspection precise on what applications post. It costs coverage of the rest. A format WAF does not parse is never searched field by field, and the rule that catches it reads the `Content-Type` rather than the content.
 
@@ -61,13 +79,15 @@ Reading only these formats keeps the inspection precise on what applications pos
 
 Some applications legitimately send what an internal rule was written to catch. A search box accepts an apostrophe, a field carries a pipe character, or an API posts a fragment of markup. Each one reaches a threshold with nothing wrong. An exception takes one such case out of scoring without lowering the sensitivity for every other request.
 
-An exception names a part of the request and the internal rule to exempt it from. The part is a condition on a match zone, such as a query string value or a specific header name. The operator, `contains` or `regex`, sets how the value is compared, and the rule ID defaults to `0`, which means every rule. Azion Console calls an exception an allowed rule and keeps it on the rule set's **Allowed Rules** tab.
+An exception names a part of the request and the internal rule to exempt it from. The part is a condition on a match zone, such as a query string value or one header. The operator, `contains` or `regex`, sets how the value is compared, and the rule ID defaults to `0`, which means every rule. Azion Console calls an exception an allowed rule and keeps it on the rule set's **Allowed Rules** tab.
 
 An exception is a hole in the rule set, as large as you make it. Scoped to one rule, one path, and one named field, it removes one false positive. With the default rule ID and a generic match zone, no family scores anything in that zone, for every request the rule set sees. `unwanted_access` then stops scoring attempts to reach vulnerable or administrative pages and the use of security scanning bots and tools. `identified_attack` stops scoring known attacks against applications and servers.
 
+In tests, the shape of the condition decided what an exception cleared. A `specific_*_value` condition with a field name in `value`, such as `cookie` or `filter`, cleared the match on that field only. A `specific_*_name` condition on the same field cleared nothing, and `any_*_value` with a rule ID cleared every field of its zone. The path matched only exactly, and an exception with no path covered every path.
+
 Exceptions accumulate. Each one takes its rules out of scoring in the zone it covers. A rule set keeps every exception you write for it, so fewer internal rules score on the requests those exceptions cover. The same rule set, on the same traffic and at the same sensitivity, scores less of each request as its exceptions grow in number.
 
-The loss follows the surface the exceptions exempt, not the number of rows on the tab. A narrow exception names one rule, one path, and one field. An exception with the default rule ID on a generic match zone exempts every internal rule there, on every request. The row count is what you see first. The breadth of each entry decides how much of the rule set still scores.
+The loss follows the surface the exceptions exempt, not the number of exceptions. A narrow exception names one rule, one path, and one field. An exception with the default rule ID on a generic match zone exempts every internal rule there, on every request. The count is what you see first, but the breadth of each entry decides how much of the rule set still scores.
 
 Write the exception for the false positive you have, and remove it once the application stops sending that request. For every field and match zone an exception carries, refer to [WAF exceptions](/en/documentation/platform/firewall/waf/custom-allowed-rules/#fields).
 
@@ -75,13 +95,13 @@ Write the exception for the false positive you have, and remove it once the appl
 
 ## Tuning
 
-_Logging_ and exceptions work as one loop, and the rule set's **Tuning** tab sits in the middle of it. The rule set runs in _Logging_ first, so every request it would block is recorded and none is refused. **Tuning** lists those records, grouped by the internal rule that matched, over a window of up to the last 3 days. A query needs a domain and narrows by time range, Network List, IP address, and country, and the details of one rule narrow further by path.
+_Logging_ and exceptions work as one loop. The rule set runs in _Logging_ first, so every request it would block is recorded and none is refused. Tuning, in Azion Console, lists those records for up to the last 3 days, grouped by the internal rule that matched. It lists them only once a Workload's deployment sets a Firewall whose rule applies the rule set.
 
-Each record is evidence or a false positive. A real attack shows the rule set doing its job. A legitimate request is a false positive. **Tuning** turns selected records into allowed rules in bulk, so the exception comes from the request that produced it rather than from a guess. When the records stop carrying false positives, the rule moves to _Blocking_.
+Each record is evidence or a false positive. A real attack shows the rule set doing its job, and a legitimate request is a false positive. Tuning turns selected records into exceptions in bulk, so the exception comes from the request that produced it rather than from a guess. When the records stop carrying false positives, the rule's _Set WAF_ behavior moves to _Blocking_.
 
-Two limits shape the loop. The first is the window. **Tuning** holds 3 days, so a record nobody reads in that time is gone, and a false positive that appears once a month never lands in the window at all.
+Two limits shape the loop. The first is the window: a record nobody reads in 3 days is gone, and a false positive that appears once a month never lands in the window at all.
 
-The second is the breadth of what the **Allow Rules** button writes. The Console states it before it runs: `For each URI, this action will create a separate rule for each possible attack.` One allowed rule is created for each kind of attack, on each URI in the selection, so a wide selection becomes many allowed rules. Bulk conversion does not ask which field carried the false positive, so each rule it writes exempts more than that one field. The narrow exception, the one that names one rule, one path, and one field, is written by hand.
+The second is breadth. The bulk conversion writes a separate exception for each possible attack on each URI in the selection, so a wide selection becomes many exceptions. It does not ask which field carried the false positive. The narrow exception, the one that names one rule, one path, and one field, is written by hand.
 
 For the procedure, refer to [Tune a WAF rule set](/en/documentation/guides/application-security/firewall-and-waf/tune-waf/). For the screen, refer to [WAF exceptions](/en/documentation/platform/firewall/waf/custom-allowed-rules/#tuning).
 
@@ -89,9 +109,9 @@ For the procedure, refer to [Tune a WAF rule set](/en/documentation/guides/appli
 
 ## Where a match is reported
 
-A WAF match leaves nothing in the response, so every question about one is answered from a reporting surface. [Real-Time Metrics](/en/documentation/platform/real-time-metrics/secure-dashboards/#waf) answers how many, in requests processed and requests blocked over time. Real-Time Events answers which request, one row at a time, with the internal rules that matched and the score each family reached. Data Stream answers where else, by sending those events to a system outside Azion, and the GraphQL API queries the same data.
+A WAF match leaves nothing in the response, so every question about one is answered from a reporting surface. [Real-Time Metrics](/en/documentation/platform/real-time-metrics/secure-dashboards/#waf) answers how many, in requests blocked, threats, and requests allowed over time. Real-Time Events answers which request, one row at a time, with the internal rules that matched and the score each family reached. Data Stream answers where else, by sending those events to a system outside Azion, and the GraphQL API queries the same data.
 
-A blocked request is found from the request rather than from the response. It is a `400` whose upstream status is `0`, and its `x-azion-request-id` header finds its row. That lookup is the price of keeping the decision out of the response. A blocked user can report only a **Bad Request** page, and the rule and the score are looked up afterward. For the query, refer to [Find the WAF score of a blocked request](/en/documentation/guides/application-security/firewall-and-waf/how-to-find-waf-score/).
+A blocked request is found from the request rather than from the response. It is a `400` whose upstream status is `0`, and its `x-azion-request-id` header finds its row. That lookup is the price of keeping the decision out of the response: a blocked user can report only a **Bad Request** page, and the rule and the score are looked up afterward. For the query, refer to [Find the WAF score of a blocked request](/en/documentation/guides/application-security/firewall-and-waf/how-to-find-waf-score/).
 
 ---
 
