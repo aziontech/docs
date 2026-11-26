@@ -376,6 +376,22 @@ function nodeOwnVersions(data: NavData, node: NavNode, lang: Lang): PlatformVers
 	return tagged.length ? tagged : undefined;
 }
 
+/** Whether a hidden row of an older version stands in for a visible row of the current one. */
+function replacesVisibleRow(
+	data: NavData,
+	node: NavNode,
+	versions: PlatformVersion[] | undefined,
+	lang: Lang,
+	owner: NavTree | undefined
+): boolean {
+	if (!versions || versions.includes(CURRENT_VERSION) || !node.page || !owner) return false;
+	const current = pageFacts(data, node.page, lang)?.counterpart?.[CURRENT_VERSION];
+	if (!current) return false;
+	const visible = (nodes: NavNode[] | undefined): boolean =>
+		(nodes ?? []).some((row) => (row.page === current && !row.hidden) || visible(row.items));
+	return owner.groups.some((group) => visible(group.items));
+}
+
 function toMenuNodes(
 	data: NavData,
 	nodes: NavNode[],
@@ -396,8 +412,9 @@ function toMenuNodes(
 		const stage = nodeStage(data, node, lang);
 		const ownVersions = nodeOwnVersions(data, node, lang);
 
-		// A hidden row that declares versions is emitted so the client can filter it; one without stays hidden.
-		if (node.hidden && !versions) {
+		// A hidden row stays hidden, unless it exists only in an older version and stands in for a
+		// visible row of the current one: then the client shows it when that version is chosen.
+		if (node.hidden && !replacesVisibleRow(data, node, versions, lang, owner)) {
 			const href = nodeHref(data, node, lang, owner);
 			if (href && normalize(href) === ctx.activePath) ctx.expanded.push(...ancestors);
 			return;
@@ -1030,6 +1047,8 @@ export interface CatalogEntry {
 	external?: boolean;
 	/** Set when the entry is a video rather than a page; the kind says what it teaches. */
 	format?: 'video';
+	/** The versions the page declares, only when it is restricted to a subset of them. */
+	versions?: PlatformVersion[];
 }
 
 export interface GuidesHomeModel {
@@ -1047,8 +1066,6 @@ export function productLabels(data: NavData, lang: Lang): Map<string, string> {
 		for (const { node } of walkTree(tree, lang)) {
 			if (node.product && !out.has(node.product))
 				out.set(node.product, nodeLabel(data, node, lang));
-	/** The versions the page declares, only when it is restricted to a subset of them. */
-	versions?: PlatformVersion[];
 		}
 	}
 	return out;
@@ -1085,11 +1102,16 @@ export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): Guid
 					if (!href) continue;
 					const products = row.products ?? [];
 					const facts = pageFacts(data, row.page, lang);
+					const versions =
+						facts?.versions && facts.versions.length < VERSION_IDS.length
+							? facts.versions
+							: undefined;
 					push({
 						label: nodeLabel(data, row, lang),
 						href,
 						page: row.page,
 						description: facts?.description,
+						...(versions && { versions }),
 						kind: row.kind ?? sub.kind ?? area.kind ?? 'tutorial',
 						products,
 						topic: products[0] ? productLabel(products[0]) : areaLabel,
@@ -1102,16 +1124,11 @@ export function buildGuidesHome(data: NavData, treeId: string, lang: Lang): Guid
 
 	for (const video of data.videos ?? []) {
 		const products = video.products ?? [];
-					const versions =
-						facts?.versions && facts.versions.length < VERSION_IDS.length
-							? facts.versions
-							: undefined;
 		push({
 			label: text(video.title, lang) ?? video.href,
 			href: video.href,
 			description: text(video.description, lang),
 			kind: video.kind ?? 'tutorial',
-						...(versions && { versions }),
 			products,
 			topic: products[0] ? productLabel(products[0]) : 'YouTube',
 			external: true,

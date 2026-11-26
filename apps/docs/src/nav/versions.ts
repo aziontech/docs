@@ -16,13 +16,11 @@ export type Stage = 'experimental' | 'preview' | 'deprecated';
 
 export const CURRENT_VERSION: PlatformVersion = 'v4';
 export const VERSION_STORAGE_KEY = 'docs-platform-version';
-/** The query parameter that carries the version: `?api=v3`. */
+/** The query parameter a link can carry to open the docs in a version: `?api=v3`. */
 export const VERSION_PARAM = 'api';
 
 /** Every version id, in the order of PLATFORM_VERSIONS. */
 export const VERSION_IDS: PlatformVersion[] = PLATFORM_VERSIONS.map((version) => version.id);
-
-export const STAGES: Stage[] = ['experimental', 'preview', 'deprecated'];
 
 /** What a page tells the version select and the page header. */
 export interface PageAvailability {
@@ -45,20 +43,9 @@ export function sortVersions(versions: readonly PlatformVersion[]): PlatformVers
 	return VERSION_IDS.filter((id) => versions.includes(id));
 }
 
-/** Whether a row or page with this restriction shows for the chosen version (no restriction = all). */
-export function matchesVersion(
-	versions: readonly PlatformVersion[] | undefined,
-	version: PlatformVersion
-): boolean {
-	return !versions || versions.length === 0 || versions.includes(version);
-}
-
 /** The one version a page covers, or undefined when it covers several: such a page defines the context. */
 export function pageVersionOf(
 	availability: { versions: readonly PlatformVersion[] } | null | undefined
 ): PlatformVersion | undefined {
 	return availability?.versions.length === 1 ? availability.versions[0] : undefined;
 }
-
-/** The `<html>` attribute the pre-paint script sets when the page covers a single version. */
-export const PAGE_VERSION_ATTR = 'data-page-version';

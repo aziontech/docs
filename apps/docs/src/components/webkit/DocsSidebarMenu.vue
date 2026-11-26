@@ -141,8 +141,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const query = computed(() => props.filter.trim().toLowerCase());
 
-// The server renders with the current version, so rows of another version are already out of the
-// served markup; a stored choice reaches this prop in the mount tick.
+// The server renders with the page's version, or the current one when the page covers several, so
+// rows of another version are already out of the served markup; a stored choice reaches this prop
+// in the mount tick.
 const stages = computed(() => props.stageLabels);
 const versionLabels = computed(() => props.versionLabels);
 

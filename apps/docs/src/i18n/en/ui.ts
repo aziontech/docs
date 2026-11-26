@@ -50,7 +50,7 @@ export default {
 	'leftSidebar.backTo': 'Back to {name}',
 	'leftSidebar.theme': 'Theme',
 	'leftSidebar.version': 'Version',
-	// Version select and stage tags in the rail
+	// Version select in the page header, and the stage words of its list
 	'versionSelect.helpCta': "Find your account's API version",
 	'versionSelect.helpHref': '/en/documentation/fundamentals/account-api-version/',
 	'versionSelect.current': 'Latest',
@@ -185,7 +185,7 @@ export default {
 	'topbar.link': 'https://www.azion.com/en/blog/azion-frost-sullivan-award/',
 	'topbar.cta': 'Check it out!',
 
-	// Page availability (versions and release stage block, wrong-version banner)
+	// Page availability (stage tag beside the title, wrong-version banner)
 	'pageAvailability.stage.experimental': 'Experimental',
 	'pageAvailability.stage.preview': 'Preview',
 	'pageAvailability.stage.deprecated': 'Deprecated',

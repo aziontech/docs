@@ -2,7 +2,6 @@ import { computed, onMounted, readonly, ref, type Ref } from 'vue';
 
 import {
 	CURRENT_VERSION,
-	PAGE_VERSION_ATTR,
 	VERSION_PARAM,
 	VERSION_STORAGE_KEY,
 	isPlatformVersion,
@@ -18,18 +17,31 @@ const current = ref<PlatformVersion>(CURRENT_VERSION);
 let restored = false;
 let pageApplied = false;
 
-function readStored(): PlatformVersion | undefined {
+/** Drops `?api=` from the address, so a later visit to this history entry never brings it back. */
+function clearParam(): void {
 	try {
-		const fromUrl = new URL(window.location.href).searchParams.get(VERSION_PARAM);
-		if (isPlatformVersion(fromUrl)) return fromUrl;
+		const url = new URL(window.location.href);
+		if (!url.searchParams.has(VERSION_PARAM)) return;
+		url.searchParams.delete(VERSION_PARAM);
+		window.history.replaceState(window.history.state, '', url);
 	} catch {
 		// no usable URL
 	}
+}
+
+// The pre-paint script has already stored a valid `?api=`, so storage holds the choice.
+function readStored(): PlatformVersion | undefined {
 	try {
 		const stored = window.localStorage.getItem(VERSION_STORAGE_KEY);
 		if (isPlatformVersion(stored)) return stored;
 	} catch {
 		// storage blocked
+	}
+	try {
+		const fromUrl = new URL(window.location.href).searchParams.get(VERSION_PARAM);
+		if (isPlatformVersion(fromUrl)) return fromUrl;
+	} catch {
+		// no usable URL
 	}
 	return undefined;
 }
@@ -46,25 +58,13 @@ function setVersion(next: PlatformVersion): void {
 	} catch {
 		// storage blocked
 	}
-	try {
-		const url = new URL(window.location.href);
-		url.searchParams.set(VERSION_PARAM, next);
-		window.history.replaceState(window.history.state, '', url);
-	} catch {
-		// no usable URL
-	}
+	clearParam();
 	reflect(next);
 }
 
 export interface UsePlatformVersionReturn {
 	version: Readonly<Ref<PlatformVersion>>;
 	setVersion: (next: PlatformVersion) => void;
-}
-
-/** Client only: the version the pre-paint script found the page to cover, when it covers one. */
-function readPageVersion(): PlatformVersion | undefined {
-	const value = document.documentElement.getAttribute(PAGE_VERSION_ATTR);
-	return isPlatformVersion(value) ? value : undefined;
 }
 
 /** A page of a single version wins over the stored choice, and the choice follows it. */
@@ -80,10 +80,7 @@ function applyPageVersion(version: PlatformVersion): void {
 	reflect(version);
 }
 
-/**
- * @param pageVersion The single version the page covers, when it covers only one. Islands that
- * mount away from the page's data (the drawer) omit it and read what the pre-paint script set.
- */
+/** @param pageVersion The single version the page covers, when it covers only one. */
 export function usePlatformVersion(pageVersion?: PlatformVersion): UsePlatformVersionReturn {
 	// The server never touches the singleton, which would leak between requests.
 	if (typeof window === 'undefined') {
@@ -93,10 +90,7 @@ export function usePlatformVersion(pageVersion?: PlatformVersion): UsePlatformVe
 		};
 	}
 	// Synchronous, before the first render, so the island hydrates in the page's version.
-	if (!pageApplied) {
-		const page = pageVersion ?? readPageVersion();
-		if (page) applyPageVersion(page);
-	}
+	if (!pageApplied && pageVersion) applyPageVersion(pageVersion);
 	// Each island renders what the server rendered until it mounts itself: another island may
 	// already have restored the stored choice, and reading it here would mismatch on hydration.
 	const initial = pageVersion ?? CURRENT_VERSION;
@@ -107,6 +101,7 @@ export function usePlatformVersion(pageVersion?: PlatformVersion): UsePlatformVe
 			const stored = readStored();
 			if (stored) current.value = stored;
 		}
+		clearParam();
 		reflect(current.value);
 		hydrated.value = true;
 	});

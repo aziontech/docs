@@ -50,7 +50,7 @@ export default UIDictionary({
 	'leftSidebar.backTo': 'Voltar para {name}',
 	'leftSidebar.theme': 'Tema',
 	'leftSidebar.version': 'Versão',
-	// Version select and stage tags in the rail
+	// Version select in the page header, and the stage words of its list
 	'versionSelect.helpCta': 'Descubra a versão da API da sua conta',
 	'versionSelect.helpHref': '/pt-br/documentacao/fundamentos/account-api-version/',
 	'versionSelect.current': 'Mais recente',

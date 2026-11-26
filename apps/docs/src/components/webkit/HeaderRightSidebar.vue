@@ -43,8 +43,8 @@
 								:back-href="menuHeader?.backHref ?? ''"
 								:parent-level="menuParent"
 								:version="version"
-								:stage-labels="stageLabels"
-								:version-labels="versionLabels"
+								:stage-labels="menuStageLabels"
+								:version-labels="menuVersionLabels"
 							/>
 
 							<DocsSidebarMenu
@@ -107,7 +107,6 @@ import type {
 	SidebarParent,
 } from '~/nav/resolve';
 import type { PlatformVersion, Stage } from '~/nav/versions';
-import type { VersionPayload } from '~/components/LeftSidebar/VersionSelect.vue';
 
 defineSlots<{
 	/** The drawer's scrolling body, below the menus. */
@@ -131,6 +130,10 @@ withDefaults(
 		menuTreesHref?: string;
 		menuBackLabel?: string;
 		menuBackToPattern?: string;
+		/** Words for the menu's stage tags, in the language of the page. */
+		menuStageLabels?: Record<Stage, string>;
+		/** Short names for the menu's version tags (`v3.x`). */
+		menuVersionLabels?: Record<PlatformVersion, string>;
 		directoryGroups?: MenuGroupNode[] | null;
 		directoryAriaLabel?: string;
 		/** Label beside the theme switcher in the footer. */
@@ -150,6 +153,12 @@ withDefaults(
 		menuTreesHref: '',
 		menuBackLabel: '',
 		menuBackToPattern: 'Back to {name}',
+		menuStageLabels: () => ({
+			experimental: 'Experimental',
+			preview: 'Preview',
+			deprecated: 'Deprecated',
+		}),
+		menuVersionLabels: () => ({ v3: 'v3.x', v4: 'v4.x' }),
 		directoryGroups: null,
 		directoryAriaLabel: 'Directory',
 		themeLabel: 'Theme',
@@ -160,11 +169,8 @@ withDefaults(
 const open = ref(false);
 
 // The drawer mounts away from the rail, so it follows the choice through what the composable
-// reflects on <html> (set before paint and on every change), and reads the stage words from the
-// JSON the rail's server render leaves in the page.
+// reflects on <html> (set before paint and on every change).
 const version = ref<PlatformVersion>('v4');
-const stageLabels = ref<Record<Stage, string> | undefined>(undefined);
-const versionLabels = ref<Record<PlatformVersion, string> | undefined>(undefined);
 let watcher: MutationObserver | null = null;
 
 function readVersion() {
@@ -184,16 +190,6 @@ onMounted(() => {
 		attributes: true,
 		attributeFilter: ['data-platform-version'],
 	});
-	try {
-		const raw = document.getElementById('docs-page-availability')?.textContent;
-		if (raw) {
-			const labels = (JSON.parse(raw) as VersionPayload).labels;
-			stageLabels.value = labels.stages;
-			versionLabels.value = labels.short;
-		}
-	} catch {
-		// no payload: the stage tags keep their default words
-	}
 });
 
 onBeforeUnmount(() => {

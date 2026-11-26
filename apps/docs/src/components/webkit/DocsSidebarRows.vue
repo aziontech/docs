@@ -20,8 +20,8 @@
 					/>
 					<Tag
 						v-if="menuStage(node)"
-						:label="stageLabels[node.stage]"
-						:severity="STAGE_SEVERITY[node.stage]"
+						:label="stageLabels[menuStage(node)!]"
+						:severity="STAGE_SEVERITY[menuStage(node)!]"
 					/>
 				</span>
 			</MenuSubTrigger>
@@ -106,8 +106,8 @@
 					/>
 					<Tag
 						v-if="menuStage(node)"
-						:label="stageLabels[node.stage]"
-						:severity="STAGE_SEVERITY[node.stage]"
+						:label="stageLabels[menuStage(node)!]"
+						:severity="STAGE_SEVERITY[menuStage(node)!]"
 					/>
 				</span>
 				<!-- A row that leaves the site carries the arrow the docs use for external links. -->
@@ -167,10 +167,10 @@ const emit = defineEmits<{
 	navigate: [event: MouseEvent, node: MenuNode];
 }>();
 
-/** Same mapping as PageAvailability: preview is info, experimental and deprecated are warnings. */
 // Deprecated never tags a row: such rows are listed only under their own version, where the
 // select, the page header and the banner already say it.
-const menuStage = (node: MenuNode) => Boolean(node.stage && node.stage !== 'deprecated');
+const menuStage = (node: MenuNode): Stage | undefined =>
+	node.stage === 'deprecated' ? undefined : node.stage;
 
 // Same colours as the stage tag beside the page title: a stage in progress is info, a stage on its way out a warning.
 const STAGE_SEVERITY = {

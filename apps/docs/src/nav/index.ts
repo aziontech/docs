@@ -206,8 +206,18 @@ export async function getNeighbours(
 	return resolveNeighbours(await getNavData(), await getNavIndex(lang), pathname, lang);
 }
 
-export async function getPageAvailability(pathname: string, lang: Lang): Promise<PageAvailability> {
-	return resolvePageAvailability(await getNavData(), await getNavIndex(lang), pathname, lang);
+// The layout, the rail and the page body each ask for the same page: resolve it once.
+const cachedAvailability = new Map<string, Promise<PageAvailability>>();
+
+export function getPageAvailability(pathname: string, lang: Lang): Promise<PageAvailability> {
+	const key = `${lang}:${pathname}`;
+	let hit = cachedAvailability.get(key);
+	if (!hit) {
+		hit = (async () =>
+			resolvePageAvailability(await getNavData(), await getNavIndex(lang), pathname, lang))();
+		cachedAvailability.set(key, hit);
+	}
+	return hit;
 }
 
 export async function getNavIndex(lang: Lang): Promise<NavIndex> {

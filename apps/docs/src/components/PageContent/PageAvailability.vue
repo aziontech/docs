@@ -1,7 +1,7 @@
 <template>
 	<!-- Only on a page of a single version that is not the current one. The select, not this
 	     note, is how the reader changes version. Anywhere else this renders nothing, so the
-	     header has no gap; the versions and the stage live beside the title and in the rail.
+	     header has no gap; the stage sits beside the title and the version in the header's select.
 	     The action takes the reader to the equivalent page in the current version. -->
 	<Message
 		v-if="notCurrent"

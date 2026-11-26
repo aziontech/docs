@@ -317,7 +317,7 @@ const versionList = (versions: readonly PlatformVersion[], lang: Lang) =>
 	versions.map((id) => VERSION_LABEL[id]).join(lang === 'en' ? ' and ' : ' e ');
 
 /** The short tag an index entry carries when its page restricts platform versions or has a
- * stage: `(API v3 only, Deprecated)`, `(Preview)`. Empty for an unrestricted, generally available page. */
+ * stage: `(API v3.x only, Deprecated)`, `(Preview)`. Empty for an unrestricted, generally available page. */
 export function availabilityTag(
 	page: { versions?: PlatformVersion[]; stage?: Stage },
 	lang: Lang
