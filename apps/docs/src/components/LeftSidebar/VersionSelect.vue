@@ -158,12 +158,11 @@ function onDropdownSelect(_event: MouseEvent | KeyboardEvent, value: string | nu
 }
 
 /**
- * Switching keeps the page when it applies to the chosen version. Otherwise it goes to the page's
- * equivalent in that version, or to the version's home when there is none. The choice is stored
- * first, so the page it lands on opens in the version just picked.
+ * Keeps the page when it applies to the chosen version, else goes to its equivalent or the version's
+ * home. The choice is stored first, even when it is the version the page already shows.
  */
 function onSelect(next: unknown) {
-	if (!isPlatformVersion(next) || next === version.value) return;
+	if (!isPlatformVersion(next)) return;
 	setVersion(next);
 	const page = props.availability;
 	if (page.versions.includes(next)) return;

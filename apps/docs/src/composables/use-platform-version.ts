@@ -67,16 +67,11 @@ export interface UsePlatformVersionReturn {
 	setVersion: (next: PlatformVersion) => void;
 }
 
-/** A page of a single version wins over the stored choice, and the choice follows it. */
+/** A page of a single version shows that version while it is open; the stored choice stays as it was. */
 function applyPageVersion(version: PlatformVersion): void {
 	pageApplied = true;
 	restored = true;
 	current.value = version;
-	try {
-		window.localStorage.setItem(VERSION_STORAGE_KEY, version);
-	} catch {
-		// storage blocked
-	}
 	reflect(version);
 }
 
