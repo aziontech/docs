@@ -184,7 +184,7 @@ const hasCatalog = computed(() => Boolean(props.catalogGroups?.length));
 
 const rootGroups = computed<MenuGroupNode[]>(() => {
 	if (!hasCatalog.value) return visibleGroups.value;
-	return drilled.value ? props.catalogGroups ?? [] : visibleGroups.value;
+	return drilled.value ? (props.catalogGroups ?? []) : visibleGroups.value;
 });
 
 /** Only over a catalog, and only while levels can open: a failed load mounts the page's tree
@@ -235,8 +235,8 @@ const backText = computed(() => {
 				? props.levelLabel
 				: ''
 			: below === LEVEL_ID
-			? baseLabel.value
-			: drillLabels.value.get(below) ?? '';
+				? baseLabel.value
+				: (drillLabels.value.get(below) ?? '');
 	return name ? props.backToPattern.replace('{name}', name) : props.backLabel;
 });
 
@@ -252,13 +252,18 @@ const flatBackText = computed(() =>
 	parent.value ? props.backToPattern.replace('{name}', parent.value.title) : props.backLabel
 );
 
-function onFlatBack(event: MouseEvent) {
-	event.preventDefault();
+/** Mounts the page's tree as a level over the catalog, so the menu's own Back heads it. */
+function mountStack() {
 	// A nested tree opens through its parent's row. Its rows fill that level now, so it never
 	// waits on the tree menus; their load replaces them with the same rows and ids.
 	if (parent.value) trees.value = { ...trees.value, [parent.value.tree]: props.groups };
 	path.value = parent.value ? [LEVEL_ID, parent.value.drillId] : [LEVEL_ID];
 	drilled.value = true;
+}
+
+function onFlatBack(event: MouseEvent) {
+	event.preventDefault();
+	mountStack();
 	// The stack mounts in place (restored levels play no entrance); one painted frame of it gives
 	// the pop a position to slide from.
 	nextTick(() => requestAnimationFrame(() => requestAnimationFrame(() => menuRef.value?.pop?.())));
@@ -283,6 +288,17 @@ const expanded = ref<string[]>([...props.initialExpanded]);
 
 onMounted(() => {
 	loadTrees();
+	// The served rail draws the tree flat with a row back, since a level renders through a
+	// teleport only the client has. Once hydrated, the stack replaces it, so the way back is
+	// always the menu's own Back button, whether the reader just landed or popped back here.
+	if (!flatBack.value) return;
+	mountStack();
+	nextTick(() => {
+		const row = menuRef.value?.$el?.ownerDocument
+			.getElementById('left-sidebar')
+			?.querySelector<HTMLElement>('[aria-current="page"]');
+		row?.scrollIntoView({ block: 'nearest' });
+	});
 });
 
 watch(path, (value, previous) => {
