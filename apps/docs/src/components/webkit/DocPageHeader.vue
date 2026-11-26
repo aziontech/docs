@@ -85,11 +85,11 @@ const metaActions = computed<DocPageAction[]>(() => [
 				{
 					value: 'agents',
 					label: props.labels.agents,
-					icon: 'pi pi-microchip-ai',
+					icon: 'ai ai-ask-azion',
 					href: props.agentSetupHref,
 					tip: props.labels.agentsTip,
 				},
-		  ]
+			]
 		: []),
 ]);
 
