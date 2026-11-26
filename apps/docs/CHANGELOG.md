@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.8.0](https://github.com/aziontech/docs/compare/docs-v2.7.0...docs-v2.8.0) (2026-11-26)
+
+
+### Features
+
+* **guides:** add a guide to serve Google tags from your own domain ([#2694](https://github.com/aziontech/docs/issues/2694)) ([fe30408](https://github.com/aziontech/docs/commit/fe30408b45567fae93e0aa870a41f8dd4d923f74))
+* **sql-database:** add a write example with useExecute to the SQL Database API page ([#2702](https://github.com/aziontech/docs/issues/2702)) ([928a24b](https://github.com/aziontech/docs/commit/928a24b1288fc478bde02fa46b2545ea6d11d671))
+* **versions:** add a platform version select and declare page versions ([#2695](https://github.com/aziontech/docs/issues/2695)) ([d03d1bb](https://github.com/aziontech/docs/commit/d03d1bb98568549536e79afb0deba1d046633c51))
+
+
+### Bug Fixes
+
+* **agent-setup:** verify every agent page against the product and rename Windsurf to Devin Desktop ([#2703](https://github.com/aziontech/docs/issues/2703)) ([666aa1c](https://github.com/aziontech/docs/commit/666aa1c479a34c583d4e61dc437d2fb95243b379))
+* **ai-inference:** move LoRA Fine-Tune into Reference and classify it as a Feature ([#2692](https://github.com/aziontech/docs/issues/2692)) ([fd25634](https://github.com/aziontech/docs/commit/fd25634a523307ac5e2ef71f8a6a207402565b5a))
+* **connectors:** verify every page against the product and rebuild the Overviews ([#2696](https://github.com/aziontech/docs/issues/2696)) ([578d198](https://github.com/aziontech/docs/commit/578d198d25b106bb31059e879f51b4bb774fd021))
+* **firewall:** verify every page against the product and rebuild the Overviews ([#2706](https://github.com/aziontech/docs/issues/2706)) ([10cc498](https://github.com/aziontech/docs/commit/10cc498192f30e7c77715515feb78c7d7bf215e5))
+* **mcp:** state the errors the MCP servers return for a Bearer header ([#2704](https://github.com/aziontech/docs/issues/2704)) ([a9244f9](https://github.com/aziontech/docs/commit/a9244f9ed93e3c383d5e4289b0cc9217380098f1))
+* **overviews:** make the reference CTA an outlined button ([#2708](https://github.com/aziontech/docs/issues/2708)) ([77c4dc0](https://github.com/aziontech/docs/commit/77c4dc04b7bae91ac5ad9c103cab2fa23cab406b))
+* **real-time-metrics:** verify the Overview, Quickstart, How it works, and Limits against the product ([#2705](https://github.com/aziontech/docs/issues/2705)) ([11573af](https://github.com/aziontech/docs/commit/11573afa56ead9bf6b9dcf78fd0a51d58893f234))
+* **sidebar:** head the page's tree with the menu's own Back button ([#2700](https://github.com/aziontech/docs/issues/2700)) ([e06d727](https://github.com/aziontech/docs/commit/e06d727afea103e8f00e33cd058f0bedb49fb6b8))
+
+
+### Documentation
+
+* **cli:** document the deploy of a pre-built folder and the skip flags ([#2707](https://github.com/aziontech/docs/issues/2707)) ([150464e](https://github.com/aziontech/docs/commit/150464e6492be293c217eaacd2fef54939045e3f))
+* **runtime:** document the fetch timeouts and how to stop a slow streamed body ([#2698](https://github.com/aziontech/docs/issues/2698)) ([134e593](https://github.com/aziontech/docs/commit/134e5930dde7a94f94d350d1292b606867be2f8b))
+
 ## [2.7.0](https://github.com/aziontech/docs/compare/docs-v2.6.0...docs-v2.7.0) (2026-11-23)
 
 
