@@ -22,7 +22,6 @@
 						v-if="menuStage(node)"
 						:label="stageLabels[node.stage]"
 						:severity="STAGE_SEVERITY[node.stage]"
-						rounded
 					/>
 				</span>
 			</MenuSubTrigger>
@@ -109,7 +108,6 @@
 						v-if="menuStage(node)"
 						:label="stageLabels[node.stage]"
 						:severity="STAGE_SEVERITY[node.stage]"
-						rounded
 					/>
 				</span>
 				<!-- A row that leaves the site carries the arrow the docs use for external links. -->
@@ -174,8 +172,9 @@ const emit = defineEmits<{
 // select, the page header and the banner already say it.
 const menuStage = (node: MenuNode) => Boolean(node.stage && node.stage !== 'deprecated');
 
+// Same colours as the stage tag beside the page title: a stage in progress is info, a stage on its way out a warning.
 const STAGE_SEVERITY = {
-	experimental: 'warning',
+	experimental: 'info',
 	preview: 'info',
 	deprecated: 'warning',
 } as const;

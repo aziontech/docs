@@ -186,8 +186,6 @@ export default {
 	'topbar.cta': 'Check it out!',
 
 	// Page availability (versions and release stage block, wrong-version banner)
-	'pageAvailability.versionsLabel': 'Applies to',
-	'pageAvailability.selected': 'selected version',
 	'pageAvailability.stage.experimental': 'Experimental',
 	'pageAvailability.stage.preview': 'Preview',
 	'pageAvailability.stage.deprecated': 'Deprecated',
@@ -201,10 +199,5 @@ export default {
 	'pageAvailability.stageCta': 'About release stages',
 	'pageAvailability.stageHref': '/en/documentation/agreements/tos/#13-product-release-stages',
 	'pageAvailability.banner.message': 'This page documents {version}, which is deprecated.',
-	'pageAvailability.banner.counterpart': 'For {version}, see',
-	'pageAvailability.versionHelp.headline': 'Which version does my account run?',
-	'pageAvailability.versionHelp.tip':
-		'If the Azion Console menu lists Workloads, your account runs API v4. If it does not, it runs API v3.',
-	'pageAvailability.versionHelp.cta': "Find your account's API version",
-	'pageAvailability.versionHelp.href': '/en/documentation/fundamentals/account-api-version/',
+	'pageAvailability.banner.action': 'Go to {name}',
 };

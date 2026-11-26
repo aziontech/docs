@@ -10,13 +10,19 @@
 	>
 		<template #title>
 			<slot name="title">
-				<!-- eslint-disable vue/no-v-html -- title comes from the page frontmatter at build time, never user input -->
-				<h1
-					id="overview"
-					class="m-0 w-full min-w-0 text-heading-2xl text-(--text-default) sm:w-auto sm:flex-1 sm:text-heading-xl"
-					v-html="title"
-				/>
-				<!-- eslint-enable vue/no-v-html -->
+				<!-- The stage rides on the title's line, right after the name it qualifies. -->
+				<div
+					class="flex w-full min-w-0 flex-wrap items-center gap-x-(--spacing-sm) gap-y-(--spacing-xs) sm:w-auto sm:flex-1"
+				>
+					<!-- eslint-disable vue/no-v-html -- title comes from the page frontmatter at build time, never user input -->
+					<h1
+						id="overview"
+						class="m-0 min-w-0 text-heading-2xl text-(--text-default) sm:text-heading-xl"
+						v-html="title"
+					/>
+					<!-- eslint-enable vue/no-v-html -->
+					<slot name="title-stage" />
+				</div>
 			</slot>
 		</template>
 		<template v-if="$slots.details" #details>
@@ -36,6 +42,8 @@ import WkDocPageHeader, {
 defineSlots<{
 	/** Replaces the rendered title. */
 	title(): unknown;
+	/** The page's release stage, beside the title. */
+	'title-stage'(): unknown;
 	/** Extra detail rows under the header. */
 	details(): unknown;
 }>();

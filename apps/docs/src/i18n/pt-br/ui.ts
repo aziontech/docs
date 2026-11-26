@@ -172,8 +172,6 @@ export default UIDictionary({
 	'topbar.link': 'https://www.azion.com/pt-br/blog/azion-premio-frost-sullivan/',
 
 	// Disponibilidade da página (bloco de versões e estágio de lançamento, faixa de versão não vigente)
-	'pageAvailability.versionsLabel': 'Aplica-se a',
-	'pageAvailability.selected': 'versão selecionada',
 	'pageAvailability.stage.experimental': 'Experimental',
 	'pageAvailability.stage.preview': 'Preview',
 	'pageAvailability.stage.deprecated': 'Descontinuada',
@@ -188,10 +186,5 @@ export default UIDictionary({
 	'pageAvailability.stageHref':
 		'/pt-br/documentacao/contratos/tds/#13-estagios-de-liberacao-de-produtos',
 	'pageAvailability.banner.message': 'Esta página documenta a {version}, que está descontinuada.',
-	'pageAvailability.banner.counterpart': 'Para a {version}, veja',
-	'pageAvailability.versionHelp.headline': 'Qual versão a minha conta usa?',
-	'pageAvailability.versionHelp.tip':
-		'Se o menu do Azion Console lista Workloads, a sua conta usa a API v4. Se não lista, usa a API v3.',
-	'pageAvailability.versionHelp.cta': 'Descubra a versão da API da sua conta',
-	'pageAvailability.versionHelp.href': '/pt-br/documentacao/fundamentos/account-api-version/',
+	'pageAvailability.banner.action': 'Ir para {name}',
 });
