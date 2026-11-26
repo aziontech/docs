@@ -6,10 +6,6 @@
 		collapsible
 		:aria-label="ariaLabel"
 	>
-		<template v-if="$slots['version-select']" #header>
-			<slot name="version-select" />
-		</template>
-
 		<DocsSidebarMenu
 			presentation
 			:groups="groups"
@@ -92,11 +88,6 @@ withDefaults(
 		versionLabels: () => ({ v3: 'v3', v4: 'v4' }),
 	}
 );
-
-defineSlots<{
-	/** The version select, above the menu. */
-	'version-select'(): unknown;
-}>();
 
 const filter = ref('');
 

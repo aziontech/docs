@@ -49,10 +49,8 @@ export default {
 	'leftSidebar.backToDocs': 'Back to Docs',
 	'leftSidebar.backTo': 'Back to {name}',
 	'leftSidebar.theme': 'Theme',
+	'leftSidebar.version': 'Version',
 	// Version select and stage tags in the rail
-	'versionSelect.helpHeadline': 'Which version does my account run?',
-	'versionSelect.helpTip':
-		'If the Azion Console menu lists Workloads, your account runs API v4. If it does not, it runs API v3.',
 	'versionSelect.helpCta': "Find your account's API version",
 	'versionSelect.helpHref': '/en/documentation/fundamentals/account-api-version/',
 	'versionSelect.current': 'Latest',

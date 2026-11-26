@@ -3,8 +3,9 @@
  * No Astro dependency: the client (the version select, the page header) imports it too.
  */
 export const PLATFORM_VERSIONS = [
-	{ id: 'v4', label: 'API v4', short: 'v4', current: true },
-	{ id: 'v3', label: 'API v3', short: 'v3', stage: 'deprecated' },
+	// `label` names the version in prose, `short` tags a menu row, `release` reads in the select.
+	{ id: 'v4', label: 'API v4', short: 'v4', release: 'v4.x', current: true },
+	{ id: 'v3', label: 'API v3', short: 'v3', release: 'v3.x', stage: 'deprecated' },
 ] as const;
 
 export type PlatformVersion = 'v3' | 'v4';

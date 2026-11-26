@@ -24,13 +24,6 @@
 					</PanelHeader>
 				</div>
 
-				<div
-					v-if="menuGroups?.length && $slots['version-select']"
-					class="w-full px-(--spacing-md) pt-(--spacing-md)"
-				>
-					<slot name="version-select" />
-				</div>
-
 				<div class="flex min-h-0 w-full grow flex-col">
 					<ScrollArea tabindex="-1">
 						<div class="p-(--spacing-md) text-body-sm">
@@ -67,11 +60,23 @@
 				</div>
 
 				<PanelFooter>
-					<div class="flex w-full items-center justify-between">
-						<span class="pl-(--spacing-sm) text-label-md text-(--text-default)">
-							{{ themeLabel }}
-						</span>
-						<DropdownThemeSwitcher />
+					<div class="flex w-full flex-col gap-(--spacing-sm)">
+						<!-- The version row is the theme row's twin: label left, control right, same height. -->
+						<div
+							v-if="menuGroups?.length && $slots['version-select']"
+							class="flex w-full items-center justify-between"
+						>
+							<span class="pl-(--spacing-sm) text-label-md text-(--text-default)">
+								{{ versionLabel }}
+							</span>
+							<slot name="version-select" />
+						</div>
+						<div class="flex w-full items-center justify-between">
+							<span class="pl-(--spacing-sm) text-label-md text-(--text-default)">
+								{{ themeLabel }}
+							</span>
+							<DropdownThemeSwitcher />
+						</div>
 					</div>
 				</PanelFooter>
 			</DrawerContent>
@@ -107,7 +112,7 @@ import type { VersionPayload } from '~/components/LeftSidebar/VersionSelect.vue'
 defineSlots<{
 	/** The drawer's scrolling body, below the menus. */
 	'main-content'(): unknown;
-	/** The version select, above the menus. */
+	/** The version select, in the footer above the theme switcher. */
 	'version-select'(): unknown;
 }>();
 
@@ -130,6 +135,8 @@ withDefaults(
 		directoryAriaLabel?: string;
 		/** Label beside the theme switcher in the footer. */
 		themeLabel?: string;
+		/** Label beside the version select in the footer. */
+		versionLabel?: string;
 	}>(),
 	{
 		menuGroups: null,
@@ -146,6 +153,7 @@ withDefaults(
 		directoryGroups: null,
 		directoryAriaLabel: 'Directory',
 		themeLabel: 'Theme',
+		versionLabel: 'Version',
 	}
 );
 

@@ -49,10 +49,8 @@ export default UIDictionary({
 	'leftSidebar.backToDocs': 'Voltar para Docs',
 	'leftSidebar.backTo': 'Voltar para {name}',
 	'leftSidebar.theme': 'Tema',
+	'leftSidebar.version': 'Versão',
 	// Version select and stage tags in the rail
-	'versionSelect.helpHeadline': 'Qual versão a minha conta usa?',
-	'versionSelect.helpTip':
-		'Se o menu do Azion Console lista Workloads, a sua conta usa a API v4. Se não lista, usa a API v3.',
 	'versionSelect.helpCta': 'Descubra a versão da API da sua conta',
 	'versionSelect.helpHref': '/pt-br/documentacao/fundamentos/account-api-version/',
 	'versionSelect.current': 'Mais recente',

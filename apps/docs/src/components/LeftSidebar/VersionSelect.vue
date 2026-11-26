@@ -5,9 +5,7 @@ import type { PageAvailability, PlatformVersion, Stage } from '~/nav/versions';
 export interface VersionLabels {
 	/** Accessible name of the select. */
 	label: string;
-	/** Help panel beside the select: how to find the version of the account. */
-	helpHeadline: string;
-	helpTip: string;
+	/** The link at the foot of the list, to the page on finding the account's version. */
 	helpCta: string;
 	helpHref: string;
 	stages: Record<Stage, string>;
@@ -22,14 +20,11 @@ export interface VersionPayload {
 	labels: VersionLabels;
 }
 
-/** Id of the JSON the rail's server render leaves for islands that mount elsewhere (the mobile drawer). */
+/** Id of the JSON the rail's server render leaves for islands that mount without props (the mobile drawer). */
 export const VERSION_PAYLOAD_ID = 'docs-page-availability';
 
 export const DEFAULT_VERSION_LABELS: VersionLabels = {
 	label: 'Platform version',
-	helpHeadline: 'Which version does my account run?',
-	helpTip:
-		'If the Azion Console menu lists Workloads, your account runs API v4. If it does not, it runs API v3.',
 	helpCta: "Find your account's API version",
 	helpHref: '/en/documentation/fundamentals/account-api-version/',
 	stages: { experimental: 'Experimental', preview: 'Preview', deprecated: 'Deprecated' },
@@ -49,47 +44,69 @@ export function readVersionPayload(): VersionPayload | null {
 </script>
 
 <template>
-	<div v-if="resolved" class="flex w-full items-center gap-(--spacing-xs)">
-		<div class="min-w-0 flex-1">
-			<Select :model-value="version" :display-value="displayValue" @update:model-value="onSelect">
-				<Select.Trigger :aria-label="resolvedLabels.label">
-					<template #iconLeft>
-						<i class="pi pi-sitemap text-(--text-muted)" aria-hidden="true" />
-					</template>
-				</Select.Trigger>
+	<!-- Inline: the trigger takes the width of its value, beside the header's other controls.
+	     A Dropdown, not a Select: the list is a menu of versions to switch to. -->
+	<Dropdown v-if="resolved" :placement="placement" @select="onDropdownSelect">
+		<Dropdown.Trigger>
+			<template #default="{ isOpen }">
+				<!-- Drawn like the Select field: the Dropdown leaves the trigger's look to its content. -->
+				<span
+					:data-state="isOpen ? 'open' : 'closed'"
+					:data-size="size"
+					class="group inline-flex items-center data-[size=medium]:h-8 data-[size=small]:h-7 gap-(--spacing-xs) rounded-(--shape-elements) border border-(--border-default) bg-(--bg-surface) px-(--spacing-sm) text-label-sm text-(--text-default) transition-colors duration-150 ease-out motion-reduce:transition-none hover:border-(--border-strong) data-[state=open]:border-(--border-strong)"
+				>
+					<i class="ai ai-azion-api text-(--text-muted)" aria-hidden="true" />
+					<span class="sr-only">{{ resolvedLabels.label }}:</span>
+					<span>{{ releaseOf(version) }}</span>
+					<i
+						class="pi pi-chevron-down text-(--text-muted) transition-transform duration-150 ease-out motion-reduce:transition-none group-data-[state=open]:rotate-180"
+						aria-hidden="true"
+					/>
+				</span>
+			</template>
+		</Dropdown.Trigger>
 
-				<!-- Mounted only on the client: Select.Content teleports to body, and Astro does not re-emit
-				     the teleport payload, so rendering it during hydration mismatches. -->
-				<Select.Content v-if="mounted">
-					<Select.Option v-for="option in PLATFORM_VERSIONS" :key="option.id" :value="option.id">
-						{{ optionLabel(option.id) }}
-					</Select.Option>
-				</Select.Content>
-			</Select>
-		</div>
-		<!-- Rendered after mount in a box of the same size: DocTooltip teleports its panel to body. -->
-		<DocTooltip
-			v-if="mounted"
-			:headline="resolvedLabels.helpHeadline"
-			:tip="resolvedLabels.helpTip"
-			:cta="resolvedLabels.helpCta"
-			:href="resolvedLabels.helpHref"
-			placement="bottom"
-		>
-			<span
-				class="float-left flex size-(--spacing-md) items-center justify-center text-(--text-muted)"
+		<Dropdown.Group>
+			<Dropdown.Option
+				v-for="option in PLATFORM_VERSIONS"
+				:key="option.id"
+				:value="option.id"
+				:selected="option.id === version"
 			>
-				<i class="pi pi-question-circle" aria-hidden="true" />
-				<span class="sr-only">{{ resolvedLabels.helpHeadline }}</span>
-			</span>
-		</DocTooltip>
-		<span v-else class="block size-(--spacing-md) shrink-0" aria-hidden="true" />
-	</div>
+				{{ option.release }}
+				<template v-if="statusOf(option.id)" #right>
+					<Tag
+						:label="statusOf(option.id)?.label"
+						:severity="statusOf(option.id)?.severity"
+						size="small"
+					/>
+				</template>
+			</Dropdown.Option>
+		</Dropdown.Group>
+
+		<template #bottom>
+			<!-- A column stretches its child, so the button spans the panel without a class of its own.
+			     The rule runs the panel's full width, like the divider between two Dropdown groups:
+			     the negative inset undoes the footer's padding, the padding puts the button back. -->
+			<div
+				class="-mx-(--spacing-xxs) mt-(--spacing-xs) flex flex-col border-t border-(--border-default) px-(--spacing-xxs) pt-(--spacing-xs)"
+			>
+				<Button
+					:label="resolvedLabels.helpCta"
+					:href="resolvedLabels.helpHref"
+					icon="pi pi-question-circle"
+					kind="outlined"
+					size="small"
+				/>
+			</div>
+		</template>
+	</Dropdown>
 </template>
 
 <script setup lang="ts">
-import DocTooltip from '@aziontech/webkit/doc-tooltip';
-import Select from '@aziontech/webkit/select';
+import Button from '@aziontech/webkit/button';
+import Dropdown from '@aziontech/webkit/dropdown';
+import Tag from '@aziontech/webkit/tag';
 import { onMounted, ref, computed } from 'vue';
 
 import { usePlatformVersion } from '~/composables/use-platform-version';
@@ -100,18 +117,30 @@ import {
 	pageVersionOf,
 } from '~/nav/versions';
 
-defineOptions({ name: 'VersionSelect' });
+// Astro passes the `slot` attribute through; it never belongs on the root.
+defineOptions({ name: 'VersionSelect', inheritAttrs: false });
+
+/** Trigger height: `medium` sits with the header's controls, `small` with the theme switcher. */
+export type VersionSelectSize = 'small' | 'medium';
+/** Where the list opens: below in the header, `auto` at the foot of the drawer. */
+export type VersionSelectPlacement = 'auto' | 'bottom-end';
 
 interface Props {
 	/** What the current page tells the select; read from the page's JSON when absent. */
 	availability?: PageAvailability | null;
 	/** Accessible name and stage words; read from the page's JSON when absent. */
 	labels?: VersionLabels | null;
+	/** Trigger height. */
+	size?: VersionSelectSize;
+	/** Where the list opens relative to the trigger. */
+	placement?: VersionSelectPlacement;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	availability: null,
 	labels: null,
+	size: 'medium',
+	placement: 'bottom-end',
 });
 
 // The page defines the context: on a single-version page the select shows that version.
@@ -119,9 +148,7 @@ const { version, setVersion } = usePlatformVersion(pageVersionOf(props.availabil
 
 // A host that mounts away from the rail (the drawer) has no props: it reads the same payload on mount.
 const fromPage = ref<VersionPayload | null>(null);
-const mounted = ref(false);
 onMounted(() => {
-	mounted.value = true;
 	if (!props.availability) fromPage.value = readVersionPayload();
 });
 
@@ -130,17 +157,30 @@ const resolvedLabels = computed(
 	() => props.labels ?? fromPage.value?.labels ?? DEFAULT_VERSION_LABELS
 );
 
-function optionLabel(id: PlatformVersion): string {
+const STAGE_SEVERITY = {
+	experimental: 'info',
+	preview: 'info',
+	deprecated: 'warning',
+} as const;
+
+/** The tag beside a version in the list: its stage, or the word for the current version. */
+function statusOf(id: PlatformVersion) {
 	const option = PLATFORM_VERSIONS.find((entry) => entry.id === id);
-	if (!option) return id;
-	const stage = 'stage' in option ? option.stage : undefined;
-	if (stage) return `${option.label} · ${resolvedLabels.value.stages[stage]}`;
-	// Labels cached by an older page payload may lack the word: fall back to the bare name.
+	const stage = option && 'stage' in option ? option.stage : undefined;
+	if (stage) return { label: resolvedLabels.value.stages[stage], severity: STAGE_SEVERITY[stage] };
+	// Labels cached by an older page payload may lack the word: then the current version has no tag.
 	const current = id === CURRENT_VERSION ? resolvedLabels.value.current : '';
-	return current ? `${option.label} · ${current}` : option.label;
+	return current ? { label: current, severity: 'secondary' as const } : null;
 }
 
-const displayValue = (value: unknown) => (isPlatformVersion(value) ? optionLabel(value) : '');
+// The trigger shows the chosen release line (`v4.x`, `v3.x`); the icon says it is the API version.
+function releaseOf(id: PlatformVersion): string {
+	return PLATFORM_VERSIONS.find((entry) => entry.id === id)?.release ?? id;
+}
+
+function onDropdownSelect(_event: MouseEvent | KeyboardEvent, value: string | number) {
+	onSelect(value);
+}
 
 /**
  * Switching keeps the page when it applies to the chosen version. Otherwise it goes to the page's

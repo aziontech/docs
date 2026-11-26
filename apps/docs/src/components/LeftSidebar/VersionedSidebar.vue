@@ -4,11 +4,7 @@
 		:version="version"
 		:stage-labels="labels.stages"
 		:version-labels="labels.short"
-	>
-		<template #version-select>
-			<VersionSelect :availability="availability" :labels="labels" />
-		</template>
-	</DocsSidebar>
+	/>
 </template>
 
 <script setup lang="ts">
@@ -16,18 +12,18 @@ import DocsSidebar from '~/components/webkit/DocsSidebar.vue';
 import { usePlatformVersion } from '~/composables/use-platform-version';
 import { pageVersionOf, type PageAvailability } from '~/nav/versions';
 
-import VersionSelect, { type VersionLabels } from './VersionSelect.vue';
+import type { VersionLabels } from './VersionSelect.vue';
 
 /**
  * The rail with the platform version wired in. DocsSidebar is a wrapper and imports no state, so
- * this island owns the shared version and hands it down, with the select in its header slot.
+ * this island owns the shared version and hands it down. The select lives in the page header.
  */
 defineOptions({ name: 'VersionedSidebar' });
 
 interface Props {
-	/** What the page tells the version select. */
+	/** What the page tells the rail about its versions. */
 	availability: PageAvailability;
-	/** Words for the select and the stage tags. */
+	/** Words for the stage and version tags. */
 	labels: VersionLabels;
 }
 

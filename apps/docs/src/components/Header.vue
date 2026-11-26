@@ -34,6 +34,11 @@
 			<GlobalHeader.Right>
 				<slot name="dialog" />
 
+				<!-- From `lg` up; below it, the select lives in the navigation drawer. -->
+				<div v-if="$slots['version-select']" class="hidden shrink-0 items-center lg:flex">
+					<slot name="version-select" />
+				</div>
+
 				<div class="flex shrink-0 items-center">
 					<IconButton
 						icon="pi pi-github"
@@ -84,5 +89,7 @@ defineSlots<{
 	nav(): unknown;
 	/** The search dialog. */
 	dialog(): unknown;
+	/** The platform version select, between the search and GitHub. */
+	'version-select'(): unknown;
 }>();
 </script>
