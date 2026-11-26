@@ -16,7 +16,6 @@
 						:key="own"
 						:label="versionLabels[own]"
 						severity="secondary"
-						rounded
 					/>
 					<Tag
 						v-if="menuStage(node)"
@@ -102,7 +101,6 @@
 						:key="own"
 						:label="versionLabels[own]"
 						severity="secondary"
-						rounded
 					/>
 					<Tag
 						v-if="menuStage(node)"

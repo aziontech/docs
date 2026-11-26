@@ -159,7 +159,7 @@
 						     the same one the menu shows, tells the two cards apart. -->
 						<template v-if="entry.versionTag" #default>
 							<span class="flex flex-col items-start gap-(--spacing-xs)">
-								<Tag :label="entry.versionTag" severity="secondary" rounded />
+								<Tag :label="entry.versionTag" severity="secondary" />
 								<span>{{ entry.description }}</span>
 							</span>
 						</template>
