@@ -12,9 +12,9 @@ import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
 
-Object storage keeps a file whole, under a name you choose, in a flat container. There are no directories and no partial writes: a file is written once, read as a unit, and replaced whole. The name is the only address it has, so everything that finds the file later finds it by that name.
+An object store is a storage service that keeps each file as one object under a key of your choice. A write always stores a whole object, and a read can return all of it or a range of its bytes. Keys can look like paths, and the container stays flat: a folder is only the shared start of several keys.
 
-On Azion, the container is a bucket and the file is an object. An object carries its key, its content, and the content type it is served with. A bucket holds objects directly, and a bucket does not nest inside another. The same objects are reachable through the Azion API, the Azion CLI, Azion Runtime, the `@aziontech/storage` library, and the S3 protocol, and through an application when a [Connector](/en/documentation/platform/connectors/) points at the bucket.
+On Azion, [Object Storage](/en/documentation/platform/object-storage/) is the Platform Resource that stores files as objects in buckets. An object carries its key, its content, and the content type it is served with. A bucket holds objects directly, and a bucket does not nest inside another. Azion Console, the Azion API, the Azion CLI, the `@aziontech/storage` library, and the S3 protocol manage the objects, and your [Applications](/en/documentation/platform/applications/) serve them.
 
 This page covers the mechanisms rather than the values. The fields and their bounds are on [Buckets and objects](/en/documentation/platform/object-storage/buckets-and-objects/), and the S3 surface is on [S3 compatibility](/en/documentation/platform/object-storage/s3-compatibility/). The sections below cover the object and its key, the request path, the access levels, object delivery, and deletion.
 
@@ -24,74 +24,111 @@ This page covers the mechanisms rather than the values. The fields and their bou
 
 An upload names the bucket and the key, and sends the content as the body. There is no create-then-write sequence: the object exists when the request succeeds, and it does not exist before.
 
-The key is the whole address. It may contain the forward slash, and every interface reads a shared leading segment as a prefix, so `src/assets/logo.svg` appears grouped under `src` and `src/assets`. Those groupings are read from the keys that exist; nothing creates them, and nothing is left behind when the last key under a prefix is removed. The cost of that flatness is that a key cannot be renamed and an object cannot be moved. Changing where an object appears means writing it under the new key and deleting the old one, which is what a copy followed by a delete does.
+The key is the whole address. It may contain the forward slash. The Azion API, Azion Console, and the S3 protocol read a shared leading segment as a prefix, so `src/assets/logo.svg` appears grouped under `src` and `src/assets`. A prefix exists only while a key under it exists: it appears with the first key and leaves the listing with the last one.
 
-Writing to a key that is already in use replaces the object whole. There is no version history and no partial update, so the previous content cannot be recovered. An object that must stay retrievable after a change is written under a new key, which is why a name that carries a version is the usual approach for content an application serves.
+The cost of that flatness is that a rename or a move rewrites the object. The Azion API has no rename, so you copy the object to its new key and delete the old one. Azion Console renames and moves objects with the same copy and delete, so moving a prefix rewrites every object under it.
 
-The content type is fixed at upload from the `Content-Type` header, and Azion detects it when the request sends none. It is stored with the object and returned on every read, so an object uploaded with the wrong content type keeps serving the wrong one until it is written again.
+Writing to a key that is already in use replaces the object that the Azion API returns. An Application returns the new object once it holds no cached copy of the old one. No request updates part of an object, and no setting turns versioning on.
+
+Through the S3 protocol, `ListObjectVersions` still lists the earlier version, and `GetObject` reads it by its version ID, for a period you cannot set. So an object that must stay retrievable after a change is written under a new key, usually one that carries a version.
+
+The content type is fixed at upload from the `Content-Type` header. When an upload through the Azion API sends none, Azion detects the type from the key's extension. An object whose key has no extension gets `application/octet-stream`. The type is stored with the object and returned on every read, so an object uploaded with the wrong content type keeps serving the wrong one until it is written again.
 
 ---
 
 ## The request path
 
-Two paths lead to the same object, and they are authenticated differently.
+Two paths reach the same objects, and only the management path asks for a token or a credential.
 
-The **management path** is the Azion API, the Azion CLI, the `@aziontech/storage` library, and the S3 protocol. It authenticates with a personal token, or with an S3 credential for the S3 protocol, and it reaches every bucket the account owns. It is how objects are created, listed, replaced, and removed.
+The _management path_ is every interface you manage objects with: Azion Console, the Azion API, the Azion CLI, the `@aziontech/storage` library, and the S3 protocol. The Azion API, the CLI, and the library send a personal token, and the S3 protocol signs each request with an S3 credential. The Azion API and the S3 endpoint refuse a request that carries neither with `401`.
 
-The **delivery path** is an application, and it is how an end user reaches an object. A request arrives at a workload, which owns the domain. The workload hands it to an application, whose Rules Engine decides what answers it. A rule with the **Set Connector** behavior sends the request to a connector of type Object Storage, which names a bucket and, optionally, a prefix inside it:
+A token reaches every bucket of the account. An S3 credential reaches the buckets it names, or every bucket when it names none.
+
+The _delivery path_ runs through a Workload and an Application, and it is how your users reach an object. The diagram follows a request for `https://www.example.com/assets/logo.svg` on the delivery path, and a request from your own tools on the management path. Solid arrows carry the request, and dotted arrows carry the response. Each label starts with the number of its step below.
 
 ```mermaid
-%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Request["Request for https://example.com/logo.svg"] --> Workload["Workload: the domain that receives the request"]
-  Workload --> App["Application"]
-  App --> Rules{"Rules Engine, Request Phase"}
-  Rules -->|"a rule with Set Connector matches"| Connector["Connector of type Object Storage: bucket, optional prefix"]
-  Connector --> Bucket[("Bucket")]
-  Bucket --> Object["The object is returned, with its stored content type"]
+  Client(["Client"])
+  Tools(["Your tools"])
+  WL["Workload"]
+  App["Application"]
+  Conn["Connector"]
+  Fn["Function"]
+  Bucket[("Object Storage: bucket")]
+  Client -->|"1. request"| WL
+  WL -->|"1. request"| App
+  App -->|"2. Set Connector"| Conn
+  Conn -->|"3. key"| Bucket
+  Bucket -.->|"3. object"| Conn
+  Conn -.->|"3, 4. response"| App
+  App -->|"5. Run Function"| Fn
+  Fn -->|"5. read or write"| Bucket
+  Bucket -.->|"5. object"| Fn
+  Fn -.->|"5. response"| App
+  App -.->|"3, 5. response"| Client
+  App -.->|"4. 404"| Client
+  Tools -->|"6. token or credential"| Bucket
+  Bucket -.->|"6. response"| Tools
 ```
 
-The chain is what makes a bucket reachable, and none of it happens by default. Creating a bucket exposes nothing: until a connector names the bucket and a rule sends requests to it, the objects are reachable only through the management path. The prefix on the connector decides where the application's path starts, so a connector with the prefix `src/assets` serves the object `src/assets/logo.svg` at `/logo.svg`.
+1. The client sends the request to the [Workload](/en/documentation/platform/workloads/) that holds `www.example.com`, and the Workload passes it to the Application that the Workload's deployment sets.
+2. A rule of the Application matches the request and sets a [Connector](/en/documentation/platform/connectors/) of type `storage` with the _Set Connector_ behavior.
+3. The Connector asks the bucket for the key made of its prefix, when it has one, followed by the request path. The Application returns the object with the content type stored with it.
+4. When the bucket holds no object under that key, the client receives `404`.
+5. Instead of setting a Connector, a rule can run a [Function](/en/documentation/platform/functions/). The Function reads or writes objects through the [Runtime API](/en/documentation/devtools/runtime/api-reference/storage/) and returns its own response.
+6. Your tools reach the same bucket through the management path, with a token or an S3 credential.
 
-A function is a third way in, on either path. Code running in [Azion Runtime](/en/documentation/devtools/runtime/api-reference/storage/) reads and writes objects with `azion:storage` during a request, which is how an application serves an object it first has to decide about, such as one behind an authentication check.
+Creating a bucket publishes none of its objects: only the management path reaches them until a rule sets a Connector or runs a Function.
+
+The prefix on a Connector decides where the Application's path starts, so a Connector with the prefix `src/assets` serves the object `src/assets/logo.svg` at `/logo.svg`. 
+:::caution
+Without a prefix, a request for `/` that reaches the Connector returns an XML list of the object keys in the bucket, with no credentials. A rule that redirects `/` hides that list, as [Object Storage limits](/en/documentation/platform/object-storage/limits/#scope) explains.
+:::
+
+A Function reads and writes objects through the Runtime API during a request. That is how an Application serves an object it first has to decide about, such as one behind an authentication check.
 
 ---
 
 ## Access levels
 
-A bucket carries `workloads_access`, and it decides what the Azion platform may do with the objects when an application serves them. It is a property of the bucket, not of a request.
+A bucket's `workloads_access` decides what a Connector and a Function of your Applications can do with its objects. It is a property of the bucket, not of a request.
 
-| Value | The platform may |
-| --- | --- |
-| `read_only` | Read objects |
-| `read_write` | Read and write objects |
-| `restricted` | Neither, and the bucket cannot back an application |
+| Value | A Connector | A Function |
+| --- | --- | --- |
+| `read_only` | Reads objects and refuses every write | Reads and lists objects, and cannot write |
+| `read_write` | Reads objects, deletes one on `DELETE`, and refuses `PUT` and `POST` | Reads, writes, lists, and deletes objects |
+| `restricted` | Answers `502` to every request | Cannot reach the bucket |
 
-The level governs the delivery path alone. It does not restrict the management path: a token or an S3 credential with write permission writes to a bucket set to `read_only`, because the account already proved who it is. That split is the point of the field. It lets a bucket be written by a deployment pipeline and only read by the public, which is what static content wants.
+The level governs the delivery path alone. A personal token, or an S3 credential with the `writeFiles` capability, writes to a bucket at every level, `restricted` included. So a deployment pipeline can write to a `read_only` bucket that your users can only read.
 
-The cost of `read_write` is that the application inherits the permission. Any request that reaches a `read_write` bucket through an application can modify it, so a bucket set that way needs a function in front of it that decides which requests may write. `restricted` removes the delivery path entirely, for data that no application should serve.
+The cost of `read_write` falls on the Connector, which deletes an object on any `DELETE` request that reaches it. So a bucket that a Function writes to takes no Connector, and a bucket that a Connector serves stays `read_only`. `restricted` removes the delivery path entirely, and a Connector cannot be created for a `restricted` bucket.
+
+A change of level takes some time to reach the Connector and the Function. Until then, a request can get the old behavior or the new one. Check the new level with one request before you depend on it.
 
 ---
 
 ## Object delivery
 
-Objects reach end users through an application, not through the S3 endpoint.
+The [Terms of Service](/en/documentation/agreements/tos/) say that objects should reach your end users through an Application that uses Connectors. They also subject direct access to objects, outside an Application, to rate limits.
 
-The S3 endpoint is a management interface. It answers signed requests for the account that owns the credential, from wherever they come, and it is dimensioned for managing objects rather than for serving traffic. Sending end users to it, directly or through a pre-signed URL, bypasses the application entirely: the requests do not pass through Azion's distributed infrastructure, they are not cached, and they arrive at one management interface at whatever rate the audience produces.
+A pre-signed URL carries an S3 signature, so the S3 endpoint delivers the object to whoever holds the URL. That request skips every Application, so it is direct access.
 
-Azion states the consequence contractually: reaching objects without going through an application is subject to rate limits. The [Terms of Service](/en/documentation/agreements/tos/) carry the clause, and no page states a value for it.
+Serving the same objects through an Application puts its rules in front of them, such as a redirect of `/` that hides the bucket listing. With the default settings of a new Application, a replaced object is served at once, and the response carries no cache headers. [Cache](/en/documentation/platform/applications/cache/) documents the cache settings an Application can apply.
 
-Serving the same objects through an application puts them behind a workload and a connector, where [Cache](/en/documentation/platform/applications/cache/) can keep a copy and the rules that already govern the application apply. The tradeoff is the setup: a connector and a rule have to exist before anything is served, which the S3 endpoint does not require. That setup is what the delivery path buys.
+The tradeoff is the setup: the S3 endpoint answers a pre-signed URL as soon as it is signed, while an Application first needs its rule. That setup is what the delivery path buys.
 
 ---
 
 ## Deletion and the grace period
 
-Deleting an object is asynchronous and staged. The request is accepted, the key stops being listed, and a read of it returns an error at once. The object itself is retained for a 24-hour grace period before it is removed permanently.
+Deleting an object is asynchronous and staged. The Azion API accepts the request with `202`, the key leaves the listing at once, and a read returns `404`. An Application returns `404` too, once it holds no cached copy of the object.
 
-The grace period is why an emptied bucket cannot be deleted immediately. A bucket is deleted only when it holds no objects and none was removed from it in the last 24 hours, and both cases return the same error. A bucket that never held an object is deleted at once, which is the only case where the wait does not apply.
+The object itself is retained for a 24-hour grace period before it is removed permanently. Through the S3 protocol, `GetObject` can still read it by its version ID.
 
-Deleting an object does not change anything that points at it. A connector that names the bucket keeps naming it, and a request for the deleted key is answered by the application as a missing object rather than as a missing bucket.
+The grace period is why an emptied bucket cannot be deleted immediately. A bucket is deleted only when it holds no objects and none was removed from it in the last 24 hours, and both cases return the same error. A bucket that never held an object is deleted at once.
+
+A bucket that a Connector references cannot be deleted: the Azion API answers `409` `17016` and names that Connector in the error.
 
 ---
 
@@ -100,10 +137,8 @@ Deleting an object does not change anything that points at it. A connector that 
 <FrameBox>
 <ItemList>
   <DocItem title="Buckets and objects" href="/en/documentation/platform/object-storage/buckets-and-objects/">The fields behind every mechanism on this page, with the operations and the errors.</DocItem>
-  <DocItem title="S3 compatibility" href="/en/documentation/platform/object-storage/s3-compatibility/">The credential and the operations the management path exposes through the S3 protocol.</DocItem>
   <DocItem title="Best practices" href="/en/documentation/platform/object-storage/best-practices/">What to do about replacement, access levels, and delivery, and what each choice costs.</DocItem>
-  <DocItem title="Use a bucket as an application origin" href="/en/documentation/guides/application-development/data/use-bucket-as-origin/">The procedure that builds the delivery path, from the connector to the rule.</DocItem>
-  <DocItem title="Connectors" href="/en/documentation/platform/connectors/">The resource that points an application at a bucket and its prefix.</DocItem>
-  <DocItem title="Object Storage limits" href="/en/documentation/platform/object-storage/limits/">The bounds these mechanisms operate within, and the usage each plan includes.</DocItem>
+  <DocItem title="Use a bucket as an application origin" href="/en/documentation/guides/application-development/data/use-bucket-as-origin/">The procedure that builds the delivery path, from the Connector to the rule.</DocItem>
+  <DocItem title="Object Storage limits" href="/en/documentation/platform/object-storage/limits/">The bounds these mechanisms operate within, and what happens past each one.</DocItem>
 </ItemList>
 </FrameBox>

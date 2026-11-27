@@ -1,5 +1,5 @@
 ---
-title: Como o Object Storage funciona
+title: Como Object Storage funciona
 description: >-
   Entenda como um objeto é armazenado e endereçado, como uma requisição chega
   até ele e o que cada nível de acesso e o período de carência da exclusão mudam.
@@ -12,9 +12,9 @@ import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
 
-O armazenamento de objetos mantém um arquivo inteiro, sob um nome que você escolhe, em um contêiner plano. Não há diretórios nem escritas parciais: um arquivo é escrito uma vez, lido como uma unidade e substituído por inteiro. O nome é o único endereço que ele tem, então tudo que encontra o arquivo depois o encontra por esse nome.
+Um object store é um serviço de armazenamento que guarda cada arquivo como um objeto, sob uma chave de sua escolha. Uma gravação sempre guarda um objeto inteiro, e uma leitura pode devolver o objeto todo ou um intervalo dos bytes dele. As chaves podem parecer caminhos, e o contêiner continua plano: uma pasta é só o começo comum de várias chaves.
 
-Na Azion, o contêiner é um bucket e o arquivo é um objeto. Um objeto carrega sua chave, seu conteúdo e o content type com que é servido. Um bucket guarda objetos diretamente, e um bucket não fica aninhado dentro de outro. Os mesmos objetos são alcançáveis pela API da Azion, pela Azion CLI, pelo Azion Runtime, pela biblioteca `@aziontech/storage` e pelo protocolo S3, e por uma aplicação quando um [Connector](/pt-br/documentacao/plataforma/connectors/) aponta para o bucket.
+Na Azion, [Object Storage](/pt-br/documentacao/plataforma/object-storage/) é o recurso da plataforma que armazena arquivos como objetos em buckets. Um objeto carrega sua chave, seu conteúdo e o content type com que é servido. Um bucket guarda objetos diretamente, e um bucket não fica aninhado dentro de outro. Azion Console, a API da Azion, a Azion CLI, a biblioteca `@aziontech/storage` e o protocolo S3 gerenciam os objetos, e as suas [Applications](/pt-br/documentacao/plataforma/applications/) os servem.
 
 Esta página cobre os mecanismos, não os valores. Os campos e seus limites estão em [Buckets e objetos](/pt-br/documentacao/plataforma/object-storage/buckets-e-objetos/), e a superfície S3 está em [Compatibilidade com S3](/pt-br/documentacao/plataforma/object-storage/compatibilidade-s3/). As seções abaixo cobrem o objeto e sua chave, o caminho da requisição, os níveis de acesso, a entrega de objetos e a exclusão.
 
@@ -22,76 +22,113 @@ Esta página cobre os mecanismos, não os valores. Os campos e seus limites est�
 
 ## O objeto e sua chave
 
-Um upload nomeia o bucket e a chave e envia o conteúdo como corpo da requisição. Não existe uma sequência de criar e depois escrever: o objeto existe quando a requisição é bem-sucedida e não existe antes disso.
+Um upload nomeia o bucket e a chave e envia o conteúdo como corpo da requisição. Não existe uma sequência de criar e depois gravar: o objeto existe quando a requisição é bem-sucedida e não existe antes disso.
 
-A chave é o endereço inteiro. Ela pode conter a barra, e toda interface lê um segmento inicial compartilhado como um prefixo, então `src/assets/logo.svg` aparece agrupado sob `src` e `src/assets`. Esses agrupamentos são lidos das chaves que existem; nada os cria e nada fica para trás quando a última chave sob um prefixo é removida. O custo dessa ausência de hierarquia é que uma chave não pode ser renomeada e um objeto não pode ser movido. Mudar onde um objeto aparece significa escrevê-lo sob a nova chave e excluir a antiga, que é o que uma cópia seguida de uma exclusão faz.
+A chave é o endereço inteiro. Ela pode conter a barra. A API da Azion, Azion Console e o protocolo S3 leem um segmento inicial comum como prefixo, então `src/assets/logo.svg` aparece agrupado sob `src` e `src/assets`. Um prefixo existe só enquanto existe uma chave sob ele: aparece com a primeira chave e sai da listagem com a última.
 
-Escrever em uma chave que já está em uso substitui o objeto por inteiro. Não há histórico de versões nem atualização parcial, então o conteúdo anterior não pode ser recuperado. Um objeto que precisa continuar recuperável depois de uma alteração é escrito sob uma nova chave, e é por isso que um nome que carrega uma versão é a abordagem usual para conteúdo que uma aplicação serve.
+O custo dessa ausência de hierarquia é que renomear ou mover um objeto o regrava. A API da Azion não tem uma operação de renomear, então você copia o objeto para a nova chave e exclui a antiga. Azion Console renomeia e move objetos com a mesma cópia e exclusão, então mover um prefixo regrava todos os objetos sob ele.
 
-O content type é fixado no upload a partir do header `Content-Type`, e a Azion o detecta quando a requisição não envia nenhum. Ele é armazenado junto com o objeto e retornado em toda leitura, então um objeto enviado com o content type errado continua sendo servido com o tipo errado até ser escrito de novo.
+Gravar em uma chave que já está em uso substitui o objeto que a API da Azion devolve. Uma Application devolve o objeto novo quando não guarda mais uma cópia em cache do antigo. Nenhuma requisição atualiza parte de um objeto, e nenhuma configuração ativa o versionamento.
+
+Pelo protocolo S3, `ListObjectVersions` ainda lista a versão anterior, e `GetObject` a lê pelo ID da versão, por um prazo que você não define. Então um objeto que precisa continuar recuperável depois de uma alteração é gravado sob uma nova chave, em geral uma que carrega uma versão.
+
+O content type é fixado no upload a partir do header `Content-Type`. Quando um upload pela API da Azion não envia nenhum, a Azion detecta o tipo pela extensão da chave. Um objeto cuja chave não tem extensão recebe `application/octet-stream`. O tipo é armazenado junto com o objeto e retornado em toda leitura, então um objeto enviado com o content type errado continua sendo servido com o tipo errado até ser gravado de novo.
 
 ---
 
 ## O caminho da requisição
 
-Dois caminhos levam ao mesmo objeto, e eles são autenticados de formas diferentes.
+Dois caminhos levam aos mesmos objetos, e só o caminho de gerenciamento exige um token ou uma credencial.
 
-O **caminho de gerenciamento** é a API da Azion, a Azion CLI, a biblioteca `@aziontech/storage` e o protocolo S3. Ele autentica com um personal token, ou com uma credencial S3 no caso do protocolo S3, e alcança todos os buckets que a conta possui. É por ele que os objetos são criados, listados, substituídos e removidos.
+O _caminho de gerenciamento_ é toda interface com que você gerencia objetos. Ele reúne Azion Console, a API da Azion, a Azion CLI, a biblioteca `@aziontech/storage` e o protocolo S3. A API da Azion, a CLI e a biblioteca enviam um personal token, e o protocolo S3 assina cada requisição com uma credencial S3. A API da Azion e o endpoint S3 recusam com `401` uma requisição que não traz nenhum dos dois.
 
-O **caminho de entrega** é uma aplicação, e é por ele que um usuário final alcança um objeto. Uma requisição chega a um workload, que é dono do domínio. O workload a entrega a uma aplicação, cujo Rules Engine decide o que a responde. Uma regra com o behavior **Set Connector** envia a requisição para um connector do tipo Object Storage, que nomeia um bucket e, opcionalmente, um prefixo dentro dele:
+Um token alcança todos os buckets da conta. Uma credencial S3 alcança os buckets que ela nomeia, ou todos os buckets quando não nomeia nenhum.
+
+O _caminho de entrega_ passa por um Workload e por uma Application, e é por ele que os seus usuários alcançam um objeto. O diagrama segue uma requisição para `https://www.example.com/assets/logo.svg` no caminho de entrega, e uma requisição das suas próprias ferramentas no caminho de gerenciamento. As setas contínuas levam a requisição, e as setas pontilhadas levam a resposta. Cada rótulo começa com o número do passo correspondente abaixo.
 
 ```mermaid
-%%{init: {"layout": "elk", "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
+%%{init: {"layout": "elk", "elk": {"cycleBreakingStrategy": "MODEL_ORDER"}, "themeVariables": {"fontSize": "13px"}, "flowchart": {"nodeSpacing": 24, "rankSpacing": 36, "padding": 8, "wrappingWidth": 150, "useMaxWidth": true}, "sequence": {"width": 120, "actorMargin": 30, "useMaxWidth": true}}}%%
 flowchart TD
-  Request["Requisição para https://example.com/logo.svg"] --> Workload["Workload: o domínio que recebe a requisição"]
-  Workload --> App["Application"]
-  App --> Rules{"Rules Engine, Request Phase"}
-  Rules -->|"uma regra com Set Connector corresponde"| Connector["Connector do tipo Object Storage: bucket, prefix opcional"]
-  Connector --> Bucket[("Bucket")]
-  Bucket --> Object["O objeto é retornado, com o content type armazenado"]
+  Client(["Cliente"])
+  Tools(["Suas ferramentas"])
+  WL["Workload"]
+  App["Application"]
+  Conn["Connector"]
+  Fn["Function"]
+  Bucket[("Object Storage: bucket")]
+  Client -->|"1. requisição"| WL
+  WL -->|"1. requisição"| App
+  App -->|"2. Set Connector"| Conn
+  Conn -->|"3. chave"| Bucket
+  Bucket -.->|"3. objeto"| Conn
+  Conn -.->|"3, 4. resposta"| App
+  App -->|"5. Run Function"| Fn
+  Fn -->|"5. leitura ou gravação"| Bucket
+  Bucket -.->|"5. objeto"| Fn
+  Fn -.->|"5. resposta"| App
+  App -.->|"3, 5. resposta"| Client
+  App -.->|"4. 404"| Client
+  Tools -->|"6. token ou credencial"| Bucket
+  Bucket -.->|"6. resposta"| Tools
 ```
 
-A cadeia é o que torna um bucket alcançável, e nada disso acontece por padrão. Criar um bucket não expõe nada: até que um connector nomeie o bucket e uma regra envie requisições para ele, os objetos são alcançáveis apenas pelo caminho de gerenciamento. O prefixo no connector decide onde começa o caminho da aplicação, então um connector com o prefixo `src/assets` serve o objeto `src/assets/logo.svg` em `/logo.svg`.
+1. O cliente envia a requisição ao [Workload](/pt-br/documentacao/plataforma/workloads/) que guarda `www.example.com`, e o Workload a passa para a Application que o deployment desse Workload define.
+2. Uma regra da Application corresponde à requisição e define um [Connector](/pt-br/documentacao/plataforma/connectors/) do tipo `storage` com o behavior _Set Connector_.
+3. O Connector pede ao bucket a chave formada pelo prefixo dele, quando ele tem um, seguido do caminho da requisição. A Application devolve o objeto com o content type guardado com ele.
+4. Quando o bucket não guarda nenhum objeto com essa chave, o cliente recebe `404`.
+5. No lugar de definir um Connector, uma regra pode executar uma [Function](/pt-br/documentacao/plataforma/functions/). A Function lê ou grava objetos pela [API do runtime](/pt-br/documentacao/devtools/runtime/api-reference/storage/) e devolve a própria resposta.
+6. As suas ferramentas alcançam o mesmo bucket pelo caminho de gerenciamento, com um token ou uma credencial S3.
 
-Uma function é uma terceira via de entrada, em qualquer um dos caminhos. O código executado no [Azion Runtime](/pt-br/documentacao/devtools/runtime/api-reference/storage/) lê e escreve objetos com `azion:storage` durante uma requisição, que é como uma aplicação serve um objeto sobre o qual precisa decidir antes, como um objeto atrás de uma verificação de autenticação.
+Criar um bucket não publica nenhum objeto: só o caminho de gerenciamento os alcança até que uma regra defina um Connector ou execute uma Function.
+
+O prefixo de um Connector decide onde começa o caminho da Application, então um Connector com o prefixo `src/assets` serve o objeto `src/assets/logo.svg` em `/logo.svg`. 
+:::caution[Atenção]
+Sem prefixo, uma requisição para `/` que chega ao Connector devolve uma lista XML das chaves dos objetos do bucket, sem credenciais. Uma regra que redireciona `/` esconde essa lista, como explicam os [Limites do Object Storage](/pt-br/documentacao/plataforma/object-storage/limites/#escopo).
+:::
+
+Uma Function lê e grava objetos pela API do runtime durante uma requisição. É assim que uma Application serve um objeto sobre o qual precisa decidir antes, como um objeto atrás de uma verificação de autenticação.
 
 ---
 
 ## Níveis de acesso
 
-Um bucket carrega `workloads_access`, e esse campo decide o que a plataforma da Azion pode fazer com os objetos quando uma aplicação os serve. É uma propriedade do bucket, não de uma requisição.
+O `workloads_access` de um bucket decide o que um Connector e uma Function das suas Applications podem fazer com os objetos dele. É uma propriedade do bucket, não de uma requisição.
 
-| Valor | A plataforma pode |
-| --- | --- |
-| `read_only` | Ler objetos |
-| `read_write` | Ler e escrever objetos |
-| `restricted` | Nenhum dos dois, e o bucket não pode servir de origem para uma aplicação |
+| Valor | Um Connector | Uma Function |
+| --- | --- | --- |
+| `read_only` | Lê objetos e recusa toda gravação | Lê e lista objetos, e não grava |
+| `read_write` | Lê objetos, exclui um no `DELETE` e recusa `PUT` e `POST` | Lê, grava, lista e exclui objetos |
+| `restricted` | Responde `502` a toda requisição | Não alcança o bucket |
 
-O nível governa apenas o caminho de entrega. Ele não restringe o caminho de gerenciamento: um token ou uma credencial S3 com permissão de escrita escreve em um bucket definido como `read_only`, porque a conta já provou quem é. Essa separação é o propósito do campo. Ela permite que um bucket seja escrito por um pipeline de deploy e apenas lido pelo público, que é o que conteúdo estático precisa.
+O nível governa apenas o caminho de entrega. Um personal token, ou uma credencial S3 com a capability `writeFiles`, grava em um bucket em qualquer nível, `restricted` incluído. Então um pipeline de deploy pode gravar em um bucket `read_only` que os seus usuários só podem ler.
 
-O custo de `read_write` é que a aplicação herda a permissão. Qualquer requisição que alcança um bucket `read_write` por uma aplicação pode modificá-lo, então um bucket definido assim precisa de uma function na frente dele que decida quais requisições podem escrever. `restricted` remove o caminho de entrega por inteiro, para dados que nenhuma aplicação deve servir.
+O custo de `read_write` recai sobre o Connector, que exclui um objeto em qualquer requisição `DELETE` que chega a ele. Então um bucket em que uma Function grava não leva Connector, e um bucket que um Connector serve fica `read_only`. `restricted` remove o caminho de entrega por inteiro, e não é possível criar um Connector para um bucket `restricted`.
+
+Uma troca de nível leva algum tempo para chegar ao Connector e à Function. Até lá, uma requisição pode receber o comportamento antigo ou o novo. Confira o nível novo com uma requisição antes de depender dele.
 
 ---
 
 ## Entrega de objetos
 
-Os objetos chegam aos usuários finais por uma aplicação, não pelo endpoint S3.
+Os [Termos de Serviço](/pt-br/documentacao/contratos/tds/) dizem que os objetos devem chegar aos seus usuários finais por uma Application que usa Connectors. Eles também sujeitam o acesso direto aos objetos, fora de uma Application, a rate limits.
 
-O endpoint S3 é uma interface de gerenciamento. Ele responde a requisições assinadas da conta que possui a credencial, venham de onde vierem, e é dimensionado para gerenciar objetos, não para servir tráfego. Enviar usuários finais para ele, diretamente ou por uma URL pré-assinada, contorna a aplicação por completo: as requisições não passam pela infraestrutura distribuída da Azion, não são cacheadas e chegam a uma única interface de gerenciamento na taxa que a audiência produzir.
+Uma URL pré-assinada carrega uma assinatura S3, então o endpoint S3 entrega o objeto a quem tiver a URL. Essa requisição não passa por nenhuma Application, então é um acesso direto.
 
-A Azion declara a consequência em contrato: alcançar os objetos sem passar por uma aplicação está sujeito a limites de taxa. Os [Termos de Serviço](/pt-br/documentacao/contratos/tds/) trazem a cláusula, e nenhuma página declara um valor para ela.
+Servir os mesmos objetos por uma Application coloca as regras dela na frente deles, como um redirecionamento de `/` que esconde a listagem do bucket. Com as configurações padrão de uma Application nova, um objeto substituído é servido de imediato, e a resposta não traz headers de cache. [Cache](/pt-br/documentacao/plataforma/applications/cache/) documenta as cache settings que uma Application pode aplicar.
 
-Servir os mesmos objetos por uma aplicação os coloca atrás de um workload e de um connector, onde [Cache](/pt-br/documentacao/plataforma/applications/cache/) pode manter uma cópia e as regras que já governam a aplicação valem. O custo é a configuração: um connector e uma regra precisam existir antes que qualquer coisa seja servida, o que o endpoint S3 não exige. Essa configuração é o que o caminho de entrega compra.
+O custo é a configuração: o endpoint S3 responde a uma URL pré-assinada logo após a assinatura, e uma Application precisa antes da regra dela. Essa configuração é o que o caminho de entrega compra.
 
 ---
 
 ## Exclusão e o período de carência
 
-Excluir um objeto é assíncrono e acontece em etapas. A requisição é aceita, a chave deixa de ser listada e uma leitura dela retorna um erro de imediato. O objeto em si é retido por um período de carência de 24 horas antes de ser removido permanentemente.
+Excluir um objeto é assíncrono e acontece em etapas. A API da Azion aceita a requisição com `202`, a chave sai da listagem de imediato e uma leitura retorna `404`. Uma Application também retorna `404`, quando não guarda mais uma cópia em cache do objeto.
 
-O período de carência é a razão pela qual um bucket esvaziado não pode ser excluído de imediato. Um bucket é excluído apenas quando não guarda nenhum objeto e nenhum foi removido dele nas últimas 24 horas, e os dois casos retornam o mesmo erro. Um bucket que nunca guardou um objeto é excluído na hora, que é o único caso em que a espera não se aplica.
+O objeto em si é retido por um período de carência de 24 horas antes de ser removido permanentemente. Pelo protocolo S3, `GetObject` ainda o lê pelo ID da versão.
 
-Excluir um objeto não altera nada que aponte para ele. Um connector que nomeia o bucket continua nomeando, e uma requisição pela chave excluída é respondida pela aplicação como um objeto ausente, não como um bucket ausente.
+O período de carência é a razão pela qual um bucket esvaziado não pode ser excluído de imediato. Um bucket é excluído apenas quando não guarda nenhum objeto e nenhum foi removido dele nas últimas 24 horas, e os dois casos retornam o mesmo erro. Um bucket que nunca guardou um objeto é excluído na hora.
+
+Um bucket que um Connector referencia não pode ser excluído: a API da Azion responde `409` `17016` e nomeia esse Connector no erro.
 
 ---
 
@@ -100,10 +137,8 @@ Excluir um objeto não altera nada que aponte para ele. Um connector que nomeia 
 <FrameBox>
 <ItemList>
   <DocItem title="Buckets e objetos" href="/pt-br/documentacao/plataforma/object-storage/buckets-e-objetos/">Os campos por trás de cada mecanismo desta página, com as operações e os erros.</DocItem>
-  <DocItem title="Compatibilidade com S3" href="/pt-br/documentacao/plataforma/object-storage/compatibilidade-s3/">A credencial e as operações que o caminho de gerenciamento expõe pelo protocolo S3.</DocItem>
   <DocItem title="Boas práticas" href="/pt-br/documentacao/plataforma/object-storage/boas-praticas/">O que fazer sobre substituição, níveis de acesso e entrega, e o que cada escolha custa.</DocItem>
-  <DocItem title="Usar um bucket como origem" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/">O procedimento que constrói o caminho de entrega, do connector até a regra.</DocItem>
-  <DocItem title="Connectors" href="/pt-br/documentacao/plataforma/connectors/">O recurso que aponta uma aplicação para um bucket e seu prefixo.</DocItem>
-  <DocItem title="Limites do Object Storage" href="/pt-br/documentacao/plataforma/object-storage/limites/">Os limites dentro dos quais esses mecanismos operam, e o uso que cada plano inclui.</DocItem>
+  <DocItem title="Usar um bucket como origem" href="/pt-br/documentacao/guias/desenvolvimento-de-aplicacoes/dados/bucket-como-connector/">O procedimento que constrói o caminho de entrega, do Connector até a regra.</DocItem>
+  <DocItem title="Limites do Object Storage" href="/pt-br/documentacao/plataforma/object-storage/limites/">Os limites dentro dos quais esses mecanismos operam e o que acontece depois de cada um.</DocItem>
 </ItemList>
 </FrameBox>
