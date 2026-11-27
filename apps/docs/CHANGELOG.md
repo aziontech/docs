@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.8.1](https://github.com/aziontech/docs/compare/docs-v2.8.0...docs-v2.8.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **data-stream:** test the Data Stream section against the product and correct the pages ([#2714](https://github.com/aziontech/docs/issues/2714)) ([0b1ab48](https://github.com/aziontech/docs/commit/0b1ab48679f14e453d0a093a186624ac14656bb7))
+* **edge-dns:** test the Edge DNS section against the product and correct the pages ([#2710](https://github.com/aziontech/docs/issues/2710)) ([b631472](https://github.com/aziontech/docs/commit/b6314723b7ed9f190d66afe6db5d6434e6e06537))
+* **object-storage:** test the Object Storage section against the product and correct the pages ([#2712](https://github.com/aziontech/docs/issues/2712)) ([fcb2a30](https://github.com/aziontech/docs/commit/fcb2a300dc6fc24d79e004c8967b0e89460ff46b))
+* **real-time-events:** verify the Overview, Quickstart, How it works, and Limits against the product ([#2715](https://github.com/aziontech/docs/issues/2715)) ([a19a861](https://github.com/aziontech/docs/commit/a19a8613f42979a06433c6dfbad7d359ab3d37ed))
+
+
+### Documentation
+
+* **azion-lib:** add npm, Yarn, and pnpm install commands to the usage pages ([#2699](https://github.com/aziontech/docs/issues/2699)) ([cd8fe5e](https://github.com/aziontech/docs/commit/cd8fe5e94c0926399d25b2e3390fcbbba07e3d01))
+
 ## [2.8.0](https://github.com/aziontech/docs/compare/docs-v2.7.0...docs-v2.8.0) (2026-11-26)
 
 
