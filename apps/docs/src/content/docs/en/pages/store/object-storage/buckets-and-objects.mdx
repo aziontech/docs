@@ -12,22 +12,24 @@ import FrameBox from '@aziontech/webkit/frame-box'
 import ItemList from '@aziontech/webkit/item-list'
 import DocItem from '@aziontech/webkit/doc-item'
 
-A bucket is the container [Object Storage](/en/documentation/platform/object-storage/) keeps objects in. An object is a file, the key it is stored under, and the content type it is served with. Buckets do not nest, and a bucket holds objects directly. This page lists the fields of both, the operations the Azion API v4 exposes, and the errors they return. For the S3 protocol and its credentials, refer to [S3 compatibility](/en/documentation/platform/object-storage/s3-compatibility/).
+A bucket is the container [Object Storage](/en/documentation/platform/object-storage/) keeps objects in: it holds objects directly, and buckets do not nest. An object is a file stored in a bucket, together with the key it is stored under and the content type it is served with. This page lists the fields of both, the operations the Azion API v4 exposes, and the errors they return. For the S3 protocol and its credentials, refer to [S3 compatibility](/en/documentation/platform/object-storage/s3-compatibility/).
 
 ---
 
 ## Bucket names
 
-A bucket name is chosen at creation and cannot be changed afterwards.
+A bucket name is chosen at creation and cannot be changed afterwards. Azion Console checks the first and last character and the reserved prefixes and suffixes in its form. The Azion API refuses a name that breaks a rule with HTTP `400` and the code of that rule:
 
-| Rule | Value |
-| --- | --- |
-| Length | 6 to 63 characters |
-| Characters | Lowercase letters, numbers, and the hyphen (`-`) |
-| Reserved prefix | A name cannot begin with `azion` |
-| Uniqueness | A name is unique across every Azion account, and never only within your own |
+| Rule | Value | Refused with |
+| --- | --- | --- |
+| Length | 6 to 63 characters | `10048` below 6 characters, `10046` past 63 |
+| Characters | Lowercase letters, numbers, and the hyphen (`-`) | `17002` |
+| First and last character | A name begins and ends with a lowercase letter or a number | `17002` |
+| Reserved prefixes | A name cannot begin with `azion`, `xn--`, `sthree-`, or `amzn-s3-demo-` | `17001` |
+| Reserved suffixes | A name cannot end with `-s3alias` or `--ol-s3` | `17001` |
+| Uniqueness | A name is unique across every Azion account, and never only within your own | `17000` |
 
-A name that is already taken returns `17000`, and a name beginning with `azion` returns `17001`. Because names are global, a short generic name is likely to be taken. Naming a bucket for the content it holds and the access it needs keeps names available and readable, as in `media-assets-ro`.
+Because names are global, a short generic name is likely to be taken. Naming a bucket for the content it holds and the access it needs keeps names available and readable, as in `media-assets-ro`.
 
 ---
 
@@ -36,36 +38,46 @@ A name that is already taken returns `17000`, and a name beginning with `azion` 
 | Field | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `name` | string, 6 to 63 characters | Yes | — | The bucket name. Read-only after creation |
-| `workloads_access` | `read_only`, `read_write`, or `restricted` | Yes | — | What the Azion platform may do with the bucket |
-| `last_editor` | string | — | — | The account that last changed the bucket. Read-only |
+| `workloads_access` | `read_only`, `read_write`, or `restricted` | Yes | — | What a Connector and a Function of your Applications can do with the objects |
+| `last_editor` | string | — | — | The email of the user who last changed the bucket. Read-only |
 | `last_modified` | date-time | — | — | When the bucket last changed. Read-only |
-| `product_version` | string | — | `1.0` | The bucket schema version. Read-only |
+| `product_version` | string | — | `1.0` | A version string. Read-only |
 
-`workloads_access` is the only field a `PATCH` accepts. Sending `name` in a `PATCH` body returns `17004`.
+A `PATCH` changes only `workloads_access`, and a `PATCH` that carries `name` is refused with `17004`. The API ignores a field it does not know, on a create and on a `PATCH`. For example, a request that adds `region` still creates or updates the bucket, and the response does not carry that field.
 
 ---
 
 ## Access levels
 
-`workloads_access` decides what the Azion platform may do with the bucket when an application serves it. It does not restrict the Azion API or the S3 protocol: a credential that carries `writeFiles` writes to a bucket set to `read_only`.
+`workloads_access` decides what a [Connector](/en/documentation/platform/connectors/) of type `storage` and a [Function](/en/documentation/platform/functions/) of your [Applications](/en/documentation/platform/applications/) can do with the objects of a bucket. It does not restrict the Azion API or the S3 protocol. At every level, a request with a personal token reads and writes the objects, and so does an S3 request whose credential allows the operation.
 
-| Value | The platform may | The API and the S3 protocol may |
-| --- | --- | --- |
-| `read_only` | Read objects | Read and write, according to the credential |
-| `read_write` | Read and write objects | Read and write, according to the credential |
-| `restricted` | Neither read nor write, and the bucket cannot back an application | Read and write, according to the credential |
+| Value | In Azion Console | Connector of type `storage` | Function, through the Runtime API |
+| --- | --- | --- | --- |
+| `read_only` | _Read Only_ | `GET` returns the object. `PUT` and `DELETE` get `403`, and `POST` gets `501` | `get` and `list` work, and `put` fails |
+| `read_write` | _Read & Write_ | `GET` returns the object, and `DELETE` deletes it. `PUT` gets `403`, and `POST` gets `501` | `get`, `put`, `list`, and `delete` work |
+| `restricted` | _Restricted_ | `GET`, `PUT`, `POST`, and `DELETE` get `502` | `get`, `put`, and `list` fail with `Bucket not found` |
 
-Azion Console presents the same three levels under **Workloads Access**. For the control and where it sits, refer to [Create a bucket](/en/documentation/guides/application-development/data/create-and-modify-bucket/).
+On a `read_only` bucket, the `put` of a Function fails with `StorageError: Access Denied to the bucket, review bucket policy`. On a `restricted` bucket, `get`, `put`, and `list` fail with a `StorageError` that reads `Bucket not found`, followed by the bucket name. The Connectors API also refuses to create a Connector of type `storage` for a `restricted` bucket, with `28007`, as [Connector settings](/en/documentation/platform/connectors/settings/#storage) lists.
 
-Set `read_only` for content an application serves and nothing writes back. Set `read_write` only where a function writes objects during a request, and guard the path in the function: any request that reaches a `read_write` bucket through an application can modify it. Set `restricted` for data that no application serves.
+In Azion Console, the **Workloads Access** field sits in the **Settings** section of a bucket and starts at _Read Only_. A bucket that is not _Restricted_ cannot return to _Restricted_ there. The option is disabled, with the note `A bucket open to Workloads can't return to Restricted.` The Azion API accepts that change, so a `PATCH` from `read_write` to `restricted` succeeds.
+
+A change of level takes some time to reach the Connector and the Function. Until then, a request can get either level's behavior. Check the new level with one request before you depend on it.
+
+Set `read_only` on a bucket that a Connector serves. Set `read_write` on a bucket that a Function writes to, and point no Connector at it. Set `restricted` on a bucket that only the Azion API or the S3 protocol reaches.
+
+:::caution
+Through a Connector, any client can delete an object of a `read_write` bucket with a `DELETE` request that carries no credentials.
+:::
 
 ---
 
 ## Object keys and prefixes
 
-An object key identifies one object inside a bucket. It is 1 to 1,024 characters and does not have to match the name of the file it came from.
+An object key identifies one object inside a bucket. It is 1 to 1,024 characters and does not have to match the name of the file it came from. A key past 1,024 characters is refused with `503` `10100` `Service Unavailable`, not with a validation error.
 
-A key may contain the forward slash (`/`), and the interfaces read a shared leading segment as a prefix. Prefixes are not folders and are not created in advance: uploading to the key `src/assets/logo.svg` in an empty bucket creates the object and the prefix in one request.
+A key may contain the forward slash (`/`), and the Azion API and the S3 protocol read a shared leading segment as a prefix. A prefix exists only through the keys under it. Uploading to the key `src/assets/logo.svg` in an empty bucket creates the object and the prefix in one request. The prefix leaves the listing when the last key under it is deleted.
+
+Azion Console shows a prefix as a folder. The Azion API lists it with `is_folder` set to `true` when the list request sets `all_levels` to `false`.
 
 ```text
 README.md
@@ -73,17 +85,32 @@ src/index.js
 src/assets/logo.svg
 ```
 
-In that bucket, `README.md` sits at the root, `src` is a prefix holding one object and one nested prefix, and `src/assets` holds `logo.svg`. Listing with `prefix=src/assets/` returns `logo.svg` alone. A Connector that points at the prefix `src/assets` serves that object at the root of the application path.
+In that bucket, `README.md` sits at the root, `src` is a prefix holding one object and one nested prefix, and `src/assets` holds `logo.svg`. Listing with `prefix=src/assets/` returns the key `src/assets/logo.svg` alone, with its full path. A Connector of type `storage` with the prefix `src/assets` serves that object at `/logo.svg`. The key it reads is the prefix followed by the request path.
 
-A key cannot be renamed. Uploading to a key that already holds an object replaces it, and the earlier content cannot be recovered.
+The Azion API has no rename operation: copy the object to the new key, then delete the old one. Azion Console renames or moves an object the same way.
+
+Uploading to a key that already holds an object replaces the object that the Azion API returns. An Application returns the new object once it holds no cached copy of the old one. Through the S3 protocol, the earlier version stays readable by its version ID for a period you cannot set, as [Object Storage limits](/en/documentation/platform/object-storage/limits/#scope) states.
 
 ---
 
 ## Content type
 
-The content type stored with an object is the one the `Content-Type` header of the upload request carries. When the request carries no `Content-Type`, Azion detects the type from the object.
+The content type stored with an object is the one the `Content-Type` header of the upload request carries. The Azion API, the S3 protocol, and a Connector return that stored type with the object.
 
-The API also accepts a `Storage-Content-Type` header. It has no effect on the stored content type: an upload that sends `Storage-Content-Type: image/png` and no `Content-Type` stores the type Azion detected. Set `Content-Type` on the upload request.
+When an upload through the Azion API carries no `Content-Type`, Azion sets the type from the extension of the key, not from the content:
+
+| Key ends in | Stored content type |
+| --- | --- |
+| `.txt` | `text/plain` |
+| `.json` | `application/json` |
+| `.png` | `image/png`, even when the content is text |
+| `.m3u8` | `application/vnd.apple.mpegurl` |
+| `.ts` | `application/octet-stream` |
+| No extension | `application/octet-stream`, even when the content is an image |
+
+`curl --data-binary` without a `Content-Type` header sends `application/x-www-form-urlencoded`, and Azion stores and serves that type.
+
+The API also accepts a `Storage-Content-Type` header. It has no effect on the stored content type, alone or next to `Content-Type`. For example, an upload that sends `Storage-Content-Type: image/png` and no `Content-Type` stores the type the key's extension sets. Set `Content-Type` on the upload request.
 
 ---
 
@@ -169,15 +196,16 @@ curl --request GET \
 
 | Query parameter | Effect |
 | --- | --- |
-| `page`, `page_size` | Page through the list. `page_size` accepts up to 100 |
-| `search` | Match part of a bucket name |
-| `name` | Match a bucket name exactly |
+| `page`, `page_size` | Page through the list. `page_size` defaults to 10 and accepts up to 100 |
+| `search` | Match part of a bucket name, ignoring case |
+| `name` | Match a bucket name exactly, ignoring case |
+| `bucket` | Returns no bucket, even for an exact name. Use `name` |
 | `workloads_access` | Filter by access level. Accepts comma-separated values |
 | `ordering` | Order the results by a field |
 | `fields` | Return only the fields named, comma-separated |
 | `last_editor`, `created`, `last_modified` | Filter by editor or date. The date filters accept the `__gte` and `__lte` suffixes |
 
-Use `search` to match part of a name. The `name` parameter matches the whole name, so a partial value returns nothing.
+Use `search` to match part of a name. The `name` parameter matches the whole name, so a partial value returns nothing. A `page_size` past 100 is refused with `10097`.
 
 ### List objects
 
@@ -240,11 +268,13 @@ curl --request DELETE \
   --header 'Authorization: Token [TOKEN VALUE]'
 ```
 
-The response carries `202` and `{"state": "pending"}`. The key stops being listed and stops being served immediately, and the object is removed permanently after a 24-hour grace period.
+The response carries `202` and `{"state": "pending"}`. The Azion API stops listing the key at once, and an Application with no cache setting of its own answers `404` for it at once. The object is removed permanently after a 24-hour grace period.
 
 ### Delete a bucket
 
-A bucket is deleted only while it holds no objects, and not within 24 hours of the last object being removed, because of that grace period. Both cases return `17006`. A bucket that never held an object is deleted at once.
+A bucket is deleted only while it holds no objects. It is also not deleted within 24 hours of the last object being removed, because of that grace period. Both cases return `17006`. A bucket that never held an object is deleted at once.
+
+A bucket that a Connector references is refused with `409` `17016`, and `meta.references` names that Connector and its ID.
 
 ---
 
@@ -256,13 +286,13 @@ Every request carries a [personal token](/en/documentation/guides/platform/accou
 Authorization: Token [TOKEN VALUE]
 ```
 
-The account also needs the storage permissions for the operation. The six permissions are View, Edit, and Delete for a Storage Bucket, and View, Edit, and Delete for a Storage Object. For more information, refer to [Teams permissions](/en/documentation/fundamentals/teams-permissions/).
+The account also needs the storage permissions for the operation. The six permissions are View, Edit, and Delete for a Storage Bucket, and View, Edit, and Delete for a Storage Object. For more information, refer to [Teams permissions](/en/documentation/fundamentals/teams-permissions/). A request without a valid token is refused with `401`, as [Errors](#errors) lists.
 
 ---
 
 ## Errors
 
-The response body carries one `errors` array. Each entry names the `code`, the `title`, a `detail`, the `status`, and the field it applies to under `source.pointer`.
+The response body carries one `errors` array. Each entry names the `code`, the `title`, a `detail`, and the `status`. Its `source.pointer` names the field the error applies to, such as `/data/name`, or holds `/data` when the error concerns the whole request. An authentication error carries `source.headers` with the value `Authorization` instead.
 
 ```json
 {
@@ -285,26 +315,34 @@ The response body carries one `errors` array. Each entry names the `code`, the `
 
 | Code | Title | Status | Cause |
 | --- | --- | --- | --- |
+| `10001` | `Authentication Failed` | 401 | The token is not valid |
+| `10002` | `Not Authenticated` | 401 | The request carries no token |
 | `10039` | `Invalid Choice` | 400 | `workloads_access` carries a value outside the three the field accepts |
+| `10046` | `Max Length` | 400 | The bucket name is longer than 63 characters |
 | `10048` | `Min Length` | 400 | The bucket name is shorter than 6 characters |
 | `10059` | `Required Field` | 400 | `name` or `workloads_access` is missing from a create request |
+| `10097` | `Invalid Page Size` | 400 | `page_size` is past 100 |
+| `10100` | `Service Unavailable` | 503 | The object key is longer than 1,024 characters |
 | `17000` | `Bucket Already Exists` | 400 | The bucket name is in use, in your account or another |
-| `17001` | `Bucket Name Not Available` | 400 | The bucket name begins with `azion` |
-| `17002` | `Invalid Bucket Name` | 400 | The bucket name contains an underscore (`_`) or an uppercase letter |
+| `17001` | `Bucket Name Not Available` | 400 | The bucket name begins or ends with a reserved string |
+| `17002` | `Invalid Bucket Name` | 400 | The bucket name has a character outside the rule, or a hyphen at either end |
 | `17004` | `Name Cannot Be Changed` | 400 | A `PATCH` request carries `name` |
 | `17005` | `Bucket Does Not Exist` | 404 | The bucket named in the path does not exist |
 | `17006` | `Cannot Delete Non Empty Bucket` | 400 | The bucket holds objects, or an object was removed from it within the last 24 hours |
 | `17013` | `Object Does Not Exist` | 404 | The object key does not exist, on a download, a `PUT`, or a delete |
+| `17016` | `Cannot Delete Referenced Bucket` | 409 | A Connector references the bucket |
 
-The `17002` entry carries the pointer `/data/name`. In its `detail`, `letters` stands for lowercase letters: `Names can contain hyphen, numbers and letters (alphanumeric).`
+[Bucket names](#bucket-names) lists the reserved strings and the characters a name accepts. The `17002` entry carries the pointer `/data/name`. In its `detail`, `letters` stands for lowercase letters: `Names can contain hyphen, numbers and letters (alphanumeric).`
+
+The `10100` entry answers a key past 1,024 characters, although its `detail` reads `The service is temporarily unavailable.`
 
 ---
 
 ## The runtime API
 
-The operations above are HTTP calls, addressed to `api.azion.com` and authenticated with a personal token. A function running in Azion Runtime reaches the same buckets a second way: it imports the `azion:storage` module and calls `put`, `get`, `delete`, and `list` on a bucket it names, without a token: the constructor takes the bucket name and nothing else.
+The operations above are HTTP calls, addressed to `api.azion.com` and authenticated with a personal token. A Function reaches the same buckets another way: it imports the `azion:storage` module and calls `put`, `get`, `delete`, and `list` on a bucket. It sends no token, because the constructor takes the bucket name and nothing else. The access level of the bucket decides which of those calls work, as [Access levels](#access-levels) lists.
 
-That module belongs to the runtime rather than to Object Storage, so its methods, its `StorageObject` shape, and the runtime versions it ships in are documented with the other runtime bindings, in [Storage runtime API](/en/documentation/devtools/runtime/api-reference/storage/).
+That module belongs to the runtime rather than to Object Storage. Its methods, its `StorageObject` shape, and the runtime versions it ships in are documented with the other runtime bindings, in [Storage runtime API](/en/documentation/devtools/runtime/api-reference/storage/).
 
 ---
 
@@ -313,10 +351,8 @@ That module belongs to the runtime rather than to Object Storage, so its methods
 <FrameBox>
 <ItemList>
   <DocItem title="How Object Storage works" href="/en/documentation/platform/object-storage/how-it-works/">How a request reaches an object, and what each access level changes about it.</DocItem>
-  <DocItem title="S3 compatibility" href="/en/documentation/platform/object-storage/s3-compatibility/">The credential, the endpoint, and the S3 operations that reach the same buckets.</DocItem>
-  <DocItem title="Object Storage limits" href="/en/documentation/platform/object-storage/limits/">Every bound on this page in one table, with the usage each plan includes.</DocItem>
+  <DocItem title="Object Storage limits" href="/en/documentation/platform/object-storage/limits/">Every bound on this page in one table, and where Object Storage stops.</DocItem>
   <DocItem title="Create a bucket" href="/en/documentation/guides/application-development/data/create-and-modify-bucket/">The procedure behind the bucket operations, from Azion Console, the API, and the Azion CLI.</DocItem>
   <DocItem title="Upload and download objects" href="/en/documentation/guides/application-development/data/upload-and-download-objects-from-bucket/">The procedure behind the object operations, with the output each one returns.</DocItem>
-  <DocItem title="Storage runtime API" href="/en/documentation/devtools/runtime/api-reference/storage/">Reading and writing the same objects from a function, with `azion:storage`.</DocItem>
 </ItemList>
 </FrameBox>
